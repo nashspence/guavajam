@@ -17,7 +17,7 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from identifier_schema import WORK_IDS, check_identifier_map, identifier_error, validate_registrations
+from identifier_schema import RIGHTS, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
 from asset_policy import AssetError, load_policy, svg_errors
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
@@ -28,7 +28,6 @@ ATX = re.compile(r"^#{1,6}[ \t]+\S")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
-RIGHTS = {"all-rights-reserved", "CC-BY-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-4.0", "CC0-1.0"}
 META_REQUIRED = {"schema", "slug", "title", "author", "language", "rights", "status"}
 META_OPTIONAL = {"author_orcid", "identifiers"}
 LANGUAGE = re.compile(r"[a-z]{2,3}(?:-[A-Z]{2})?\Z")
@@ -437,7 +436,7 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title: str) -> l
     if not LANGUAGE.fullmatch(data["language"]):
         errors.append(issue(relative, "language must be lowercase ISO code optionally followed by region (e.g. en-CA)"))
     if data["rights"] not in RIGHTS:
-        errors.append(issue(relative, "rights must be one of the enumerated rights identifiers in FORMAT.md"))
+        errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
     if data["status"] != "draft":
         errors.append(issue(relative, "source status must remain draft; publication status belongs to releases"))
     if "author_orcid" in data:

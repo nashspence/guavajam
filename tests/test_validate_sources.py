@@ -55,6 +55,13 @@ class StrictSourceTests(unittest.TestCase):
     def test_canonical_example(self):
         self.assertEqual([], self.check())
 
+    def test_starter_manuscript(self):
+        template = Path(__file__).resolve().parents[1] / "templates/work/manuscript.md"
+        source = Path("works/sample-work/manuscript.md")
+        (self.root / source.parent).mkdir(parents=True)
+        (self.root / source).write_bytes(template.read_bytes())
+        self.assertEqual([], validate_repository(self.root, [source]))
+
     def test_plain_document_without_yaml_renders(self):
         self.check()
         notes = Path("notes.md")
@@ -196,7 +203,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assert_bad("slug must match", metadata={**METADATA, "slug": "other"})
 
     def test_metadata_invalid_rights(self):
-        self.assert_bad("enumerated rights", metadata={**METADATA, "rights": "MIT"})
+        self.assert_bad("rights must be one of", metadata={**METADATA, "rights": "MIT"})
 
     def test_metadata_published_status_disallowed(self):
         self.assert_bad("status must remain draft", metadata={**METADATA, "status": "published"})
