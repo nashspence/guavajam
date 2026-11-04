@@ -1,6 +1,6 @@
 # Press
 
-An independent publishing imprint for original works by Nash Spence. Browse the [catalog](CATALOG.md) or read the [copyright and permissions notice](COPYRIGHT.md).
+An independent publishing imprint under the authority of Nash Spence. Browse the [catalog](CATALOG.md) or read the [copyright and permissions notice](COPYRIGHT.md).
 
 ## Start a manuscript
 
