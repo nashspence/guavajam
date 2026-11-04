@@ -45,5 +45,5 @@ jobs:
       - name: Run executable format tests
         run: python -m unittest discover -s tests -v
 
-      - name: Enforce source format v2 and registrations on tracked tree
+      - name: Enforce source format v1 and registrations on tracked tree
         run: python scripts/validate_sources.py

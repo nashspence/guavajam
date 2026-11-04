@@ -10,7 +10,7 @@ Consult the [catalog](CATALOG.md) for released works, and [PUBLICATION.md](PUBLI
 
 ## Manuscripts and metadata
 
-Each work is a `works/<slug>/manuscript.md` in strict **Pandoc/GFM Markdown with YAML front matter**. The [v2 source format](FORMAT.md) requires seven metadata fields and allows exactly two optional entries: `author_orcid` and an `identifiers` mapping with a fixed work-level namespace. Authoring remains readable; CI enforces schema, normalization, structure, math, links, and safe assets.
+Each work is a `works/<slug>/manuscript.md` in strict **Pandoc/GFM Markdown with YAML front matter**. The [v1 source format](FORMAT.md) requires seven metadata fields and allows exactly two optional entries: `author_orcid` and an `identifiers` mapping with a fixed work-level namespace. Authoring remains readable; CI enforces schema, normalization, structure, math, links, and safe assets.
 
 External identifiers assigned to **specific editions or formats**—including ISBNs, version DOIs, and library catalog numbers—do not belong in working manuscript front matter. Use the separately validated [registration index](REGISTRATIONS.md), where identities and qualifying serials have their own scopes. No external IDs have been assigned by this repository.
 

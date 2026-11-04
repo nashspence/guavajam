@@ -59,7 +59,7 @@ Manuscript sources **must** follow [FORMAT.md](FORMAT.md), including the require
 
 ## External identifier registration
 
-Manuscripts now use [the strict `press.work.v2` schema](FORMAT.md). Its optional work-level `author_orcid` and `identifiers` fields carry only real assigned identifiers. Do not place edition/format ISBNs or version DOIs in manuscript metadata.
+Manuscripts now use [the strict `press.work.v1` schema](FORMAT.md). Its optional work-level `author_orcid` and `identifiers` fields carry only real assigned identifiers. Do not place edition/format ISBNs or version DOIs in manuscript metadata.
 
 After an official GitHub Release is published, record its canonical artifact filename, SHA-256 digest, release URL, publication timestamp, and any issued version DOI, ISBN, or catalog record number in the separate [registration index](REGISTRATIONS.md). Work IDs discovered later may be entered into a work registration record without changing an immutable issued edition. Author/imprint and serial identifiers have different scopes.
 

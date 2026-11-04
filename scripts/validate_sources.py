@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strict, offline, fail-closed validator for Press source format v2.
+"""Strict, offline, fail-closed validator for Press source format v1.
 
 Pandoc is a required dependency: parser warnings and HTML render warnings fail CI.
 Git tracks the allowed source set; a public branch must be protected separately.
@@ -427,8 +427,8 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title: str) -> l
             errors.append(issue(relative, f"{name} must be a nonempty string"))
     if not META_REQUIRED <= set(data) or any(not isinstance(data[name], str) for name in META_REQUIRED):
         return errors
-    if data["schema"] != "press.work.v2":
-        errors.append(issue(relative, "schema must be press.work.v2"))
+    if data["schema"] != "press.work.v1":
+        errors.append(issue(relative, "schema must be press.work.v1"))
     if data["slug"] != slug:
         errors.append(issue(relative, "slug must match works/<slug>"))
     if data["title"] != title:

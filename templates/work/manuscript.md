@@ -1,5 +1,5 @@
 ---
-schema: press.work.v2
+schema: press.work.v1
 title: Sample Work
 author: Nash Spence
 slug: sample-work

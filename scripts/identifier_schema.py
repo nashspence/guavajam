@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline identifier and registration validation for Press schema v2.
+"""Offline identifier and registration validation for Press schema v1.
 
 Validates *syntax*, basic checksums, uniqueness, scope and canonical JSON only.
 It cannot prove that a registry actually issued an identifier or that a release

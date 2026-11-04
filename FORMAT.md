@@ -1,4 +1,4 @@
-# Press source format — v2
+# Press source format — v1
 
 This is the **normative executable authoring contract** for manuscripts in `press`. The reference implementation is [`scripts/validate_sources.py`](scripts/validate_sources.py), with identifier checks in [`scripts/identifier_schema.py`](scripts/identifier_schema.py) and positive/negative regression cases in [`tests/test_validate_sources.py`](tests/test_validate_sources.py). [`PUBLICATION.md`](PUBLICATION.md) defines official editions; [`REGISTRATIONS.md`](REGISTRATIONS.md) defines the external-identifier registry.
 
@@ -8,7 +8,7 @@ Each work lives at `works/<slug>/manuscript.md`. Its YAML front matter must begi
 
 | Field | Required | Rule |
 | --- | --- | --- |
-| `schema` | Yes | Exactly `press.work.v2` |
+| `schema` | Yes | Exactly `press.work.v1` |
 | `title` | Yes | Exactly equals the manuscript's rendered plain-text H1 |
 | `author` | Yes | Nonempty string |
 | `slug` | Yes | Must equal the lowercase hyphenated `works/<slug>/` directory |
@@ -33,7 +33,7 @@ These are **real external registry identifiers**. Never invent or reserve them b
 
 ```markdown
 ---
-schema: press.work.v2
+schema: press.work.v1
 title: On Structure and Identity
 author: Nash Spence
 slug: structure-and-identity
@@ -68,7 +68,7 @@ Optional identifier lines are **comments in this example**: remove the leading `
 
 ## Manuscript body, assets and symbols
 
-All the **v1 source restrictions remain in force**:
+The following strict manuscript source restrictions apply:
 
 - UTF-8, NFC Unicode, LF line endings, no BOM, no trailing whitespace, exactly one terminal newline; selected bidi override/control characters are prohibited.
 - Dialect: Pandoc **3.12.1** with `gfm+tex_math_dollars+raw_html+yaml_metadata_block`. The parser must emit no warnings. GitHub's Markdown renderer is not promised to be byte-identical.

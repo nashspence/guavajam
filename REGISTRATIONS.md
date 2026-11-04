@@ -6,7 +6,7 @@
 
 | Scope | Location | Keys allowed |
 | --- | --- | --- |
-| Evolving work | `works/<slug>/manuscript.md` front matter (`press.work.v2`) | `concept_doi`, `arxiv`, `openalex`, `wikidata` |
+| Evolving work | `works/<slug>/manuscript.md` front matter (`press.work.v1`) | `concept_doi`, `arxiv`, `openalex`, `wikidata` |
 | Post-publication work index | `registrations/works/<slug>.json` | Same work keys, including IDs indexed after release |
 | Specific edition / format | `registrations/editions/<slug>/vX.Y.Z.json` | `version_doi`, `arxiv_version`, `isbn_epub`, `isbn_pdf`, `isbn_print`, `oclc` |
 | Author | `registrations/identities/author.json` | `orcid`, `isni`, `wikidata`, `openalex_author` |
