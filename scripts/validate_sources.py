@@ -596,7 +596,19 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         headings = [node["c"][1][0] for node in headers]
         if len(headings) != len(set(headings)):
             errors.append(issue(rel, "duplicate rendered heading IDs"))
-        explicit = set(info["anchors"]) if info else set()
+        if info:
+            explicit = set(info["anchors"])
+        else:
+            # Templates and ordinary Markdown can use the same explicit anchors.
+            # Ignore anchor-shaped text inside code or display math blocks.
+            visible, _ = visible_lines(source)
+            anchor_names = [match.group(1) for _, line in visible
+                            if (match := ANCHOR.fullmatch(line))]
+            if len(anchor_names) != len(set(anchor_names)):
+                errors.append(issue(rel, "duplicate stable anchors"))
+            explicit = set(anchor_names)
+            if explicit & set(headings):
+                errors.append(issue(rel, "explicit stable anchors collide with rendered header IDs"))
         ids[rel] = set(headings) | explicit
         if manuscript:
             if len(headers) != len(info["headings"]):
