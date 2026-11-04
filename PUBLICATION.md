@@ -32,6 +32,10 @@ Rights: All rights reserved
 
 The canonical artifact must be uploaded as a **release asset** and its exact filename must match the release notes. The canonical artifact is a self-contained responsive HTML edition with embedded
 verified images. Attach generated provenance.json and SHA256SUMS alongside it.
+The [versioned HTML presentation profile](RENDERING.md) uses separate committed
+CSS and template sources but embeds the stylesheet into each immutable HTML
+edition. The provenance manifest binds the source commit and independently
+records the publishing-tool commit, profile, template digest and CSS digest.
 PDF, EPUB and other formats may be provided as alternates. If several formats are provided, identify exactly one as the canonical edition and describe the others as alternate formats. The GitHub-generated source ZIP/tarball is **not** canonical; it contains the entire repository at the tagged commit.
 
 A specific edition may grant a different license; give the precise terms and accompanying license file or link. A default rights notice is in [COPYRIGHT.md](COPYRIGHT.md).

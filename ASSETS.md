@@ -64,8 +64,8 @@ The trusted [edition workflow](.github/workflows/prepare-edition.yml) downloads
 and verifies assets again from the exact reviewed source snapshot. It rewrites
 Pandoc's parsed image destinations in a temporary tree to verified local copies.
 Only data URIs made from those copies reach the HTML renderer. Pandoc does not
-fetch image URLs. MathML, inline CSS, responsive sizing and light/dark styling
-are included in the canonical HTML.
+fetch image URLs. MathML, versioned [inline CSS and semantic HTML](RENDERING.md), responsive
+sizing and light/dark styling are included in the canonical HTML.
 
 The generated provenance.json records the source commit, intended tag, compiler,
 canonical HTML digest, and each image's source URL, SHA-256, byte count, media

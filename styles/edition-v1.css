@@ -1,0 +1,41 @@
+:root {
+  color-scheme: light dark;
+  font: 1.1rem/1.65 Georgia, serif;
+}
+
+body {
+  max-width: 48rem;
+  margin: auto;
+  padding: 2rem clamp(1rem, 5vw, 3rem);
+  background: #faf9f6;
+  color: #222;
+  overflow-wrap: anywhere;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+a { color: #235b9d; }
+img, svg { max-width: 100%; height: auto; }
+figure { margin: 2rem 0; }
+figcaption, footer { font-size: .85rem; }
+pre, math[display="block"] { overflow-x: auto; max-width: 100%; }
+table { display: block; overflow-x: auto; border-collapse: collapse; }
+td, th { padding: .4rem .8rem; border: 1px solid #888; }
+footer { border-top: 1px solid #888; margin-top: 3rem; padding-top: 1rem; }
+
+/* Formal headings are identified by the publisher, not Pandoc's generated IDs. */
+.press-formal-heading { font-weight: 700; }
+.press-formal-heading[data-press-kind="proof"] { font-style: italic; }
+
+@media (prefers-color-scheme: dark) {
+  body { background: #181a1c; color: #e4e4df; }
+  a { color: #96c7ff; }
+}
+
+@media print {
+  :root { color-scheme: light; }
+  body { max-width: none; background: white; color: black; }
+}

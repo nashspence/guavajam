@@ -32,6 +32,11 @@ pull request. Both are required on main. Tests live in [tests/](tests/) and tool
 in [scripts/](scripts/). Local dependencies are pinned in mise.toml, pyproject.toml
 and uv.lock; install Pandoc 3.12.1 separately.
 
+The versioned [HTML presentation contract](RENDERING.md) keeps the template and
+CSS independently editable in Git but embeds their exact committed bytes in
+each standalone release. Tests enforce stable section IDs, named formal heading
+semantics, internal links, styling provenance and deterministic output.
+
 The [protected edition workflow](.github/workflows/prepare-edition.yml) verifies a
 reviewed commit and its assets before staging a draft or explicitly publishing.
 [The release checker](.github/workflows/check-release.yml) is advisory and runs

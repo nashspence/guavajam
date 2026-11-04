@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, verify_bytes
+from render_profile import PROFILE, STYLESHEET_PATH, TEMPLATE_PATH, FORMAL_KINDS
 
 
 class EditionHTML(html.parser.HTMLParser):
@@ -22,6 +23,17 @@ class EditionHTML(html.parser.HTMLParser):
         self.style = False
         self.h1 = 0
         self.csp = False
+        self.main_count = 0
+        self.article_count = 0
+        self.document_profile = False
+        self.profile_meta = False
+        self.style_count = 0
+        self.ids = set()
+        self.fragment_links = []
+        self.heading_ids = []
+        self.formal_kinds = []
+        self.viewport = False
+        self.html_lang = False
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -33,9 +45,46 @@ class EditionHTML(html.parser.HTMLParser):
             self.errors.append("HTML contains an unexpected resource")
         if tag == "style":
             self.style = True
+            self.style_count += 1
+            if attributes.get("id") != "press-edition-css":
+                self.errors.append("unexpected stylesheet element")
+        if tag == "html":
+            self.html_lang = bool(attributes.get("lang", "").strip())
+        if tag == "main":
+            self.main_count += 1
+        if tag == "article":
+            self.article_count += 1
+            self.document_profile = (attributes.get("data-press-profile") == PROFILE
+                                     and attributes.get("class") == "press-edition")
         if tag == "h1":
             self.h1 += 1
+        if tag in {"h2", "h3", "h4", "h5", "h6"}:
+            heading_id = attributes.get("id", "")
+            if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", heading_id):
+                self.errors.append("section heading requires an explicit stable ID")
+            self.heading_ids.append(heading_id)
+            kind = attributes.get("data-press-kind")
+            if kind is not None:
+                classes = set(attributes.get("class", "").split())
+                if (kind not in FORMAL_KINDS or "press-formal-heading" not in classes
+                        or "press-" + kind not in classes):
+                    self.errors.append("unrecognized formal heading semantics")
+                self.formal_kinds.append(kind)
+        identifier = attributes.get("id")
+        if identifier:
+            if identifier in self.ids:
+                self.errors.append("duplicate HTML id: " + identifier)
+            self.ids.add(identifier)
+        if tag == "a":
+            target = attributes.get("href", "")
+            if target.startswith("#") and len(target) > 1:
+                from urllib.parse import unquote
+                self.fragment_links.append(unquote(target[1:]))
         if tag == "meta":
+            if attributes.get("name") == "press-presentation-profile":
+                self.profile_meta = attributes.get("content") == PROFILE
+            if attributes.get("name") == "viewport":
+                self.viewport = attributes.get("content") == "width=device-width, initial-scale=1"
             equiv = attributes.get("http-equiv", "").lower()
             if equiv == "refresh":
                 self.errors.append("HTML refresh prohibited")
@@ -98,8 +147,26 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     parser = EditionHTML()
     parser.feed(raw.decode("utf-8"))
     parser.close()
-    if parser.errors or parser.h1 != 1 or not parser.csp:
-        raise AssetError("standalone HTML verification failed: " + "; ".join(parser.errors))
+    if (manifest.get("presentation_profile") != PROFILE
+            or not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
+            or manifest.get("template_path") != TEMPLATE_PATH
+            or manifest.get("stylesheet_path") != STYLESHEET_PATH
+            or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("template_sha256", "")))
+            or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("stylesheet_sha256", "")))):
+        raise AssetError("invalid versioned presentation provenance")
+    # Verify the exact CSS bytes embedded in the issued artifact; no build
+    # checkout or remote stylesheet is needed for offline verification.
+    match = re.search(rb'<style id="press-edition-css">\n(.*?)</style>', raw, re.DOTALL)
+    if (not match or len(re.findall(rb'<style\b', raw, re.IGNORECASE)) != 1
+            or hashlib.sha256(match.group(1)).hexdigest() != manifest["stylesheet_sha256"]):
+        raise AssetError("embedded CSS differs from stylesheet provenance")
+    unresolved = set(parser.fragment_links) - parser.ids
+    if unresolved:
+        parser.errors.append("unresolved HTML fragment links: " + repr(sorted(unresolved)))
+    if (parser.errors or parser.h1 != 1 or not parser.csp or not parser.viewport
+            or not parser.html_lang or not parser.document_profile or not parser.profile_meta
+            or parser.main_count != 1 or parser.article_count != 1 or parser.style_count != 1):
+        raise AssetError("standalone HTML presentation verification failed: " + "; ".join(parser.errors))
     records = manifest.get("assets", [])
     if not isinstance(records, list) or len(records) > MAX_ASSETS:
         raise AssetError("invalid edition asset inventory")

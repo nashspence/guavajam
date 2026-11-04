@@ -26,38 +26,9 @@ from validate_sources import parse_document, plain_text, validate_repository, wa
 TAG = re.compile(r"works/([a-z0-9]+(?:-[a-z0-9]+)*)/(v[0-9]+\.[0-9]+\.[0-9]+)\Z")
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
-TEMPLATE = """<!DOCTYPE html>
-<html lang="$lang$">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-<title>$pagetitle$ — $edition$</title>
-<style>
-:root { color-scheme: light dark; font: 1.1rem/1.65 Georgia, serif; }
-body { max-width: 48rem; margin: auto; padding: 2rem clamp(1rem, 5vw, 3rem);
-       background: #faf9f6; color: #222; overflow-wrap: anywhere; }
-h1,h2,h3 { line-height: 1.25; text-wrap: balance; }
-a { color: #235b9d; } img,svg { max-width: 100%; height: auto; }
-figure { margin: 2rem 0; } figcaption,footer { font-size: .85rem; }
-pre,math[display="block"] { overflow-x: auto; max-width: 100%; }
-table { display: block; overflow-x: auto; border-collapse: collapse; }
-td,th { padding: .4rem .8rem; border: 1px solid #888; }
-footer { border-top: 1px solid #888; margin-top: 3rem; padding-top: 1rem; }
-@media (prefers-color-scheme: dark) {
- body { background: #181a1c; color: #e4e4df; } a { color: #96c7ff; }
-}
-@media print { body { max-width: none; background: white; color: black; } }
-</style>
-</head>
-<body>
-<main>
-$body$
-</main>
-<footer>$author$ · $rights$<br>Edition $edition$<br>Source commit: $source_commit$</footer>
-</body>
-</html>
-"""
+from render_profile import (PROFILE, STYLESHEET_PATH, TEMPLATE_PATH,
+                            canonical_template, prepare_presentation_ast)
+
 
 
 def git(root: Path, *args: str, binary=False):
@@ -162,7 +133,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # Keep a local-reference build tree for inspection; only verified files are
         # read for embedding. Pandoc gets data URIs, so it has no resource to fetch.
         (build / "document.json").write_text(json.dumps(ast), encoding="utf-8")
-        embedded = copy.deepcopy(ast)
+        embedded = prepare_presentation_ast(copy.deepcopy(ast))
         for node in walk(embedded["blocks"]):
             if node.get("t") == "Image":
                 local = build / node["c"][2][0]
@@ -173,7 +144,19 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
         embedded["meta"]["source_commit"] = {"t": "MetaString", "c": commit}
-        (build / "template.html").write_text(TEMPLATE, encoding="utf-8")
+        builder = Path(__file__).resolve().parents[1]
+        builder_commit = git(builder, "rev-parse", "--verify", "HEAD^{commit}")
+        if not COMMIT.fullmatch(builder_commit):
+            raise AssetError("builder commit cannot be established")
+        # Provenance must identify the *actual committed builder*, not merely
+        # the repository HEAD while uncommitted presentation changes are used.
+        for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
+                     "scripts/render_profile.py", "scripts/verify_edition.py"]:
+            committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
+            if committed != (builder / path).read_bytes():
+                raise AssetError("publisher builder files must match the recorded builder commit: " + path)
+        template, template_digest, stylesheet_digest = canonical_template(builder)
+        (build / "template.html").write_text(template, encoding="utf-8")
         result = subprocess.run([
             "pandoc", "--fail-if-warnings", "--from=json", "--to=html5", "--standalone", "--mathml",
             "--template=" + str(build / "template.html"),
@@ -187,6 +170,9 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             "title": plain_text(ast["meta"]["title"]["c"]),
             "rights": plain_text(ast["meta"]["rights"]["c"]),
             "pandoc": "3.12.1", "asset_origin": load_policy(root).origin if load_policy(root) else None,
+            "presentation_profile": PROFILE, "builder_commit": builder_commit,
+            "template_path": TEMPLATE_PATH, "template_sha256": template_digest,
+            "stylesheet_path": STYLESHEET_PATH, "stylesheet_sha256": stylesheet_digest,
             "canonical_artifact": filename, "html_sha256": hashlib.sha256(raw_html).hexdigest(),
             "html_byte_count": len(raw_html), "assets": records,
         }
