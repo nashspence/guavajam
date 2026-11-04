@@ -26,24 +26,62 @@ Use [RELEASE_NOTES_TEMPLATE.md](RELEASE_NOTES_TEMPLATE.md) as a starting point. 
 ```text
 Work: Title of work
 Edition: v1.0.0
-Canonical artifact: example-essay-v1.0.0.pdf
+Canonical artifact: example-essay-v1.0.0.html
 Rights: All rights reserved
 ```
 
-The canonical artifact must be uploaded as a **release asset** and its exact filename must match the release notes. The artifact may be PDF, EPUB, Markdown, or another suitable published format. If several formats are provided, identify exactly one as the canonical edition and describe the others as alternate formats. The GitHub-generated source ZIP/tarball is **not** canonical; it contains the entire repository at the tagged commit.
+The canonical artifact must be uploaded as a **release asset** and its exact filename must match the release notes. The canonical artifact is a self-contained responsive HTML edition with embedded
+verified images. Attach generated provenance.json and SHA256SUMS alongside it.
+PDF, EPUB and other formats may be provided as alternates. If several formats are provided, identify exactly one as the canonical edition and describe the others as alternate formats. The GitHub-generated source ZIP/tarball is **not** canonical; it contains the entire repository at the tagged commit.
 
 A specific edition may grant a different license; give the precise terms and accompanying license file or link. A default rights notice is in [COPYRIGHT.md](COPYRIGHT.md).
 
 ## Publication procedure
 
-1. Draft and review a manuscript in `works/<slug>/`. Ensure the versioned source state is committed.
-2. Build or export the final canonical artifact; verify its contents, title, and version.
-3. In GitHub, create a **draft release** with a new tag `works/<slug>/vMAJOR.MINOR.PATCH` pointing at the reviewed source commit.
-4. Fill in the required metadata using the release-notes template, and upload the complete canonical artifact (plus any alternate formats).
-5. Review the draft, then explicitly **publish as a full release**, not as a prerelease. Prefer enabling GitHub release immutability **before** the first publication.
-6. Add the published edition and its release link to [CATALOG.md](CATALOG.md). Catalog updates document publication; they do not themselves create it.
+1. Commit and review a manuscript in works/<slug>/. Both **Validate manuscript
+   sources** and **Verify manuscript assets** must succeed at the exact full
+   commit SHA. They run on every push and pull request and are required on main.
+2. From main, dispatch [Prepare verified edition](.github/workflows/prepare-edition.yml)
+   with that full SHA and the intended works/<slug>/vMAJOR.MINOR.PATCH tag.
+   Leave **publish** false to prepare a draft. The commit must belong to main's
+   history; an existing tag must already resolve to that exact commit.
+3. The read-only build validates the committed snapshot, downloads and verifies
+   each asset, embeds its bytes in canonical HTML, and generates provenance and
+   checksums. A failed build cannot reach the release job. The workflow artifact
+   is available for inspection before approving the release job.
+4. Approve the **press-release** environment deployment. It is restricted to main
+   and requires the imprint owner's approval. Its contents-write job verifies
+   the package, stages a draft, and downloads all three attachments for another
+   byte-for-byte/offline verification. Storage credentials are never needed.
+5. For official publication, dispatch with **publish** true and approve the
+   environment after reviewing the built edition. The gate refuses changed tags,
+   failed source/asset checks, differing attachments, or an already issued
+   edition. This explicit operation publishes the verified draft as a full release.
+   Do not bypass this gate by publishing through the GitHub UI.
+6. Record the edition in [CATALOG.md](CATALOG.md) and any assigned identifiers in
+   [REGISTRATIONS.md](REGISTRATIONS.md). Prefer GitHub release immutability before
+   the first official publication. Never overwrite an issued artifact.
 
-The [release-check workflow](.github/workflows/check-release.yml) validates metadata and assets **after** a release is published. A failed check is a warning to correct the publication record; it cannot block a GitHub release in advance.
+For local inspection without creating tags or releases:
+
+~~~bash
+mise x -- uv sync --locked
+mise x -- uv run --locked python scripts/build_edition.py --commit FULL_SHA --tag works/example-essay/v1.0.0 --output dist/edition
+mise x -- uv run --locked python scripts/verify_edition.py dist/edition --commit FULL_SHA --tag works/example-essay/v1.0.0
+~~~
+
+Pandoc 3.12.1 must be on PATH. The output directory must not already exist.
+Only committed sources enter the build; dirty or untracked files do not.
+
+The [release checker](.github/workflows/check-release.yml) is advisory and runs
+after publication when GitHub emits the event. It is **not a pre-publication
+gate**. Releases created using GITHUB_TOKEN may not trigger another workflow;
+verification is already required by the publishing job. Manually created
+releases can still bypass repository procedures, so they are not an approved
+publication path.
+
+See [ASSETS.md](ASSETS.md) for URL syntax, storage, verification, independent
+copies, the monthly audit, and provider migration.
 
 ## Corrections and supersession
 
@@ -55,7 +93,11 @@ Unreleased material in a public repository can be seen, copied, or archived. Jou
 
 ## Source compliance
 
-Manuscript sources **must** follow [FORMAT.md](FORMAT.md), including the required in-manuscript YAML front matter, and pass the **Validate manuscript sources** check at the reviewed revision before being tagged for publication. This is an editorial requirement in this protocol; the repository still needs an active branch ruleset to enforce merges, and a separate release gate for pre-publication enforcement. The post-publication release checker cannot prevent a release.
+Manuscript sources must follow [FORMAT.md](FORMAT.md), including the unchanged
+press.work.v1 bibliographic schema. Both required Actions checks must succeed at
+the reviewed commit. The trusted workflow verifies image bytes again immediately
+before packaging and publication; an older successful push check never
+substitutes for that verification.
 
 ## External identifier registration
 

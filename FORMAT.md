@@ -74,9 +74,42 @@ The following strict manuscript source restrictions apply:
 - Dialect: Pandoc **3.12.1** with `gfm+tex_math_dollars+raw_html+yaml_metadata_block`. The parser must emit no warnings. GitHub's Markdown renderer is not promised to be byte-identical.
 - One ATX H1 as the first heading, no skipped heading levels. Every H2–H6 must have a unique standalone `<a id="stable-id"></a>` directly before it or separated by one blank line; other raw manuscript HTML is prohibited.
 - Inline math `$...$`; display math uses paired `$$` on separate lines. Rendered MathML is checked. Use literal Unicode for prose symbols and mathematical TeX for mathematics.
-- Footnote definitions and references must match. Local links point to tracked files; fragments resolve. External text links allow `https:` or `mailto:`. External images are prohibited.
-- Local images must be under `works/<slug>/assets/` and have descriptive alt text; allowed formats: PNG, JPEG, WebP, passive SVG, each at most 10 MiB. Asset names use restricted lowercase ASCII characters.
+- Footnote definitions and references must match. Local links point to tracked files; fragments resolve. External text links allow `https:` or `mailto:`. Remote images must use the explicitly approved HTTPS origin and exact content-addressed grammar below.
+- Existing local images under works/<slug>/assets/ remain supported for historical manuscripts, with descriptive alt text and the existing filename/type/10 MiB rules. They are deprecated for new authoring; use approved HTTPS references. Edition builds verify and embed historical local images too.
 - Each work directory contains `manuscript.md`, optionally `README.md` and assets only. There is no `metadata.json`.
+
+## Content-addressed image references
+
+The approved origin is the origin value in [asset-policy.json](asset-policy.json);
+see [ASSETS.md](ASSETS.md) for the public hostname, upload and storage policy.
+Each image destination must be exactly:
+
+~~~text
+<approved-https-origin>/sha256/<64-lowercase-hex>.(png|jpg|jpeg|webp|svg)
+~~~
+
+The digest is SHA-256 of the **exact object bytes**. Extensions are media hints,
+not evidence of content. Ordinary inline, full-reference, collapsed-reference and
+shortcut-reference Markdown images use the same parsed-destination checks.
+Images require descriptive alt text. No per-work asset YAML is used.
+
+Every other remote destination is rejected, including alternate origins,
+non-HTTPS schemes, userinfo, ports (including explicit 443), queries, fragments,
+percent escapes, ambiguous authority/path spellings, extra path components,
+unsupported extensions and uppercase or malformed hashes. Raw manuscript HTML
+remains prohibited except for the existing stable section anchors.
+
+Source syntax validation is entirely offline. The separate required network
+check on every push and pull request downloads and verifies these objects without
+storage credentials. A release build downloads and verifies again before issuing
+the edition; missing, unavailable, oversized, tampered, mismatched or unsafe
+images fail closed. See [ASSETS.md](ASSETS.md) for exact media and download limits.
+
+To migrate an existing local image, verify/hash its bytes, upload them under the
+digest-derived key, and replace the manuscript reference after checking the
+public URL. Remove an unreferenced local file only from a new source revision;
+never rewrite historical commits or issued editions. Local references remain
+valid until an explicit future format change; this policy has no silent cutoff.
 
 ## Executable validation
 
@@ -85,8 +118,15 @@ CI runs on pushes, pull requests and manual dispatch, validating the **entire tr
 ```bash
 python3 -m unittest discover -s tests -v
 python3 scripts/validate_sources.py
+python3 scripts/verify_source_assets.py  # networked cryptographic check
 ```
 
-The validator checks source, metadata, Pandoc interpretation, HTML5/MathML, assets and external-identifier **syntax**. It additionally validates any tracked external registry records as specified in [`REGISTRATIONS.md`](REGISTRATIONS.md). CI pins Pandoc 3.12.1 and PyYAML 6.0.3.
+The validator checks source, metadata, Pandoc interpretation, HTML5/MathML, assets and external-identifier **syntax**. It additionally validates any tracked external registry records as specified in [`REGISTRATIONS.md`](REGISTRATIONS.md). CI pins Pandoc 3.12.1, PyYAML 6.0.3 and Pillow 13.0.0. The source
+validator and its tests stay offline; the separate asset job deliberately depends
+on the approved origin being available.
 
-A passing CI job alone does not protect `main`; configure an active GitHub ruleset requiring `Validate manuscript sources` and pull-request review. It does not prove authorship, registry ownership/existence, mathematical truth, external URL availability, accessibility, or that a release asset exists. Official release gating and artifact provenance remain separate work.
+The active main-branch ruleset requires **Validate manuscript sources** and
+**Verify manuscript assets**. Passing these checks does not prove authorship,
+registry ownership/existence, mathematical truth or accessibility. Publication
+also requires the protected [edition workflow](PUBLICATION.md), which verifies
+the exact source commit, tag and packaged artifact before publication.

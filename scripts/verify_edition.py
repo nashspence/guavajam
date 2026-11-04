@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""Verify a packaged edition offline, including the image bytes inside its HTML."""
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import html.parser
+import json
+import re
+import sys
+from pathlib import Path
+
+from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, verify_bytes
+
+
+class EditionHTML(html.parser.HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.images = {}
+        self.errors = []
+        self.style = False
+        self.h1 = 0
+        self.csp = False
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag in {"script", "iframe", "object", "embed", "audio", "video", "source", "link", "base"}:
+            self.errors.append("HTML contains executable or external resource element")
+        if any(key.startswith("on") or key in {"srcset", "poster", "background"} for key in attributes):
+            self.errors.append("HTML contains active or external resource attribute")
+        if "src" in attributes and tag != "img":
+            self.errors.append("HTML contains an unexpected resource")
+        if tag == "style":
+            self.style = True
+        if tag == "h1":
+            self.h1 += 1
+        if tag == "meta":
+            equiv = attributes.get("http-equiv", "").lower()
+            if equiv == "refresh":
+                self.errors.append("HTML refresh prohibited")
+            if equiv == "content-security-policy":
+                self.csp = "default-src 'none'" in attributes.get("content", "")
+        if tag == "img":
+            if not attributes.get("alt", "").strip():
+                self.errors.append("image alt text required")
+            match = re.fullmatch(r"data:(image/(?:png|jpeg|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)",
+                                 attributes.get("src", ""))
+            if not match:
+                self.errors.append("edition image is not embedded")
+                return
+            try:
+                raw = base64.b64decode(match[2], validate=True)
+            except ValueError:
+                self.errors.append("invalid embedded image encoding")
+                return
+            digest = hashlib.sha256(raw).hexdigest()
+            self.images[digest] = (raw, match[1])
+
+    def handle_endtag(self, tag):
+        if tag == "style":
+            self.style = False
+
+    def handle_data(self, data):
+        if self.style and re.search(r"url\s*\(|@import|\\", data, re.I):
+            self.errors.append("edition CSS may not load external resources")
+
+    handle_startendtag = handle_starttag
+
+
+def verify_edition(directory: Path, *, commit: str | None = None, tag: str | None = None) -> dict:
+    from build_edition import COMMIT, TAG
+    manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
+    if manifest.get("schema") != "press.edition.v1":
+        raise AssetError("unsupported edition provenance schema")
+    source_commit = manifest.get("source_commit", "")
+    edition_tag = manifest.get("tag", "")
+    tag_match = TAG.fullmatch(edition_tag)
+    if not COMMIT.fullmatch(source_commit) or tag_match is None:
+        raise AssetError("invalid edition commit or tag")
+    if (commit is not None and source_commit != commit) or (tag is not None and edition_tag != tag):
+        raise AssetError("edition provenance does not match reviewed commit/tag")
+    filename = tag_match[1] + "-" + tag_match[2] + ".html"
+    if manifest.get("canonical_artifact") != filename:
+        raise AssetError("canonical filename does not match edition tag")
+    names = {filename, "provenance.json", "SHA256SUMS"}
+    if {path.name for path in directory.iterdir()} != names:
+        raise AssetError("edition must contain exactly HTML, provenance.json and SHA256SUMS")
+    if any((directory / name).is_symlink() or not (directory / name).is_file() for name in names):
+        raise AssetError("edition files must be regular files")
+    checksums = "".join(hashlib.sha256((directory / name).read_bytes()).hexdigest() + "  " + name + "\n"
+                        for name in [filename, "provenance.json"])
+    if (directory / "SHA256SUMS").read_text(encoding="ascii") != checksums:
+        raise AssetError("edition checksums do not match")
+    raw = (directory / filename).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != manifest["html_sha256"] or len(raw) != manifest["html_byte_count"]:
+        raise AssetError("canonical HTML digest or byte count does not match provenance")
+    parser = EditionHTML()
+    parser.feed(raw.decode("utf-8"))
+    parser.close()
+    if parser.errors or parser.h1 != 1 or not parser.csp:
+        raise AssetError("standalone HTML verification failed: " + "; ".join(parser.errors))
+    records = manifest.get("assets", [])
+    if not isinstance(records, list) or len(records) > MAX_ASSETS:
+        raise AssetError("invalid edition asset inventory")
+    total = 0
+    digests = set()
+    policy = AssetPolicy(manifest["asset_origin"]) if manifest.get("asset_origin") else None
+    for record in records:
+        destination = record["destination"]
+        match = re.fullmatch(r"verified/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg)", destination)
+        if not match or record["sha256"] != match[1]:
+            raise AssetError("invalid asset provenance destination")
+        digest, extension = match.groups()
+        if record["source_kind"] == "https":
+            if policy is None or policy.parse(record["source_url"]) != (digest, extension):
+                raise AssetError("asset provenance URL mismatch")
+        elif record["source_kind"] == "git":
+            prefix = f"git:{source_commit}:works/{tag_match[1]}/assets/"
+            if not record["source_url"].startswith(prefix):
+                raise AssetError("local asset provenance mismatch")
+        else:
+            raise AssetError("unsupported asset provenance source")
+        if digest not in parser.images:
+            raise AssetError("verified image is missing from canonical HTML")
+        data, media_type = parser.images[digest]
+        if len(data) != record["byte_count"] or media_type != record["media_type"]:
+            raise AssetError("embedded image does not match provenance")
+        verify_bytes(data, extension, media_type)
+        digests.add(digest)
+        total += len(data)
+    if total > MAX_TOTAL_BYTES or set(parser.images) != digests:
+        raise AssetError("HTML asset inventory differs from provenance or exceeds size limit")
+    return manifest
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("directory", type=Path)
+    parser.add_argument("--commit")
+    parser.add_argument("--tag")
+    args = parser.parse_args()
+    try:
+        manifest = verify_edition(args.directory, commit=args.commit, tag=args.tag)
+    except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
+        print("ERROR:", exc, file=sys.stderr)
+        return 1
+    print("Edition verified offline:", manifest["canonical_artifact"])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

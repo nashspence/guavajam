@@ -12,6 +12,10 @@ Consult the [catalog](CATALOG.md) for released works, and [PUBLICATION.md](PUBLI
 
 Each work is a `works/<slug>/manuscript.md` in strict **Pandoc/GFM Markdown with YAML front matter**. The [v1 source format](FORMAT.md) requires seven metadata fields and allows exactly two optional entries: `author_orcid` and an `identifiers` mapping with a fixed work-level namespace. Authoring remains readable; CI enforces schema, normalization, structure, math, links, and safe assets.
 
+Images use [content-addressed HTTPS URLs](ASSETS.md). Assets are verified on every
+push and pull request and embedded in the canonical HTML edition before release.
+No per-work asset manifest or storage credential is required.
+
 External identifiers assigned to **specific editions or formats**—including ISBNs, version DOIs, and library catalog numbers—do not belong in working manuscript front matter. Use the separately validated [registration index](REGISTRATIONS.md), where identities and qualifying serials have their own scopes. No external IDs have been assigned by this repository.
 
 Start a work using [templates/work/](templates/work/) and review [works/README.md](works/README.md).
@@ -22,4 +26,14 @@ Copyright © 2026 nashspence. **All rights reserved** unless a specific work or 
 
 ## Validation
 
-[GitHub Actions](.github/workflows/validate-source.yml) checks all tracked sources on pushes and pull requests, including official-registration records. Tests are in [tests/](tests/) and validator code is in [scripts/](scripts/). [The release checker](.github/workflows/check-release.yml) runs **after** a release is published; neither workflow alone prevents a release or a direct change to `main`. Branch rulesets and pre-release enforcement are separate repository settings/processes.
+[GitHub Actions](.github/workflows/validate-source.yml) runs the offline source
+validator and the networked **Verify manuscript assets** check on every push and
+pull request. Both are required on main. Tests live in [tests/](tests/) and tools
+in [scripts/](scripts/). Local dependencies are pinned in mise.toml, pyproject.toml
+and uv.lock; install Pandoc 3.12.1 separately.
+
+The [protected edition workflow](.github/workflows/prepare-edition.yml) verifies a
+reviewed commit and its assets before staging a draft or explicitly publishing.
+[The release checker](.github/workflows/check-release.yml) is advisory and runs
+after publication. [Monthly integrity audits](.github/workflows/audit-assets.yml)
+check origin objects and independent GitHub edition copies.

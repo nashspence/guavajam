@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from identifier_schema import WORK_IDS, check_identifier_map, identifier_error, validate_registrations
+from asset_policy import AssetError, load_policy, svg_errors
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -488,27 +489,7 @@ def validate_pandoc_front_matter(relative: Path, data: dict, ast: dict) -> list[
 
 
 def validate_svg(path: Path, rel: Path) -> list[str]:
-    import xml.etree.ElementTree as ET
-    errors = []
-    raw = path.read_bytes()
-    if b"<!DOCTYPE" in raw.upper() or b"<!ENTITY" in raw.upper():
-        errors.append(issue(rel, "SVG DTD or entity declarations prohibited"))
-        return errors
-    try:
-        root = ET.fromstring(raw)
-    except ET.ParseError as exc:
-        return [issue(rel, f"invalid SVG XML: {exc}")]
-    if root.tag != "{http://www.w3.org/2000/svg}svg":
-        errors.append(issue(rel, "SVG root must be SVG namespace <svg>"))
-    for node in root.iter():
-        kind = node.tag.split("}")[-1].lower() if isinstance(node.tag, str) else ""
-        if kind in {"script", "foreignobject", "style", "image", "use", "a"}:
-            errors.append(issue(rel, f"SVG element <{kind}> is not permitted by the static asset profile"))
-        for key, value in node.attrib.items():
-            name = key.split("}")[-1].lower()
-            if name.startswith("on") or name in {"style", "href"} or "url(" in value.lower():
-                errors.append(issue(rel, f"SVG attribute {name!r} is not permitted by static asset profile"))
-    return errors
+    return [issue(rel, message) for message in svg_errors(path.read_bytes())]
 
 
 def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
@@ -548,6 +529,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
     paths = [Path(p) for p in paths]
     tracked = set(paths)
     errors: list[str] = []
+    try:
+        asset_policy = load_policy(root)
+    except (AssetError, TypeError) as exc:
+        errors.append(issue(Path("asset-policy.json"), str(exc)))
+        asset_policy = None
     front_matters: dict[Path, dict] = {}
     bodies: dict[Path, tuple[str, int]] = {}
     asts: dict[Path, dict] = {}
@@ -660,9 +646,21 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             target = data[2][0]
             if kind == "Image" and not plain_text(data[1]).strip():
                 errors.append(issue(rel, "image alt text required"))
-            parsed = urlsplit(target)
+            if kind == "Image" and manuscript and (":" in target or target.startswith("//")):
+                try:
+                    if asset_policy is None:
+                        raise AssetError("unsupported/external URI: no approved asset origin configured")
+                    asset_policy.parse(target)
+                except AssetError as exc:
+                    errors.append(issue(rel, str(exc)))
+                continue
+            try:
+                parsed = urlsplit(target)
+            except ValueError:
+                errors.append(issue(rel, "malformed URI"))
+                continue
             if parsed.scheme or parsed.netloc:
-                if parsed.scheme.lower() not in {"https", "mailto"} or (kind == "Image" and manuscript):
+                if parsed.scheme.lower() not in {"https", "mailto"}:
                     errors.append(issue(rel, f"unsupported/external URI in {kind}: {target}"))
                 continue
             if target.startswith("/") or target.startswith("\\"):
