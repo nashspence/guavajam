@@ -39,6 +39,19 @@ def cf_request(account, path, token, *, body=None, content_type="application/jso
     return data["result"]
 
 
+def upload_worker(source, account, name, token, bindings):
+    metadata = {"main_module": "worker.js", "compatibility_date": "2026-11-04", "bindings": bindings}
+    boundary = "press" + uuid.uuid4().hex
+    body = (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="metadata"\r\n'
+        'Content-Type: application/json\r\n\r\n' + json.dumps(metadata) +
+        f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="worker.js"; filename="worker.js"\r\n'
+        'Content-Type: application/javascript+module\r\n\r\n'
+    ).encode() + source.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+    cf_request(account, "scripts/" + name, token, body=body,
+               content_type="multipart/form-data; boundary=" + boundary, method="PUT")
+
+
 def deploy(root, *, apply=False):
     policy = load_policy(root)
     if policy is None:
@@ -70,19 +83,11 @@ def deploy(root, *, apply=False):
         bindings = {item["name"]: item for item in settings.get("bindings", [])}
         if bindings.get("ASSET_HOST", {}).get("text") != hostname:
             raise AssetError("existing press-assets Worker belongs to a different hostname")
-    metadata = {"main_module": "worker.js", "compatibility_date": "2026-11-04", "bindings": [
+    bindings = [
         {"name": "ASSET_HOST", "type": "plain_text", "text": hostname},
         {"name": "B2_PUBLIC_BASE", "type": "plain_text", "text": values["B2_PUBLIC_BASE"]},
-    ]}
-    boundary = "press" + uuid.uuid4().hex
-    body = (
-        f'--{boundary}\r\nContent-Disposition: form-data; name="metadata"\r\n'
-        'Content-Type: application/json\r\n\r\n' + json.dumps(metadata) +
-        f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="worker.js"; filename="worker.js"\r\n'
-        'Content-Type: application/javascript+module\r\n\r\n'
-    ).encode() + (root / "storage/worker.js").read_bytes() + f"\r\n--{boundary}--\r\n".encode()
-    cf_request(account, "scripts/press-assets", token, body=body,
-               content_type="multipart/form-data; boundary=" + boundary, method="PUT")
+    ]
+    upload_worker(root / "storage/worker.js", account, "press-assets", token, bindings)
     cf_request(account, "domains", token, method="PUT", body=json.dumps({
         "hostname": hostname, "service": "press-assets", "environment": "production",
         "zone_id": values["CLOUDFLARE_ZONE_ID"],

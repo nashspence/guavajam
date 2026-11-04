@@ -14,6 +14,7 @@ from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
 from editorial_notices import release_notes
+from identifier_schema import valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 
@@ -34,6 +35,10 @@ class EditionHTML(html.parser.HTMLParser):
         self.style_count = 0
         self.ids = set()
         self.fragment_links = []
+        self.record_links = []
+        self.in_footer = False
+        self.in_rights = False
+        self.rights_text = None
         self.heading_ids = []
         self.formal_kinds = []
         self.viewport = False
@@ -41,6 +46,17 @@ class EditionHTML(html.parser.HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        if self.in_rights:
+            self.errors.append("edition rights must contain only plain text")
+        if tag == "footer":
+            self.in_footer = True
+        if attributes.get("data-press-field") == "rights":
+            if self.rights_text is not None:
+                self.errors.append("duplicate edition rights statement")
+            if tag != "span" or not self.in_footer or attrs != [("data-press-field", "rights")]:
+                self.errors.append("edition rights require a plain span in the footer")
+            self.in_rights = True
+            self.rights_text = []
         if tag in {"script", "iframe", "object", "embed", "audio", "video", "source", "link", "base"}:
             self.errors.append("HTML contains executable or external resource element")
         if any(key.startswith("on") or key in {"srcset", "poster", "background"} for key in attributes):
@@ -81,6 +97,8 @@ class EditionHTML(html.parser.HTMLParser):
             self.ids.add(identifier)
         if tag == "a" and "href" in attributes:
             target = attributes["href"] or ""
+            if identifier == "press-edition-record":
+                self.record_links.append(target)
             if target.startswith("#"):
                 if target[1:]:
                     self.fragment_links.append(unquote(target[1:]))
@@ -115,8 +133,16 @@ class EditionHTML(html.parser.HTMLParser):
     def handle_endtag(self, tag):
         if tag == "style":
             self.style = False
+        if tag == "footer":
+            self.in_footer = False
+        if self.in_rights:
+            if tag != "span":
+                self.errors.append("edition rights span is not properly closed")
+            self.in_rights = False
 
     def handle_data(self, data):
+        if self.in_rights:
+            self.rights_text.append(data)
         if self.style and re.search(r"url\s*\(|@import|\\", data, re.I):
             self.errors.append("edition CSS may not load external resources")
 
@@ -128,7 +154,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "press.edition.v1":
         raise AssetError("unsupported edition provenance schema")
-    if "initial_notes" in manifest:
+    if "initial_notes" in manifest or "rights_statement" in manifest:
         release_notes(manifest)  # Validate the exact initial body before accepting the package.
     source_commit = manifest.get("source_commit", "")
     edition_tag = manifest.get("tag", "")
@@ -158,6 +184,18 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     parser = EditionHTML(profile)
     parser.feed(raw.decode("utf-8"))
     parser.close()
+    statement = manifest.get("rights_statement")
+    if parser.in_rights or (parser.rights_text is None) != (statement is None):
+        raise AssetError("edition rights declaration differs between HTML and provenance")
+    if statement is not None:
+        # HTML collapses ASCII whitespace, including line breaks inserted by Pandoc.
+        rendered = re.sub(r"[ \t\r\n\f]+", " ", "".join(parser.rights_text)).strip(" ")
+        if rendered != re.sub(r" +", " ", statement):
+            raise AssetError("edition rights text differs from provenance")
+    if "record_url" in manifest or parser.record_links:
+        if (not valid_record_url(manifest.get("record_url"), edition_tag)
+                or parser.record_links != [manifest["record_url"]]):
+            raise AssetError("edition record link differs from its permanent address in provenance")
     if (not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
             or manifest.get("template_path") != template_path
             or manifest.get("stylesheet_path") != stylesheet_path
@@ -216,13 +254,24 @@ def main():
     parser.add_argument("directory", type=Path)
     parser.add_argument("--commit")
     parser.add_argument("--tag")
+    parser.add_argument("--registration", type=Path, help="also compare with an independently obtained authorization")
     args = parser.parse_args()
     try:
         manifest = verify_edition(args.directory, commit=args.commit, tag=args.tag)
+        result = "Package verified offline"
+        if args.registration is not None:
+            from issuance import check_authorization, read_registration
+            record = read_registration(Path.cwd(), args.registration)
+            check_authorization(record, args.directory, manifest)
+            result = "Package matches the pending authorization"
+            if "published_at" in record:
+                if not valid_utc(record["published_at"]):
+                    raise AssetError("invalid publication timestamp in trusted registration")
+                result = "Package matches the publication receipt of " + record["published_at"]
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1
-    print("Edition verified offline:", manifest["canonical_artifact"])
+    print(result + ":", manifest["canonical_artifact"])
     return 0
 
 

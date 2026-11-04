@@ -17,8 +17,8 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from editorial_notices import check_initial_notes
-from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
+from editorial_notices import check_initial_notes, check_rights_statement
+from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
 from asset_policy import AssetError, load_policy, svg_errors
 from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast
 
@@ -534,6 +534,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
     paths = [Path(p) for p in paths]
     tracked = set(paths)
     errors: list[str] = []
+    if Path("edition-origin.txt") in tracked:
+        try:
+            edition_origin(root)
+        except (OSError, ValueError) as exc:
+            errors.append(issue(Path("edition-origin.txt"), str(exc)))
     try:
         asset_policy = load_policy(root)
     except (AssetError, TypeError) as exc:
@@ -557,8 +562,10 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         return [f"Pandoc version mismatch: expected {expected}, got {version.stdout.splitlines()[0]}"]
 
     for rel in sorted(paths):
-        edition_notes = (len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
-                         and rel.suffix == ".md" and VERSION.fullmatch(rel.stem))
+        in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
+        edition_notes = in_editions and rel.suffix == ".md" and VERSION.fullmatch(rel.stem)
+        edition_rights = (in_editions and rel.name.endswith(".rights.txt")
+                          and VERSION.fullmatch(rel.name.removesuffix(".rights.txt")))
         if rel.parts and rel.parts[0] == "works":
             if len(rel.parts) == 2 and rel.name == "README.md":
                 pass
@@ -567,10 +574,19 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                     errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
                 allowed_root = len(rel.parts) == 3 and rel.parts[2] in {"README.md", "manuscript.md"}
                 allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
-                if not (allowed_root or allowed_asset or edition_notes):
+                if not (allowed_root or allowed_asset or edition_notes or edition_rights):
                     errors.append(issue(rel, "unsupported file path under works/ (requires policy change)"))
             else:
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
+        if edition_rights:
+            statement, e = read_text(root / rel, rel)
+            errors.extend(e)
+            if statement is not None:
+                try:
+                    check_rights_statement(statement.removesuffix("\n"))
+                except AssetError as exc:
+                    errors.append(issue(rel, str(exc)))
+            continue
         if rel.suffix.lower() not in SOURCE_EXTENSIONS:
             continue
         path = root / rel

@@ -30,14 +30,14 @@ def verify_public_release(repo, release, *, root=None, require_receipt=False):
         for name in names:
             gh("release", "download", tag, "--repo", repo, "--pattern", name, "--dir", temp)
         manifest = verify_edition(Path(temp), tag=tag)
+        record = check_issuance(root, Path(temp), manifest, published_at=release["published_at"],
+                                require_receipt=require_receipt)
         inventory = release_inventory(release, tag, manifest, names, draft=False,
-                                      notices=edition_notices(root, tag))
+                                      notices=edition_notices(root, tag), identifiers=record.get("identifiers"))
         if set(inventory) != set(names):
             raise AssetError("missing release attachments")
         if tag_commit(repo, tag) != manifest["source_commit"]:
             raise AssetError("published edition source differs from release tag")
-        check_issuance(root, Path(temp), manifest, published_at=release["published_at"],
-                       require_receipt=require_receipt)
     return manifest
 
 
@@ -59,7 +59,7 @@ def audit(root, repo):
             if node.get("t") == "Image" and node["c"][2][0].startswith(policy.origin + "/"):
                 policy.parse(node["c"][2][0])
                 urls.add(node["c"][2][0])
-    pending = 0
+    unresolved = []
     seen = set()
     for release in release_records(repo):
         tag = release["tag_name"]
@@ -74,13 +74,17 @@ def audit(root, repo):
         urls.update(record["source_url"] for record in manifest["assets"]
                     if record["source_kind"] == "https")
     for tag in sorted(expected.keys() - seen):
-        if "published_at" in read_registration(root, expected[tag]):
+        record = read_registration(root, expected[tag])
+        if "published_at" in record:
             raise AssetError(f"missing registered edition: {tag}")
-        pending += 1
-        print(f"Pending publication: {tag}")
+        if "cancellation_reason" not in record:
+            unresolved.append(tag)
+    if unresolved:
+        raise AssetError("Unresolved publication intent (reconcile or explicitly cancel): "
+                         + ", ".join(unresolved))
     for url in sorted(urls):
         fetch_asset(policy, url)
-    print(f"Integrity verified: {len(urls)} origin assets; {len(seen)} independent GitHub editions; {pending} pending")
+    print(f"Integrity verified: {len(urls)} origin assets; {len(seen)} independent GitHub editions")
 
 
 def main():

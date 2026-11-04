@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import (AssetError, AssetPolicy, MAX_BYTES, fetch_asset,
                           public_addresses, svg_errors, verify_bytes)
 from build_edition import build_edition
+from editorial_notices import release_notes
 from validate_sources import parse_document, walk
 from verify_edition import verify_edition
 from test_validate_sources import StrictSourceTests, MANUSCRIPT, METADATA
@@ -230,6 +231,7 @@ class EditionTests(unittest.TestCase):
         path.write_text("---\n" + yaml.safe_dump(METADATA) + "---\n\n" + MANUSCRIPT +
                         f"\n![Structural diagram][figure]\n\n[figure]: {URL}\n")
         (self.repo / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
+        (self.repo / "edition-origin.txt").write_text("https://press.example.org\n")
         self.git("add", ".")
         self.git("commit", "-qm", "Reviewed source")
         self.commit = self.git("rev-parse", "HEAD")
@@ -257,8 +259,19 @@ class EditionTests(unittest.TestCase):
         text = (self.output / "sample-v1.0.0.html").read_text()
         self.assertIn("data:image/svg+xml;base64," + base64.b64encode(SVG).decode(), text)
         self.assertNotIn(ORIGIN, text)
+        self.assertNotIn("rights_statement", manifest)
+        self.assertNotIn("Edition rights:", text)
+        self.assertNotIn("Edition rights:", release_notes(manifest))
         self.assertEqual("", self.git("tag", "--list"))
         self.assertEqual("main", self.git("branch", "--show-current"))
+
+    def test_build_requires_a_committed_edition_origin(self):
+        self.git("rm", "edition-origin.txt")
+        self.git("commit", "-qm", "Unconfigure edition origin")
+        self.commit = self.git("rev-parse", "HEAD")
+        with self.assertRaisesRegex(AssetError, "edition-origin.txt"):
+            self.build()
+        self.assertFalse(self.output.exists())
 
     def test_initial_notes_are_read_from_the_matching_committed_edition(self):
         directory = self.repo / "works/sample/editions"

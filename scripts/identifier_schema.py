@@ -13,6 +13,8 @@ import re
 import unicodedata
 from pathlib import Path
 
+from asset_policy import AssetError, HOST
+
 WORK_IDS = frozenset({"concept_doi", "arxiv", "openalex", "wikidata"})
 EDITION_IDS = frozenset({"version_doi", "arxiv_version", "isbn_epub", "isbn_pdf", "isbn_print", "oclc"})
 AUTHOR_IDS = frozenset({"orcid", "isni", "wikidata", "openalex_author"})
@@ -33,9 +35,31 @@ ARXIV_NEW = re.compile(r"[0-9]{2}(?:0[1-9]|1[0-2])\.[0-9]{4,5}\Z")
 ARXIV_OLD = re.compile(r"[a-z][a-z0-9.-]*/[0-9]{7}\Z")
 
 
-def edition_release_url(tag: str) -> str:
-    """Canonical public record for an edition of this imprint."""
-    return f"https://github.com/nashspence/press/releases/tag/{tag}"
+def valid_origin(value: str) -> bool:
+    return value.startswith("https://") and bool(HOST.fullmatch(value[8:]))
+
+
+def edition_origin(root: Path) -> str:
+    path = root / "edition-origin.txt"
+    if path.is_symlink() or not path.is_file():
+        raise AssetError("configure edition-origin.txt in the source commit before staging an edition")
+    raw = path.read_bytes()
+    origin = raw.decode("ascii").removesuffix("\n")
+    if not raw.endswith(b"\n") or not valid_origin(origin):
+        raise AssetError("edition-origin.txt requires one canonical HTTPS origin and a final newline")
+    return origin
+
+
+def valid_record_url(url: object, tag: str) -> bool:
+    suffix = "/" + tag
+    return (isinstance(url, str) and TAG.fullmatch(tag) is not None and url.endswith(suffix)
+            and valid_origin(url.removesuffix(suffix)))
+
+
+def edition_record_url(root: Path, tag: str) -> str:
+    if not TAG.fullmatch(tag):
+        raise AssetError("invalid edition tag")
+    return edition_origin(root) + "/" + tag
 
 
 def valid_orcid(value: str) -> bool:
@@ -236,13 +260,13 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             slug, version = path.parts[2], path.stem
             if not SLUG.fullmatch(slug) or slug not in has_work or not VERSION.fullmatch(version):
                 errors.append(f"{path}: invalid or unknown edition slug/version")
-            required = {"schema", "work", "version", "release_url", "canonical_artifact", "rights",
+            required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
-            errors.extend(exact_keys(doc, required, {"identifiers", "published_at"}, context))
+            errors.extend(exact_keys(doc, required, {"identifiers", "published_at", "cancellation_reason"}, context))
             if doc.get("schema") != REGISTRY_SCHEMAS["edition"] or doc.get("work") != slug or doc.get("version") != version:
                 errors.append(f"{path}: edition schema, work and version must match path")
-            if doc.get("release_url") != edition_release_url(f"works/{slug}/{version}"):
-                errors.append(f"{path}: release_url must identify the matching GitHub Release tag")
+            if not valid_record_url(doc.get("record_url"), f"works/{slug}/{version}"):
+                errors.append(f"{path}: record_url must identify this edition at a canonical HTTPS origin")
             asset = doc.get("canonical_artifact")
             if asset != f"{slug}-{version}.html":
                 errors.append(f"{path}: canonical_artifact must name the matching edition HTML")
@@ -255,10 +279,19 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                     errors.append(f"{path}: {field} must be lowercase hexadecimal SHA-256")
             if "published_at" in doc and not valid_utc(doc["published_at"]):
                 errors.append(f"{path}: published_at must be a valid UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
+            if "cancellation_reason" in doc:
+                reason = doc["cancellation_reason"]
+                if (not isinstance(reason, str) or not reason or reason.strip() != reason
+                        or not reason.isprintable() or len(reason) > 500):
+                    errors.append(f"{path}: cancellation_reason requires a single printable line of at most 500 characters")
+                if "published_at" in doc:
+                    errors.append(f"{path}: a published edition cannot be cancelled")
             rights = doc.get("rights")
             if not isinstance(rights, str) or rights not in RIGHTS:
                 errors.append(f"{path}: rights must be an approved rights identifier")
             if "identifiers" in doc:
+                if "published_at" not in doc:
+                    errors.append(f"{path}: edition identifiers require a publication receipt")
                 errors.extend(check_identifier_map(doc["identifiers"], EDITION_IDS, context))
                 if isinstance(doc["identifiers"], dict):
                     register_identifiers("edition", doc["identifiers"], path)

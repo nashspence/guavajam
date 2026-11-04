@@ -3,8 +3,6 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from contextlib import redirect_stdout
-from io import StringIO
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
@@ -20,13 +18,13 @@ class ArchiveAuditTests(unittest.TestCase):
                     "assets": []}
         names = [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]
         self.record_path = Path("registrations/editions/sample/v1.0.0.json")
-        self.release = {"tag_name": manifest["tag"], "draft": False, "prerelease": False, "published_at": "2026-11-04T13:00:00Z",
+        self.release = {"tag_name": manifest["tag"], "name": "Sample — v1.0.0", "immutable": True, "draft": False, "prerelease": False, "published_at": "2026-11-04T13:00:00Z",
                         "body": "\n".join(f"{k}: {v}" for k, v in edition_fields(manifest).items()),
                         "assets": [{"name": name, "id": i, "state": "uploaded"}
                                    for i, name in enumerate(names, 1)]}
         for name, result in (("release_records", [self.release]), ("gh", ""),
                              ("verify_edition", manifest), ("tag_commit", manifest["source_commit"]),
-                             ("git_sources", [self.record_path]), ("check_issuance", None),
+                             ("git_sources", [self.record_path]), ("check_issuance", {}),
                              ("read_registration", {"published_at": self.release["published_at"]})):
             self.enterContext(patch("audit_assets." + name, return_value=result))
 
@@ -68,12 +66,14 @@ class ArchiveAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, "missing registered edition"):
             audit(self.root, "owner/press")
 
-    def test_unpublished_authorization_is_reported_without_draft_access(self):
-        output = StringIO()
-        with patch("audit_assets.release_records", return_value=[]), \
-             patch("audit_assets.read_registration", return_value={}), redirect_stdout(output):
+    def test_unresolved_intent_fails_even_if_remote_release_has_disappeared(self):
+        with patch("audit_assets.release_records", return_value=[]), patch("audit_assets.read_registration", return_value={}):
+            with self.assertRaisesRegex(AssetError, "Unresolved publication intent.*works/sample/v1.0.0"):
+                audit(self.root, "owner/press")
+
+    def test_cancelled_intent_needs_no_public_release(self):
+        with patch("audit_assets.release_records", return_value=[]), patch("audit_assets.read_registration", return_value={"cancellation_reason": "Retired"}):
             audit(self.root, "owner/press")
-        self.assertIn("Pending publication: works/sample/v1.0.0", output.getvalue())
 
     def test_public_edition_must_have_independent_registration(self):
         with patch("audit_assets.git_sources", return_value=[]):
@@ -88,8 +88,15 @@ class ArchiveAuditTests(unittest.TestCase):
             self.release["body"] += "\n\n## Editorial notices\n\n" + notices[0]
             audit(self.root, "owner/press")
 
+    def test_public_audit_requires_registered_identifiers_in_body(self):
+        with patch("audit_assets.check_issuance", return_value={"identifiers": {"oclc": "42"}}):
+            with self.assertRaisesRegex(AssetError, "release notes differ"):
+                audit(self.root, "owner/press")
+            self.release["body"] += "\n\n## Edition identifiers\n\n- OCLC number: `42`"
+            audit(self.root, "owner/press")
+
     def test_public_audit_requires_completed_receipt(self):
-        with patch("audit_assets.check_issuance") as check:
+        with patch("audit_assets.check_issuance", return_value={}) as check:
             audit(self.root, "owner/press")
         self.assertTrue(check.call_args.kwargs["require_receipt"])
 

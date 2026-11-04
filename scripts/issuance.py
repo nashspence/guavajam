@@ -2,12 +2,14 @@
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
+from urllib.parse import quote
 
 from asset_policy import AssetError
 from editorial_notices import release_notes
-from identifier_schema import REGISTRY_SCHEMAS, TAG, edition_release_url, strict_json
+from identifier_schema import REGISTRY_SCHEMAS, TAG, strict_json, valid_utc
 from verify_edition import verify_edition
 
 
@@ -19,7 +21,7 @@ def authorization(directory: Path, manifest: dict) -> dict:
     slug, version = match.groups()
     return {
         "schema": REGISTRY_SCHEMAS["edition"], "work": slug, "version": version,
-        "release_url": edition_release_url(tag),
+        "record_url": manifest["record_url"],
         "canonical_artifact": manifest["canonical_artifact"], "rights": manifest["rights"],
         "artifact_sha256": manifest["html_sha256"], "source_commit": manifest["source_commit"],
         "initial_notes_sha256": hashlib.sha256(release_notes(manifest).encode("utf-8")).hexdigest(),
@@ -37,18 +39,27 @@ def read_registration(root: Path, path: Path) -> dict:
     return record
 
 
+def check_authorization(record: dict, directory: Path, manifest: dict) -> None:
+    """Compare a separately trusted registration with the edition's commitments."""
+    if "cancellation_reason" in record:
+        raise AssetError(f"{manifest['tag']}: issuance intent was cancelled; this version is retired")
+    for key, value in authorization(directory, manifest).items():
+        if record.get(key) != value:
+            raise AssetError(f"{manifest['tag']}: issuance record {key} differs from the reviewed package")
+
+
 def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=None,
                    pending=False, require_receipt=False) -> dict:
     """Read the issuer checkout's independent record; the manuscript snapshot can be older."""
-    expected = authorization(directory, manifest)
     tag = manifest["tag"]
-    path = Path("registrations/editions") / expected["work"] / (expected["version"] + ".json")
+    match = TAG.fullmatch(tag)
+    if not match:
+        raise AssetError("invalid issuance tag")
+    path = Path("registrations/editions") / match[1] / (match[2] + ".json")
     record = read_registration(root, path)
     if pending and "published_at" in record:
         raise AssetError(f"{tag}: issued edition reverted to draft")
-    for key, value in expected.items():
-        if record.get(key) != value:
-            raise AssetError(f"{tag}: issuance record {key} differs from the reviewed package")
+    check_authorization(record, directory, manifest)
     if require_receipt and "published_at" not in record:
         raise AssetError(f"{tag}: record the public release timestamp {published_at} in {path}")
     if published_at is not None and record.get("published_at") not in (None, published_at):
@@ -56,14 +67,33 @@ def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=
     return record
 
 
+def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> dict:
+    """Produce a commit-ready receipt only after verifying this exact public edition."""
+    from audit_assets import verify_public_release
+    from publish_edition import api
+
+    tag = manifest["tag"]
+    release = api(repo, "releases/tags/" + quote(tag, safe=""))
+    if release.get("tag_name") != tag or not valid_utc(release.get("published_at")):
+        raise AssetError(f"{tag}: expected the official release and its exact UTC publication timestamp")
+    verify_public_release(repo, release, root=root)
+    timestamp = release["published_at"]
+    record = check_issuance(root, directory, manifest, published_at=timestamp)
+    return {**record, "published_at": timestamp}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare",))
+    parser.add_argument("command", choices=("prepare", "receipt"))
     parser.add_argument("directory", type=Path, help="directory containing a verified edition")
+    parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "nashspence/press"))
     args = parser.parse_args()
     try:
         manifest = verify_edition(args.directory)
-        record = authorization(args.directory, manifest)
+        if args.command == "receipt":
+            record = public_receipt(Path(__file__).resolve().parents[1], args.directory, manifest, args.repo)
+        else:
+            record = authorization(args.directory, manifest)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

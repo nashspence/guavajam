@@ -10,7 +10,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from asset_policy import AssetError
 from check_editorial_history import check_editorial_history
-from identifier_schema import edition_release_url
 
 
 class EditorialHistoryTests(unittest.TestCase):
@@ -29,7 +28,7 @@ class EditorialHistoryTests(unittest.TestCase):
         self.record = {
             'schema': 'press.edition-registration.v1', 'work': 'essay', 'version': 'v1.0.0',
             'canonical_artifact': 'essay-v1.0.0.html', 'rights': 'all-rights-reserved',
-            'release_url': edition_release_url('works/essay/v1.0.0'), 'source_commit': 'a' * 40,
+            'record_url': 'https://press.example.org/works/essay/v1.0.0', 'source_commit': 'a' * 40,
             'artifact_sha256': 'b' * 64, 'provenance_sha256': 'c' * 64,
             'initial_notes_sha256': 'd' * 64,
         }
@@ -57,24 +56,51 @@ class EditorialHistoryTests(unittest.TestCase):
         self.git('add', '-A')
         check_editorial_history(self.root, base, **options)
 
-    def test_pending_authorization_can_be_corrected_and_withdrawn(self):
+    def test_committed_authorization_is_immutable_and_cancelled_only_once(self):
         base = self.baseline()
         self.record['rights'] = 'CC0-1.0'
         self.save()
-        self.check(base)
+        with self.assertRaisesRegex(AssetError, 'immutable'):
+            self.check(base)
         self.registration.unlink()
-        self.check(base)
+        with self.assertRaisesRegex(AssetError, 'cannot be removed'):
+            self.check(base)
+        self.record['rights'] = 'all-rights-reserved'
+        self.record['cancellation_reason'] = 'Rights were declined.'
+        self.save()
+        with patch('check_editorial_history.tag_commit', return_value=None), patch('check_editorial_history.release_records', return_value=[]) as releases:
+            self.check(base, repo='owner/press')
+            releases.return_value = [{'tag_name': 'works/essay/v1.0.0'}]
+            with self.assertRaisesRegex(AssetError, 'cancellation requires'):
+                self.check(base, repo='owner/press')
+        cancelled = self.baseline()
+        del self.record['cancellation_reason']
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'immutable'):
+            self.check(cancelled)
 
-    def test_receipt_can_be_recorded_then_identifiers_can_change(self):
+    def test_late_identifier_and_documented_correction_or_retirement(self):
         base = self.baseline()
         self.issue()
         self.check(base)
         issued = self.baseline()
-        for doi in ('10.1234/example', '10.1234/replacement'):
-            self.record['identifiers'] = {'version_doi': doi}
-            self.save()
-            self.check(issued)
-            issued = self.baseline()
+        self.record['identifiers'] = {'version_doi': '10.1234/example'}
+        self.save()
+        self.check(issued)
+        assigned = self.baseline()
+        self.record['identifiers'] = {'version_doi': '10.1234/replacement'}
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'new dated Correction'):
+            self.check(assigned)
+        (self.directory / '0001.md').write_text('2026-04-11 Correction: Identifier version_doi changed from 10.1234/example to 10.1234/replacement.\n')
+        self.check(assigned)
+        corrected = self.baseline()
+        del self.record['identifiers']
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'new dated Correction'):
+            self.check(corrected)
+        (self.directory / '0002.md').write_text('2026-04-12 Correction: Identifier version_doi retired: 10.1234/replacement.\n')
+        self.check(corrected)
 
     def test_first_receipt_cannot_replace_the_approved_package(self):
         base = self.baseline()
@@ -93,16 +119,33 @@ class EditorialHistoryTests(unittest.TestCase):
         self.save()
         self.check(base)
 
+    def test_first_receipt_precedes_later_identifiers_and_notices(self):
+        base = self.baseline()
+        self.issue()
+        self.record['identifiers'] = {'oclc': '42'}
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'before adding notices or identifiers'):
+            self.check(base)
+        del self.record['identifiers']
+        self.save()
+        (self.directory / '0001.md').write_text(self.first)
+        with self.assertRaisesRegex(AssetError, 'before adding notices or identifiers'):
+            self.check(base)
+
     def test_online_first_receipt_requires_exact_public_release(self):
         base = self.baseline()
         self.issue()
         release = {'tag_name': 'works/essay/v1.0.0', 'published_at': self.timestamp,
                    'draft': False, 'prerelease': False}
-        with patch('check_editorial_history.api', return_value=release) as api:
+        with (patch('check_editorial_history.api', return_value=release) as api,
+              patch('check_editorial_history.verify_public_release') as verify):
             self.check(base, repo='owner/rehearsal')
             api.assert_called_once_with('owner/rehearsal', 'releases/tags/works%2Fessay%2Fv1.0.0')
-            for change in ({'tag_name': 'works/essay/v1.0.1'}, {'draft': True}, {'prerelease': True},
-                           {'published_at': '2026-04-10T12:30:01Z'}):
+            verify.assert_called_once_with('owner/rehearsal', release, root=self.root, require_receipt=True)
+            verify.side_effect = AssetError('release attachments differ from approved package')
+            with self.assertRaisesRegex(AssetError, 'attachments differ'):
+                self.check(base, repo='owner/rehearsal')
+            for change in ({'tag_name': 'works/essay/v1.0.1'}, {'published_at': '2026-04-10T12:30:01Z'}):
                 with self.subTest(change=change):
                     api.return_value = {**release, **change}
                     with self.assertRaisesRegex(AssetError, 'official public release'):

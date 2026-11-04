@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import html
+import subprocess
+import sys
 import json
 import re
 import runpy
@@ -11,6 +14,7 @@ from pathlib import Path
 
 from asset_policy import AssetError
 from build_edition import build_edition
+from editorial_notices import release_notes
 from render_profile import PROFILE, STYLESHEET_PATH, TEMPLATE_PATH
 from test_assets import EditionTests
 from verify_edition import EditionHTML, verify_edition
@@ -124,11 +128,87 @@ class RenderContractTests(EditionTests):
 
     def test_citation_identifies_the_exact_release(self):
         self.sample_with_structures()
-        self.build()
+        manifest = self.build()
         html = self.page().read_text(encoding="utf-8")
         self.assertIn("Nash Spence. <cite>Sample Work</cite>. Press, edition v1.0.0.", " ".join(html.split()))
-        record = "https://github.com/nashspence/press/releases/tag/works/sample-work/v1.0.0"
+        record = "https://press.example.org/works/sample-work/v1.0.0"
+        self.assertEqual(record, manifest["record_url"])
         self.assertIn(f'href="{record}">{record}</a>', html)
+        self._repack(html=self.page().read_bytes().replace(
+            ('href="' + record + '"').encode(), b'href="https://other.example.org/"'))
+        with self.assertRaisesRegex(AssetError, "edition record link"):
+            verify_edition(self.output)
+
+    def test_trusted_registration_verifies_the_reviewed_bytes_offline(self):
+        from issuance import authorization
+        manifest = self.build()
+        record = authorization(self.output, manifest)
+        registration = self.base / "registration.json"
+        verifier = Path(__file__).resolve().parents[1] / "scripts/verify_edition.py"
+
+        def check(**extra):
+            registration.write_text(json.dumps({**record, **extra}, sort_keys=True, indent=2) + "\n")
+            return subprocess.run([sys.executable, str(verifier), "--registration", str(registration),
+                                   str(self.output)], text=True, capture_output=True)
+
+        self.assertIn("pending authorization", check().stdout)
+        self.assertIn("publication receipt", check(published_at="2026-11-04T01:00:00Z").stdout)
+        self.assertNotEqual(check(cancellation_reason="Retired").returncode, 0)
+        self._repack(html=self.page().read_bytes().replace(b"</article>", b"<p>Changed.</p></article>"))
+        verify_edition(self.output)
+        self.assertIn("artifact_sha256 differs", check().stderr)
+
+    def test_edition_rights_are_literal_and_travel_with_the_standalone_html(self):
+        directory = self.repo / "works/sample/editions"
+        directory.mkdir()
+        path = directory / "v1.0.0.rights.txt"
+        statement = 'Plate <img src=x> © Lee & Co. [Exception](#elsewhere) applies.'
+        path.write_text(statement + "\n", encoding="utf-8")
+        (directory / "v2.0.0.rights.txt").write_text("Other terms.\n")
+        (directory / "v1.0.0.md").write_text("Editorial introduction.\n")
+        self.git("add", "works/sample/editions")
+        self.git("commit", "-qm", "Review edition rights and notes")
+        self.commit = self.git("rev-parse", "HEAD")
+        path.write_text("Unreviewed terms.\n")
+        manifest = self.build()
+        self.assertEqual(statement, manifest["rights_statement"])
+        page = self.page().read_text(encoding="utf-8")
+        notes = subprocess.check_output(["pandoc", "-f", "gfm", "-t", "html5", "--wrap=none"],
+                                        input=release_notes(manifest), text=True)
+        for rendered in (page, notes):
+            self.assertIn(statement, html.unescape(" ".join(rendered.split())))
+            self.assertNotIn("<img src=x>", rendered)
+            self.assertNotIn('href="#elsewhere"', rendered)
+        self.assertNotIn("Editorial introduction.", page)
+        self.assertIn("Editorial introduction.", notes)
+        with self.assertRaisesRegex(AssetError, "reserved release field"):
+            release_notes({**manifest, "initial_notes": "Edition rights: contradictory.\n"})
+
+    def test_rehashed_package_must_preserve_the_declared_rights_statement(self):
+        manifest = self.build()
+        original = self.page().read_bytes()
+        span = b'<span data-press-field="rights">Plate &lt;I&gt;\nby permission.</span>'
+        statement = "Plate <I>  by permission."
+        declared = {**manifest, "rights_statement": statement}
+
+        def repack(rights_markup, provenance):
+            page = original.replace(b"</footer>", rights_markup + b"</footer>")
+            self._repack(html=page, manifest=dict(provenance))
+
+        repack(span, declared)
+        verify_edition(self.output)
+        for markup, provenance in [
+            (b"", declared),
+            (span, manifest),
+            (span, {**manifest, "rights_statement": []}),
+            (span + span, declared),
+            (span.replace(b"permission", b"purchase"), declared),
+            (span.replace(b"by permission.", b"<b>by permission.</b>"), declared),
+        ]:
+            with self.subTest(markup=markup, provenance=provenance):
+                repack(markup, provenance)
+                with self.assertRaisesRegex(AssetError, "edition rights"):
+                    verify_edition(self.output)
 
     def test_template_css_and_builder_provenance(self):
         manifest = self.build()

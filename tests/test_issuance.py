@@ -5,11 +5,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from identifier_schema import validate_registrations
-from issuance import authorization, check_issuance
+from issuance import authorization, check_issuance, public_receipt
 
 
 class IssuanceTests(unittest.TestCase):
@@ -19,7 +20,7 @@ class IssuanceTests(unittest.TestCase):
         self.package.mkdir()
         self.manifest = {"title": "Example", "tag": "works/example/v1.2.0", "html_sha256": "f" * 64,
                          "source_commit": "a" * 40, "canonical_artifact": "example-v1.2.0.html",
-                         "rights": "all-rights-reserved"}
+                         "rights": "all-rights-reserved", "record_url": "https://press.example.org/works/example/v1.2.0"}
         (self.package / "provenance.json").write_text(json.dumps(self.manifest) + "\n")
         self.record = authorization(self.package, self.manifest)
         self.path = Path("registrations/editions/example/v1.2.0.json")
@@ -97,4 +98,21 @@ class IssuanceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, "published_at differs"):
             self.check(published_at="2026-11-01T10:20:01Z")
         with self.assertRaisesRegex(AssetError, "reverted to draft"):
+            self.check(pending=True)
+
+    def test_receipt_comes_from_verified_public_edition(self):
+        self.write()
+        release = {'tag_name': self.manifest['tag'], 'published_at': '2026-11-04T12:00:00Z'}
+        with patch('publish_edition.api', return_value=release), patch('audit_assets.verify_public_release') as verify:
+            result = public_receipt(self.root, self.package, self.manifest, 'owner/press')
+            self.assertEqual(result, {**self.record, 'published_at': release['published_at']})
+            verify.assert_called_once_with('owner/press', release, root=self.root)
+            verify.side_effect = AssetError('readback failed')
+            with self.assertRaisesRegex(AssetError, 'readback failed'):
+                public_receipt(self.root, self.package, self.manifest, 'owner/press')
+
+    def test_cancelled_intent_is_not_promotable(self):
+        self.record['cancellation_reason'] = 'Permission was declined.'
+        self.write()
+        with self.assertRaisesRegex(AssetError, 'cancelled'):
             self.check(pending=True)

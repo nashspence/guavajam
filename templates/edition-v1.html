@@ -15,8 +15,10 @@ $body$
 </article></main>
 <footer>
 <p>Cite this edition as $author$. <cite>$pagetitle$</cite>. Press, edition $edition$.</p>
-<p>Official edition record and notices: <a href="$release_url$">$release_url$</a><br>
-Rights: $rights$<br>Source commit: <code>$source_commit$</code></p>
+<p>Official edition record and notices: <a id="press-edition-record" href="$record_url$">$record_url$</a><br>
+Rights: $rights$<br>
+$if(rights_statement)$Edition rights: <span data-press-field="rights">$rights_statement$</span><br>
+$endif$Source commit: <code>$source_commit$</code></p>
 </footer>
 </body>
 </html>

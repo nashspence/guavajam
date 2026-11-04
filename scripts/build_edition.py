@@ -21,7 +21,7 @@ from urllib.parse import unquote, urlsplit
 
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_asset,
                           check_html_size, load_policy, verify_bytes)
-from identifier_schema import TAG, edition_release_url
+from identifier_schema import TAG, edition_record_url
 from validate_sources import parse_document, plain_text, validate_repository, walk
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -147,7 +147,13 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         embedded["meta"]["pagetitle"] = embedded["meta"]["title"]
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
-        embedded["meta"]["release_url"] = {"t": "MetaString", "c": edition_release_url(tag)}
+        record_url = edition_record_url(root, tag)
+        embedded["meta"]["record_url"] = {"t": "MetaString", "c": record_url}
+        rights_file = manuscript.parent / "editions" / (version + ".rights.txt")
+        rights_statement = ""
+        if rights_file in paths:
+            rights_statement = (root / rights_file).read_text(encoding="utf-8").removesuffix("\n")
+            embedded["meta"]["rights_statement"] = {"t": "MetaString", "c": rights_statement}
         embedded["meta"]["source_commit"] = {"t": "MetaString", "c": commit}
         builder = Path(__file__).resolve().parents[1]
         builder_commit = git(builder, "rev-parse", "--verify", "HEAD^{commit}")
@@ -173,7 +179,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         check_html_size(len(raw_html))
         filename = slug + "-" + version + ".html"
         manifest = {
-            "schema": "press.edition.v1", "source_commit": commit, "tag": tag,
+            "schema": "press.edition.v1", "source_commit": commit, "tag": tag, "record_url": record_url,
             "title": plain_text(ast["meta"]["title"]["c"]),
             "rights": plain_text(ast["meta"]["rights"]["c"]),
             "pandoc": "3.12.1", "asset_origin": load_policy(root).origin if load_policy(root) else None,
@@ -183,6 +189,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             "canonical_artifact": filename, "html_sha256": hashlib.sha256(raw_html).hexdigest(),
             "html_byte_count": len(raw_html), "assets": records,
         }
+        if rights_statement:
+            manifest["rights_statement"] = rights_statement
         notes = manuscript.parent / "editions" / (version + ".md")
         if notes in paths:
             manifest["initial_notes"] = (root / notes).read_bytes().decode("utf-8")

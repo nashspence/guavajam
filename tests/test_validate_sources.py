@@ -94,6 +94,13 @@ class StrictSourceTests(unittest.TestCase):
         self.assert_bad("32 KiB", other={path: "x" * 32768 + "\n"})
         self.assert_bad("unsupported file path", other={"works/sample/editions/latest.md": "Notes.\n"})
 
+    def test_edition_rights_are_one_plain_text_statement(self):
+        path = "works/sample/editions/v1.0.0.rights.txt"
+        self.assertEqual([], self.check(other={path: "Plate © Lee & Co.\n"}))
+        self.assert_bad("one nonempty line", other={path: "One.\nTwo.\n"})
+        self.assert_bad("4 KiB", other={path: "a" * 4097 + "\n"})
+        self.assert_bad("unsupported file path", other={"works/sample/editions/latest.rights.txt": "Terms.\n"})
+
     def test_plain_document_without_yaml_renders(self):
         self.check()
         notes = Path("notes.md")
@@ -423,7 +430,7 @@ class StrictSourceTests(unittest.TestCase):
         doc = {
             "schema": "press.edition-registration.v1",
             "work": "sample", "version": "v1.0.0",
-            "release_url": "https://github.com/nashspence/press/releases/tag/works/sample/v1.0.0",
+            "record_url": "https://press.example.org/works/sample/v1.0.0",
             "canonical_artifact": "sample-v1.0.0.html",
             "artifact_sha256": "a" * 64,
             "source_commit": "b" * 40,
@@ -479,10 +486,22 @@ class StrictSourceTests(unittest.TestCase):
         metadata = {**METADATA, "identifiers":{"concept_doi":"10.5281/zenodo.1234567"}}
         self.assert_bad("version_doi must differ", metadata=metadata, other={path:self.canonical_json(doc)})
 
-    def test_edition_wrong_tag_url(self):
+    def test_edition_wrong_record_url(self):
         path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(release_url="https://github.com/other/press/releases/tag/works/sample/v1.0.0")
-        self.assert_bad("release_url must identify", other={path:self.canonical_json(doc)})
+        doc = self.edition(record_url="https://press.example.org/works/other/v1.0.0")
+        self.assert_bad("record_url must identify", other={path:self.canonical_json(doc)})
+
+    def test_record_origin_requires_one_canonical_https_origin(self):
+        from identifier_schema import edition_origin
+        path = self.root / "edition-origin.txt"
+        for raw in (b"http://press.example.org\n", b"https://press.example.org/path\n",
+                    b"https://user@press.example.org\n", b"https://press.example.org",
+                    b"https://press.example.org\r\n", b"https://press.example.org\n\n"):
+            with self.subTest(raw=raw):
+                path.write_bytes(raw)
+                with self.assertRaises(ValueError):
+                    edition_origin(self.root)
+        self.assert_bad("one canonical HTTPS origin", other={"edition-origin.txt": "https://bad/path\n"})
 
     def test_edition_nonstring_rights_clean_error(self):
         path = "registrations/editions/sample/v1.0.0.json"

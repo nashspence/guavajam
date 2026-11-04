@@ -6,11 +6,12 @@ import sys
 from urllib.parse import quote
 
 from asset_policy import AssetError
+from audit_assets import verify_public_release
 from build_edition import COMMIT, git
 from editorial_notices import edition_notices
 from identifier_schema import TAG, strict_json, validate_registrations
 from issuance import read_registration
-from publish_edition import api
+from publish_edition import api, release_records, tag_commit
 
 
 def git_paths(root, *args):
@@ -67,7 +68,7 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
     added = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=A',
                       base, '--', 'registrations/editions')
     for path in sorted(added):
-        if 'published_at' in read_registration(root, path):
+        if {'published_at', 'cancellation_reason'} & read_registration(root, path).keys():
             raise AssetError(f'{path}: commit the pending authorization before its publication receipt')
     # Treat renames as deletion/addition so moving a notice or an issued record cannot reset it.
     changed = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=MDT',
@@ -79,28 +80,46 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         if errors:
             raise AssetError('\n'.join(errors))
         if path not in tracked:
-            if 'published_at' in old:
-                raise AssetError(f'{path}: a receipted edition registration cannot be removed')
-            continue
+            raise AssetError(f'{path}: a committed issuance intent cannot be removed')
         current = read_registration(root, path)
-        if 'published_at' not in old and 'published_at' not in current:
-            continue
-        # Identifiers may arrive from registries after publication.
-        for record in (old, current):
-            record.pop('identifiers', None)
-        first_receipt = 'published_at' not in old
+        tag = f'works/{old["work"]}/{old["version"]}'
+        first_receipt = 'published_at' not in old and 'published_at' in current
         if first_receipt:
+            if tag in groups or 'identifiers' in current:
+                raise AssetError(f'{path}: commit the publication receipt before adding notices or identifiers')
             timestamp = current.pop('published_at')
+        if 'cancellation_reason' not in old and 'cancellation_reason' in current:
+            if 'published_at' in old or first_receipt:
+                raise AssetError(f'{path}: an issued edition cannot be cancelled')
+            if repo is not None and (tag_commit(repo, tag) is not None or
+                                     any(r['tag_name'] == tag for r in release_records(repo))):
+                raise AssetError(f'{path}: cancellation requires absence of the public tag and release')
+            current.pop('cancellation_reason')
+        old_ids = old.pop('identifiers', {})
+        new_ids = current.pop('identifiers', {})
+        changed_ids = {key: value for key, value in old_ids.items() if new_ids.get(key) != value}
+        if changed_ids:
+            notice_dir = Path('notices') / old['work'] / old['version']
+            added_notices = git_paths(root, 'diff', '--name-only', '-z', '--diff-filter=A', base, '--', str(notice_dir))
+            # Dates and notice syntax have already been validated above.
+            corrections = {(root / item).read_text(encoding='utf-8').rstrip('\n').partition(' ')[2]
+                           for item in added_notices}
+            for key, value in changed_ids.items():
+                if key in new_ids:
+                    statement = f'Correction: Identifier {key} changed from {value} to {new_ids[key]}.'
+                else:
+                    statement = f'Correction: Identifier {key} retired: {value}.'
+                if 'published_at' not in old or statement not in corrections:
+                    raise AssetError(f'{path}: changing identifier {key} requires a new dated {statement}')
         if old != current:
-            raise AssetError(f'{path}: the issued authorization and publication receipt are immutable')
+            raise AssetError(f'{path}: the committed authorization and publication receipt are immutable')
         if first_receipt and repo is not None:
             if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repo):
                 raise AssetError('invalid repository for release receipt verification')
-            tag = f'works/{current["work"]}/{current["version"]}'
             release = api(repo, 'releases/tags/' + quote(tag, safe=''))
-            if (release.get('tag_name') != tag or release.get('draft') is not False
-                    or release.get('prerelease') is not False or release.get('published_at') != timestamp):
-                raise AssetError(f'{path}: receipt must match the official public release and its published_at')
+            if release.get('tag_name') != tag or release.get('published_at') != timestamp:
+                raise AssetError(f'{path}: receipt must match the official public release and its timestamp')
+            verify_public_release(repo, release, root=root, require_receipt=True)
 
 
 if __name__ == '__main__':

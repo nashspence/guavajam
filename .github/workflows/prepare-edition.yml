@@ -12,7 +12,11 @@ on:
         type: string
         required: true
       publish:
-        description: Promote an already reviewed draft from a successful staging run
+        description: Publish a reviewed proof from a successful staging run
+        type: boolean
+        default: false
+      rebuild_reviewed_proof:
+        description: During publication, reproduce an expired proof using its original staging builder
         type: boolean
         default: false
       staged_run_id:
@@ -25,10 +29,6 @@ on:
 permissions:
   contents: read
   checks: read
-
-concurrency:
-  group: press-edition
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -90,14 +90,87 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Record proof for editorial review
+        run: |
+          digest=$(sha256sum dist/edition/provenance.json | cut -d ' ' -f 1)
+          printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+  recover:
+    if: github.ref == 'refs/heads/main' && inputs.publish && inputs.rebuild_reviewed_proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    env:
+      STAGED_RUN_ID: ${{ inputs.staged_run_id }}
+      PROVENANCE_SHA256: ${{ inputs.provenance_sha256 }}
+      SOURCE_COMMIT: ${{ inputs.source_commit }}
+      EDITION_TAG: ${{ inputs.edition_tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare current verification tools
+        run: |
+          python3 -m venv "$RUNNER_TEMP/proof-verifier"
+          "$RUNNER_TEMP/proof-verifier/bin/pip" install --no-deps --only-binary=:all: -r requirements-ci.txt
+      - name: Locate original builder and tool versions
+        id: original
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          builder=$("$RUNNER_TEMP/proof-verifier/bin/python" scripts/reviewed_artifact.py builder "$STAGED_RUN_ID" "$PROVENANCE_SHA256")
+          git merge-base --is-ancestor "$builder" HEAD
+          git worktree add --detach original-builder "$builder"
+          python3 - <<'PY'
+          import os, re, tomllib
+          with open("original-builder/mise.toml", "rb") as config:
+              pins = tomllib.load(config)["tools"]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              for tool in ("python", "pandoc"):
+                  if not re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", pins[tool]):
+                      raise SystemExit(f"expected exact original {tool} version")
+                  print(f"{tool}={pins[tool]}", file=output)
+          PY
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ steps.original.outputs.python }}
+      - uses: pandoc/actions/setup@86321b6dd4675f5014c611e05088e10d4939e09e # v1
+        with:
+          version: ${{ steps.original.outputs.pandoc }}
+      - name: Rebuild archived bytes with the original toolchain
+        run: |
+          python -m pip install --no-deps --only-binary=:all: -r original-builder/requirements-ci.txt
+          python original-builder/scripts/build_edition.py --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --output "$GITHUB_WORKSPACE/dist/edition"
+      - name: Verify the rebuilt proof against the reviewed run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          "$RUNNER_TEMP/proof-verifier/bin/python" scripts/reviewed_artifact.py verify "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
+          "$RUNNER_TEMP/proof-verifier/bin/python" scripts/verify_edition.py dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: recovered-edition
+          overwrite: true
+          path: dist/edition/
+          if-no-files-found: error
+          retention-days: 1
+
   release:
-    needs: build
+    needs: recover
     if: >-
-      ${{ !cancelled() && github.ref == 'refs/heads/main' &&
-      (needs.build.result == 'success' || (inputs.publish && needs.build.result == 'skipped')) }}
+      ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.publish &&
+          (inputs.rebuild_reviewed_proof && needs.recover.result == 'success' ||
+           !inputs.rebuild_reviewed_proof && needs.recover.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: press-release
+    concurrency:
+      group: press-edition
+      cancel-in-progress: false
     permissions:
       actions: read
       contents: write
@@ -112,31 +185,39 @@ jobs:
           python-version: '3.12.12'
       - run: |
           python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: -r requirements-ci.txt
-      - if: ${{ !inputs.publish }}
+      - name: Download explicitly recovered proof
+        if: inputs.rebuild_reviewed_proof
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: verified-edition
-          path: dist/edition/
-      - name: Retrieve previously reviewed edition
-        if: inputs.publish
+          name: recovered-edition
+          path: dist/edition
+      - name: Check the reviewed proof on the publication runner
         env:
           GH_TOKEN: ${{ github.token }}
           STAGED_RUN_ID: ${{ inputs.staged_run_id }}
           PROVENANCE_SHA256: ${{ inputs.provenance_sha256 }}
-        run: python scripts/reviewed_artifact.py "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
-      - name: Verify and stage or promote the edition
+          REBUILD: ${{ inputs.rebuild_reviewed_proof }}
+        run: |
+          command=download
+          if [[ "$REBUILD" == true ]]; then command=verify; fi
+          python scripts/reviewed_artifact.py "$command" "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
+      - name: Publish the authorized edition
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           EDITION_TAG: ${{ inputs.edition_tag }}
-          PUBLISH: ${{ inputs.publish }}
         run: |
           python scripts/check_profile_history.py --candidate dist/edition/provenance.json
-          args=()
-          if [ "$PUBLISH" = true ]; then args+=(--publish --issuer-commit "$GITHUB_SHA"); fi
-          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" "${args[@]}"
-      - name: Record draft for editorial review
-        if: ${{ !inputs.publish }}
+          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA"
+      - name: Prepare the verified publication receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          digest=$(sha256sum dist/edition/provenance.json | cut -d ' ' -f 1)
-          printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p dist/receipt
+          python scripts/issuance.py receipt dist/edition > dist/receipt/registration.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: edition-receipt
+          path: dist/receipt/registration.json
+          if-no-files-found: error
+          retention-days: 90
