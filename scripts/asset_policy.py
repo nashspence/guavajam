@@ -15,6 +15,7 @@ import ssl
 import time
 import warnings
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -194,14 +195,19 @@ class PinnedHTTPSConnection(http.client.HTTPSConnection):
         raise AssetError("cannot establish verified TLS connection to asset origin") from last_error
 
 
-def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
-    digest, extension = policy.parse(url)
-    host = urlsplit(policy.origin).hostname
-    deadline = time.monotonic() + TIMEOUT
+@contextmanager
+def public_response(url: str, accept: str, *, timeout=TIMEOUT):
+    """One unauthenticated HTTPS GET with DNS pinning, a deadline and no redirects."""
+    parsed = urlsplit(url)
+    host = parsed.hostname
+    if (parsed.scheme != "https" or host is None or not HOST.fullmatch(host)
+            or parsed.netloc != host or parsed.fragment or parsed.query):
+        raise AssetError("public URL requires a canonical HTTPS host and path")
+    deadline = time.monotonic() + timeout
     addresses = public_addresses(host)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise AssetError("asset download deadline exceeded")
+        raise AssetError("public download deadline exceeded")
     connection = PinnedHTTPSConnection(host, addresses, remaining)
     def abort():
         transport = getattr(connection, "transport", None)
@@ -215,42 +221,41 @@ def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
     watchdog.daemon = True
     watchdog.start()
     try:
-        connection.request("GET", url[len(policy.origin):],
-                           headers={"Accept": MIME[extension], "Accept-Encoding": "identity",
-                                    "User-Agent": "press-verified-assets/1"})
-        response = connection.getresponse()
-        # Reject every redirect, even one to the same host. Never forward credentials.
+        connection.request("GET", parsed.path or "/", headers={
+            "Accept": accept, "Accept-Encoding": "identity", "User-Agent": "Press-archive-verifier/1"})
+        yield connection.getresponse()
+        if time.monotonic() >= deadline:
+            raise AssetError("public download deadline exceeded")
+    except (OSError, http.client.HTTPException) as exc:
+        raise AssetError(f"public download failed at {url}") from exc
+    finally:
+        watchdog.cancel()
+        connection.close()
+
+
+def response_chunks(response, limit):
+    if response.getheader("Content-Encoding", "identity").lower() != "identity":
+        raise AssetError("encoded response prohibited")
+    length = response.getheader("Content-Length")
+    if length is not None and (not re.fullmatch(r"[0-9]+", length) or int(length) > limit):
+        raise AssetError("invalid or oversized Content-Length")
+    size = 0
+    while chunk := response.read1(min(65536, limit + 1 - size)):
+        size += len(chunk)
+        if size > limit:
+            raise AssetError("download exceeds size limit")
+        yield chunk
+    if length is not None and size != int(length):
+        raise AssetError("response is truncated")
+
+
+def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
+    digest, extension = policy.parse(url)
+    with public_response(url, MIME[extension]) as response:
         if response.status != 200:
             raise AssetError(f"asset fetch requires HTTP 200 (received {response.status}); redirects prohibited")
-        if response.getheader("Content-Encoding", "identity").lower() != "identity":
-            raise AssetError("encoded asset responses prohibited")
-        length = response.getheader("Content-Length")
-        if length is not None and (not re.fullmatch(r"[0-9]+", length) or int(length) > MAX_BYTES):
-            raise AssetError("invalid or oversized Content-Length")
-        chunks = []
-        size = 0
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise AssetError("asset download deadline exceeded")
-            if connection.sock is not None:
-                connection.sock.settimeout(min(TIMEOUT, remaining))
-            chunk = response.read1(min(65536, MAX_BYTES + 1 - size))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            size += len(chunk)
-            if size > MAX_BYTES:
-                raise AssetError("asset exceeds 10 MiB limit")
-        if length is not None and size != int(length):
-            raise AssetError("asset response is truncated")
-        raw = b"".join(chunks)
+        raw = b"".join(response_chunks(response, MAX_BYTES))
         if hashlib.sha256(raw).hexdigest() != digest:
             raise AssetError("asset SHA-256 does not match URL")
         media_type = verify_bytes(raw, extension, response.getheader("Content-Type", ""))
         return raw, media_type
-    except (OSError, http.client.HTTPException) as exc:
-        raise AssetError("asset download failed") from exc
-    finally:
-        watchdog.cancel()
-        connection.close()

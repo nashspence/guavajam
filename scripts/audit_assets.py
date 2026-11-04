@@ -7,10 +7,11 @@ import tempfile
 from pathlib import Path
 
 from asset_policy import AssetError, fetch_asset, load_policy
-from identifier_schema import TAG
+from identifier_schema import TAG, valid_utc
 from editorial_notices import edition_notices
-from issuance import check_issuance, read_registration
+from issuance import check_authorization, check_issuance, read_registration
 from publish_edition import api, gh, release_inventory, release_records, tag_commit
+from reader_routes import verify_reader_routes
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
 
@@ -41,7 +42,16 @@ def verify_public_release(repo, release, *, root=None, require_receipt=False):
     return manifest
 
 
-def audit(root, repo):
+def verify_registered_routes(root, repo, manifest, published_at, archive_base):
+    tag = manifest['tag']
+    match = TAG.fullmatch(tag)
+    path = Path('registrations/editions') / match[1] / (match[2] + '.json')
+    record = read_registration(root, path)
+    verify_reader_routes(manifest, repo, notices=edition_notices(root, tag), identifiers=record.get('identifiers'),
+                         archive_base=archive_base, published_at=published_at)
+
+
+def audit(root, repo, *, archive_base=None):
     policy = load_policy(root)
     urls = set()
     if policy is None:
@@ -71,6 +81,7 @@ def audit(root, repo):
             raise AssetError(f"duplicate release for {tag}")
         seen.add(tag)
         manifest = verify_public_release(repo, release, root=root, require_receipt=True)
+        verify_registered_routes(root, repo, manifest, release["published_at"], archive_base)
         urls.update(record["source_url"] for record in manifest["assets"]
                     if record["source_kind"] == "https")
     for tag in sorted(expected.keys() - seen):
@@ -90,14 +101,37 @@ def audit(root, repo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "nashspence/press"))
-    parser.add_argument("--release-id", type=int, help="verify one published GitHub release by ID")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--reader", type=Path, metavar="DIR", help="audit public routes from a recovered edition package")
+    parser.add_argument("--registration", type=Path, help="independently trusted publication receipt for --reader")
+    parser.add_argument("--archive-root", type=Path, help="checkout or recovery root with the trusted notices/ directory for --reader")
+    parser.add_argument("--record-target", help="expected archive base after the permanent record redirect")
+    modes.add_argument("--release-id", type=int, help="verify one published GitHub release by ID")
     args = parser.parse_args()
+    if args.reader and (not args.registration or not args.archive_root):
+        parser.error("--reader requires --registration and --archive-root")
+    if not args.reader and (args.registration or args.archive_root):
+        parser.error("--registration and --archive-root require --reader")
+    root = Path(__file__).resolve().parents[1]
     try:
-        if args.release_id is None:
-            audit(Path(__file__).resolve().parents[1], args.repo)
+        if args.reader:
+            manifest = verify_edition(args.reader)
+            receipt = read_registration(Path.cwd(), args.registration)
+            check_authorization(receipt, args.reader, manifest)
+            if not valid_utc(receipt.get("published_at")):
+                raise AssetError("--reader requires the trusted receipt's original publication timestamp")
+            if not args.archive_root.is_dir():
+                raise AssetError("--archive-root must be the existing root of the trusted notice history")
+            notices = edition_notices(args.archive_root, manifest["tag"])
+            verify_reader_routes(manifest, args.repo, notices=notices, identifiers=receipt.get("identifiers"), archive_base=args.record_target,
+                                 published_at=receipt["published_at"])
+            print("Verified public record and reading copy:", manifest["tag"])
+        elif args.release_id is None:
+            audit(root, args.repo, archive_base=args.record_target)
         else:
             release = api(args.repo, f"releases/{args.release_id}")
             manifest = verify_public_release(args.repo, release)
+            verify_registered_routes(root, args.repo, manifest, release["published_at"], args.record_target)
             print("Verified published edition:", manifest["tag"])
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)

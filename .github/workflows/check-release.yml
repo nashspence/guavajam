@@ -25,5 +25,6 @@ jobs:
       - name: Verify the published edition
         env:
           GH_TOKEN: ${{ github.token }}
+          RECORD_TARGET: ${{ vars.RECORD_TARGET }}
           RELEASE_ID: ${{ github.event.release.id }}
         run: python scripts/audit_assets.py --release-id "$RELEASE_ID"

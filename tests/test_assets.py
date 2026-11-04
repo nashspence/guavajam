@@ -284,7 +284,8 @@ class EditionTests(unittest.TestCase):
         self.commit = self.git("rev-parse", "HEAD")
         (directory / "v1.0.0.md").write_text("Unreviewed replacement.\n")
         manifest = self.build()
-        self.assertEqual(source, manifest["initial_notes"])
+        self.assertTrue(manifest["initial_release_body"].endswith(source.removesuffix("\n")))
+        self.assertIn(f"({manifest['record_url']}/read)", manifest["initial_release_body"])
         self.assertEqual(manifest, verify_edition(self.output))
 
     def test_repeat_build_has_identical_bytes(self):

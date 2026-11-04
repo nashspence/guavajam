@@ -14,7 +14,7 @@ from pathlib import Path
 
 from asset_policy import AssetError
 from build_edition import build_edition
-from editorial_notices import release_notes
+from editorial_notices import release_notes, render_initial_body
 from render_profile import PROFILE, STYLESHEET_PATH, TEMPLATE_PATH
 from test_assets import EditionTests
 from verify_edition import EditionHTML, verify_edition
@@ -133,6 +133,7 @@ class RenderContractTests(EditionTests):
         self.assertIn("Nash Spence. <cite>Sample Work</cite>. Press, edition v1.0.0.", " ".join(html.split()))
         record = "https://press.example.org/works/sample-work/v1.0.0"
         self.assertEqual(record, manifest["record_url"])
+        self.assertIn(f'href="{record}/read"', html)
         self.assertIn(f'href="{record}">{record}</a>', html)
         self._repack(html=self.page().read_bytes().replace(
             ('href="' + record + '"').encode(), b'href="https://other.example.org/"'))
@@ -182,7 +183,7 @@ class RenderContractTests(EditionTests):
         self.assertNotIn("Editorial introduction.", page)
         self.assertIn("Editorial introduction.", notes)
         with self.assertRaisesRegex(AssetError, "reserved release field"):
-            release_notes({**manifest, "initial_notes": "Edition rights: contradictory.\n"})
+            render_initial_body(manifest, "Edition rights: contradictory.\n")
 
     def test_rehashed_package_must_preserve_the_declared_rights_statement(self):
         manifest = self.build()

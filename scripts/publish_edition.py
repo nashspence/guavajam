@@ -7,17 +7,19 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from asset_policy import AssetError
 from build_edition import COMMIT
 from issuance import check_issuance
-from editorial_notices import edition_fields, edition_notices, release_notes
+from editorial_notices import edition_notices, release_notes
 from verify_edition import verify_edition
 
 
-def gh(*args, optional=False):
-    result = subprocess.run(["gh", *args], text=True, capture_output=True)
+def gh(*args, optional=False, token=None):
+    env = {**os.environ, "GH_TOKEN": token} if token is not None else None
+    result = subprocess.run(["gh", *args], text=True, capture_output=True, env=env)
     if result.returncode:
         if optional:
             return None
@@ -70,21 +72,56 @@ def tag_commit(repo, tag):
     raise AssetError("edition tag does not resolve to a commit")
 
 
-def require_source_check(repo, commit):
+def require_source_check(repo, commit, *, wait_seconds=0):
     compare = api(repo, f"compare/{commit}...main")
     if compare["status"] not in {"ahead", "identical"}:
         raise AssetError("reviewed source commit must belong to main history")
-    checks = api(repo, f"commits/{commit}/check-runs?per_page=100")["check_runs"]
+    workflow = "validate-source.yml"
+    runs_path = f"actions/workflows/{workflow}/runs?event=push&branch=main&head_sha={commit}&per_page=100"
+    deadline = time.monotonic() + wait_seconds
+    while True:
+        data = api(repo, runs_path)
+        runs = data["workflow_runs"]
+        if data["total_count"] != len(runs):
+            raise AssetError("cannot establish latest main push validation from an incomplete run list")
+        if runs:
+            run = max(runs, key=lambda item: item["id"])
+            if (run["path"] != ".github/workflows/" + workflow or run["event"] != "push"
+                    or run["head_repository"]["full_name"] != repo or run["head_branch"] != "main"
+                    or run["head_sha"] != commit):
+                raise AssetError("unexpected main push validation identity for the reviewed commit")
+            if run["status"] == "completed":
+                if run["conclusion"] != "success":
+                    raise AssetError("latest main push validation must have succeeded for the reviewed commit")
+                break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssetError("expected completed main push validation for the reviewed commit")
+        time.sleep(min(15, remaining))
+    jobs = api(repo, f'actions/runs/{run["id"]}/attempts/{run["run_attempt"]}/jobs?per_page=100')["jobs"]
     for name in ["Validate manuscript sources", "Verify manuscript assets"]:
-        matching = [check for check in checks if check["name"] == name
-                    and check["app"]["slug"] == "github-actions"]
-        # A historical success must not hide a later failed verification.
-        if not matching or max(matching, key=lambda check: check["id"])["conclusion"] != "success":
-            raise AssetError("reviewed commit requires successful " + name + " check")
+        matching = [job for job in jobs if job["name"] == name]
+        if len(matching) != 1 or matching[0]["conclusion"] != "success":
+            raise AssetError(f"latest validation attempt requires successful {name}; re-run all jobs")
+        if name == "Validate manuscript sources" and not any(
+                step["name"] == "Verify editorial history against the event base" and step["conclusion"] == "success"
+                for step in matching[0]["steps"]):
+            raise AssetError("the main push did not verify editorial history against its previous tip")
+
+
+def require_immutable_releases(repo, policy_token):
+    if not policy_token:
+        raise AssetError("press-release requires PRESS_POLICY_READ_TOKEN to verify release immutability")
+    try:
+        policy = json.loads(gh("api", f"repos/{repo}/immutable-releases", token=policy_token))
+    except AssetError as exc:
+        raise AssetError(f"cannot confirm repository release immutability: {exc}") from exc
+    if policy.get("enabled") is not True:
+        raise AssetError("enable immutable releases before publishing this draft")
 
 
 def release_title(manifest):
-    return manifest["title"] + " — " + edition_fields(manifest)["Edition"]
+    return manifest["title"] + " — " + manifest["tag"].rsplit("/", 1)[1]
 
 
 def release_inventory(release, tag, manifest, names, *, draft, notices=(), identifiers=None):
@@ -134,22 +171,20 @@ def verify_remote(repo, release_id, directory, commit, tag, manifest, names, *, 
         raise AssetError("edition attachments changed during verification")
 
 
-def publish_edition(repo, directory, commit, tag, *, issuer_commit):
+def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token=None):
     if not COMMIT.fullmatch(issuer_commit or ""):
         raise AssetError("promotion requires the full issuer commit SHA")
     manifest = verify_edition(directory, commit=commit, tag=tag)
     root = Path(__file__).resolve().parents[1]
-    require_source_check(repo, commit)
-    if issuer_commit != commit:
-        require_source_check(repo, issuer_commit)
+    for sha in dict.fromkeys([commit, manifest["builder_commit"], issuer_commit]):
+        require_source_check(repo, sha)
     resolved = tag_commit(repo, tag)
     if resolved is not None and resolved != commit:
         raise AssetError("edition tag points at a different commit")
     matches = [release for release in release_records(repo) if release["tag_name"] == tag]
     if len(matches) > 1:
         raise AssetError("multiple releases use the edition tag")
-    fields = edition_fields(manifest)
-    names = [fields["Canonical artifact"], fields["Provenance"], fields["Checksums"]]
+    names = [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]
     release = matches[0] if matches else None
     record = check_issuance(root, directory, manifest, pending=release is None or release["draft"],
                             published_at=release.get("published_at") if release else None)
@@ -178,6 +213,7 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit):
                           expected_inventory=inventory)
         gh("release", "upload", tag, *missing, "--repo", repo)
     verify_remote(repo, release_id, directory, commit, tag, manifest, names, draft=True)
+    require_immutable_releases(repo, policy_token)
     require_current_issuer()
     # Publishing materializes a fresh tag from target_commitish. Bind both the
     # release ID and the target in this request, then check the public result.
@@ -192,7 +228,7 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit):
         except (OSError, ValueError, KeyError, TypeError) as exc:
             raise AssetError(f"publication outcome unknown for release {release_id}: {exc}") from request_error
         if state.get("draft") is True:
-            raise AssetError(f"release {release_id} remains a draft after failed promotion") from request_error
+            raise AssetError(f"release {release_id} remains a draft after failed promotion: {request_error}") from request_error
     try:
         verify_remote(repo, release_id, directory, commit, tag, manifest, names, draft=False)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
@@ -211,7 +247,9 @@ def main():
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
         parser.error("invalid repository")
     try:
-        publish_edition(args.repo, args.directory, args.commit, args.tag, issuer_commit=args.issuer_commit)
+        policy_token = os.environ.pop("PRESS_POLICY_READ_TOKEN", None)
+        publish_edition(args.repo, args.directory, args.commit, args.tag, issuer_commit=args.issuer_commit,
+                        policy_token=policy_token)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

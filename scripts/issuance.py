@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from asset_policy import AssetError
-from editorial_notices import release_notes
+from editorial_notices import reviewed_initial_body
 from identifier_schema import REGISTRY_SCHEMAS, TAG, strict_json, valid_utc
 from verify_edition import verify_edition
 
@@ -24,7 +24,7 @@ def authorization(directory: Path, manifest: dict) -> dict:
         "record_url": manifest["record_url"],
         "canonical_artifact": manifest["canonical_artifact"], "rights": manifest["rights"],
         "artifact_sha256": manifest["html_sha256"], "source_commit": manifest["source_commit"],
-        "initial_notes_sha256": hashlib.sha256(release_notes(manifest).encode("utf-8")).hexdigest(),
+        "initial_notes_sha256": hashlib.sha256(reviewed_initial_body(manifest).encode("utf-8")).hexdigest(),
         "provenance_sha256": hashlib.sha256((directory / "provenance.json").read_bytes()).hexdigest(),
     }
 
@@ -70,6 +70,8 @@ def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=
 def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> dict:
     """Produce a commit-ready receipt only after verifying this exact public edition."""
     from audit_assets import verify_public_release
+    from editorial_notices import edition_notices
+    from reader_routes import verify_reader_routes
     from publish_edition import api
 
     tag = manifest["tag"]
@@ -79,6 +81,8 @@ def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> di
     verify_public_release(repo, release, root=root)
     timestamp = release["published_at"]
     record = check_issuance(root, directory, manifest, published_at=timestamp)
+    verify_reader_routes(manifest, repo, notices=edition_notices(root, tag),
+                         identifiers=record.get("identifiers"), published_at=timestamp)
     return {**record, "published_at": timestamp}
 
 

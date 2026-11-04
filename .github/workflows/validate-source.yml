@@ -34,16 +34,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: .venv/bin/python scripts/check_profile_history.py
 
-      - name: Check issued edition records and notice history
+      - name: Verify editorial history against the event base
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          args=()
-          if [[ -n "$BASE_SHA" && "$BASE_SHA" != 0000000000000000000000000000000000000000 ]]; then
-            args+=(--base "$BASE_SHA")
+          if [[ "$GITHUB_EVENT_NAME" != pull_request && ( "$GITHUB_EVENT_NAME" != push || "$GITHUB_REF" != refs/heads/main ) ]]; then
+            BASE_SHA=$(git merge-base HEAD refs/remotes/origin/main)
           fi
-          .venv/bin/python scripts/check_editorial_history.py --repo "$GITHUB_REPOSITORY" "${args[@]}"
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ || "$BASE_SHA" == 0000000000000000000000000000000000000000 ]]; then
+            echo 'A previous commit is required to validate editorial history.' >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor "$BASE_SHA" HEAD
+          .venv/bin/python scripts/check_editorial_history.py --repo "$GITHUB_REPOSITORY" --base "$BASE_SHA"
 
       - name: Run executable tests
         run: make test

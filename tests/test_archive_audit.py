@@ -7,7 +7,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from audit_assets import audit, main, verify_public_release
-from publish_edition import edition_fields
+from editorial_notices import render_initial_body
 
 
 class ArchiveAuditTests(unittest.TestCase):
@@ -15,13 +15,15 @@ class ArchiveAuditTests(unittest.TestCase):
         self.root = Path(__file__).resolve().parents[1]
         manifest = {"title": "Sample", "tag": "works/sample/v1.0.0", "source_commit": "a" * 40,
                     "rights": "all-rights-reserved", "canonical_artifact": "sample-v1.0.0.html",
-                    "assets": []}
+                    "assets": [], "record_url": "https://press.example.org/works/sample/v1.0.0"}
+        manifest["initial_release_body"] = render_initial_body(manifest)
         names = [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]
         self.record_path = Path("registrations/editions/sample/v1.0.0.json")
         self.release = {"tag_name": manifest["tag"], "name": "Sample — v1.0.0", "immutable": True, "draft": False, "prerelease": False, "published_at": "2026-11-04T13:00:00Z",
-                        "body": "\n".join(f"{k}: {v}" for k, v in edition_fields(manifest).items()),
+                        "body": manifest["initial_release_body"],
                         "assets": [{"name": name, "id": i, "state": "uploaded"}
                                    for i, name in enumerate(names, 1)]}
+        self.reader_check = self.enterContext(patch("audit_assets.verify_reader_routes"))
         for name, result in (("release_records", [self.release]), ("gh", ""),
                              ("verify_edition", manifest), ("tag_commit", manifest["source_commit"]),
                              ("git_sources", [self.record_path]), ("check_issuance", {}),
@@ -50,6 +52,7 @@ class ArchiveAuditTests(unittest.TestCase):
             self.assertEqual(0, main())
             api.assert_called_once_with("owner/press", "releases/123")
             releases.assert_not_called()
+            self.reader_check.assert_called_once()
 
     def test_explicit_verification_rejects_draft_and_prerelease(self):
         for state in ("draft", "prerelease"):
@@ -85,14 +88,14 @@ class ArchiveAuditTests(unittest.TestCase):
         with patch("audit_assets.edition_notices", return_value=notices):
             with self.assertRaisesRegex(AssetError, "release notes differ"):
                 audit(self.root, "owner/press")
-            self.release["body"] += "\n\n## Editorial notices\n\n" + notices[0]
+            self.release["body"] = "## Editorial notices\n\n" + notices[0] + "\n\n" + self.release["body"]
             audit(self.root, "owner/press")
 
     def test_public_audit_requires_registered_identifiers_in_body(self):
         with patch("audit_assets.check_issuance", return_value={"identifiers": {"oclc": "42"}}):
             with self.assertRaisesRegex(AssetError, "release notes differ"):
                 audit(self.root, "owner/press")
-            self.release["body"] += "\n\n## Edition identifiers\n\n- OCLC number: `42`"
+            self.release["body"] = "## Edition identifiers\n\n- OCLC number: `42`\n\n" + self.release["body"]
             audit(self.root, "owner/press")
 
     def test_public_audit_requires_completed_receipt(self):

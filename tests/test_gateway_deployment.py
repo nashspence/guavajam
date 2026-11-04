@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from asset_policy import AssetError
+from asset_policy import AssetError, MAX_HTML_BYTES
 from deploy_asset_gateway import deploy
 from deploy_record_gateway import deploy as deploy_records, target_base
 from identifier_schema import TAG
@@ -74,7 +74,7 @@ class RecordDeploymentTests(unittest.TestCase):
                 deploy_records(self.root, apply=True)
             bindings = {b['name']: b['text'] for b in upload.call_args.args[-1]}
             self.assertEqual(bindings, {'RECORD_HOST': 'press.publisher.test', 'RECORD_TARGET_BASE': target,
-                                        'RECORD_TAG_PATTERN': TAG.pattern})
+                                        'RECORD_TAG_PATTERN': TAG.pattern, 'MAX_HTML_BYTES': str(MAX_HTML_BYTES)})
             self.assertEqual(request.call_args_list[0].args[1], 'domains?hostname=press.publisher.test')
             domain = json.loads(request.call_args.kwargs['body'])
             self.assertEqual(domain['hostname'], 'press.publisher.test')

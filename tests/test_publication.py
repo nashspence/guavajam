@@ -1,13 +1,17 @@
 """Pre-publication gate and per-push asset verification tests; never publish."""
 import json
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+
 import test_assets as fixtures
 from asset_policy import AssetError
+from editorial_notices import render_initial_body
 from publish_edition import gh, release_records, require_source_check, publish_edition
 from verify_source_assets import verify_source_assets
 
@@ -41,7 +45,10 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.output = Path(temp.name)
         manifest = {"title": "Test", "rights": "Reserved", "tag": self.tag,
+                    "record_url": "https://press.test/" + self.tag, "builder_commit": self.commit,
                     "source_commit": self.commit, "canonical_artifact": "sample-v1.0.0.html"}
+        manifest["initial_release_body"] = render_initial_body(manifest)
+        self.policy_enabled = True
         for name in [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]:
             (self.output / name).write_text(name)
         for name, options in [("verify_edition", {"return_value": manifest}),
@@ -52,8 +59,12 @@ class PublicationLifecycleTests(unittest.TestCase):
             setattr(self, name, mock.start())
             self.addCleanup(mock.stop)
 
-    def fake_gh(self, *args):
+    def fake_gh(self, *args, token=None):
         self.operations.append(args)
+        if args == ("api", "repos/owner/press/immutable-releases"):
+            self.assertEqual("read-settings", token)
+            return json.dumps({"enabled": self.policy_enabled})
+        self.assertIsNone(token)
         if args[:2] == ("api", "--paginate"):
             return json.dumps([self.release] if self.release else [])
         if args[:3] == ("api", "--method", "POST"):
@@ -82,9 +93,9 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.fail(f"unexpected gh request {args}")
         return json.dumps(self.release)
 
-    def publish(self, issuer=None):
+    def publish(self, issuer=None, policy_token="read-settings"):
         return publish_edition("owner/press", self.output, self.commit, self.tag,
-                               issuer_commit=issuer or self.commit)
+                               issuer_commit=issuer or self.commit, policy_token=policy_token)
 
     def existing_draft(self):
         """Seed an already-uploaded draft left by an interrupted promotion."""
@@ -106,7 +117,8 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.assertEqual(3, sum(args[:2] == ("release", "download") for args in operations))
 
     def test_initial_notes_and_issuance_are_required_before_any_publish(self):
-        self.verify_edition.return_value["initial_notes"] = "Plate I used by permission.\n"
+        manifest = self.verify_edition.return_value
+        manifest["initial_release_body"] = render_initial_body(manifest, "Plate I used by permission.\n")
         self.existing_draft()
         self.assertTrue(self.release["body"].endswith("\n\nPlate I used by permission."))
         with patch.dict(self.release, {"body": self.release["body"].replace("used by permission", "is public domain")}):
@@ -145,13 +157,14 @@ class PublicationLifecycleTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, "release notes differ"):
             self.publish()
         self.release["body"] = release_notes(self.verify_edition.return_value, identifiers=identifiers)
-        self.assertEqual(initial + "\n\n## Edition identifiers\n\n- OCLC number: `1234`"
-                         "\n- Edition DOI: `10.1234/x_(a);42`", self.release["body"])
+        self.assertEqual("## Edition identifiers\n\n- OCLC number: `1234`"
+                         "\n- Edition DOI: `10.1234/x_(a);42`\n\n" + initial, self.release["body"])
         self.publish()
         self.assertEqual(initial, release_notes(self.verify_edition.return_value))
 
     def test_promotion_sends_reviewed_initial_prose(self):
-        self.verify_edition.return_value["initial_notes"] = "Plate I © Artist.\n\nUsed by permission.\n"
+        manifest = self.verify_edition.return_value
+        manifest["initial_release_body"] = render_initial_body(manifest, "Plate I © Artist.\n\nUsed by permission.\n")
         self.existing_draft()
         approved = self.release["body"]
         self.publish()
@@ -161,8 +174,8 @@ class PublicationLifecycleTests(unittest.TestCase):
 
     def test_uncertain_promotion_recovers_without_a_second_write(self):
         self.existing_draft()
-        def lose_response(*args):
-            result = self.fake_gh(*args)
+        def lose_response(*args, **kwargs):
+            result = self.fake_gh(*args, **kwargs)
             if "PATCH" in args:
                 raise AssetError("connection closed")
             return result
@@ -177,13 +190,24 @@ class PublicationLifecycleTests(unittest.TestCase):
 
     def test_uncertain_promotion_still_draft(self):
         self.existing_draft()
-        def never_applied(*args):
+        def never_applied(*args, **kwargs):
             if "PATCH" in args:
                 raise AssetError("connection closed")
-            return self.fake_gh(*args)
+            return self.fake_gh(*args, **kwargs)
         self.gh.side_effect = never_applied
         with self.assertRaisesRegex(AssetError, "remains a draft"):
             self.publish()
+
+    def test_denied_promotion_reports_http_status_without_repeating_the_write(self):
+        self.existing_draft()
+        def denied(*args, **kwargs):
+            if "PATCH" in args:
+                raise AssetError("gh api PATCH failed (HTTP 403)")
+            return self.fake_gh(*args, **kwargs)
+        self.gh.side_effect = denied
+        with self.assertRaisesRegex(AssetError, r"remains a draft.*HTTP 403"):
+            self.publish()
+        self.assertTrue(self.release["draft"])
 
     def test_interrupted_promotion_completes_matching_draft_without_overwriting(self):
         self.existing_draft()
@@ -218,6 +242,22 @@ class PublicationLifecycleTests(unittest.TestCase):
                 with self.assertRaisesRegex(AssetError, message):
                     self.publish()
 
+    def test_unconfirmed_immutability_leaves_release_in_draft(self):
+        self.existing_draft()
+        self.policy_enabled = False
+        for token, error in [(None, "PRESS_POLICY_READ_TOKEN"), ("read-settings", "enable immutable releases")]:
+            with self.subTest(token=token), self.assertRaisesRegex(AssetError, error):
+                self.publish(policy_token=token)
+        def denied_policy(*args, **kwargs):
+            if args[-1].endswith("/immutable-releases"):
+                raise AssetError("gh api failed (HTTP 404)")
+            return self.fake_gh(*args, **kwargs)
+        self.gh.side_effect = denied_policy
+        with self.assertRaisesRegex(AssetError, "cannot confirm repository release immutability"):
+            self.publish()
+        self.assertTrue(self.release["draft"])
+        self.assertFalse(any("PATCH" in args for args in self.operations))
+
     def test_promotion_requires_full_issuer_sha(self):
         for issuer in [None, "main"]:
             with self.subTest(issuer=issuer), self.assertRaisesRegex(AssetError, "full issuer commit"):
@@ -233,8 +273,8 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.assertFalse(any("PATCH" in args for args in self.operations))
 
     def test_main_moves_during_reviewed_byte_readback(self):
-        def move_main(*args):
-            result = self.fake_gh(*args)
+        def move_main(*args, **kwargs):
+            result = self.fake_gh(*args, **kwargs)
             if args[:2] == ("release", "download"):
                 self.main_tip = "b" * 40
             return result
@@ -255,6 +295,14 @@ class PublicationLifecycleTests(unittest.TestCase):
                          [call.args[1:] for call in self.require_source_check.call_args_list])
         self.assertTrue(self.release["draft"])
 
+    def test_historical_staging_builder_must_still_qualify(self):
+        self.verify_edition.return_value["builder_commit"] = "c" * 40
+        self.require_source_check.side_effect = [None, AssetError("unverified builder")]
+        with self.assertRaisesRegex(AssetError, "unverified builder"):
+            self.publish()
+        self.assertEqual("c" * 40, self.require_source_check.call_args.args[1])
+        self.assertIsNone(self.release)
+
     def test_invalid_drafts_cannot_be_promoted(self):
         self.existing_draft()
         for field, value in [("assets", self.release["assets"] + [{"id": 4, "name": "stray.pdf", "state": "uploaded"}]),
@@ -270,8 +318,8 @@ class PublicationLifecycleTests(unittest.TestCase):
 
     def test_draft_changes_during_download_are_rejected(self):
         self.existing_draft()
-        def replace_attachment(*args):
-            result = self.fake_gh(*args)
+        def replace_attachment(*args, **kwargs):
+            result = self.fake_gh(*args, **kwargs)
             if args[:2] == ("release", "download"):
                 self.release["assets"][0]["id"] += 1
             return result
@@ -282,8 +330,8 @@ class PublicationLifecycleTests(unittest.TestCase):
 
     def test_postpublication_readback_reports_public_failure(self):
         self.existing_draft()
-        def corrupt_after_promotion(*args):
-            result = self.fake_gh(*args)
+        def corrupt_after_promotion(*args, **kwargs):
+            result = self.fake_gh(*args, **kwargs)
             if "PATCH" in args:
                 self.remote["SHA256SUMS"] = b"wrong"
             return result
@@ -303,9 +351,48 @@ class PublicationLifecycleTests(unittest.TestCase):
 
 
 class RequiredCheckTests(unittest.TestCase):
-    def checks(self):
-        return [{"id": i + 1, "name": name, "app": {"slug": "github-actions"}, "conclusion": "success"}
-                for i, name in enumerate(["Validate manuscript sources", "Verify manuscript assets"])]
+    def test_policy_app_key_and_token_are_limited_to_protected_publication(self):
+        root = Path(__file__).resolve().parents[1]
+        jobs = yaml.safe_load((root / ".github/workflows/prepare-edition.yml").read_text())["jobs"]
+        release = jobs["release"]
+        self.assertEqual(release["environment"], "press-release")
+        self.assertIn("github.ref == 'refs/heads/main'", release["if"])
+        token_step = next(s for s in release["steps"] if s.get("id") == "policy-token")
+        self.assertRegex(token_step["uses"], r"^actions/create-github-app-token@[a-f0-9]{40}$")
+        inputs = token_step["with"]
+        self.assertEqual(inputs["owner"], "${{ github.repository_owner }}")
+        self.assertEqual(inputs["repositories"], "${{ github.event.repository.name }}")
+        self.assertEqual({k: v for k, v in inputs.items() if k.startswith("permission-")},
+                         {"permission-administration": "read"})
+        self.assertNotEqual(str(inputs.get("skip-token-revoke", "false")).lower(), "true")
+        promotion = next(s for s in release["steps"] if "PRESS_POLICY_READ_TOKEN" in s.get("env", {}))
+        self.assertEqual(promotion["env"]["PRESS_POLICY_READ_TOKEN"], "${{ steps.policy-token.outputs.token }}")
+        self.assertEqual(promotion["env"]["GH_TOKEN"], "${{ github.token }}")
+        for name, job in jobs.items():
+            if name != "release":
+                self.assertNotIn("PRESS_POLICY_APP_PRIVATE_KEY", json.dumps(job))
+
+    def setUp(self):
+        self.commit = "a" * 40
+        self.repo = "owner/press"
+        self.run = {"id": 42, "run_attempt": 2, "path": ".github/workflows/validate-source.yml",
+                    "event": "push", "head_branch": "main", "head_sha": self.commit,
+                    "status": "completed", "conclusion": "success",
+                    "head_repository": {"full_name": self.repo}}
+        self.runs = [self.run]
+        self.jobs = [{"name": "Validate manuscript sources", "conclusion": "success",
+                      "steps": [{"name": "Verify editorial history against the event base", "conclusion": "success"}]},
+                     {"name": "Verify manuscript assets", "conclusion": "success"}]
+        self.api = self.enterContext(patch("publish_edition.api", side_effect=self.lookup))
+
+    def lookup(self, repo, path):
+        self.assertEqual(self.repo, repo)
+        if path == f"compare/{self.commit}...main":
+            return {"status": "ahead"}
+        if path == f"actions/workflows/validate-source.yml/runs?event=push&branch=main&head_sha={self.commit}&per_page=100":
+            return {"total_count": len(self.runs), "workflow_runs": self.runs}
+        self.assertEqual("actions/runs/42/attempts/2/jobs?per_page=100", path)
+        return {"jobs": self.jobs}
 
     def test_gh_errors_report_operation_and_http_status_only(self):
         result = subprocess.CompletedProcess([], 1, "", "gh: private detail (HTTP 403)")
@@ -317,25 +404,89 @@ class RequiredCheckTests(unittest.TestCase):
         with patch("publish_edition.gh", return_value='[{"id":1}]\n[{"id":2}]\n'):
             self.assertEqual([{"id":1},{"id":2}], release_records("owner/press"))
 
-    def test_both_checks_required_at_reviewed_commit(self):
-        checks = self.checks()
-        with patch("publish_edition.api", side_effect=[{"status": "ahead"}, {"check_runs": checks}]):
-            require_source_check("owner/press", "a" * 40)
-        with patch("publish_edition.api", side_effect=[{"status": "ahead"}, {"check_runs": checks[:1]}]):
-            with self.assertRaisesRegex(AssetError, "Verify manuscript assets"):
-                require_source_check("owner/press", "a" * 40)
+    def test_both_jobs_and_history_step_required_in_latest_attempt(self):
+        require_source_check(self.repo, self.commit)
+        self.jobs[0]["steps"][0]["conclusion"] = "skipped"
+        with self.assertRaisesRegex(AssetError, "previous tip"):
+            require_source_check(self.repo, self.commit)
+        self.jobs[0]["steps"][0]["conclusion"] = "success"
+        self.jobs.pop()
+        with self.assertRaisesRegex(AssetError, "re-run all jobs"):
+            require_source_check(self.repo, self.commit)
 
-    def test_latest_failed_check_cannot_use_older_success(self):
-        checks = self.checks()
-        checks.append({**checks[1], "id": 99, "conclusion": "failure"})
-        with patch("publish_edition.api", side_effect=[{"status": "identical"}, {"check_runs": checks}]):
-            with self.assertRaises(AssetError):
-                require_source_check("owner/press", "a" * 40)
+    def test_other_workflow_branch_or_event_cannot_authorize_edition(self):
+        for field, value in [("head_branch", "topic"), ("head_sha", "b" * 40),
+                             ("head_repository", {"full_name": "fork/press"}), ("event", "workflow_dispatch"),
+                             ("path", ".github/workflows/other.yml"), ("event", "pull_request")]:
+            with self.subTest(field=field), patch.dict(self.run, {field: value}), self.assertRaises(AssetError):
+                require_source_check(self.repo, self.commit)
+        self.runs.clear()
+        with self.assertRaises(AssetError):
+            require_source_check(self.repo, self.commit)
+
+    def test_newer_failed_or_incomplete_attempt_cannot_use_older_success(self):
+        for conclusion in ["failure", None]:
+            with self.subTest(conclusion=conclusion):
+                self.runs[:] = [{**self.run, "id": 100, "conclusion": conclusion}, self.run]
+                with self.assertRaisesRegex(AssetError, "latest main push"):
+                    require_source_check(self.repo, self.commit)
+
+    def test_sync_can_wait_for_the_exact_push_run_to_appear_and_finish(self):
+        self.runs.clear()
+        def advance(_):
+            if not self.runs:
+                self.runs.append({**self.run, "status": "in_progress", "conclusion": None})
+            else:
+                self.runs[:] = [self.run]
+        with patch("publish_edition.time.sleep", side_effect=advance) as sleep:
+            require_source_check(self.repo, self.commit, wait_seconds=600)
+        self.assertEqual(2, sleep.call_count)
+
+    def test_sync_wait_is_bounded_and_never_retries_terminal_or_untrusted_runs(self):
+        self.run.update(status="queued", conclusion=None)
+        with patch("publish_edition.time.monotonic", side_effect=[100, 103, 106]), patch("publish_edition.time.sleep") as sleep:
+            with self.assertRaisesRegex(AssetError, "expected completed"):
+                require_source_check(self.repo, self.commit, wait_seconds=5)
+            sleep.assert_called_once_with(2)
+        for update in [{"status": "completed", "conclusion": "failure"}, {"status": "queued", "head_branch": "topic"}]:
+            with self.subTest(update=update), patch.dict(self.run, update), patch("publish_edition.time.sleep") as sleep:
+                with self.assertRaises(AssetError):
+                    require_source_check(self.repo, self.commit, wait_seconds=600)
+                sleep.assert_not_called()
 
     def test_commit_must_belong_to_main(self):
         with patch("publish_edition.api", return_value={"status": "diverged"}):
             with self.assertRaises(AssetError):
                 require_source_check("owner/press", "a" * 40)
+
+    def test_workflow_requires_main_push_baseline_and_compares_new_branches_with_main(self):
+        root = Path(__file__).resolve().parents[1]
+        steps = yaml.safe_load((root / ".github/workflows/validate-source.yml").read_text())["jobs"]["source"]["steps"]
+        name = self.jobs[0]["steps"][0]["name"]
+        script = next(step["run"] for step in steps if step.get("name") == name)
+        with tempfile.TemporaryDirectory() as tmp:
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=tmp, text=True).strip()
+
+            git("init", "-q", "-b", "main")
+            git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.com",
+                "commit", "-q", "--allow-empty", "-m", "initial")
+            tip = git("rev-parse", "HEAD")
+            git("update-ref", "refs/remotes/origin/main", tip)
+            # Capture the history verifier's actual arguments after the workflow selects its base.
+            verifier = Path(tmp) / ".venv/bin/python"
+            verifier.parent.mkdir(parents=True)
+            verifier.write_text('#!/bin/sh\necho "$@"\n')
+            verifier.chmod(0o755)
+            env = {**os.environ, "GITHUB_EVENT_NAME": "push", "GITHUB_REPOSITORY": self.repo}
+            for branch, before, succeeds in [("main", "", False), ("main", "0" * 40, False),
+                                              ("topic", "0" * 40, True)]:
+                with self.subTest(branch=branch, before=before):
+                    result = subprocess.run(["bash", "-e", "-c", script], cwd=tmp, capture_output=True, text=True,
+                                            env={**env, "BASE_SHA": before, "GITHUB_REF": "refs/heads/" + branch})
+                    self.assertEqual(succeeds, result.returncode == 0)
+                    if succeeds:
+                        self.assertIn("--base " + tip, result.stdout)
 
 
 def load_tests(loader, tests, pattern):

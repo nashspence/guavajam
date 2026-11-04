@@ -21,6 +21,7 @@ from urllib.parse import unquote, urlsplit
 
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_asset,
                           check_html_size, load_policy, verify_bytes)
+from editorial_notices import render_initial_body
 from identifier_schema import TAG, edition_record_url
 from validate_sources import parse_document, plain_text, validate_repository, walk
 
@@ -192,8 +193,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         if rights_statement:
             manifest["rights_statement"] = rights_statement
         notes = manuscript.parent / "editions" / (version + ".md")
-        if notes in paths:
-            manifest["initial_notes"] = (root / notes).read_bytes().decode("utf-8")
+        prose = (root / notes).read_text(encoding="utf-8") if notes in paths else None
+        manifest["initial_release_body"] = render_initial_body(manifest, prose)
         packaged = temp / "packaged"
         packaged.mkdir()
         (packaged / filename).write_bytes(raw_html)

@@ -28,7 +28,7 @@ on:
 
 permissions:
   contents: read
-  checks: read
+  actions: read
 
 jobs:
   build:
@@ -174,7 +174,6 @@ jobs:
     permissions:
       actions: read
       contents: write
-      checks: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -201,17 +200,32 @@ jobs:
           command=download
           if [[ "$REBUILD" == true ]]; then command=verify; fi
           python scripts/reviewed_artifact.py "$command" "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
-      - name: Publish the authorized edition
+      - name: Check the staged presentation profile
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/check_profile_history.py --candidate dist/edition/provenance.json
+      - name: Create a repository-scoped read-only policy token
+        id: policy-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.PRESS_POLICY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PRESS_POLICY_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-administration: read
+      - name: Promote the verified draft with a live immutability check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRESS_POLICY_READ_TOKEN: ${{ steps.policy-token.outputs.token }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           EDITION_TAG: ${{ inputs.edition_tag }}
         run: |
-          python scripts/check_profile_history.py --candidate dist/edition/provenance.json
           python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA"
       - name: Prepare the verified publication receipt
         env:
           GH_TOKEN: ${{ github.token }}
+          RECORD_TARGET: ${{ vars.RECORD_TARGET }}
         run: |
           mkdir -p dist/receipt
           python scripts/issuance.py receipt dist/edition > dist/receipt/registration.json

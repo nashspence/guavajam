@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image build verify authorization receipt release-notes gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image build verify check-reader authorization receipt release-notes gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
-export FILE DIR TAG REGISTRATION RECORD_TARGET RECORD_WORKER
+export FILE DIR TAG REGISTRATION ARCHIVE_ROOT RECORD_TARGET RECORD_WORKER
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -37,6 +37,11 @@ verify: ## DIR=path/to/edition [REGISTRATION=trusted.json]  Verify the package a
 
 authorization: ## DIR=path/to/edition  Print the registration for a reviewed staging package.
 	@$(PYTHON) scripts/issuance.py prepare -- "$${DIR:?Set DIR to the edition directory}"
+
+check-reader: ## DIR=edition REGISTRATION=receipt.json ARCHIVE_ROOT=archive [RECORD_TARGET=https://archive/base]  Verify the public record and reading copy against the saved edition, receipt and notices.
+	@$(PYTHON) scripts/audit_assets.py --reader "$${DIR:?Set DIR to the edition directory}" \
+		--registration "$${REGISTRATION:?Set REGISTRATION to the trusted receipt}" \
+		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}"
 
 receipt: ## DIR=path/to/edition  Read back the public release and print its verified registration with timestamp.
 	@$(PYTHON) scripts/issuance.py receipt -- "$${DIR:?Set DIR to the edition directory}"

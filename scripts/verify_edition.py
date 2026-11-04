@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
-from editorial_notices import release_notes
+from editorial_notices import check_rights_statement, reviewed_initial_body
 from identifier_schema import valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
@@ -36,6 +36,7 @@ class EditionHTML(html.parser.HTMLParser):
         self.ids = set()
         self.fragment_links = []
         self.record_links = []
+        self.read_links = []
         self.in_footer = False
         self.in_rights = False
         self.rights_text = None
@@ -99,6 +100,8 @@ class EditionHTML(html.parser.HTMLParser):
             target = attributes["href"] or ""
             if identifier == "press-edition-record":
                 self.record_links.append(target)
+            if identifier == "press-edition-read":
+                self.read_links.append(target)
             if target.startswith("#"):
                 if target[1:]:
                     self.fragment_links.append(unquote(target[1:]))
@@ -154,8 +157,10 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "press.edition.v1":
         raise AssetError("unsupported edition provenance schema")
-    if "initial_notes" in manifest or "rights_statement" in manifest:
-        release_notes(manifest)  # Validate the exact initial body before accepting the package.
+    if "record_url" in manifest or "initial_release_body" in manifest:
+        reviewed_initial_body(manifest)
+    if "rights_statement" in manifest:
+        check_rights_statement(manifest["rights_statement"])
     source_commit = manifest.get("source_commit", "")
     edition_tag = manifest.get("tag", "")
     tag_match = TAG.fullmatch(edition_tag)
@@ -196,6 +201,8 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         if (not valid_record_url(manifest.get("record_url"), edition_tag)
                 or parser.record_links != [manifest["record_url"]]):
             raise AssetError("edition record link differs from its permanent address in provenance")
+    if "initial_release_body" in manifest and parser.read_links != [manifest["record_url"] + "/read"]:
+        raise AssetError("edition reading link differs from its permanent address in provenance")
     if (not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
             or manifest.get("template_path") != template_path
             or manifest.get("stylesheet_path") != stylesheet_path
