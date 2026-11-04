@@ -78,6 +78,18 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Prepare the registration and release notes for editorial review
+        run: |
+          mkdir -p dist/review
+          python scripts/issuance.py prepare dist/edition > dist/review/authorization.json
+          python scripts/editorial_notices.py --initial dist/edition > dist/review/release-notes.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: edition-review
+          path: dist/review/
+          if-no-files-found: error
+          retention-days: 90
+
   release:
     needs: build
     if: >-

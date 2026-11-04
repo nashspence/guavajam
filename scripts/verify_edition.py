@@ -12,7 +12,8 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
-from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, verify_bytes
+from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
+from editorial_notices import release_notes
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 
@@ -127,6 +128,8 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "press.edition.v1":
         raise AssetError("unsupported edition provenance schema")
+    if "initial_notes" in manifest:
+        release_notes(manifest)  # Validate the exact initial body before accepting the package.
     source_commit = manifest.get("source_commit", "")
     edition_tag = manifest.get("tag", "")
     tag_match = TAG.fullmatch(edition_tag)
@@ -142,6 +145,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         raise AssetError("edition must contain exactly HTML, provenance.json and SHA256SUMS")
     if any((directory / name).is_symlink() or not (directory / name).is_file() for name in names):
         raise AssetError("edition files must be regular files")
+    check_html_size((directory / filename).stat().st_size)
     checksums = "".join(hashlib.sha256((directory / name).read_bytes()).hexdigest() + "  " + name + "\n"
                         for name in [filename, "provenance.json"])
     if (directory / "SHA256SUMS").read_text(encoding="ascii") != checksums:

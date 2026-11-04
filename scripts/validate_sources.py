@@ -17,8 +17,10 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from identifier_schema import RIGHTS, SLUG, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
+from editorial_notices import check_initial_notes
+from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
 from asset_policy import AssetError, load_policy, svg_errors
+from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -243,28 +245,6 @@ def walk(value):
             yield from walk(child)
 
 
-def plain_text(value) -> str:
-    bits: list[str] = []
-    def visit(node):
-        if isinstance(node, dict):
-            token = node.get("t")
-            if token == "Str":
-                bits.append(node["c"])
-            elif token in ("Space", "SoftBreak", "LineBreak"):
-                bits.append(" ")
-            elif token == "Code":
-                bits.append(node["c"][1])
-            elif token == "Math":
-                bits.append(node["c"][1])
-            else:
-                visit(node.get("c", []))
-        elif isinstance(node, list):
-            for sub in node:
-                visit(sub)
-    visit(value)
-    return "".join(bits).strip()
-
-
 def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
     result = subprocess.run(["pandoc", "--fail-if-warnings", "--from", FORMAT, "--to", "json", str(path)],
                             capture_output=True, text=True, check=False)
@@ -283,8 +263,16 @@ class HtmlCheck(html.parser.HTMLParser):
         self.math = 0
         self.scripts = 0
         self.bad_imgs = 0
+        self.ids = set()
+        self.duplicate_ids = set()
+
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        identifier = attributes.get("id")
+        if identifier:
+            if identifier in self.ids:
+                self.duplicate_ids.add(identifier)
+            self.ids.add(identifier)
         if tag == "h1":
             self.h1 += 1
         if tag == "math":
@@ -295,16 +283,22 @@ class HtmlCheck(html.parser.HTMLParser):
             self.bad_imgs += 1
 
 
-def render_html(path: Path, relative: Path, expected_math: int, manuscript: bool) -> list[str]:
-    # YAML title metadata can add a second visible H1 in Pandoc's default
-    # standalone template. Suppress only that extra title block for manuscripts;
-    # ordinary Markdown documents still need a deterministic HTML <title>.
-    title_args = ["--variable=title:"] if manuscript else ["--metadata=pagetitle:Press"]
+def render_html(ast: dict, relative: Path, expected_math: int, manuscript: bool) -> tuple[set[str], list[str]]:
+    if manuscript:
+        try:
+            prepare_presentation_ast(ast)
+        except AssetError as exc:
+            return set(), [issue(relative, str(exc))]
+        # Use the edition shell so its own IDs and Pandoc-generated footnotes are counted.
+        template = Path(__file__).resolve().parents[1] / TEMPLATE_PATH
+        args = ["--template=" + str(template)]
+    else:
+        args = ["--metadata=pagetitle:Press"]
     result = subprocess.run([
-        "pandoc", "--fail-if-warnings", "--from", FORMAT, "--to", "html5", "--standalone",
-        "--mathml", *title_args, str(path)], capture_output=True, text=True, check=False)
+        "pandoc", "--fail-if-warnings", "--from=json", "--to=html5", "--standalone",
+        "--mathml", *args], input=json.dumps(ast), capture_output=True, text=True, check=False)
     if result.returncode:
-        return [issue(relative, "Pandoc HTML5/MathML render failed or warned: " + result.stderr.strip())]
+        return set(), [issue(relative, "Pandoc HTML5/MathML render failed or warned: " + result.stderr.strip())]
     parser = HtmlCheck()
     parser.feed(result.stdout)
     errors = []
@@ -316,7 +310,9 @@ def render_html(path: Path, relative: Path, expected_math: int, manuscript: bool
         errors.append(issue(relative, "rendered HTML contains image without alt text"))
     if manuscript and parser.math != expected_math:
         errors.append(issue(relative, f"rendered MathML count {parser.math} differs from source math count {expected_math}"))
-    return errors
+    if manuscript and parser.duplicate_ids:
+        errors.append(issue(relative, "duplicate published HTML IDs: " + ", ".join(sorted(parser.duplicate_ids))))
+    return parser.ids, errors
 
 
 def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str, int, list[str]]:
@@ -547,7 +543,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
     bodies: dict[Path, tuple[str, int]] = {}
     asts: dict[Path, dict] = {}
     ids: dict[Path, set[str]] = {}
-    expected_math: dict[Path, int] = {}
+    published_ids: dict[Path, set[str]] = {}
     manuscripts: set[Path] = set()
 
     try:
@@ -561,6 +557,8 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         return [f"Pandoc version mismatch: expected {expected}, got {version.stdout.splitlines()[0]}"]
 
     for rel in sorted(paths):
+        edition_notes = (len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
+                         and rel.suffix == ".md" and VERSION.fullmatch(rel.stem))
         if rel.parts and rel.parts[0] == "works":
             if len(rel.parts) == 2 and rel.name == "README.md":
                 pass
@@ -569,7 +567,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                     errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
                 allowed_root = len(rel.parts) == 3 and rel.parts[2] in {"README.md", "manuscript.md"}
                 allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
-                if not (allowed_root or allowed_asset):
+                if not (allowed_root or allowed_asset or edition_notes):
                     errors.append(issue(rel, "unsupported file path under works/ (requires policy change)"))
             else:
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
@@ -583,8 +581,14 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         errors.extend(e)
         if source is None:
             continue
+        if edition_notes:
+            try:
+                check_initial_notes(source)
+            except AssetError as exc:
+                errors.append(issue(rel, str(exc)))
         manuscript = len(rel.parts) == 3 and rel.parts[0] == "works" and rel.name == "manuscript.md"
         info = None
+        expected_math = 0
         if manuscript:
             manuscripts.add(rel)
             slug = rel.parts[1]
@@ -626,8 +630,6 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             for (number, level, _), node in zip(info["headings"], headers):
                 if node["c"][0] != level:
                     errors.append(issue(rel, "heading levels differ between source and AST", number))
-            if set(headings) & explicit:
-                errors.append(issue(rel, "explicit stable anchors collide with rendered header IDs"))
             if rel in front_matters:
                 front = front_matters[rel]
                 title = plain_text(headers[0]["c"][2]) if headers else ""
@@ -652,8 +654,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             found_notes = sum(1 for node in walk(ast.get("blocks", [])) if node["t"] == "Note")
             if found_notes != info["footnote_refs"]:
                 errors.append(issue(rel, "footnote markers did not parse as expected"))
-            expected_math[rel] = len(maths)
-        errors.extend(render_html(path, rel, expected_math.get(rel, 0), manuscript))
+            expected_math = len(maths)
+        rendered_ids, render_errors = render_html(ast, rel, expected_math, manuscript)
+        if manuscript:
+            published_ids[rel] = rendered_ids
+        errors.extend(render_errors)
 
     for rel, ast in asts.items():
         manuscript = rel in manuscripts
@@ -708,7 +713,10 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if kind == "Image" and manuscript:
                 if len(dest_rel.parts) < 4 or dest_rel.parts[:3] != ("works", rel.parts[1], "assets"):
                     errors.append(issue(rel, f"manuscript images must be under works/{rel.parts[1]}/assets/: {target}"))
-            if parsed.fragment and dest_rel in asts and unquote(parsed.fragment) not in ids.get(dest_rel, set()):
+            # Links within a manuscript must survive publication. Repository documents
+            # link to Markdown previews, which also expose Pandoc’s generated heading slugs.
+            targets = published_ids if manuscript else ids
+            if parsed.fragment and dest_rel in asts and unquote(parsed.fragment) not in targets.get(dest_rel, set()):
                 errors.append(issue(rel, f"unresolved Markdown section link: {target}"))
             if parsed.fragment and dest_rel.suffix.lower() in SOURCE_EXTENSIONS and dest_rel not in asts:
                 errors.append(issue(rel, f"cannot validate fragment in unparsable Markdown: {target}"))

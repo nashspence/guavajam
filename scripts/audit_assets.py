@@ -8,12 +8,16 @@ from pathlib import Path
 
 from asset_policy import AssetError, fetch_asset, load_policy
 from identifier_schema import TAG
-from publish_edition import api, edition_fields, gh, release_inventory, release_records, tag_commit
+from editorial_notices import edition_notices
+from issuance import check_issuance, read_registration
+from publish_edition import api, gh, release_inventory, release_records, tag_commit
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
 
 
-def verify_public_release(repo, release):
+def verify_public_release(repo, release, *, root=None, require_receipt=False):
+    if root is None:
+        root = Path(__file__).resolve().parents[1]
     if release["draft"] or release["prerelease"]:
         raise AssetError("expected a published official edition")
     tag = release["tag_name"]
@@ -26,11 +30,14 @@ def verify_public_release(repo, release):
         for name in names:
             gh("release", "download", tag, "--repo", repo, "--pattern", name, "--dir", temp)
         manifest = verify_edition(Path(temp), tag=tag)
-        inventory = release_inventory(release, tag, edition_fields(manifest), names, draft=False)
+        inventory = release_inventory(release, tag, manifest, names, draft=False,
+                                      notices=edition_notices(root, tag))
         if set(inventory) != set(names):
             raise AssetError("missing release attachments")
         if tag_commit(repo, tag) != manifest["source_commit"]:
             raise AssetError("published edition source differs from release tag")
+        check_issuance(root, Path(temp), manifest, published_at=release["published_at"],
+                       require_receipt=require_receipt)
     return manifest
 
 
@@ -39,7 +46,10 @@ def audit(root, repo):
     urls = set()
     if policy is None:
         raise AssetError("approved asset origin is required for integrity audit")
-    for path in git_sources(root):
+    paths = git_sources(root)
+    expected = {f"works/{path.parent.name}/{path.stem}": path for path in paths
+                if path.parts[:2] == ("registrations", "editions") and len(path.parts) == 4 and path.suffix == ".json"}
+    for path in paths:
         if path.suffix != ".md":
             continue
         ast, errors = parse_document(root / path, path)
@@ -49,17 +59,28 @@ def audit(root, repo):
             if node.get("t") == "Image" and node["c"][2][0].startswith(policy.origin + "/"):
                 policy.parse(node["c"][2][0])
                 urls.add(node["c"][2][0])
-    count = 0
+    pending = 0
+    seen = set()
     for release in release_records(repo):
+        tag = release["tag_name"]
         if release["draft"] or release["prerelease"]:
             continue
-        manifest = verify_public_release(repo, release)
+        if tag not in expected:
+            raise AssetError(f"{tag}: missing issuance record for public release")
+        if tag in seen:
+            raise AssetError(f"duplicate release for {tag}")
+        seen.add(tag)
+        manifest = verify_public_release(repo, release, root=root, require_receipt=True)
         urls.update(record["source_url"] for record in manifest["assets"]
                     if record["source_kind"] == "https")
-        count += 1
+    for tag in sorted(expected.keys() - seen):
+        if "published_at" in read_registration(root, expected[tag]):
+            raise AssetError(f"missing registered edition: {tag}")
+        pending += 1
+        print(f"Pending publication: {tag}")
     for url in sorted(urls):
         fetch_asset(policy, url)
-    print(f"Integrity verified: {len(urls)} origin assets; {count} independent GitHub editions")
+    print(f"Integrity verified: {len(urls)} origin assets; {len(seen)} independent GitHub editions; {pending} pending")
 
 
 def main():

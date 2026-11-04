@@ -45,7 +45,7 @@ class PublicationLifecycleTests(unittest.TestCase):
         for name in [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]:
             (self.output / name).write_text(name)
         for name, options in [("verify_edition", {"return_value": manifest}),
-                              ("require_source_check", {}),
+                              ("require_source_check", {}), ("check_issuance", {}),
                               ("tag_commit", {"side_effect": lambda *_: self.ref}),
                               ("gh", {"side_effect": self.fake_gh})]:
             mock = patch("publish_edition." + name, **options)
@@ -89,7 +89,6 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.run_stage()
         self.assertIsNone(self.ref)
         self.assertTrue(self.release["draft"])
-        self.release["body"] += "Correction notice: authorized editorial note\n"
         self.operations.clear()
         self.run_stage(publish=True)
         self.assertEqual(self.commit, self.ref)
@@ -97,6 +96,72 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.assertEqual(("api", "repos/owner/press/git/ref/heads/main"), self.operations[promotion - 1])
         for operations in [self.operations[:promotion], self.operations[promotion+1:]]:
             self.assertEqual(3, sum(args[:2] == ("release", "download") for args in operations))
+
+    def test_initial_notes_and_issuance_are_required_before_any_publish(self):
+        self.verify_edition.return_value["initial_notes"] = "Plate I used by permission.\n"
+        self.run_stage()
+        self.assertTrue(self.release["body"].endswith("\n\nPlate I used by permission."))
+        with patch.dict(self.release, {"body": self.release["body"].replace("used by permission", "is public domain")}):
+            with self.assertRaisesRegex(AssetError, "release notes differ"):
+                self.run_stage(publish=True)
+        self.check_issuance.side_effect = AssetError("unapproved")
+        with self.assertRaisesRegex(AssetError, "unapproved"):
+            self.run_stage(publish=True)
+        self.assertFalse(any("PATCH" in args for args in self.operations))
+
+    def test_approved_later_notices_are_checked_on_public_retry(self):
+        from editorial_notices import edition_notices, release_notes
+        self.run_stage()
+        self.run_stage(publish=True)
+        directory = self.output / "notices/sample/v1.0.0"
+        directory.mkdir(parents=True)
+        note = "2026-10-10 Correction: corrected attribution"
+        (directory / "0001.md").write_text(note + "\n")
+        notices = edition_notices(self.output, self.tag)
+        self.assertEqual(["- " + note], notices)
+        with patch("publish_edition.edition_notices", return_value=notices):
+            with self.assertRaisesRegex(AssetError, "release notes differ"):
+                self.run_stage(publish=True)
+            self.release["body"] = release_notes(self.verify_edition.return_value, notices)
+            self.run_stage(publish=True)
+        (directory / "0003.md").write_text(note + "\n")
+        with self.assertRaisesRegex(AssetError, "unexpected notice file"):
+            edition_notices(self.output, self.tag)
+
+    def test_promotion_sends_reviewed_initial_prose(self):
+        self.verify_edition.return_value["initial_notes"] = "Plate I © Artist.\n\nUsed by permission.\n"
+        self.run_stage()
+        approved = self.release["body"]
+        self.run_stage(publish=True)
+        request = next(args for args in self.operations if "PATCH" in args)
+        self.assertIn("body=" + approved, request)
+        self.assertIn("Plate I © Artist.\n\nUsed by permission.", approved)
+
+    def test_uncertain_promotion_recovers_without_a_second_write(self):
+        self.run_stage()
+        def lose_response(*args):
+            result = self.fake_gh(*args)
+            if "PATCH" in args:
+                raise AssetError("connection closed")
+            return result
+        self.gh.side_effect = lose_response
+        self.run_stage(publish=True)
+        self.run_stage(publish=True)
+        self.assertEqual(1, sum("PATCH" in args for args in self.operations))
+        self.assertFalse(self.release["draft"])
+        self.remote["SHA256SUMS"] = b"wrong"
+        with self.assertRaisesRegex(AssetError, "attachments differ"):
+            self.run_stage(publish=True)
+
+    def test_uncertain_promotion_still_draft(self):
+        self.run_stage()
+        def never_applied(*args):
+            if "PATCH" in args:
+                raise AssetError("connection closed")
+            return self.fake_gh(*args)
+        self.gh.side_effect = never_applied
+        with self.assertRaisesRegex(AssetError, "remains a draft"):
+            self.run_stage(publish=True)
 
     def test_promotion_requires_preexisting_complete_draft(self):
         with self.assertRaisesRegex(AssetError, "existing reviewed draft"):

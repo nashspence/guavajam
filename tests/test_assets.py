@@ -112,6 +112,31 @@ class SourceAssetTests(StrictSourceTests):
                 self.assertTrue(self.check(MANUSCRIPT + f"![Structural diagram][fig]\n\n[fig]: {url}\n"))
 
 
+class SourceBudgetTests(unittest.TestCase):
+    def test_each_work_has_a_budget_and_shared_downloads_are_reused(self):
+        from verify_source_assets import verify_source_assets
+
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (root / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
+        raw = [SVG + b" " * i for i in range(3)]
+        urls = [ORIGIN + "/sha256/" + hashlib.sha256(data).hexdigest() + ".svg" for data in raw]
+        content = dict(zip(urls, raw))
+        paths = [Path(f"works/{slug}/manuscript.md") for slug in ("first", "second")]
+        for index, path in enumerate(paths):
+            (root / path.parent).mkdir(parents=True)
+            (root / path).write_text("\n".join(f"![Image]({url})" for url in [urls[0], urls[index + 1]]))
+        fetcher = Mock(side_effect=lambda policy, url: (content[url], "image/svg+xml"))
+        with patch("verify_source_assets.git_sources", return_value=paths), \
+             patch("verify_source_assets.MAX_ASSETS", 2), \
+             patch("verify_source_assets.MAX_TOTAL_BYTES", max(map(len, raw)) * 2):
+            self.assertEqual(3, verify_source_assets(root, fetcher=fetcher))
+            self.assertEqual(fetcher.call_count, 3)
+            with (root / paths[0]).open("a") as manuscript:
+                manuscript.write(f"\n![Extra]({urls[2]})\n")
+            with self.assertRaisesRegex(AssetError, "works/first/manuscript.md"):
+                verify_source_assets(root, fetcher=fetcher)
+
+
 class FetchTests(unittest.TestCase):
     def fetch(self, raw=SVG, headers=None, status=200, url=URL):
         response = Mock()
@@ -235,6 +260,20 @@ class EditionTests(unittest.TestCase):
         self.assertEqual("", self.git("tag", "--list"))
         self.assertEqual("main", self.git("branch", "--show-current"))
 
+    def test_initial_notes_are_read_from_the_matching_committed_edition(self):
+        directory = self.repo / "works/sample/editions"
+        directory.mkdir()
+        source = "Plate I © Artist.\n\nUsed by permission.\n"
+        (directory / "v1.0.0.md").write_bytes(source.encode("utf-8"))
+        (directory / "v2.0.0.md").write_text("Different edition.\n")
+        self.git("add", "works/sample/editions")
+        self.git("commit", "-qm", "Review edition-specific rights terms")
+        self.commit = self.git("rev-parse", "HEAD")
+        (directory / "v1.0.0.md").write_text("Unreviewed replacement.\n")
+        manifest = self.build()
+        self.assertEqual(source, manifest["initial_notes"])
+        self.assertEqual(manifest, verify_edition(self.output))
+
     def test_repeat_build_has_identical_bytes(self):
         self.build()
         second = self.base / "second"
@@ -272,6 +311,23 @@ class EditionTests(unittest.TestCase):
         manifest = verify_edition(self.output)
         self.assertEqual("git", manifest["assets"][0]["source_kind"])
 
+    def test_repeated_images_count_toward_html_size(self):
+        path = self.repo / "works/sample/manuscript.md"
+        path.write_text(path.read_text() + f"\n![Same figure]({URL})\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "Reuse the figure")
+        self.commit = self.git("rev-parse", "HEAD")
+        # One encoded image fits. Reject the second before invoking the HTML writer.
+        with patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG))), \
+             self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
+            self.build()
+        self.assertFalse(self.output.exists())
+
+    def test_archived_html_size_checked_before_reading(self):
+        fixture = Path(__file__).parent / "fixtures/archived-v1"
+        with patch("asset_policy.MAX_HTML_BYTES", 16), self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
+            verify_edition(fixture)
+
     def test_package_tampering_rejected(self):
         self.build()
         path = self.output / "sample-v1.0.0.html"
@@ -288,7 +344,7 @@ class EditionTests(unittest.TestCase):
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
-    for cls in [AssetURLTests, FetchTests, EditionTests]:
+    for cls in [AssetURLTests, SourceBudgetTests, FetchTests, EditionTests]:
         suite.addTests(loader.loadTestsFromTestCase(cls))
     for name in SourceAssetTests.__dict__:
         if name.startswith("test_"):

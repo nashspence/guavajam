@@ -122,6 +122,14 @@ class RenderContractTests(EditionTests):
         self.assertEqual(PROFILE, manifest['presentation_profile'])
         self.assertEqual(manifest, verify_edition(self.output))
 
+    def test_citation_identifies_the_exact_release(self):
+        self.sample_with_structures()
+        self.build()
+        html = self.page().read_text(encoding="utf-8")
+        self.assertIn("Nash Spence. <cite>Sample Work</cite>. Press, edition v1.0.0.", " ".join(html.split()))
+        record = "https://github.com/nashspence/press/releases/tag/works/sample-work/v1.0.0"
+        self.assertIn(f'href="{record}">{record}</a>', html)
+
     def test_template_css_and_builder_provenance(self):
         manifest = self.build()
         root = Path(__file__).resolve().parents[1]

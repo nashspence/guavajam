@@ -20,8 +20,8 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_asset,
-                          load_policy, verify_bytes)
-from identifier_schema import TAG
+                          check_html_size, load_policy, verify_bytes)
+from identifier_schema import TAG, edition_release_url
 from validate_sources import parse_document, plain_text, validate_repository, walk
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -134,15 +134,20 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # read for embedding. Pandoc gets data URIs, so it has no resource to fetch.
         (build / "document.json").write_text(json.dumps(ast), encoding="utf-8")
         embedded = prepare_presentation_ast(copy.deepcopy(ast))
+        embedded_size = 0
         for node in walk(embedded["blocks"]):
             if node.get("t") == "Image":
                 local = build / node["c"][2][0]
                 extension = local.suffix[1:]
+                # Repeated references each occupy space in the standalone HTML.
+                embedded_size += 4 * ((local.stat().st_size + 2) // 3)
+                check_html_size(embedded_size)
                 raw = local.read_bytes()
                 node["c"][2][0] = "data:" + MIME[extension] + ";base64," + base64.b64encode(raw).decode("ascii")
         embedded["meta"]["pagetitle"] = embedded["meta"]["title"]
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
+        embedded["meta"]["release_url"] = {"t": "MetaString", "c": edition_release_url(tag)}
         embedded["meta"]["source_commit"] = {"t": "MetaString", "c": commit}
         builder = Path(__file__).resolve().parents[1]
         builder_commit = git(builder, "rev-parse", "--verify", "HEAD^{commit}")
@@ -151,7 +156,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # Provenance must identify the *actual committed builder*, not merely
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
-                     "scripts/render_profile.py", "scripts/verify_edition.py"]:
+                     "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
+                     "scripts/render_profile.py", "scripts/validate_sources.py", "scripts/verify_edition.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
                 raise AssetError("publisher builder files must match the recorded builder commit: " + path)
@@ -164,6 +170,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         if result.returncode:
             raise AssetError("edition HTML rendering failed: " + result.stderr.strip())
         raw_html = result.stdout.encode("utf-8")
+        check_html_size(len(raw_html))
         filename = slug + "-" + version + ".html"
         manifest = {
             "schema": "press.edition.v1", "source_commit": commit, "tag": tag,
@@ -176,6 +183,9 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             "canonical_artifact": filename, "html_sha256": hashlib.sha256(raw_html).hexdigest(),
             "html_byte_count": len(raw_html), "assets": records,
         }
+        notes = manuscript.parent / "editions" / (version + ".md")
+        if notes in paths:
+            manifest["initial_notes"] = (root / notes).read_bytes().decode("utf-8")
         packaged = temp / "packaged"
         packaged.mkdir()
         (packaged / filename).write_bytes(raw_html)

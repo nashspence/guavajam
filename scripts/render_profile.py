@@ -10,7 +10,6 @@ import re
 from pathlib import Path
 
 from asset_policy import AssetError
-from validate_sources import plain_text
 
 
 PROFILE = "press.html.v1"
@@ -57,6 +56,28 @@ def canonical_template(builder: Path) -> tuple[str, str, str]:
     if ("</style" in css.lower() or re.search(r"@import|url\s*\(|expression\s*\(|\\", css, re.I)):
         raise AssetError("edition CSS must be static and self-contained")
     return template.replace(CSS_TOKEN, css), digest(template_bytes), digest(css_bytes)
+
+
+def plain_text(value) -> str:
+    bits: list[str] = []
+    def visit(node):
+        if isinstance(node, dict):
+            token = node.get("t")
+            if token == "Str":
+                bits.append(node["c"])
+            elif token in ("Space", "SoftBreak", "LineBreak"):
+                bits.append(" ")
+            elif token == "Code":
+                bits.append(node["c"][1])
+            elif token == "Math":
+                bits.append(node["c"][1])
+            else:
+                visit(node.get("c", []))
+        elif isinstance(node, list):
+            for sub in node:
+                visit(sub)
+    visit(value)
+    return "".join(bits).strip()
 
 
 def _anchor_from_block(block: dict) -> str | None:

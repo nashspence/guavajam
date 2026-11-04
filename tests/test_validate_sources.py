@@ -87,6 +87,13 @@ class StrictSourceTests(unittest.TestCase):
         expected = f"{origin}/sha256/{hashlib.sha256(preview).hexdigest()}.svg"
         self.assertEqual([expected], [node["c"][2][0] for node in nodes if node["t"] == "Image"])
 
+    def test_edition_note_paths_and_bytes(self):
+        path = "works/sample/editions/v1.0.0.md"
+        self.assertEqual([], self.check(other={path: "Plate © Alice.\n"}))
+        self.assert_bad("UTF-8", other={path: b"\xff\n"})
+        self.assert_bad("32 KiB", other={path: "x" * 32768 + "\n"})
+        self.assert_bad("unsupported file path", other={"works/sample/editions/latest.md": "Notes.\n"})
+
     def test_plain_document_without_yaml_renders(self):
         self.check()
         notes = Path("notes.md")
@@ -210,6 +217,19 @@ class StrictSourceTests(unittest.TestCase):
         dest = self.root / "works/sample/untracked.md"
         dest.write_text("# Local\n", encoding="utf-8")
         self.assert_bad("linked file is not tracked", other={"notes.md": "[untracked](works/sample/untracked.md)\n"})
+
+    def test_manuscript_links_use_the_published_section_id(self):
+        section = MANUSCRIPT.replace("§ 1 — Foundations", "Introduction")
+        self.assert_bad("unresolved Markdown section link", section.replace("(#sec-1)", "(#introduction)"))
+        self.assertEqual([], self.check(section.replace("sec-1", "introduction")))
+        preview = {"notes.md": "[Introduction](works/sample/manuscript.md#introduction)\n"}
+        self.assertEqual([], self.check(section, other=preview))
+
+    def test_section_id_cannot_shadow_a_generated_footnote_or_template_id(self):
+        for identifier in ("fn1", "fnref1", "footnotes", "press-edition-css"):
+            with self.subTest(identifier=identifier):
+                body = MANUSCRIPT.replace("sec-1", identifier) + "\nA note.[^one]\n\n[^one]: Note text.\n"
+                self.assert_bad("duplicate published HTML IDs", body)
 
     def test_local_fragment_missing(self):
         self.assert_bad("unresolved Markdown section link", MANUSCRIPT + "[wrong](#missing)\n")
@@ -406,6 +426,9 @@ class StrictSourceTests(unittest.TestCase):
             "release_url": "https://github.com/nashspence/press/releases/tag/works/sample/v1.0.0",
             "canonical_artifact": "sample-v1.0.0.html",
             "artifact_sha256": "a" * 64,
+            "source_commit": "b" * 40,
+            "provenance_sha256": "c" * 64,
+            "initial_notes_sha256": "d" * 64,
             "published_at": "2026-10-29T01:20:00Z",
             "rights": "all-rights-reserved",
         }

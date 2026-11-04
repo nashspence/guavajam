@@ -12,7 +12,6 @@ import json
 import re
 import unicodedata
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
 
 WORK_IDS = frozenset({"concept_doi", "arxiv", "openalex", "wikidata"})
 EDITION_IDS = frozenset({"version_doi", "arxiv_version", "isbn_epub", "isbn_pdf", "isbn_print", "oclc"})
@@ -32,6 +31,11 @@ TAG = re.compile(rf"works/({SLUG.pattern})/({VERSION.pattern})")
 DOI = re.compile(r"10\.[0-9]{4,9}/[a-z0-9][a-z0-9._;()/:+%-]*\Z")
 ARXIV_NEW = re.compile(r"[0-9]{2}(?:0[1-9]|1[0-2])\.[0-9]{4,5}\Z")
 ARXIV_OLD = re.compile(r"[a-z][a-z0-9.-]*/[0-9]{7}\Z")
+
+
+def edition_release_url(tag: str) -> str:
+    """Canonical public record for an edition of this imprint."""
+    return f"https://github.com/nashspence/press/releases/tag/{tag}"
 
 
 def valid_orcid(value: str) -> bool:
@@ -232,25 +236,24 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             slug, version = path.parts[2], path.stem
             if not SLUG.fullmatch(slug) or slug not in has_work or not VERSION.fullmatch(version):
                 errors.append(f"{path}: invalid or unknown edition slug/version")
-            required = {"schema", "work", "version", "release_url", "canonical_artifact", "artifact_sha256", "published_at", "rights"}
-            errors.extend(exact_keys(doc, required, {"identifiers"}, context))
+            required = {"schema", "work", "version", "release_url", "canonical_artifact", "rights",
+                        "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
+            errors.extend(exact_keys(doc, required, {"identifiers", "published_at"}, context))
             if doc.get("schema") != REGISTRY_SCHEMAS["edition"] or doc.get("work") != slug or doc.get("version") != version:
                 errors.append(f"{path}: edition schema, work and version must match path")
-            url = doc.get("release_url", "")
-            try:
-                parsed = urlsplit(url)
-                expected = f"/nashspence/press/releases/tag/works/{slug}/{version}"
-                if parsed.scheme != "https" or parsed.netloc != "github.com" or unquote(parsed.path) != expected or parsed.query or parsed.fragment:
-                    errors.append(f"{path}: release_url must identify the matching GitHub Release tag")
-            except (TypeError, ValueError):
-                errors.append(f"{path}: invalid release_url")
+            if doc.get("release_url") != edition_release_url(f"works/{slug}/{version}"):
+                errors.append(f"{path}: release_url must identify the matching GitHub Release tag")
             asset = doc.get("canonical_artifact")
-            if not isinstance(asset, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]*\.(?:html|pdf|epub|md)", asset):
-                errors.append(f"{path}: canonical_artifact must be a filename with an allowed extension")
-            digest = doc.get("artifact_sha256")
-            if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
-                errors.append(f"{path}: artifact_sha256 must be lowercase hexadecimal SHA-256")
-            if not valid_utc(doc.get("published_at")):
+            if asset != f"{slug}-{version}.html":
+                errors.append(f"{path}: canonical_artifact must name the matching edition HTML")
+            commit = doc.get("source_commit")
+            if not isinstance(commit, str) or not re.fullmatch(r"[a-f0-9]{40}", commit):
+                errors.append(f"{path}: source_commit must be a full lowercase Git commit SHA")
+            for field in ("artifact_sha256", "provenance_sha256", "initial_notes_sha256"):
+                digest = doc.get(field)
+                if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+                    errors.append(f"{path}: {field} must be lowercase hexadecimal SHA-256")
+            if "published_at" in doc and not valid_utc(doc["published_at"]):
                 errors.append(f"{path}: published_at must be a valid UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
             rights = doc.get("rights")
             if not isinstance(rights, str) or rights not in RIGHTS:

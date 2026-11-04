@@ -11,7 +11,7 @@ from validate_sources import git_sources, parse_document, walk
 
 def verify_source_assets(root, *, fetcher=fetch_asset):
     policy = load_policy(root)
-    urls = set()
+    references = {}
     for path in git_sources(root):
         if path.suffix != ".md":
             continue
@@ -19,6 +19,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
         if errors:
             raise AssetError("\n".join(errors))
         manuscript = len(path.parts) == 3 and path.parts[0] == "works" and path.name == "manuscript.md"
+        urls = set()
         for node in walk(ast["blocks"]):
             if node.get("t") != "Image":
                 continue
@@ -29,19 +30,24 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
                     raise AssetError("no approved asset origin configured")
                 policy.parse(target)
                 urls.add(target)
-    if len(urls) > MAX_ASSETS:
-        raise AssetError("source snapshot exceeds 128 distinct remote images")
-    total = 0
-    for url in sorted(urls):
-        digest, extension = policy.parse(url)
-        raw, media_type = fetcher(policy, url)
-        if hashlib.sha256(raw).hexdigest() != digest:
-            raise AssetError("asset SHA-256 does not match URL")
-        verify_bytes(raw, extension, media_type)
-        total += len(raw)
-        if total > MAX_TOTAL_BYTES:
-            raise AssetError("source snapshot exceeds 100 MiB downloaded image bytes")
-    return len(urls)
+        if len(urls) > MAX_ASSETS:
+            raise AssetError(f"{path} exceeds the distinct remote image limit")
+        references[path] = urls
+    sizes = {}
+    for path, urls in references.items():
+        total = 0
+        for url in sorted(urls):
+            if url not in sizes:
+                digest, extension = policy.parse(url)
+                raw, media_type = fetcher(policy, url)
+                if hashlib.sha256(raw).hexdigest() != digest:
+                    raise AssetError("asset SHA-256 does not match URL")
+                verify_bytes(raw, extension, media_type)
+                sizes[url] = len(raw)
+            total += sizes[url]
+            if total > MAX_TOTAL_BYTES:
+                raise AssetError(f"{path} exceeds the downloaded image byte limit")
+    return len(sizes)
 
 
 def main():

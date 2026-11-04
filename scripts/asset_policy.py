@@ -22,6 +22,8 @@ from urllib.parse import urlsplit
 MAX_BYTES = 10 * 1024 * 1024
 MAX_ASSETS = 128
 MAX_TOTAL_BYTES = 100 * 1024 * 1024
+# Allows the full unique-image budget after base64 expansion, plus manuscript text.
+MAX_HTML_BYTES = 144 * 1024 * 1024
 TIMEOUT = 30
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "webp": "image/webp", "svg": "image/svg+xml"}
@@ -31,6 +33,11 @@ HOST = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\Z")
 
 class AssetError(ValueError):
     pass
+
+
+def check_html_size(size: int) -> None:
+    if size > MAX_HTML_BYTES:
+        raise AssetError(f"canonical HTML exceeds {MAX_HTML_BYTES // (1024 * 1024)} MiB size limit")
 
 
 @dataclass(frozen=True)

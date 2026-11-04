@@ -11,6 +11,8 @@ from pathlib import Path
 
 from asset_policy import AssetError
 from build_edition import COMMIT
+from issuance import check_issuance
+from editorial_notices import edition_fields, edition_notices, release_notes
 from verify_edition import verify_edition
 
 
@@ -81,21 +83,11 @@ def require_source_check(repo, commit):
             raise AssetError("reviewed commit requires successful " + name + " check")
 
 
-def edition_fields(manifest):
-    return {"Work": manifest["title"], "Edition": manifest["tag"].rsplit("/", 1)[1],
-            "Canonical artifact": manifest["canonical_artifact"], "Rights": manifest["rights"],
-            "Source commit": manifest["source_commit"], "Provenance": "provenance.json",
-            "Checksums": "SHA256SUMS"}
-
-
-def release_inventory(release, tag, fields, names, *, draft):
+def release_inventory(release, tag, manifest, names, *, draft, notices=()):
     if release["tag_name"] != tag or release["draft"] != draft or release["prerelease"]:
         raise AssetError("unexpected edition release state")
-    lines = release["body"].splitlines()
-    for label, expected in fields.items():
-        values = [line for line in lines if line.startswith(label + ":")]
-        if values != [f"{label}: {expected}"]:
-            raise AssetError("unexpected or duplicate release metadata: " + label)
+    if release["body"] != release_notes(manifest, notices):
+        raise AssetError("release notes differ from the approved edition and notices")
     uploaded = {asset["name"]: asset["id"] for asset in release["assets"]
                 if asset["state"] == "uploaded"}
     if len(uploaded) != len(release["assets"]) or set(uploaded) - set(names):
@@ -111,10 +103,10 @@ def check_release_target(release, resolved, commit):
         raise AssetError("edition tag does not point at the reviewed commit")
 
 
-def verify_remote(repo, release_id, directory, commit, tag, fields, names, *, draft):
+def verify_remote(repo, release_id, directory, commit, tag, manifest, names, *, draft, notices=()):
     def read_inventory():
         release = api(repo, f"releases/{release_id}")
-        inventory = release_inventory(release, tag, fields, names, draft=draft)
+        inventory = release_inventory(release, tag, manifest, names, draft=draft, notices=notices)
         if set(inventory) != set(names):
             raise AssetError("missing release attachments")
         check_release_target(release, tag_commit(repo, tag), commit)
@@ -134,6 +126,7 @@ def stage_edition(repo, directory, commit, tag, *, publish=False, issuer_commit=
     if publish and not COMMIT.fullmatch(issuer_commit or ""):
         raise AssetError("promotion requires the full issuer commit SHA")
     manifest = verify_edition(directory, commit=commit, tag=tag)
+    root = Path(__file__).resolve().parents[1]
     require_source_check(repo, commit)
     if publish and issuer_commit != commit:
         require_source_check(repo, issuer_commit)
@@ -150,12 +143,19 @@ def stage_edition(repo, directory, commit, tag, *, publish=False, issuer_commit=
     elif publish:
         raise AssetError("promotion requires an existing reviewed draft")
     else:
-        notes = "".join(f"{label}: {value}\n" for label, value in fields.items())
+        notes = release_notes(manifest)
         release = json.loads(gh("api", "--method", "POST", f"repos/{repo}/releases",
                                 "-f", "tag_name=" + tag, "-f", "target_commitish=" + commit,
                                 "-F", "draft=true", "-f", "name=" + manifest["title"] + " — " + fields["Edition"],
                                 "-f", "body=" + notes))
-    inventory = release_inventory(release, tag, fields, names, draft=True)
+    if publish:
+        check_issuance(root, directory, manifest, pending=release["draft"],
+                       published_at=release.get("published_at"))
+    if publish and not release["draft"]:
+        verify_remote(repo, release["id"], directory, commit, tag, manifest, names, draft=False,
+                      notices=edition_notices(root, tag))
+        return manifest
+    inventory = release_inventory(release, tag, manifest, names, draft=True)
     check_release_target(release, resolved, commit)
     missing = [str(directory / name) for name in names if name not in inventory]
     if missing and publish:
@@ -163,16 +163,26 @@ def stage_edition(repo, directory, commit, tag, *, publish=False, issuer_commit=
     if missing:
         gh("release", "upload", tag, *missing, "--repo", repo)
     release_id = release["id"]
-    verify_remote(repo, release_id, directory, commit, tag, fields, names, draft=True)
+    verify_remote(repo, release_id, directory, commit, tag, manifest, names, draft=True)
     if publish:
         if api(repo, "git/ref/heads/main")["object"]["sha"] != issuer_commit:
             raise AssetError("main moved; re-dispatch promotion using the same reviewed staging run")
         # Publishing materializes a fresh tag from target_commitish. Bind both the
         # release ID and the target in this request, then check the public result.
-        gh("api", "--method", "PATCH", f"repos/{repo}/releases/{release_id}",
-           "-F", "draft=false", "-F", "prerelease=false", "-f", "target_commitish=" + commit)
         try:
-            verify_remote(repo, release_id, directory, commit, tag, fields, names, draft=False)
+            gh("api", "--method", "PATCH", f"repos/{repo}/releases/{release_id}",
+               "-F", "draft=false", "-F", "prerelease=false", "-f", "target_commitish=" + commit,
+               "-f", "body=" + release_notes(manifest))
+        except (AssetError, OSError) as request_error:
+            # Never repeat a write with an unknown outcome. Inspect the same release ID.
+            try:
+                state = api(repo, f"releases/{release_id}")
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                raise AssetError(f"publication outcome unknown for release {release_id}: {exc}") from request_error
+            if state.get("draft") is True:
+                raise AssetError(f"release {release_id} remains a draft after failed promotion") from request_error
+        try:
+            verify_remote(repo, release_id, directory, commit, tag, manifest, names, draft=False)
         except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
             raise AssetError(f"publication submitted for release {release_id}; inspect public edition: {exc}") from exc
     return manifest

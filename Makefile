@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image build verify gateway-plan gateway-deploy
+.PHONY: help setup check check-source check-assets test image build verify authorization release-notes gateway-plan gateway-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR TAG
@@ -33,6 +33,12 @@ build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag
 
 verify: ## DIR=path/to/edition  Verify a downloaded or locally built edition offline.
 	@$(PYTHON) scripts/verify_edition.py -- "$${DIR:?Set DIR to the edition directory}"
+
+authorization: ## DIR=path/to/edition  Print the registration for a reviewed staging package.
+	@$(PYTHON) scripts/issuance.py prepare -- "$${DIR:?Set DIR to the edition directory}"
+
+release-notes: ## DIR=path/to/edition  Print the release body including recorded editorial notices.
+	@$(PYTHON) scripts/editorial_notices.py -- "$${DIR:?Set DIR to the edition directory}"
 
 gateway-plan: ## Preview the asset gateway deployment.
 	@$(PYTHON) scripts/deploy_asset_gateway.py
