@@ -2,14 +2,9 @@
 
 ## Upload an image
 
-Keep an independently backed-up copy of the original. From the repository root,
-check the file and get the B2 object key and HTTP headers for those exact bytes.
-
-```sh
-mise install
-mise x -- uv sync --locked
-mise x -- uv run --locked python scripts/prepare_asset.py /path/to/figure.svg
-```
+Keep an independently backed-up copy of the original. Use `make help` from the
+repository root for the commands used in this guide. Prepare the image to get
+the B2 object key and HTTP headers for its exact bytes.
 
 Upload the original with the printed key, Content-Type and Cache-Control. Use
 the B2 console or a bucket-restricted client. With the native API, set
@@ -32,11 +27,7 @@ and `B2_PUBLIC_BASE` in the operator environment. The token needs Workers Script
 edit access on the account and Workers Routes edit access on the zone. Use the
 bucket's public HTTPS download base ending in `/file/<bucket>`.
 
-```sh
-mise x -- uv run --locked python scripts/deploy_asset_gateway.py
-```
-
-Review the plan, rerun with `--apply`, then open the live preview over HTTPS
+Review the gateway deployment plan before applying it. Open the live preview over HTTPS
 to check the certificate and anonymous image access. [Preview](storage/README.md)
 
 ## Recover or migrate images
@@ -45,10 +36,6 @@ Archive each edition's HTML, provenance and checksums together. To restore a
 missing image, retrieve the original or a retained B2 version. You can also
 extract the image's data URI from a released HTML file after verifying its
 downloaded package.
-
-```sh
-mise x -- uv run --locked python scripts/verify_edition.py /path/to/edition
-```
 
 Compare the recovered bytes' SHA-256 with the digest in the original URL.
 Upload matching bytes under the original key with the original headers.

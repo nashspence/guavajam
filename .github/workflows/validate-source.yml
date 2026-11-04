@@ -19,46 +19,25 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up pinned Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - name: Set up mise
+        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
         with:
-          python-version: '3.12.12'
+          version: 2026.11.0
+          install: false
 
-      - name: Install pinned validation dependencies
-        run: |
-          python -m pip install \
-            --disable-pip-version-check --no-deps --only-binary=:all: \
-            -r requirements-ci.txt
+      - name: Install the authoring toolchain
+        run: make setup
 
       - name: Check profiles used by official editions
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/check_profile_history.py
+        run: .venv/bin/python scripts/check_profile_history.py
 
-      - name: Verify YAML validator version
-        run: python -c 'import yaml; assert yaml.__version__ == "6.0.3"'
+      - name: Run executable tests
+        run: make test
 
-      - name: Install pinned Pandoc
-        uses: pandoc/actions/setup@86321b6dd4675f5014c611e05088e10d4939e09e # v1
-        with:
-          version: 3.12.1
-
-      - name: Verify compiler
-        run: |
-          test "$(pandoc --version | head -n 1)" = "pandoc 3.12.1"
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: '24.10.0'
-
-      - name: Test public asset proxy
-        run: node --test tests/test_worker.mjs
-
-      - name: Run executable format tests
-        run: python -m unittest discover -s tests -v
-
-      - name: Enforce source format v1 and registrations on tracked tree
-        run: python scripts/validate_sources.py
+      - name: Enforce source format and registrations on the tracked tree
+        run: make check-source
 
   assets:
     name: Verify manuscript assets
@@ -77,4 +56,4 @@ jobs:
         with:
           version: 3.12.1
       - name: Download, hash and inspect every referenced approved asset
-        run: python scripts/verify_source_assets.py
+        run: make check-assets PYTHON=python
