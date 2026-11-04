@@ -1,49 +1,65 @@
-import subprocess
+import hashlib
+import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-
-GUARD = Path(__file__).resolve().parents[1] / "scripts/check_profile_history.sh"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from asset_policy import AssetError
+from check_profile_history import check_profile_history
 
 
 class ProfileHistoryTests(unittest.TestCase):
-    def test_new_versions_allowed_existing_versions_frozen(self):
-        with tempfile.TemporaryDirectory() as directory:
-            repo = Path(directory)
+    def setUp(self):
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.release = {"tag_name": "works/sample/v1.0.0", "draft": False, "prerelease": False}
+        self.manifest = {"schema": "press.edition.v1", "tag": self.release["tag_name"],
+                         "presentation_profile": "press.html.v1"}
+        for field, path in [("template", "templates/edition-v1.html"),
+                            ("stylesheet", "styles/edition-v1.css")]:
+            file = self.root / path
+            file.parent.mkdir()
+            file.write_text(field)
+            self.manifest[field + "_path"] = path
+            self.manifest[field + "_sha256"] = hashlib.sha256(file.read_bytes()).hexdigest()
+        self.releases = self.enterContext(patch("check_profile_history.release_records",
+                                                return_value=[self.release]))
+        self.download = self.enterContext(patch("check_profile_history.gh",
+                                                return_value=json.dumps(self.manifest)))
 
-            def git(*args):
-                return subprocess.check_output(["git", *args], cwd=repo, text=True).strip()
+    def check(self):
+        check_profile_history(self.root, "owner/press")
 
-            def check(base):
-                return subprocess.run(["sh", GUARD, base, "main"], cwd=repo,
-                                      text=True, capture_output=True)
+    def test_unissued_profiles_can_change_in_place(self):
+        (self.root / self.manifest["template_path"]).write_text("edited")
+        (self.root / self.manifest["stylesheet_path"]).rename(self.root / "renamed.css")
+        for records in ([], [dict(self.release, draft=True)], [dict(self.release, prerelease=True)],
+                        [dict(self.release, tag_name="tools/v1.0.0")]):
+            with self.subTest(records=records):
+                self.releases.return_value = records
+                self.check()
+                self.download.assert_not_called()
 
-            git("init", "-q", "-b", "main")
-            git("config", "user.name", "Press test")
-            git("config", "user.email", "test@example.invalid")
-            css = repo / "styles/edition-v1.css"
-            template = repo / "templates/edition-v1.html"
-            for path in (css, template):
-                path.parent.mkdir()
-                path.write_text("v1\n")
-            git("add", ".")
-            git("commit", "-qm", "Existing profile")
-            base = git("rev-parse", "HEAD")
-            git("update-ref", "refs/remotes/origin/main", base)
+    def test_published_edition_freezes_only_the_files_it_used(self):
+        (self.root / "styles/edition-v2.css").write_text("unreleased changes")
+        self.check()
+        (self.root / self.manifest["stylesheet_path"]).write_text("changed issued CSS")
+        with self.assertRaises(AssetError):
+            self.check()
+        (self.root / self.manifest["stylesheet_path"]).write_text("stylesheet")
+        (self.root / self.manifest["template_path"]).unlink()
+        with self.assertRaises(AssetError):
+            self.check()
 
-            for path in (css, template):
-                path.with_name(path.name.replace("v1", "v2")).write_text("v2\n")
-            git("add", ".")
-            git("commit", "-qm", "New profile")
-            self.assertEqual(0, check(base).returncode)
-
-            css.rename(css.with_name("edition-v3.css"))
-            template.write_text("changed\n")
-            git("add", "-A")
-            git("commit", "-qm", "Rename stylesheet and edit existing template")
-            for reference in (base, "0" * 40):
-                result = check(reference)
-                self.assertEqual(1, result.returncode, result.stderr)
-                self.assertIn("D\tstyles/edition-v1.css", result.stdout)
-                self.assertIn("M\ttemplates/edition-v1.html", result.stdout)
+    def test_invalid_or_unavailable_provenance_blocks_validation(self):
+        for raw in ("invalid json", json.dumps(dict(self.manifest, tag="works/other/v1.0.0")),
+                    json.dumps(dict(self.manifest, stylesheet_path="../outside.css"))):
+            with self.subTest(raw=raw):
+                self.download.return_value = raw
+                with self.assertRaises(AssetError):
+                    self.check()
+        self.download.side_effect = AssetError("missing provenance asset")
+        with self.assertRaises(AssetError):
+            self.check()

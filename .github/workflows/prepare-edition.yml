@@ -100,6 +100,7 @@ jobs:
           EDITION_TAG: ${{ inputs.edition_tag }}
           PUBLISH: ${{ inputs.publish }}
         run: |
+          python scripts/check_profile_history.py
           args=()
           if [ "$PUBLISH" = true ]; then args+=(--publish); fi
           python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" "${args[@]}"

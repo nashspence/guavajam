@@ -12,9 +12,17 @@ from pathlib import Path
 from asset_policy import AssetError
 from validate_sources import plain_text
 
+
+def profile_paths(profile: str) -> tuple[str, str]:
+    match = re.fullmatch(r"press\.html\.(v[1-9][0-9]*)", profile)
+    if not match:
+        raise AssetError(f"invalid presentation profile: {profile!r}")
+    version = match[1]
+    return f"templates/edition-{version}.html", f"styles/edition-{version}.css"
+
+
 PROFILE = "press.html.v1"
-TEMPLATE_PATH = "templates/edition-v1.html"
-STYLESHEET_PATH = "styles/edition-v1.css"
+TEMPLATE_PATH, STYLESHEET_PATH = profile_paths(PROFILE)
 CSS_TOKEN = "@@PRESS_EDITION_CSS@@"
 ANCHOR = re.compile(r'<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>\Z')
 FORMAL_LABEL = re.compile(
