@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import (AssetError, AssetPolicy, MAX_BYTES, fetch_asset,
                           public_addresses, svg_errors, verify_bytes)
 from build_edition import build_edition
+from validate_sources import parse_document, walk
 from verify_edition import verify_edition
 from test_validate_sources import StrictSourceTests, MANUSCRIPT, METADATA
 
@@ -25,6 +26,17 @@ URL = ORIGIN + "/sha256/" + DIGEST + ".svg"
 
 
 class AssetURLTests(unittest.TestCase):
+    def test_prepared_preview_url_is_embedded_in_markdown(self):
+        root = Path(__file__).resolve().parents[1]
+        output = subprocess.check_output(
+            [sys.executable, "scripts/prepare_asset.py", "storage/preview.svg"], cwd=root, text=True)
+        fields = dict(line.split(": ", 1) for line in output.splitlines())
+        preview = Path("storage/README.md")
+        ast, errors = parse_document(root / preview, preview)
+        self.assertEqual([], errors)
+        targets = [node["c"][2][0] for node in walk(ast["blocks"]) if node["t"] == "Image"]
+        self.assertIn(fields["URL"], targets)
+
     def test_canonical_origins_only(self):
         for origin in ["http://assets.publisher.test", "https://x", "https://x.test/",
                        "https://x.test:443", "https://user@x.test", "https://X.test",

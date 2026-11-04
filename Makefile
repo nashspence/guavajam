@@ -12,7 +12,7 @@ setup: ## Install the pinned tools and Python dependencies. Requires mise (https
 	mise install
 	mise exec -- uv sync --locked
 
-check: check-source check-assets ## Validate tracked sources and verify their images online.
+check: check-source check-assets ## Validate tracked sources and verify their images online. Stage new files first.
 
 check-source: ## Validate tracked manuscripts and registrations offline.
 	@$(PYTHON) scripts/validate_sources.py
@@ -24,7 +24,7 @@ test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test_worker.mjs
 
-image: ## FILE=figure.svg  Prepare an image and print its upload key and headers.
+image: ## FILE=figure.svg  Print the upload key, headers, and manuscript URL.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the image path}"
 
 build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag>/.

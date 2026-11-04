@@ -1,15 +1,11 @@
 # Press
 
-An independent publishing imprint under the authority of Nash Spence. Browse the [catalog](CATALOG.md) or read the [copyright and permissions notice](COPYRIGHT.md).
+An independent publishing imprint under the authority of Nash Spence.
 
-## Start a manuscript
+Cite the HTML attachment named in an official edition’s release notes. [Editions and notices](https://github.com/nashspence/press/releases) · [Copyright and permissions](COPYRIGHT.md)
 
-Copy the [starter manuscript](templates/work/manuscript.md) into `works/<slug>/manuscript.md`. Edit its front matter, title, and text. Give each section a stable anchor and keep that ID when renaming the heading so citations keep working. Keep drafts private elsewhere if a prospective publisher requires first publication.
+Start with the [manuscript template](templates/work/manuscript.md) at `works/<slug>/manuscript.md`. Run `make help` for commands. Retain section IDs when headings change. Work privately if a prospective publisher requires first publication.
 
-For figures, follow the [asset upload guide](ASSETS.md). For an assigned DOI, ISBN, or other external identifier, see [registrations](REGISTRATIONS.md).
+Issue official editions through the [publication workflow](.github/workflows/prepare-edition.yml) after reviewing the HTML and rights. Normally start at `v1.0.0`. Bump major for a substantially new edition, minor for a meaningful revision, and patch for corrections. Record corrections, supersessions, and withdrawals in the release notes.
 
-## Check your work
-
-From the repository root, run `make help` to get started. Stage new source files in Git before checking a manuscript so the validator includes them.
-
-When the manuscript is ready to issue, follow the [publication procedure](PUBLICATION.md).
+Confirm with the issuer which work, edition, format, or identity each external identifier names. [Registration schema](scripts/identifier_schema.py) · [Asset storage](storage/README.md)
