@@ -73,8 +73,14 @@ class StrictSourceTests(unittest.TestCase):
                          "Image", "Link", "Math"} <= kinds)
         self.assertEqual([1, 2, 3, 3, 4, 2, 2],
                          [node["c"][0] for node in nodes if node["t"] == "Header"])
-        self.assertEqual(["InlineMath", "DisplayMath", "InlineMath"],
-                         [node["c"][0]["t"] for node in nodes if node["t"] == "Math"])
+        # Preserve literal LaTeX in the fixture so mobile rendering failures remain visible.
+        self.assertIn("Let $S$ be a set.", (self.root / source).read_text(encoding="utf-8"))
+        math_nodes = [node["c"] for node in nodes if node["t"] == "Math"]
+        from collections import Counter
+        self.assertEqual(Counter({"S": 4, "R": 2, r"x \in S": 1, "x=x": 1,
+                                  r"\forall x \in S,\quad x=x": 1}),
+                         Counter(content.strip() for _, content in math_nodes))
+        self.assertEqual(1, sum(kind["t"] == "DisplayMath" for kind, _ in math_nodes))
 
         preview = (repository / "storage/preview.svg").read_bytes()
         origin = json.loads((repository / "asset-policy.json").read_text())["origin"]

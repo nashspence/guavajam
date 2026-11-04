@@ -84,7 +84,10 @@ class RenderContractTests(EditionTests):
         self.assertIn('class="footnote-ref"', html)
         self.assertIn('<table', html)
         self.assertIn('<code', html)
-        self.assertEqual(3, html.count('<math'))
+        # Inline LaTeX is deliberate; the published edition must render it.
+        self.assertEqual(9, html.count('<math'))
+        self.assertIn('<mi>S</mi>', html)
+        self.assertIn('<mi>R</mi>', html)
         self.assertIn('data:image/svg+xml;base64,', html)
         self.assertEqual(1, len(manifest['assets']))
         self.assertEqual(hashlib.sha256(self.preview_asset).hexdigest(), manifest['assets'][0]['sha256'])

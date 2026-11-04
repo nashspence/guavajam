@@ -13,7 +13,7 @@ rights: all-rights-reserved
 <a id="sec-1"></a>
 ## § 1 — Definitions and mathematics
 
-Let *S* be a set. Every element equals itself. In symbols, for $x \in S$:
+Let $S$ be a set. Every element equals itself. In symbols, for $x \in S$:
 
 $$
 \forall x \in S,\quad x=x
@@ -26,7 +26,7 @@ ordinary Markdown. See [the definition](#def-1) and [the proof](#proof-1).
 <a id="def-1"></a>
 ### Definition 1.1 — Reflexivity
 
-A relation *R* on *S* is *reflexive* if each element is related to itself.
+A relation $R$ on $S$ is *reflexive* if each element is related to itself.
 
 <a id="theorem-1"></a>
 ### Theorem 1.1 — Equality is reflexive
@@ -36,7 +36,7 @@ Equality satisfies [Definition 1.1](#def-1) because every element equals itself.
 <a id="proof-1"></a>
 #### Proof
 
-The identity $x=x$ holds for each element of *S*. Thus the relation is reflexive.
+The identity $x=x$ holds for each element of $S$. Thus the relation is reflexive.
 
 <a id="sec-2"></a>
 ## § 2 — Lists, quotations, and notes
@@ -67,8 +67,8 @@ This sentence includes a footnote.[^note] It also links to the
 
 | Symbol | Meaning | Example count |
 | :--- | :--- | ---: |
-| *S* | Underlying set | 1 |
-| *R* | Relation on the set | 2 |
+| $S$ | Underlying set | 1 |
+| $R$ | Relation on the set | 2 |
 
 A fenced code block preserves literal code and indentation:
 
