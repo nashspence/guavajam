@@ -13,15 +13,19 @@ from asset_policy import AssetError
 from validate_sources import plain_text
 
 
-def profile_paths(profile: str) -> tuple[str, str]:
-    match = re.fullmatch(r"press\.html\.(v[1-9][0-9]*)", profile)
-    if not match:
-        raise AssetError(f"invalid presentation profile: {profile!r}")
-    version = match[1]
-    return f"templates/edition-{version}.html", f"styles/edition-{version}.css"
-
-
 PROFILE = "press.html.v1"
+# Retain issued profiles here when the builder moves to a new default.
+PROFILE_FILES = {
+    "press.html.v1": ("templates/edition-v1.html", "styles/edition-v1.css"),
+}
+
+
+def profile_paths(profile: str) -> tuple[str, str]:
+    if not isinstance(profile, str) or profile not in PROFILE_FILES:
+        raise AssetError(f"unsupported presentation provenance profile: {profile!r}")
+    return PROFILE_FILES[profile]
+
+
 TEMPLATE_PATH, STYLESHEET_PATH = profile_paths(PROFILE)
 CSS_TOKEN = "@@PRESS_EDITION_CSS@@"
 ANCHOR = re.compile(r'<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>\Z')

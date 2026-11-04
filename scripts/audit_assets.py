@@ -1,16 +1,37 @@
 #!/usr/bin/env python3
-"""Trusted scheduled audit of origin assets and independent GitHub edition copies."""
+"""Verify public edition archives and audit source asset integrity."""
 import argparse
-import json
 import os
 import sys
 import tempfile
 from pathlib import Path
 
 from asset_policy import AssetError, fetch_asset, load_policy
-from publish_edition import gh, release_records, tag_commit
+from identifier_schema import TAG
+from publish_edition import api, edition_fields, gh, release_inventory, release_records, tag_commit
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
+
+
+def verify_public_release(repo, release):
+    if release["draft"] or release["prerelease"]:
+        raise AssetError("expected a published official edition")
+    tag = release["tag_name"]
+    match = TAG.fullmatch(tag)
+    if match is None:
+        raise AssetError("official release has an invalid edition tag")
+    filename = match[1] + "-" + match[2] + ".html"
+    names = [filename, "provenance.json", "SHA256SUMS"]
+    with tempfile.TemporaryDirectory(prefix="press-audit-") as temp:
+        for name in names:
+            gh("release", "download", tag, "--repo", repo, "--pattern", name, "--dir", temp)
+        manifest = verify_edition(Path(temp), tag=tag)
+        inventory = release_inventory(release, tag, edition_fields(manifest), names, draft=False)
+        if set(inventory) != set(names):
+            raise AssetError("missing release attachments")
+        if tag_commit(repo, tag) != manifest["source_commit"]:
+            raise AssetError("published edition source differs from release tag")
+    return manifest
 
 
 def audit(root, repo):
@@ -32,20 +53,9 @@ def audit(root, repo):
     for release in release_records(repo):
         if release["draft"] or release["prerelease"]:
             continue
-        tag = release["tag_name"]
-        from build_edition import TAG
-        match = TAG.fullmatch(tag)
-        if match is None:
-            raise AssetError("official release has an invalid edition tag")
-        filename = match[1] + "-" + match[2] + ".html"
-        with tempfile.TemporaryDirectory(prefix="press-audit-") as temp:
-            for name in [filename, "provenance.json", "SHA256SUMS"]:
-                gh("release", "download", tag, "--repo", repo, "--pattern", name, "--dir", temp)
-            manifest = verify_edition(Path(temp), tag=tag)
-            if tag_commit(repo, tag) != manifest["source_commit"]:
-                raise AssetError("published edition source differs from release tag")
-            urls.update(record["source_url"] for record in manifest["assets"]
-                        if record["source_kind"] == "https")
+        manifest = verify_public_release(repo, release)
+        urls.update(record["source_url"] for record in manifest["assets"]
+                    if record["source_kind"] == "https")
         count += 1
     for url in sorted(urls):
         fetch_asset(policy, url)
@@ -55,9 +65,15 @@ def audit(root, repo):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "nashspence/press"))
+    parser.add_argument("--release-id", type=int, help="verify one published GitHub release by ID")
     args = parser.parse_args()
     try:
-        audit(Path(__file__).resolve().parents[1], args.repo)
+        if args.release_id is None:
+            audit(Path(__file__).resolve().parents[1], args.repo)
+        else:
+            release = api(args.repo, f"releases/{args.release_id}")
+            manifest = verify_public_release(args.repo, release)
+            print("Verified published edition:", manifest["tag"])
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

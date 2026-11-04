@@ -21,9 +21,9 @@ from urllib.parse import unquote, urlsplit
 
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_asset,
                           load_policy, verify_bytes)
+from identifier_schema import TAG
 from validate_sources import parse_document, plain_text, validate_repository, walk
 
-TAG = re.compile(r"works/([a-z0-9]+(?:-[a-z0-9]+)*)/(v[0-9]+\.[0-9]+\.[0-9]+)\Z")
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
 from render_profile import (PROFILE, STYLESHEET_PATH, TEMPLATE_PATH,

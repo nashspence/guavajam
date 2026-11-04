@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="press-presentation-profile" content="press.html.v1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Archival test fixture — v1.0.0</title>
+<style id="press-edition-css">
+:root {
+  color-scheme: light dark;
+  font: 1.1rem/1.65 Georgia, serif;
+}
+
+body {
+  max-width: 48rem;
+  margin: auto;
+  padding: 2rem clamp(1rem, 5vw, 3rem);
+  background: #faf9f6;
+  color: #222;
+  overflow-wrap: anywhere;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+a { color: #235b9d; }
+img, svg { max-width: 100%; height: auto; }
+figure { margin: 2rem 0; }
+figcaption, footer { font-size: .85rem; }
+pre, math[display="block"] { overflow-x: auto; max-width: 100%; }
+table { display: block; overflow-x: auto; border-collapse: collapse; }
+td, th { padding: .4rem .8rem; border: 1px solid #888; }
+footer { border-top: 1px solid #888; margin-top: 3rem; padding-top: 1rem; }
+
+/* Formal headings are identified by the publisher, not Pandoc's generated IDs. */
+.press-formal-heading { font-weight: 700; }
+.press-formal-heading[data-press-kind="proof"] { font-style: italic; }
+
+@media (prefers-color-scheme: dark) {
+  body { background: #181a1c; color: #e4e4df; }
+  a { color: #96c7ff; }
+}
+
+@media print {
+  :root { color-scheme: light; }
+  body { max-width: none; background: white; color: black; }
+}
+</style>
+</head>
+<body>
+<main><article class="press-edition" data-press-profile="press.html.v1">
+<h1 id="title">Archival test fixture</h1>
+<h2 id="example">Section</h2>
+<p><a href="#example">Section</a></p>
+</article></main>
+<footer>Test author · All rights reserved<br>Edition v1.0.0<br>Source commit: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</footer>
+</body>
+</html>

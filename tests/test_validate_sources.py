@@ -199,13 +199,17 @@ class StrictSourceTests(unittest.TestCase):
     def test_footnote_duplicate_definition(self):
         self.assert_bad("duplicate footnote", MANUSCRIPT + "A note[^x].\n\n[^x]: One.\n[^x]: Two.\n")
 
+    def test_manuscript_link_to_tracked_file_is_not_portable(self):
+        self.assert_bad("standalone manuscript links", MANUSCRIPT + "[rights](../../COPYRIGHT.md)\n",
+                        other={"COPYRIGHT.md": "# Rights\n"})
+
     def test_local_link_broken(self):
-        self.assert_bad("broken local link", MANUSCRIPT + "[missing](missing.md)\n")
+        self.assert_bad("broken local link", other={"notes.md": "[missing](missing.md)\n"})
 
     def test_local_link_untracked(self):
         dest = self.root / "works/sample/untracked.md"
         dest.write_text("# Local\n", encoding="utf-8")
-        self.assert_bad("linked file is not tracked", MANUSCRIPT + "[untracked](untracked.md)\n")
+        self.assert_bad("linked file is not tracked", other={"notes.md": "[untracked](works/sample/untracked.md)\n"})
 
     def test_local_fragment_missing(self):
         self.assert_bad("unresolved Markdown section link", MANUSCRIPT + "[wrong](#missing)\n")
@@ -407,6 +411,15 @@ class StrictSourceTests(unittest.TestCase):
         }
         doc.update(overrides)
         return doc
+
+    def test_canonical_tag_and_registration_version(self):
+        from identifier_schema import TAG, VERSION
+        for version in ("v0.1.0", "v10.0.23"):
+            self.assertEqual(("sample", version), TAG.fullmatch(f"works/sample/{version}").groups())
+            self.assertIsNotNone(VERSION.fullmatch(version))
+        for version in ("v01.0.0", "v1.00.0", "v1.0.01", "v1.2", "v1.2.3-rc1"):
+            self.assertIsNone(TAG.fullmatch(f"works/sample/{version}"))
+            self.assertIsNone(VERSION.fullmatch(version))
 
     def test_edition_registration_without_external_ids(self):
         path = "registrations/editions/sample/v1.0.0.json"

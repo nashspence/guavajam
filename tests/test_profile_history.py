@@ -53,6 +53,20 @@ class ProfileHistoryTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.check()
 
+    def test_first_candidate_must_match_issuing_checkout(self):
+        self.releases.return_value = []
+        candidate = self.root / "provenance.json"
+        candidate.write_text(json.dumps(self.manifest), encoding="utf-8")
+        check_profile_history(self.root, "owner/press", candidate=candidate)
+        for field in ("template", "stylesheet"):
+            with self.subTest(field=field):
+                path = self.root / self.manifest[field + "_path"]
+                original = path.read_bytes()
+                path.write_bytes(original + b"edited after staging")
+                with self.assertRaisesRegex(AssetError, path.name):
+                    check_profile_history(self.root, "owner/press", candidate=candidate)
+                path.write_bytes(original)
+
     def test_invalid_or_unavailable_provenance_blocks_validation(self):
         for raw in ("invalid json", json.dumps(dict(self.manifest, tag="works/other/v1.0.0")),
                     json.dumps(dict(self.manifest, stylesheet_path="../outside.css"))):

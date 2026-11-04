@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import runpy
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from asset_policy import AssetError
@@ -12,6 +14,31 @@ from build_edition import build_edition
 from render_profile import PROFILE, STYLESHEET_PATH, TEMPLATE_PATH
 from test_assets import EditionTests
 from verify_edition import EditionHTML, verify_edition
+
+
+class ArchivedEditionTests(unittest.TestCase):
+    # These bytes are a synthetic v1 package, independent of the current builder.
+    def test_offline_verification_of_archived_profile(self):
+        directory = Path(__file__).parent / "fixtures/archived-v1"
+        # Import the verifier after switching the default to catch import-time coupling.
+        verifier_path = Path(__file__).resolve().parents[1] / "scripts/verify_edition.py"
+        with patch("render_profile.PROFILE", "press.html.v2"):
+            verify_archived = runpy.run_path(str(verifier_path))["verify_edition"]
+            manifest = verify_archived(directory)
+        self.assertEqual(manifest["presentation_profile"], "press.html.v1")
+
+    def test_edition_link_targets(self):
+        for href in ("#section", "https://example.org/work", "mailto:press@example.org"):
+            with self.subTest(href=href):
+                parser = EditionHTML("press.html.v1")
+                parser.feed(f'<a href="{href}">Reference</a>')
+                self.assertEqual(parser.errors, [])
+        for href in ("../source.md", "figure.pdf#page=2", "/manual", "?draft=1",
+                     "//example.org/doc", "javascript:alert(1)", "https:local"):
+            with self.subTest(href=href):
+                parser = EditionHTML("press.html.v1")
+                parser.feed(f'<a href="{href}">Reference</a>')
+                self.assertTrue(parser.errors)
 
 
 class RenderContractTests(EditionTests):
@@ -62,7 +89,7 @@ class RenderContractTests(EditionTests):
         self.sample_with_structures()
         manifest = self.build()
         html = self.page().read_text(encoding="utf-8")
-        parser = EditionHTML()
+        parser = EditionHTML(PROFILE)
         parser.feed(html)
         parser.close()
         self.assertIn('id="sec-1"', html)
@@ -118,7 +145,7 @@ class RenderContractTests(EditionTests):
     def test_profile_tampering_rejected_even_after_rehash(self):
         self.build()
         provenance = json.loads((self.output / "provenance.json").read_text())
-        provenance['presentation_profile'] = 'press.html.v0'
+        provenance['presentation_profile'] = 'press.html.v99'
         self._repack(manifest=provenance)
         with self.assertRaisesRegex(AssetError, "presentation provenance"):
             verify_edition(self.output)
@@ -154,7 +181,7 @@ class RenderContractTests(EditionTests):
 
 
 def load_tests(loader, tests, pattern):
-    suite = unittest.TestSuite()
+    suite = loader.loadTestsFromTestCase(ArchivedEditionTests)
     for name in RenderContractTests.__dict__:
         if name.startswith("test_"):
             suite.addTest(RenderContractTests(name))

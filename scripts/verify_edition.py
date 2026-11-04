@@ -10,14 +10,17 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, verify_bytes
-from render_profile import PROFILE, STYLESHEET_PATH, TEMPLATE_PATH, FORMAL_KINDS
+from render_profile import FORMAL_KINDS, profile_paths
+from validate_sources import valid_edition_link
 
 
 class EditionHTML(html.parser.HTMLParser):
-    def __init__(self):
+    def __init__(self, profile: str):
         super().__init__(convert_charrefs=True)
+        self.profile = profile
         self.images = {}
         self.errors = []
         self.style = False
@@ -54,7 +57,7 @@ class EditionHTML(html.parser.HTMLParser):
             self.main_count += 1
         if tag == "article":
             self.article_count += 1
-            self.document_profile = (attributes.get("data-press-profile") == PROFILE
+            self.document_profile = (attributes.get("data-press-profile") == self.profile
                                      and attributes.get("class") == "press-edition")
         if tag == "h1":
             self.h1 += 1
@@ -75,14 +78,16 @@ class EditionHTML(html.parser.HTMLParser):
             if identifier in self.ids:
                 self.errors.append("duplicate HTML id: " + identifier)
             self.ids.add(identifier)
-        if tag == "a":
-            target = attributes.get("href", "")
-            if target.startswith("#") and len(target) > 1:
-                from urllib.parse import unquote
-                self.fragment_links.append(unquote(target[1:]))
+        if tag == "a" and "href" in attributes:
+            target = attributes["href"] or ""
+            if target.startswith("#"):
+                if target[1:]:
+                    self.fragment_links.append(unquote(target[1:]))
+            elif not valid_edition_link(target):
+                self.errors.append("standalone HTML link requires a fragment, HTTPS or mailto URL")
         if tag == "meta":
             if attributes.get("name") == "press-presentation-profile":
-                self.profile_meta = attributes.get("content") == PROFILE
+                self.profile_meta = attributes.get("content") == self.profile
             if attributes.get("name") == "viewport":
                 self.viewport = attributes.get("content") == "width=device-width, initial-scale=1"
             equiv = attributes.get("http-equiv", "").lower()
@@ -144,13 +149,14 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     raw = (directory / filename).read_bytes()
     if hashlib.sha256(raw).hexdigest() != manifest["html_sha256"] or len(raw) != manifest["html_byte_count"]:
         raise AssetError("canonical HTML digest or byte count does not match provenance")
-    parser = EditionHTML()
+    profile = manifest.get("presentation_profile")
+    template_path, stylesheet_path = profile_paths(profile)
+    parser = EditionHTML(profile)
     parser.feed(raw.decode("utf-8"))
     parser.close()
-    if (manifest.get("presentation_profile") != PROFILE
-            or not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
-            or manifest.get("template_path") != TEMPLATE_PATH
-            or manifest.get("stylesheet_path") != STYLESHEET_PATH
+    if (not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
+            or manifest.get("template_path") != template_path
+            or manifest.get("stylesheet_path") != stylesheet_path
             or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("template_sha256", "")))
             or not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("stylesheet_sha256", "")))):
         raise AssetError("invalid versioned presentation provenance")

@@ -1,13 +1,14 @@
 """Pre-publication gate and per-push asset verification tests; never publish."""
 import json
-import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 import test_assets as fixtures
 from asset_policy import AssetError
-from publish_edition import release_records, require_source_check, stage_edition
+from publish_edition import gh, release_records, require_source_check, stage_edition
 from verify_source_assets import verify_source_assets
 
 
@@ -27,68 +28,171 @@ class PublicationTests(fixtures.EditionTests):
             verify_source_assets(self.repo, fetcher=fetcher)
         fetcher.assert_not_called()
 
-    def fake_gh(self, *args, tamper=False):
-        self.operations.append(args)
-        if args[0] == "api":
-            return "[]"
-        if args[:2] == ("release", "download"):
-            name = args[args.index("--pattern") + 1]
-            directory = Path(args[args.index("--dir") + 1])
-            shutil.copyfile(self.output / name, directory / name)
-            if tamper and name.endswith(".html"):
-                (directory / name).write_text("tampered")
-        return ""
-
-    def stage(self, *, publish=False, tamper=False):
+class PublicationLifecycleTests(unittest.TestCase):
+    def setUp(self):
+        self.commit = "a" * 40
+        self.main_tip = self.commit
+        self.tag = "works/sample/v1.0.0"
+        self.ref = None
+        self.release = None
+        self.remote = {}
         self.operations = []
-        with patch("publish_edition.require_source_check"), \
-             patch("publish_edition.tag_commit", return_value=self.commit), \
-             patch("publish_edition.gh", side_effect=lambda *args: self.fake_gh(*args, tamper=tamper)):
-            return stage_edition("owner/press", self.output, self.commit, self.tag, publish=publish)
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.output = Path(temp.name)
+        manifest = {"title": "Test", "rights": "Reserved", "tag": self.tag,
+                    "source_commit": self.commit, "canonical_artifact": "sample-v1.0.0.html"}
+        for name in [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]:
+            (self.output / name).write_text(name)
+        for name, options in [("verify_edition", {"return_value": manifest}),
+                              ("require_source_check", {}),
+                              ("tag_commit", {"side_effect": lambda *_: self.ref}),
+                              ("gh", {"side_effect": self.fake_gh})]:
+            mock = patch("publish_edition." + name, **options)
+            setattr(self, name, mock.start())
+            self.addCleanup(mock.stop)
 
-    def test_staging_defaults_to_draft_and_verifies_downloaded_attachments(self):
-        self.build()
-        self.stage()
-        create = [args for args in self.operations if args[:2] == ("release", "create")]
-        self.assertEqual(1, len(create))
-        self.assertIn("--draft", create[0])
-        self.assertEqual(3, sum(args[:2] == ("release", "download") for args in self.operations))
-        self.assertFalse(any(args[:2] == ("release", "edit") for args in self.operations))
+    def fake_gh(self, *args):
+        self.operations.append(args)
+        if args[:2] == ("api", "--paginate"):
+            return json.dumps([self.release] if self.release else [])
+        if args[:3] == ("api", "--method", "POST"):
+            params = dict(value.split("=", 1) for value in args[5::2])
+            self.release = {"id": 123, "tag_name": params["tag_name"], "draft": True,
+                            "prerelease": False, "target_commitish": params["target_commitish"],
+                            "assets": [], "body": params["body"]}
+        elif args[:3] == ("api", "--method", "PATCH"):
+            self.assertEqual("repos/owner/press/releases/123", args[3])
+            self.assertIn("target_commitish=" + self.commit, args)
+            self.release["draft"] = False
+            self.ref = self.release["target_commitish"]
+        elif args == ("api", "repos/owner/press/git/ref/heads/main"):
+            return json.dumps({"object": {"sha": self.main_tip}})
+        elif args[0] == "api":
+            self.assertEqual("repos/owner/press/releases/123", args[1])
+        elif args[:2] == ("release", "upload"):
+            for path in map(Path, args[3:args.index("--repo")]):
+                self.remote[path.name] = path.read_bytes()
+                self.release["assets"].append({"id": len(self.remote), "name": path.name, "state": "uploaded"})
+        elif args[:2] == ("release", "download"):
+            name = args[args.index("--pattern") + 1]
+            (Path(args[args.index("--dir") + 1]) / name).write_bytes(self.remote[name])
+        else:
+            self.fail(f"unexpected gh request {args}")
+        return json.dumps(self.release)
 
-    def test_publication_requires_explicit_flag_after_all_verifications(self):
-        self.build()
-        self.stage(publish=True)
-        self.assertEqual(("release", "edit"), self.operations[-1][:2])
-        self.assertIn("--draft=false", self.operations[-1])
+    def run_stage(self, *, publish=False, issuer=None):
+        return stage_edition("owner/press", self.output, self.commit, self.tag, publish=publish,
+                             issuer_commit=issuer or self.commit)
 
-    def test_tampered_draft_cannot_be_published(self):
-        self.build()
-        with self.assertRaises(AssetError):
-            self.stage(publish=True, tamper=True)
-        self.assertFalse(any(args[:2] == ("release", "edit") for args in self.operations))
+    def test_fresh_draft_resumes_and_publishes_with_public_byte_readback(self):
+        self.run_stage()
+        self.assertIsNone(self.ref)
+        self.assertTrue(self.release["draft"])
+        self.release["body"] += "Correction notice: authorized editorial note\n"
+        self.operations.clear()
+        self.run_stage(publish=True)
+        self.assertEqual(self.commit, self.ref)
+        promotion = next(i for i, args in enumerate(self.operations) if "PATCH" in args)
+        self.assertEqual(("api", "repos/owner/press/git/ref/heads/main"), self.operations[promotion - 1])
+        for operations in [self.operations[:promotion], self.operations[promotion+1:]]:
+            self.assertEqual(3, sum(args[:2] == ("release", "download") for args in operations))
 
-    def test_failed_source_check_prevents_release_mutations(self):
-        self.build()
-        with patch("publish_edition.require_source_check", side_effect=AssetError("failed check")), \
-             patch("publish_edition.gh") as gh:
-            with self.assertRaises(AssetError):
-                stage_edition("owner/press", self.output, self.commit, self.tag, publish=True)
-            gh.assert_not_called()
+    def test_promotion_requires_preexisting_complete_draft(self):
+        with self.assertRaisesRegex(AssetError, "existing reviewed draft"):
+            self.run_stage(publish=True)
+        self.assertIsNone(self.release)
+        self.run_stage()
+        self.release["assets"].pop()
+        with self.assertRaisesRegex(AssetError, "complete reviewed draft"):
+            self.run_stage(publish=True)
+        self.assertEqual(2, len(self.release["assets"]))
+        self.run_stage()
+        self.assertEqual(3, len(self.release["assets"]))
 
-    def test_wrong_tag_prevents_release_mutations(self):
-        self.build()
-        with patch("publish_edition.require_source_check"), \
-             patch("publish_edition.tag_commit", return_value="a" * 40), \
-             patch("publish_edition.gh") as gh:
-            with self.assertRaises(AssetError):
-                stage_edition("owner/press", self.output, self.commit, self.tag, publish=True)
-            gh.assert_not_called()
+    def test_promotion_requires_full_issuer_sha(self):
+        for issuer in [None, "main"]:
+            with self.subTest(issuer=issuer), self.assertRaisesRegex(AssetError, "full issuer commit"):
+                stage_edition("owner/press", self.output, self.commit, self.tag,
+                              publish=True, issuer_commit=issuer)
+        self.assertEqual([], self.operations)
+
+    def test_moved_main_prevents_promotion(self):
+        self.run_stage()
+        self.main_tip = "b" * 40
+        with self.assertRaisesRegex(AssetError, "re-dispatch promotion"):
+            self.run_stage(publish=True)
+        self.assertTrue(self.release["draft"])
+        self.assertFalse(any("PATCH" in args for args in self.operations))
+
+    def test_distinct_issuer_must_have_passing_checks(self):
+        self.run_stage()
+        self.main_tip = "b" * 40
+        self.require_source_check.reset_mock()
+        self.require_source_check.side_effect = [None, AssetError("issuer check failed")]
+        with self.assertRaisesRegex(AssetError, "issuer check failed"):
+            self.run_stage(publish=True, issuer=self.main_tip)
+        self.assertEqual([(self.commit,), (self.main_tip,)],
+                         [call.args[1:] for call in self.require_source_check.call_args_list])
+        self.assertTrue(self.release["draft"])
+
+    def test_invalid_drafts_cannot_be_promoted(self):
+        self.run_stage()
+        for field, value in [("assets", self.release["assets"] + [{"id": 4, "name": "stray.pdf", "state": "uploaded"}]),
+                             ("body", self.release["body"] + "Rights: other terms\n"),
+                             ("target_commitish", "main"), ("draft", False), ("prerelease", True)]:
+            with self.subTest(field=field), patch.dict(self.release, {field: value}), self.assertRaises(AssetError):
+                self.run_stage(publish=True)
+        self.remote["SHA256SUMS"] = b"modified"
+        with self.assertRaisesRegex(AssetError, "attachments differ"):
+            self.run_stage(publish=True)
+        self.assertTrue(self.release["draft"])
+        self.assertFalse(any("PATCH" in args for args in self.operations))
+
+    def test_draft_changes_during_download_are_rejected(self):
+        self.run_stage()
+        def replace_attachment(*args):
+            result = self.fake_gh(*args)
+            if args[:2] == ("release", "download"):
+                self.release["assets"][0]["id"] += 1
+            return result
+        self.gh.side_effect = replace_attachment
+        with self.assertRaisesRegex(AssetError, "changed during verification"):
+            self.run_stage(publish=True)
+        self.assertTrue(self.release["draft"])
+
+    def test_postpublication_readback_reports_public_failure(self):
+        self.run_stage()
+        def corrupt_after_promotion(*args):
+            result = self.fake_gh(*args)
+            if "PATCH" in args:
+                self.remote["SHA256SUMS"] = b"wrong"
+            return result
+        self.gh.side_effect = corrupt_after_promotion
+        with self.assertRaisesRegex(AssetError, "publication submitted.*attachments differ"):
+            self.run_stage(publish=True)
+
+    def test_failed_source_check_and_wrong_tag_prevent_mutations(self):
+        self.require_source_check.side_effect = AssetError("failed check")
+        with self.assertRaisesRegex(AssetError, "failed check"):
+            self.run_stage()
+        self.require_source_check.side_effect = None
+        self.ref = "b" * 40
+        with self.assertRaisesRegex(AssetError, "different commit"):
+            self.run_stage()
+        self.assertEqual([], self.operations)
 
 
 class RequiredCheckTests(unittest.TestCase):
     def checks(self):
         return [{"id": i + 1, "name": name, "app": {"slug": "github-actions"}, "conclusion": "success"}
                 for i, name in enumerate(["Validate manuscript sources", "Verify manuscript assets"])]
+
+    def test_gh_errors_report_operation_and_http_status_only(self):
+        result = subprocess.CompletedProcess([], 1, "", "gh: private detail (HTTP 403)")
+        with patch("publish_edition.subprocess.run", return_value=result), self.assertRaises(AssetError) as caught:
+            gh("api", "--method", "PATCH", "private-request")
+        self.assertEqual("gh api PATCH failed (HTTP 403)", str(caught.exception))
 
     def test_paginated_release_inventory_works_with_existing_gh(self):
         with patch("publish_edition.gh", return_value='[{"id":1}]\n[{"id":2}]\n'):
@@ -118,6 +222,7 @@ class RequiredCheckTests(unittest.TestCase):
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(RequiredCheckTests))
+    suite.addTests(loader.loadTestsFromTestCase(PublicationLifecycleTests))
     for name in PublicationTests.__dict__:
         if name.startswith("test_"):
             suite.addTest(PublicationTests(name))

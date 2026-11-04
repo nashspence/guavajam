@@ -17,12 +17,11 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from identifier_schema import RIGHTS, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
+from identifier_schema import RIGHTS, SLUG, WORK_IDS, check_identifier_map, identifier_error, validate_registrations
 from asset_policy import AssetError, load_policy, svg_errors
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
-WORK_SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 ANCHOR = re.compile(r'<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>\Z')
 ATX = re.compile(r"^#{1,6}[ \t]+\S")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -497,7 +496,7 @@ def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
         parts = rel.parts
         if len(parts) < 4 or parts[0] != "works" or parts[2] != "assets":
             continue
-        if not WORK_SLUG.fullmatch(parts[1]):
+        if not SLUG.fullmatch(parts[1]):
             errors.append(issue(rel, "invalid work slug"))
         if not all(re.fullmatch(r"[a-z0-9][a-z0-9._-]*", part) for part in parts[3:]):
             errors.append(issue(rel, "asset names must use lowercase ASCII letters, digits, dot, dash, underscore"))
@@ -520,6 +519,17 @@ def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
         elif ext not in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
             errors.append(issue(rel, f"unsupported asset extension: {ext!r}"))
     return errors
+
+
+def valid_edition_link(target: str) -> bool:
+    if not target or target.startswith("#"):
+        return True
+    try:
+        uri = urlsplit(target)
+        return ((uri.scheme == "https" and bool(uri.hostname))
+                or (uri.scheme == "mailto" and not uri.netloc and bool(uri.path)))
+    except ValueError:
+        return False
 
 
 def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *, enforce_version: bool = False) -> list[str]:
@@ -555,7 +565,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if len(rel.parts) == 2 and rel.name == "README.md":
                 pass
             elif len(rel.parts) >= 3:
-                if not WORK_SLUG.fullmatch(rel.parts[1]):
+                if not SLUG.fullmatch(rel.parts[1]):
                     errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
                 allowed_root = len(rel.parts) == 3 and rel.parts[2] in {"README.md", "manuscript.md"}
                 allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
@@ -578,7 +588,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         if manuscript:
             manuscripts.add(rel)
             slug = rel.parts[1]
-            if not WORK_SLUG.fullmatch(slug):
+            if not SLUG.fullmatch(slug):
                 errors.append(issue(rel, "invalid work slug"))
             front, body, body_line, e = validate_front_matter(rel, source)
             errors.extend(e)
@@ -669,6 +679,9 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                 parsed = urlsplit(target)
             except ValueError:
                 errors.append(issue(rel, "malformed URI"))
+                continue
+            if manuscript and kind == "Link" and not valid_edition_link(target):
+                errors.append(issue(rel, f"unsupported/external URI: standalone manuscript links require a fragment, HTTPS or mailto URL: {target}"))
                 continue
             if parsed.scheme or parsed.netloc:
                 if parsed.scheme.lower() not in {"https", "mailto"}:

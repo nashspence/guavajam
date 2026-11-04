@@ -1,0 +1,19 @@
+{
+  "asset_origin": null,
+  "assets": [],
+  "builder_commit": "0b5de6dd18e310678a1b46e8875b17066a0357d0",
+  "canonical_artifact": "archive-fixture-v1.0.0.html",
+  "html_byte_count": 1924,
+  "html_sha256": "e9e07342ffe0d813f0635d4a0ea24ca3fa9b6eff42c8a51d8f125cc89251ac30",
+  "pandoc": "3.12.1",
+  "presentation_profile": "press.html.v1",
+  "rights": "All rights reserved",
+  "schema": "press.edition.v1",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "stylesheet_path": "styles/edition-v1.css",
+  "stylesheet_sha256": "1dea68bd2a42e3c486f2baf6d009742ac64f6396298898563839630a50c3d934",
+  "tag": "works/archive-fixture/v1.0.0",
+  "template_path": "templates/edition-v1.html",
+  "template_sha256": "3f530fac2167e215e66be62aa0883829c69528240e58609bb8bb347cbbb4c8ae",
+  "title": "Archival test fixture"
+}
