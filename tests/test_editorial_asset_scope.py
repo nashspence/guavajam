@@ -39,13 +39,35 @@ class NoticeAssetCheckTests(unittest.TestCase):
 
     def test_notice_merge_does_not_fetch_images_but_full_check_does(self):
         with (patch("verify_source_assets.__file__", str(self.root / "scripts/verify_source_assets.py")),
-              patch.dict(os.environ, PRESS_NOTICE_BASE_SHA=self.base),
+              patch.dict(os.environ, PRESS_NOTICE_BASE_SHA=self.base, GITHUB_EVENT_NAME=""),
               patch("verify_source_assets.verify_source_assets", side_effect=OSError("origin offline")) as verify):
             self.assertEqual(0, main())
             verify.assert_not_called()
             os.environ["PRESS_NOTICE_BASE_SHA"] = ""
             self.assertEqual(1, main())
             verify.assert_called_once_with(self.root)
+
+    def test_first_branch_push_uses_trusted_main_and_missing_or_mixed_bases_fetch(self):
+        self.git("update-ref", "refs/remotes/origin/main", self.base)
+        with (patch("verify_source_assets.__file__", str(self.root / "scripts/verify_source_assets.py")),
+              patch.dict(os.environ, PRESS_NOTICE_BASE_SHA="0" * 40, GITHUB_EVENT_NAME="push",
+                         GITHUB_REF="refs/heads/emergency-notice"),
+              patch("verify_source_assets.verify_source_assets", side_effect=OSError("origin offline")) as verify):
+            self.assertEqual(0, main())
+            verify.assert_not_called()
+            # Main and tag pushes keep their event baseline and fail closed when it is unknown.
+            for ref in ("refs/heads/main", "refs/tags/works/essay/v1.0.0"):
+                with self.subTest(ref=ref):
+                    os.environ["GITHUB_REF"] = ref
+                    self.assertEqual(1, main())
+            os.environ["GITHUB_REF"] = "refs/heads/emergency-notice"
+            self.git("update-ref", "-d", "refs/remotes/origin/main")
+            self.assertEqual(1, main())
+            self.git("update-ref", "refs/remotes/origin/main", self.base)
+            (self.root / "works/essay/manuscript.md").write_text("Changed manuscript.\n")
+            self.commit()
+            self.assertEqual(1, main())
+            self.assertEqual(4, verify.call_count)
 
     def test_incomplete_or_mixed_comparisons_use_the_full_check(self):
         for base in ("", "main", "0" * 40, self.notice):

@@ -15,6 +15,17 @@ from validate_sources import git_sources, local_asset_size, parse_document, walk
 from identifier_schema import SLUG, VERSION
 
 
+def notice_base(root, event_base):
+    """Compare a branch push with trusted main, including its first push."""
+    ref = os.environ.get("GITHUB_REF", "")
+    if (os.environ.get("GITHUB_EVENT_NAME") == "push"
+            and ref.startswith("refs/heads/") and ref != "refs/heads/main"):
+        result = subprocess.run(["git", "merge-base", "HEAD", "refs/remotes/origin/main"],
+                                cwd=root, capture_output=True, text=True)
+        return result.stdout.strip() if result.returncode == 0 else ""
+    return event_base
+
+
 def notice_only_change(root, base):
     """Only a notice and its generated pages can bypass online image reads in CI."""
     if not re.fullmatch(r"[0-9a-f]{40}", base) or base == "0" * 40:
@@ -78,7 +89,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
 def main():
     try:
         root = Path(__file__).resolve().parents[1]
-        if notice_only_change(root, os.environ.get("PRESS_NOTICE_BASE_SHA", "")):
+        if notice_only_change(root, notice_base(root, os.environ.get("PRESS_NOTICE_BASE_SHA", ""))):
             print("Only editorial notices and generated pages changed; no manuscript image inputs changed.")
             return 0
         count = verify_source_assets(root)
