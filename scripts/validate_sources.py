@@ -20,7 +20,8 @@ from urllib.parse import unquote, urlsplit
 from editorial_notices import check_initial_notes, check_rights_statement
 from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
-from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast
+from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast, walk
+from supporting_records import append_supporting_records, load_record, record_path
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -232,17 +233,6 @@ def inspect_manuscript_syntax(relative: Path, source: str, first_line: int = 1) 
         last = level
     return {"headings": headings, "anchors": set(anchors), "inline_math": inline_math_count,
             "display_math": display_math_count, "footnote_refs": len(footnote_refs)}, errors
-
-
-def walk(value):
-    if isinstance(value, dict):
-        if isinstance(value.get("t"), str):
-            yield value
-        for child in value.values():
-            yield from walk(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from walk(child)
 
 
 def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
@@ -559,6 +549,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         return [f"Pandoc version mismatch: expected {expected}, got {version.stdout.splitlines()[0]}"]
 
     for rel in sorted(paths):
+        supporting = record_path(rel)
         in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
         edition_notes = in_editions and rel.suffix == ".md" and VERSION.fullmatch(rel.stem)
         edition_rights = (in_editions and rel.name.endswith(".rights.txt")
@@ -571,10 +562,16 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                     errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
                 allowed_root = len(rel.parts) == 3 and rel.parts[2] in {"README.md", "manuscript.md"}
                 allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
-                if not (allowed_root or allowed_asset or edition_notes or edition_rights):
+                if not (allowed_root or allowed_asset or edition_notes or edition_rights or supporting):
                     errors.append(issue(rel, "unsupported file path under works/ (requires policy change)"))
             else:
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
+        if supporting:
+            try:
+                load_record(root / rel)
+            except (OSError, ValueError) as exc:
+                errors.append(issue(rel, str(exc)))
+            continue
         if edition_rights:
             statement, e = read_text(root / rel, rel)
             errors.extend(e)
@@ -675,6 +672,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if found_notes != info["footnote_refs"]:
                 errors.append(issue(rel, "footnote markers did not parse as expected"))
             expected_math = len(maths)
+            try:
+                append_supporting_records(ast, root, rel, tracked)
+            except (OSError, ValueError) as exc:
+                errors.append(issue(rel, str(exc)))
+                continue
         rendered_ids, render_errors = render_html(ast, rel, expected_math, manuscript)
         if manuscript:
             published_ids[rel] = rendered_ids

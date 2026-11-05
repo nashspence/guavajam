@@ -23,6 +23,7 @@ from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_a
                           base64_size, check_html_size, load_policy, verify_bytes)
 from editorial_notices import render_initial_body
 from identifier_schema import TAG, edition_record_url
+from supporting_records import append_supporting_records
 from validate_sources import parse_document, plain_text, validate_repository, walk
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -128,6 +129,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         ast, errors = parse_document(root / manuscript, manuscript)
         if errors:
             raise AssetError("\n".join(errors))
+        append_supporting_records(ast, root, manuscript, set(paths))
         build = temp / "build"
         build.mkdir()
         records = materialize_images(ast, root, manuscript, commit, load_policy(root), build, fetcher)
@@ -177,7 +179,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
-                     "scripts/render_profile.py", "scripts/validate_sources.py", "scripts/verify_edition.py"]:
+                     "scripts/render_profile.py", "scripts/supporting_records.py",
+                     "scripts/validate_sources.py", "scripts/verify_edition.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
                 raise AssetError("publisher builder files must match the recorded builder commit: " + path)

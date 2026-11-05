@@ -58,6 +58,17 @@ def canonical_template(builder: Path) -> tuple[str, str, str]:
     return template.replace(CSS_TOKEN, css), digest(template_bytes), digest(css_bytes)
 
 
+def walk(value):
+    if isinstance(value, dict):
+        if isinstance(value.get("t"), str):
+            yield value
+        for child in value.values():
+            yield from walk(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from walk(child)
+
+
 def plain_text(value) -> str:
     bits: list[str] = []
     def visit(node):

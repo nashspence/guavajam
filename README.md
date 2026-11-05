@@ -6,6 +6,16 @@ Cite the issued HTML edition. Use the ¶ link beside a heading to copy the perma
 
 Start with the [manuscript template](templates/work/manuscript.md) at `works/<slug>/manuscript.md`. Run `make help` for commands. Retain section IDs when headings change. To cite an equation, give its heading a stable ID and put the visible number in the heading, as in the template. For a mathematical H1, review the plain-text title in the citation alongside the typeset heading. This public workflow requires the manuscript in public main history before staging and keeps downloadable review artifacts for 90 days. Keep embargoed material private until that disclosure is authorized. Inspect original images before staging, including embedded location, notes and credit metadata. The edition preserves their bytes.
 
+## Include selected supporting records
+
+A passage in the manuscript can link directly to the exchange, notebook entry or review that informed it. For example, write `[the endpoint check](supporting/note.json#endpoint)` using the [sample notebook record](templates/work/supporting/note.json). Copy the reviewed record into `works/<slug>/supporting/note.json`. A link to `supporting/note.json` cites the whole record. Ordinary HTTPS links also work for materials preserved elsewhere.
+
+**Either kind of local citation includes the entire selected record in the issued HTML.** The reader lands at the cited passage and can read the surrounding discussion offline. Each record states its scope, gives the source path at the edition commit and displays the SHA-256 of that file. Use the ¶ beside any record or passage to copy its permanent edition URL. The edition fixes the selection at its source commit. A later edition can cite a different selection.
+
+For ChatGPT, keep the account export outside the checkout. Use the local extraction targets in `make help` to identify a conversation and write a private review copy. By default the extractor follows the active branch. To capture an alternate reply, use its node ID from the export's `mapping` as the tip. Repeat for other conversations or branches that belong in the edition. Extraction takes user and assistant text from the selected path. It omits alternate replies, messages marked hidden, tool traffic and attachments. An unsupported part in an included message gets a visible placeholder. The edition displays the reviewed text literally, including any Markdown in the original message.
+
+Read every passage before copying the JSON into the work. Keep passage IDs when editing text. In the scope statement, identify excerpts, redactions or other limitations a reader needs to interpret the record. Committing a record to this public repository discloses it even when the manuscript never cites it.
+
 ## Cite a work across editions
 
 The permanent address for a work as a whole is `https://press.nash.spence.0819870.xyz/works/<slug>`, without a trailing slash. Keep the slug for the life of the work, including after a title change. Use this address to refer to the work across editions. To cite a particular text, choose its numbered edition and use the reading copy or its section permalink.
