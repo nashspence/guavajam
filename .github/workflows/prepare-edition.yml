@@ -15,10 +15,11 @@ on:
         description: Publish a reviewed proof from a successful staging run
         type: boolean
         default: false
-      rebuild_reviewed_proof:
-        description: During publication, reproduce an expired proof using its original staging builder
-        type: boolean
-        default: false
+      proof_source:
+        description: Publication proof source (saved uses a temporary draft holding the retained files)
+        type: choice
+        options: [staging, rebuild, saved]
+        default: staging
       staged_run_id:
         description: Staging run ID (required for publication)
         type: string
@@ -96,7 +97,7 @@ jobs:
           printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
 
   recover:
-    if: github.ref == 'refs/heads/main' && inputs.publish && inputs.rebuild_reviewed_proof
+    if: github.ref == 'refs/heads/main' && inputs.publish && inputs.proof_source == 'rebuild'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -163,8 +164,8 @@ jobs:
     needs: recover
     if: >-
       ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.publish &&
-          (inputs.rebuild_reviewed_proof && needs.recover.result == 'success' ||
-           !inputs.rebuild_reviewed_proof && needs.recover.result == 'skipped') }}
+          (inputs.proof_source == 'rebuild' && needs.recover.result == 'success' ||
+           inputs.proof_source != 'rebuild' && needs.recover.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: press-release
@@ -185,7 +186,7 @@ jobs:
       - run: |
           python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: -r requirements-ci.txt
       - name: Download explicitly recovered proof
-        if: inputs.rebuild_reviewed_proof
+        if: inputs.proof_source == 'rebuild'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: recovered-edition
@@ -195,11 +196,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           STAGED_RUN_ID: ${{ inputs.staged_run_id }}
           PROVENANCE_SHA256: ${{ inputs.provenance_sha256 }}
-          REBUILD: ${{ inputs.rebuild_reviewed_proof }}
+          PROOF_SOURCE: ${{ inputs.proof_source }}
+          EDITION_TAG: ${{ inputs.edition_tag }}
         run: |
-          command=download
-          if [[ "$REBUILD" == true ]]; then command=verify; fi
-          python scripts/reviewed_artifact.py "$command" "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
+          case "$PROOF_SOURCE" in
+            staging) command=(download) ;;
+            rebuild) command=(verify) ;;
+            saved) command=(restore --tag "$EDITION_TAG") ;;
+            *) exit 1 ;;
+          esac
+          python scripts/reviewed_artifact.py "${command[@]}" "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
       - name: Check the staged presentation profile
         run: |
           python scripts/check_profile_history.py --candidate dist/edition/provenance.json
@@ -219,8 +225,11 @@ jobs:
           STAGED_RUN_ID: ${{ inputs.staged_run_id }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           EDITION_TAG: ${{ inputs.edition_tag }}
+          PROOF_SOURCE: ${{ inputs.proof_source }}
         run: |
-          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA" --staged-run-id "$STAGED_RUN_ID"
+          flags=()
+          if [[ "$PROOF_SOURCE" == saved ]]; then flags+=(--saved-proof); fi
+          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA" --staged-run-id "$STAGED_RUN_ID" "${flags[@]}"
       - name: Prepare the verified publication receipt
         env:
           EDITION_TAG: ${{ inputs.edition_tag }}

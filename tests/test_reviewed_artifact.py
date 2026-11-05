@@ -88,7 +88,7 @@ class ReviewedArtifactTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / ".github/workflows/prepare-edition.yml"
         jobs = yaml.safe_load(path.read_text())["jobs"]
         recovery, release = jobs["recover"], jobs["release"]
-        self.assertIn("inputs.publish && inputs.rebuild_reviewed_proof", recovery["if"])
+        self.assertIn("inputs.publish && inputs.proof_source == 'rebuild'", recovery["if"])
         self.assertEqual({"actions": "read", "contents": "read"}, recovery["permissions"])
         self.assertNotIn("environment", recovery)
         self.assertEqual("recover", release["needs"])
@@ -97,8 +97,10 @@ class ReviewedArtifactTests(unittest.TestCase):
         self.assertEqual("press-release", release["environment"])
         scripts = "\n".join(step.get("run", "") for step in release["steps"])
         self.assertNotIn("original-builder", scripts)
-        self.assertIn("command=download", scripts)
-        self.assertIn('if [[ "$REBUILD" == true ]]; then command=verify; fi', scripts)
+        self.assertIn("staging) command=(download)", scripts)
+        self.assertIn("rebuild) command=(verify)", scripts)
+        self.assertIn('saved) command=(restore --tag "$EDITION_TAG")', scripts)
+        self.assertIn('if [[ "$PROOF_SOURCE" == saved ]]; then flags+=(--saved-proof); fi', scripts)
 
     def test_invalid_inputs_rejected_before_lookup(self):
         for run, digest in (("", self.digest), ("42/attempts/1", self.digest), ("42", "")):

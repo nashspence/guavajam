@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from editorial_notices import render_initial_body
 from issuance import authorization
-from public_record import check_records, record_html, write_records
+from public_record import check_records, record_html, work_projection, write_records
 
 
 class PublicRecordTests(unittest.TestCase):
@@ -107,6 +107,24 @@ class PublicRecordTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, "provenance differs"):
             write_records(self.root, self.tag)
 
+    def test_generated_pages_fit_the_reader_and_checkpoint_limit(self):
+        self.generate()
+        notices = self.root / "notices/essay/v1.0.0"
+        notices.mkdir(parents=True)
+        # Escaping increases the size of the rendered record beyond the notice's text.
+        (notices / "0001.md").write_text("2026-11-05 Correction: " + "&" * 20 + "\n")
+        original = self.page.read_bytes()
+        with patch("asset_policy.MAX_RECORD_BYTES", len(original)), self.assertRaisesRegex(AssetError, "size limit"):
+            write_records(self.root, self.tag)
+        self.assertEqual(original, self.page.read_bytes())
+
+        work = (self.root / "records/works/essay/index.html").read_bytes()
+        receipts = {"v1.0.0": self.receipt}
+        with patch("asset_policy.MAX_RECORD_BYTES", len(work)):
+            work_projection(self.root, "essay", receipts)
+        with patch("asset_policy.MAX_RECORD_BYTES", len(work) - 1), self.assertRaisesRegex(AssetError, "size limit"):
+            work_projection(self.root, "essay", receipts, write=True)
+
     def test_work_listing_tracks_receipts_and_preserves_version_citations(self):
         self.generate()
         landing = self.root / "records/works/essay/index.html"
@@ -175,6 +193,12 @@ class PublicRecordTests(unittest.TestCase):
         latest.write_text("2026-11-06 Withdrawal: Use the earlier edition. [replacement: v1.0.0]\n")
         write_records(self.root, "works/essay/v2.0.0")
         self.assertIn('href="essay/v1.0.0">Replacement v1.0.0</a>', landing.read_text())
+        edition = (self.root / "records/editions/essay/v2.0.0/index.html").read_text()
+        read = edition.index("Read the archived edition")
+        self.assertLess(edition.index("<strong>Withdrawn</strong>"), read)
+        self.assertLess(edition.index('href="v1.0.0">Replacement edition v1.0.0'), read)
+        for host in ("https://press.example.org", "https://backup.example.org/archive"):
+            self.assertEqual(urljoin(host + "/works/essay/v2.0.0", "v1.0.0"), host + "/works/essay/v1.0.0")
         earlier = self.root / "notices/essay/v1.0.0/0001.md"
         earlier.parent.mkdir(parents=True)
         earlier.write_text("2026-11-07 Withdrawal: Both editions share the problem.\n")
@@ -183,6 +207,35 @@ class PublicRecordTests(unittest.TestCase):
         earlier.write_text("2026-11-07 Withdrawal: See the second edition. [replacement: v2.0.0]\n")
         with self.assertRaisesRegex(AssetError, "replacement links form a cycle"):
             write_records(self.root, self.tag)
+
+    def test_reinstatement_is_explicit_and_preserves_the_notice_history(self):
+        self.generate()
+        self.issue_version("v2.0.0")
+        notices = self.root / "notices/essay/v1.0.0"
+        notices.mkdir(parents=True)
+        first = notices / "0001.md"
+        first.write_text("2026-11-06 Reinstatement: Decision reviewed.\n")
+        with self.assertRaisesRegex(AssetError, "requires a withdrawn or superseded edition"):
+            write_records(self.root, self.tag)
+        for kind, status in (("Withdrawal", "Withdrawn"), ("Supersession", "Superseded")):
+            with self.subTest(kind=kind):
+                first.write_text(f"2026-11-06 {kind}: Decision under review. [replacement: v2.0.0]\n")
+                (notices / "0002.md").write_text("2026-11-07 Correction: Decision being reconsidered.\n")
+                write_records(self.root, self.tag)
+                self.assertIn(f"<strong>{status}</strong>", self.page.read_text())
+                last = notices / "0003.md"
+                last.write_text("2026-11-07 Reinstatement: The original decision was in error.\n")
+                write_records(self.root, self.tag)
+                page = self.page.read_text()
+                self.assertIn("<strong>Published</strong>", page)
+                self.assertIn("Read this edition online", page)
+                self.assertNotIn("Replacement edition", page)
+                self.assertIn(f"{kind}: Decision under review.", page)
+                self.assertIn("Reinstatement: The original decision was in error.", page)
+                landing = (self.root / "records/works/essay/index.html").read_text()
+                self.assertNotIn(f"<strong>{status}</strong>", landing)
+                self.assertNotIn("Replacement", landing)
+                last.unlink()
 
     def test_late_work_doi_updates_only_work_page(self):
         self.git("rm", "-f", str(self.work_registration))

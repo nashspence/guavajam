@@ -25,6 +25,8 @@ MAX_ASSETS = 128
 MAX_TOTAL_BYTES = 100 * 1024 * 1024
 # Allows the full unique-image budget after base64 expansion, plus manuscript text.
 MAX_HTML_BYTES = 144 * 1024 * 1024
+# Public record pages contain text; edition HTML may also embed large images.
+MAX_RECORD_BYTES = 4 * 1024 * 1024
 TIMEOUT = 30
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "webp": "image/webp", "svg": "image/svg+xml"}
@@ -43,6 +45,12 @@ def base64_size(size: int) -> int:
 def check_html_size(size: int) -> None:
     if size > MAX_HTML_BYTES:
         raise AssetError(f"canonical HTML exceeds {MAX_HTML_BYTES // (1024 * 1024)} MiB size limit")
+
+
+def bounded_record(raw: bytes) -> bytes:
+    if len(raw) > MAX_RECORD_BYTES:
+        raise AssetError(f"public record exceeds the {MAX_RECORD_BYTES}-byte size limit")
+    return raw
 
 
 @dataclass(frozen=True)

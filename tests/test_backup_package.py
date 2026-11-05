@@ -16,6 +16,7 @@ from backup_package import verify_backup_package
 from editorial_notices import render_initial_body
 from issuance import authorization, public_receipt
 from public_record import record_html
+from reviewed_artifact import restore_claimed
 
 
 class BackupPackageTests(unittest.TestCase):
@@ -96,13 +97,16 @@ class BackupPackageTests(unittest.TestCase):
         parent = self.root / "notices/archive-fixture/v1.0.0"
         parent.mkdir(parents=True)
         (parent / "0001.md").write_text(notice + "\n")
-        checkpoint = editorial_checkpoint(self.receipt, ["- " + notice])
+        record_url = self.base + "/" + self.tag
+        approved = record_html(self.manifest, published_at=self.receipt["published_at"],
+                               notices=["- " + notice], identifiers=self.receipt["identifiers"])
+        pages = {record_url: approved, record_url + "/read": self.files[self.filename]}
+        archived = self.root / "records/editions/archive-fixture/v1.0.0/index.html"
+        archived.parent.mkdir(parents=True)
+        archived.write_bytes(approved)
+        checkpoint = editorial_checkpoint(self.receipt, ["- " + notice], approved)
         argv = ["audit_assets.py", "--backup-base", self.base, "--archive-root", str(self.root),
                 "--registration", str(registration), "--editorial-sha256", checkpoint]
-        record_url = self.base + "/" + self.tag
-        pages = {record_url: record_html(self.manifest, published_at=self.receipt["published_at"],
-                                         notices=["- " + notice], identifiers=self.receipt["identifiers"]),
-                 record_url + "/read": self.files[self.filename]}
 
         work_url = record_url.rsplit("/", 1)[0]
         pages[work_url] = b'<a href="archive-fixture/v1.0.0">v1.0.0</a>'
@@ -117,16 +121,72 @@ class BackupPackageTests(unittest.TestCase):
             yield response
 
         with patch.object(sys, "argv", argv), patch("reader_routes.public_response", page):
-            self.assertEqual(main(), 0)
+            # A recovery verifier with newer CSS still recognizes the approved archived bytes.
+            with patch("public_record.PAGE_STYLE", "<style>body{font-size:2rem}</style>"):
+                self.assertEqual(main(), 0)
             self.assertEqual(self.requests, [*self.files, *pages])
             pages[work_url] += b"stale edition list"
             self.assertEqual(main(), 1)
+            pages[work_url] = pages[work_url].removesuffix(b"stale edition list")
             pages[record_url] = pages[record_url].replace(b"Withdrawal", b"Correction")
             self.assertEqual(main(), 1)
+            # Even if both the recovery host and local copy agree, the independent checkpoint wins.
+            archived.write_bytes(pages[record_url])
+            self.requests.clear()
+            self.assertEqual(main(), 1)
+            self.assertEqual(self.requests, [])
+            archived.write_bytes(approved)
             (parent / "0001.md").unlink()
             self.requests.clear()
             self.assertEqual(main(), 1)
             self.assertEqual(self.requests, [])
+
+    def test_issue_from_saved_files_after_historical_runs_are_gone(self):
+        claim = {k: v for k, v in self.receipt.items() if k not in {"identifiers", "published_at"}}
+        claim["staged_run_id"] = "73"
+        edition = self.tag.removeprefix("works/")
+        path = self.root / "registrations/editions" / (edition + ".json")
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps(claim, indent=2, sort_keys=True) + "\n")
+        provenance = self.root / "records/editions" / edition / "provenance.json"
+        provenance.parent.mkdir(parents=True)
+        provenance.write_bytes(self.files["provenance.json"])
+        digest = claim["provenance_sha256"]
+        assets = [{"name": name, "size": len(data), "state": "uploaded"} for name, data in self.files.items()]
+
+        def transport(*args):
+            self.assertEqual(("proof-restore-" + digest, "--repo", "owner/press"), args[2:5])
+            if args[:2] == ("release", "view"):
+                return json.dumps({"isDraft": True, "assets": assets})
+            self.assertEqual(("release", "download"), args[:2])
+            self.assertEqual(("--pattern", self.filename, "--pattern", "provenance.json", "--pattern", "SHA256SUMS"),
+                             args[7:])
+            for name, data in self.files.items():
+                (Path(args[6]) / name).write_bytes(data)
+
+        def restore(run_id="73"):
+            with tempfile.TemporaryDirectory() as temp:
+                result = Path(temp) / "edition"
+                restore_claimed(self.root, "owner/press", self.tag, run_id, digest, result)
+                return {p.name: p.read_bytes() for p in result.iterdir()}
+
+        with (patch("reviewed_artifact.gh", side_effect=transport) as gh,
+              patch("reviewed_artifact.api", side_effect=AssertionError("historical Actions lookup"))):
+            with self.assertRaisesRegex(AssetError, "issuing claim"):
+                restore(run_id="74")
+            with patch.dict(claim, issuing=False):
+                path.write_text(json.dumps(claim, indent=2, sort_keys=True) + "\n")
+                with self.assertRaisesRegex(AssetError, "issuing claim"):
+                    restore()
+            gh.assert_not_called()
+            path.write_text(json.dumps(claim, indent=2, sort_keys=True) + "\n")
+            with patch.dict(assets[0], size=10**9), self.assertRaisesRegex(AssetError, "bounded"):
+                restore()
+            self.assertEqual(self.files, restore())
+            for name, data in list(self.files.items()):
+                with (self.subTest(name=name), patch.dict(self.files, {name: data[:-1] + bytes([data[-1] ^ 1])}),
+                      self.assertRaises(AssetError)):
+                    restore()
 
     def test_missing_attachment_or_modified_bytes_fail(self):
         for name, original in list(self.files.items()):

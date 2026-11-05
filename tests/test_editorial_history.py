@@ -1,4 +1,5 @@
 """Exercise the history check on real Git baselines and tracked checkouts."""
+from datetime import UTC, datetime
 import json
 from pathlib import Path
 import subprocess
@@ -16,6 +17,8 @@ from issuance import authorization
 
 class EditorialHistoryTests(unittest.TestCase):
     def setUp(self):
+        self.clock = self.enterContext(patch('check_editorial_history.datetime')).now
+        self.clock.return_value = datetime(2026, 11, 30, tzinfo=UTC)
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.git('init', '-q')
         self.git('config', 'user.name', 'Press test')
@@ -167,16 +170,83 @@ class EditorialHistoryTests(unittest.TestCase):
         assigned = self.baseline()
         self.record['identifiers'] = {'version_doi': '10.1234/replacement'}
         self.save()
+        with self.assertRaisesRegex(AssetError, 'record one dated version DOI'):
+            self.check(assigned)
+        history = self.record['version_doi_history'] = [
+            {'date': '2026-04-11', 'from': '10.1234/example', 'to': '10.1234/replacement'}]
+        self.save()
         with self.assertRaisesRegex(AssetError, 'new dated Correction'):
             self.check(assigned)
-        (self.directory / '0001.md').write_text('2026-04-11 Correction: Identifier version_doi changed from 10.1234/example to 10.1234/replacement.\n')
+        text = 'Correction: Identifier version_doi changed from 10.1234/example to 10.1234/replacement.\n'
+        (self.directory / '0001.md').write_text('2026-04-12 ' + text)
+        with self.assertRaisesRegex(AssetError, '2026-04-11 Correction'):
+            self.check(assigned)
+        (self.directory / '0001.md').write_text('2026-04-11 ' + text)
         self.check(assigned)
         corrected = self.baseline()
+        history[0]['date'] = '2026-04-10'
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'append-only'):
+            self.check(corrected)
+        history[0]['date'] = '2026-04-11'
         del self.record['identifiers']
+        history.append({'date': '2026-04-12', 'from': '10.1234/replacement', 'to': None})
         self.save()
         with self.assertRaisesRegex(AssetError, 'new dated Correction'):
             self.check(corrected)
         (self.directory / '0002.md').write_text('2026-04-12 Correction: Identifier version_doi retired: 10.1234/replacement.\n')
+        self.check(corrected)
+        retired = self.baseline()
+        self.record['identifiers'] = {'version_doi': '10.1234/later'}
+        history.append({'date': '2026-12-01', 'from': None, 'to': '10.1234/later'})
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'in the future'):
+            self.check(retired)
+        history[-1]['date'] = '2026-04-13'
+        self.save()
+        (self.directory / '0003.md').write_text('2026-04-13 Correction: Identifier version_doi assigned: 10.1234/later.\n')
+        self.check(retired)
+
+    def test_transcription_correction_reserves_the_doi_for_its_receipted_destination(self):
+        self.issue()
+        doi = '10.1234/transcription'
+        target = 'works/essay/v2.0.0'
+        other = self.registration.with_name('v2.0.0.json')
+        destination = {**self.record, 'version': 'v2.0.0', 'canonical_artifact': 'essay-v2.0.0.html',
+                       'record_url': 'https://press.example.org/' + target, 'published_at': '2026-04-11T12:00:00Z'}
+
+        def save_destination():
+            other.write_text(json.dumps(destination, sort_keys=True, indent=2) + '\n')
+
+        save_destination()
+        self.record['identifiers'] = {'version_doi': doi}
+        self.save()
+        base = self.baseline()
+        del self.record['identifiers']
+        change = {'date': '2026-04-10', 'from': doi, 'to': None, 'correct_edition': target}
+        self.record['version_doi_history'] = [change]
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'must remain associated with'):
+            self.check(base)
+        destination['identifiers'] = {'version_doi': doi}
+        save_destination()
+        with self.assertRaisesRegex(AssetError, 'published by the correction date'):
+            self.check(base)
+        change['date'] = '2026-04-11'
+        self.save()
+        path = self.directory / '0001.md'
+        path.write_text(f'2026-04-11 Correction: Identifier version_doi retired: {doi}.\n')
+        with self.assertRaisesRegex(AssetError, target):
+            self.check(base)
+        path.write_text(f'2026-04-11 Correction: Identifier version_doi recorded in error: {doi} belongs to {target}.\n')
+        self.check(base)
+        corrected = self.baseline()
+        del destination['identifiers']
+        destination['version_doi_history'] = [{'date': '2026-04-12', 'from': doi, 'to': None}]
+        save_destination()
+        notices = self.directory.with_name('v2.0.0')
+        notices.mkdir()
+        (notices / '0001.md').write_text(f'2026-04-12 Correction: Identifier version_doi retired: {doi}.\n')
         self.check(corrected)
 
     def test_first_receipt_cannot_replace_the_approved_package(self):
@@ -363,6 +433,20 @@ class EditorialHistoryTests(unittest.TestCase):
         first.rename(self.root / 'notices/out-of-place.md')
         with self.assertRaisesRegex(AssetError, 'expected notices/'):
             self.check()
+
+    def test_date_cutoff_applies_only_to_new_notices(self):
+        self.issue()
+        base = self.baseline()
+        first = self.directory / '0001.md'
+        first.write_text('2026-12-01 Withdrawal: Review in progress.\n')
+        with self.assertRaisesRegex(AssetError, 'in the future'):
+            self.check(base)
+        self.clock.assert_called_with(UTC)
+        first.write_text('2026-11-30 Withdrawal: Review in progress.\n')
+        self.check(base)
+        base = self.baseline()
+        self.clock.return_value = datetime(2026, 11, 29, tzinfo=UTC)
+        self.check(base)
 
     def test_symlinks_and_untracked_notice_gaps_are_rejected(self):
         self.issue()

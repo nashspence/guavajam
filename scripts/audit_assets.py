@@ -8,13 +8,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-from asset_policy import AssetError, fetch_asset, load_policy
+from asset_policy import AssetError, MAX_RECORD_BYTES, bounded_record, fetch_asset, load_policy
 from backup_package import verify_backup_package
 from identifier_schema import TAG, valid_utc
 from editorial_notices import edition_notices
 from issuance import check_authorization, check_issuance, read_registration
 from publish_edition import api, gh, release_inventory, release_records, tag_commit
-from public_record import WORK_RECORDS
+from public_record import EDITION_RECORDS, WORK_RECORDS, regular_record
 from reader_routes import verify_reader_routes, verify_work_route
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
@@ -114,9 +114,20 @@ def audit(root, repo, *, archive_base=None):
     print(f"Integrity verified: {len(urls)} origin assets; {len(seen)} independent GitHub editions")
 
 
-def editorial_checkpoint(receipt, notices):
-    """Bind the complete current receipt (including later IDs) and ordered notices."""
-    state = {"schema": "press.editorial-checkpoint.v1", "receipt": receipt, "notices": notices}
+def edition_page(root, tag):
+    match = TAG.fullmatch(tag)
+    if not match:
+        raise AssetError("invalid edition tag")
+    path = root / EDITION_RECORDS / match[1] / match[2] / "index.html"
+    regular_record(path)
+    with path.open("rb") as page:
+        return bounded_record(page.read(MAX_RECORD_BYTES + 1))
+
+
+def editorial_checkpoint(receipt, notices, page):
+    """Bind the full receipt, ordered notices and approved edition page bytes."""
+    state = {"schema": "press.editorial-checkpoint.v1", "receipt": receipt, "notices": notices,
+             "edition_page_sha256": hashlib.sha256(page).hexdigest()}
     raw = json.dumps(state, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
@@ -134,7 +145,7 @@ def committed_checkpoint(root, tag):
         receipt = read_registration(committed, path)
         if not valid_utc(receipt.get("published_at")):
             raise AssetError("editorial checkpoint requires a committed publication receipt")
-        return editorial_checkpoint(receipt, edition_notices(committed, tag))
+        return editorial_checkpoint(receipt, edition_notices(committed, tag), edition_page(committed, tag))
 
 
 def main():
@@ -147,7 +158,7 @@ def main():
     parser.add_argument("--editorial-sha256", help="current independently retained editorial checkpoint for --reader or --backup-base")
     parser.add_argument("--work-sha256", help="also verify the work page against its independently retained current SHA-256")
     parser.add_argument("--registration", type=Path, help="independently trusted publication receipt for --reader or --backup-base")
-    parser.add_argument("--archive-root", type=Path, help="checkout or recovery root with the trusted notices/ directory for --reader or --backup-base")
+    parser.add_argument("--archive-root", type=Path, help="checkout or recovery root with the trusted notices and records/editions page for --reader or --backup-base")
     parser.add_argument("--record-target", help="expected archive base after the permanent record redirect")
     modes.add_argument("--release-id", type=int, help="verify one published GitHub release by ID")
     args = parser.parse_args()
@@ -167,11 +178,12 @@ def main():
             if not valid_utc(receipt.get("published_at")):
                 raise AssetError("recovery verification requires the trusted receipt's original publication timestamp")
             if not args.archive_root.is_dir():
-                raise AssetError("--archive-root must be the existing root of the trusted notice history")
+                raise AssetError("--archive-root must contain the trusted editorial history and edition page")
             tag = f"works/{receipt['work']}/{receipt['version']}"
             notices = edition_notices(args.archive_root, tag)
-            if editorial_checkpoint(receipt, notices) != args.editorial_sha256:
-                raise AssetError("recovered receipt or notices differ from the trusted editorial checkpoint")
+            page = edition_page(args.archive_root, tag)
+            if editorial_checkpoint(receipt, notices, page) != args.editorial_sha256:
+                raise AssetError("recovered receipt, notices or edition page differ from the trusted editorial checkpoint")
             if args.backup_base is not None:
                 manifest = verify_backup_package(args.backup_base, tag, receipt)
             else:
@@ -179,7 +191,7 @@ def main():
                 check_authorization(receipt, args.reader, manifest)
             verify_reader_routes(manifest, args.repo, notices=notices, identifiers=receipt.get("identifiers"),
                                  archive_base=args.record_target, direct_base=args.backup_base,
-                                 published_at=receipt["published_at"])
+                                 published_at=receipt["published_at"], checkpoint_page=page)
             if args.work_sha256:
                 verify_work_route(manifest, args.repo, args.work_sha256, archive_base=args.record_target,
                                   direct_base=args.backup_base)

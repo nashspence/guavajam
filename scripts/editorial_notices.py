@@ -14,6 +14,7 @@ EDITION_ID_LABELS = {"version_doi": "Edition DOI", "arxiv_version": "arXiv versi
                      "oclc": "OCLC number"}
 WORK_ID_LABELS = {"concept_doi": "Concept DOI", "arxiv": "arXiv work",
                   "openalex": "OpenAlex work", "wikidata": "Wikidata work"}
+NOTICE_LINE = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2}) (Correction|Supersession|Withdrawal|Reinstatement): ([^\r\n]+)")
 
 
 def markdown_text(value):
@@ -99,24 +100,31 @@ def release_notes(manifest, notices=(), *, identifiers=None):
     return "\n\n".join([*sections, reviewed_initial_body(manifest)])
 
 
-def edition_status(notices, version, receipts):
+def edition_status(notices, version, receipts=None):
+    """Resolve the edition's status; a work record also checks each replacement's receipt."""
     status, successor = "Published", None
     for entry in notices:
         day, kind, prose = entry[2:].split(" ", 2)
         replacement = None
         if "[replacement:" in prose:
             suffix = re.fullmatch(r".+ \[replacement: (" + VERSION.pattern + r")\]", prose)
-            if not suffix or prose.count("[replacement:") != 1 or kind == "Correction:":
+            if not suffix or prose.count("[replacement:") != 1 or kind not in {"Withdrawal:", "Supersession:"}:
                 raise AssetError("expected a single [replacement: vX.Y.Z] suffix on a withdrawal or supersession")
             replacement = suffix[1]
-            if replacement == version or replacement not in receipts or receipts[replacement]["published_at"][:10] > day:
-                raise AssetError(f"{version}: replacement must be another edition of this work published by {day}")
+            if replacement == version:
+                raise AssetError(f"{version}: replacement must be another edition")
+            if receipts is not None and (replacement not in receipts or receipts[replacement]["published_at"][:10] > day):
+                raise AssetError(f"{version}: replacement must be an edition of this work published by {day}")
             if kind == "Supersession:" and version_key(replacement) < version_key(version):
                 raise AssetError(f"{version}: a supersession replacement must be a higher edition")
         if kind == "Withdrawal:":
             status, successor = "Withdrawn", replacement
         elif kind == "Supersession:" and status != "Withdrawn":
             status, successor = "Superseded", replacement
+        elif kind == "Reinstatement:":
+            if status == "Published":
+                raise AssetError(f"{version}: reinstatement requires a withdrawn or superseded edition")
+            status, successor = "Published", None
     return status, successor
 
 
@@ -135,9 +143,9 @@ def edition_notices(root: Path, tag: str) -> list[str]:
         if path.name != f"{index:04}.md" or path.is_symlink() or not path.is_file():
             raise AssetError(f"unexpected notice file {path}")
         raw = path.read_bytes().decode("utf-8")
-        line = re.fullmatch(r"(\d{4}-\d{2}-\d{2}) (Correction|Supersession|Withdrawal): ([^\r\n]+)\n", raw)
+        line = NOTICE_LINE.fullmatch(raw[:-1]) if raw.endswith("\n") else None
         if not line or line[3] != line[3].strip():
-            raise AssetError(f"{path}: expected one dated correction, supersession, or withdrawal")
+            raise AssetError(f"{path}: expected one dated correction, supersession, withdrawal or reinstatement")
         check_prose_line(line[3])
         date.fromisoformat(line[1])
         result.append("- " + raw[:-1])

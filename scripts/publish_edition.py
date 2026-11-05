@@ -73,10 +73,14 @@ def tag_commit(repo, tag):
     raise AssetError("edition tag does not resolve to a commit")
 
 
-def require_source_check(repo, commit, *, wait_seconds=0):
+def require_main_commit(repo, commit):
     compare = api(repo, f"compare/{commit}...main")
     if compare["status"] not in {"ahead", "identical"}:
         raise AssetError("reviewed source commit must belong to main history")
+
+
+def require_source_check(repo, commit, *, wait_seconds=0):
+    require_main_commit(repo, commit)
     workflow = "validate-source.yml"
     runs_path = f"actions/workflows/{workflow}/runs?event=push&branch=main&head_sha={commit}&per_page=100"
     deadline = time.monotonic() + wait_seconds
@@ -174,13 +178,19 @@ def verify_remote(repo, release_id, directory, commit, tag, manifest, names, *, 
         raise AssetError("edition attachments changed during verification")
 
 
-def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token=None, staged_run_id=None):
+def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token=None, staged_run_id=None,
+                    saved_proof=False):
     if not COMMIT.fullmatch(issuer_commit or ""):
         raise AssetError("promotion requires the full issuer commit SHA")
     manifest = verify_edition(directory, commit=commit, tag=tag)
     root = Path(__file__).resolve().parents[1]
     for sha in dict.fromkeys([commit, manifest["builder_commit"], issuer_commit]):
-        require_source_check(repo, sha)
+        # For saved bytes, the protected registration records the result of the
+        # successful staging checks. The current issuer must still pass live CI.
+        if saved_proof and sha != issuer_commit:
+            require_main_commit(repo, sha)
+        else:
+            require_source_check(repo, sha)
     resolved = tag_commit(repo, tag)
     if resolved is not None and resolved != commit:
         raise AssetError("edition tag points at a different commit")
@@ -191,7 +201,7 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token
     release = matches[0] if matches else None
     record = check_issuance(root, directory, manifest, pending=release is None or release["draft"],
                             published_at=release.get("published_at") if release else None)
-    if record.get("staged_run_id") != staged_run_id:
+    if record.get("staged_run_id") != staged_run_id or (saved_proof and not staged_run_id):
         raise AssetError("promotion must use the staging run named in the approved registration")
     if release is not None and not release["draft"]:
         verify_remote(repo, release["id"], directory, commit, tag, manifest, names, draft=False,
@@ -250,13 +260,14 @@ def main():
     parser.add_argument("--tag", required=True)
     parser.add_argument("--issuer-commit", required=True, help="Promotion workflow dispatch commit")
     parser.add_argument("--staged-run-id", required=True, help="Staging run named in the registration")
+    parser.add_argument("--saved-proof", action="store_true", help="Use the protected claim for historical CI evidence")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
         parser.error("invalid repository")
     try:
         policy_token = os.environ.pop("PRESS_POLICY_READ_TOKEN", None)
         publish_edition(args.repo, args.directory, args.commit, args.tag, issuer_commit=args.issuer_commit,
-                        policy_token=policy_token, staged_run_id=args.staged_run_id)
+                        policy_token=policy_token, staged_run_id=args.staged_run_id, saved_proof=args.saved_proof)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

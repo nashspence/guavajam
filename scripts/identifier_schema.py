@@ -196,39 +196,53 @@ def valid_utc(value: object) -> bool:
         return False
 
 
-def concept_doi_history(record):
+def edition_registration_path(tag: str) -> Path:
+    match = TAG.fullmatch(tag)
+    if not match:
+        raise AssetError("expected works/<slug>/vX.Y.Z")
+    return Path("registrations/editions") / match[1] / (match[2] + ".json")
+
+
+def doi_history(record, key):
     """Check the ordered transitions against the current assignment."""
-    if "concept_doi_history" not in record:
+    field = key + "_history"
+    label = key.split("_")[0] + " DOI"
+    if field not in record:
         return []
-    history = record["concept_doi_history"]
+    history = record[field]
     if not isinstance(history, list) or not history:
-        raise AssetError("concept_doi_history must be a nonempty list of dated changes")
+        raise AssetError(f"{field} must be a nonempty list of dated changes")
     previous_date, retired = "", set()
     for index, change in enumerate(history):
-        if not isinstance(change, dict) or set(change) != {"date", "from", "to"}:
-            raise AssetError("each concept DOI change requires exactly date, from and to")
+        if not isinstance(change, dict) or set(change) - {"correct_edition"} != {"date", "from", "to"}:
+            raise AssetError(f"each {label} change requires date, from and to")
         day, old, new = change["date"], change["from"], change["to"]
+        if "correct_edition" in change:
+            target = change["correct_edition"]
+            if (key != "version_doi" or old is None or not isinstance(target, str) or not TAG.fullmatch(target)
+                    or target == f"works/{record.get('work')}/{record.get('version')}"):
+                raise AssetError(f"{label}: correct_edition must name another edition for a misrecorded version DOI")
         if not isinstance(day, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", day):
-            raise AssetError("concept DOI change requires YYYY-MM-DD")
+            raise AssetError(f"{label} change requires YYYY-MM-DD")
         try:
             dt.date.fromisoformat(day)
         except ValueError as exc:
-            raise AssetError("concept DOI change requires a valid date") from exc
+            raise AssetError(f"{label} change requires a valid date") from exc
         if day < previous_date:
-            raise AssetError("concept DOI change dates must be in order")
+            raise AssetError(f"{label} change dates must be in order")
         for value in (old, new):
-            if value is not None and identifier_error("concept_doi", value):
-                raise AssetError("concept DOI change requires a bare DOI or null")
+            if value is not None and identifier_error(key, value):
+                raise AssetError(f"{label} change requires a bare DOI or null")
         if index == 0 and old is None:
-            raise AssetError("the first concept DOI change must name the initial assignment")
+            raise AssetError(f"the first {label} change must name the initial assignment")
         if old == new or (index and old != history[index - 1]["to"]) or new in retired:
-            raise AssetError("concept DOI changes must form a chain without reassigning a retired DOI")
+            raise AssetError(f"{label} changes must form a chain without reassigning a retired DOI")
         if old is not None:
             retired.add(old)
         previous_date = day
-    identifiers = record.get("identifiers")
-    if not isinstance(identifiers, dict) or history[-1]["to"] != identifiers.get("concept_doi"):
-        raise AssetError("concept DOI history must end at the current assignment")
+    identifiers = record.get("identifiers", {})
+    if not isinstance(identifiers, dict) or history[-1]["to"] != identifiers.get(key):
+        raise AssetError(f"{label} history must end at the current assignment")
     return history
 
 
@@ -237,6 +251,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
     errors = []
     paths = set(paths)
     seen: dict[tuple[str, str], tuple[str, str]] = {}
+    corrected_dois = []
     has_work = {p.parts[1] for p in paths if len(p.parts) == 3 and p.parts[0] == "works" and p.name == "manuscript.md"}
 
     def register_identifiers(scope: str, identifiers: dict, where: Path):
@@ -293,7 +308,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: incorrect work registration schema or work")
             ids = doc.get("identifiers")
             try:
-                history = concept_doi_history(doc)
+                history = doi_history(doc, "concept_doi")
             except AssetError as exc:
                 errors.append(f"{path}: {exc}")
                 history = []
@@ -318,7 +333,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: invalid or unknown edition slug/version")
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
-            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "issuing", "published_at", "cancellation_reason"}, context))
+            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "version_doi_history", "issuing", "published_at", "cancellation_reason"}, context))
             if "staged_run_id" in doc and (not isinstance(doc["staged_run_id"], str)
                                           or not STAGING_RUN_ID.fullmatch(doc["staged_run_id"])):
                 errors.append(f"{path}: staged_run_id must be a positive decimal run ID string")
@@ -352,6 +367,18 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             rights = doc.get("rights")
             if not isinstance(rights, str) or rights not in RIGHTS:
                 errors.append(f"{path}: rights must be an approved rights identifier")
+            if "version_doi_history" in doc:
+                if "published_at" not in doc:
+                    errors.append(f"{path}: version DOI history requires a publication receipt")
+                try:
+                    for change in doi_history(doc, "version_doi"):
+                        if "correct_edition" in change:
+                            target = edition_registration_path(change["correct_edition"])
+                            corrected_dois.append((path, change["from"], target))
+                        else:
+                            register_identifiers("edition", {"version_doi": change["from"]}, path)
+                except AssetError as exc:
+                    errors.append(f"{path}: {exc}")
             if "identifiers" in doc:
                 if "published_at" not in doc:
                     errors.append(f"{path}: edition identifiers require a publication receipt")
@@ -388,4 +415,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             errors.extend(check_identifier_map(identifiers, SERIES_IDS, context))
             if isinstance(identifiers, dict):
                 register_identifiers("series", identifiers, path)
+    for source, value, target in corrected_dois:
+        if seen.get(("doi", value)) != (str(target), "version_doi"):
+            errors.append(f"{source}: misrecorded DOI {value} must remain associated with {target}")
     return errors

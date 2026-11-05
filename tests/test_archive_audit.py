@@ -27,6 +27,7 @@ class ArchiveAuditTests(unittest.TestCase):
         self.reader_check = self.enterContext(patch("audit_assets.verify_reader_routes"))
         for name, result in (("release_records", [self.release]), ("gh", ""),
                              ("verify_edition", manifest), ("tag_commit", manifest["source_commit"]),
+                             ("edition_notices", []),
                              ("git_sources", [self.record_path]), ("check_issuance", {}),
                              ("read_registration", {"published_at": self.release["published_at"]})):
             self.enterContext(patch("audit_assets." + name, return_value=result))
@@ -135,6 +136,9 @@ class RecoveryCheckpointTests(unittest.TestCase):
                 receipt.write_text(json.dumps(doc, indent=2, sort_keys=True) + '\n')
 
             write_receipt()
+            page = root / 'records/editions/sample/v1.0.0/index.html'
+            page.parent.mkdir(parents=True)
+            page.write_bytes(b'approved edition page')
             git('add', '.')
             git('commit', '-m', 'Receipt')
             original = committed_checkpoint(root, tag)
@@ -159,6 +163,17 @@ class RecoveryCheckpointTests(unittest.TestCase):
 
             self.assertEqual(verify(current), 0)
             self.assertEqual(verify(original), 1)
+            page.write_bytes(b'edition page after a style change')
+            self.assertEqual(committed_checkpoint(root, tag), current)
+            self.assertEqual(verify(current), 1)
+            git('add', '.')
+            git('commit', '-m', 'Update edition page style')
+            restyled = committed_checkpoint(root, tag)
+            self.assertNotEqual(restyled, current)
+            self.assertEqual(verify(restyled), 0)
+            page.unlink()
+            self.assertEqual(verify(restyled), 1)
+            page.write_bytes(b'approved edition page')
             write_receipt()
             self.assertEqual(verify(current), 1)
             write_receipt(identifiers={'oclc': '42'})

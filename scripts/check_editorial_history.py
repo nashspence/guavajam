@@ -1,5 +1,6 @@
 """Validate tracked editorial notices and preserve the history of issued editions."""
 import argparse
+from datetime import UTC, datetime
 from pathlib import Path
 import re
 import sys
@@ -10,7 +11,7 @@ from asset_policy import AssetError
 from audit_assets import verify_public_release
 from build_edition import COMMIT, git
 from editorial_notices import edition_notices
-from identifier_schema import TAG, require_current_edition_origin, strict_json, validate_registrations
+from identifier_schema import TAG, edition_registration_path, require_current_edition_origin, strict_json, validate_registrations
 from issuance import authorization, read_registration
 from publish_edition import api, release_records, tag_commit
 from reviewed_artifact import download_reviewed
@@ -26,6 +27,37 @@ def require_compatible_proof(root, tag, record):
     require_current_edition_origin(root, {'tag': tag, 'record_url': record['record_url']})
     if git(root, 'diff', '--cached', '--raw', '--no-renames', record['source_commit'], '--', '.github/workflows'):
         raise AssetError(f'{tag}: workflow files differ from the proof source; restore compatible workflows or restage')
+
+
+def appended_doi_change(path, old, current, key, today):
+    field = key + '_history'
+    prior_history = old.get(field, [])
+    history = current.get(field, [])
+    prior_doi = old.get('identifiers', {}).get(key)
+    current_doi = current.get('identifiers', {}).get(key)
+    label = key.split('_')[0] + ' DOI'
+    if history[:len(prior_history)] != prior_history:
+        raise AssetError(f'{path}: {label} history is append-only')
+    additions = history[len(prior_history):]
+    if not additions and (prior_doi == current_doi or (prior_doi is None and not prior_history)):
+        return None
+    if len(additions) != 1 or additions[0]['from'] != prior_doi or additions[0]['to'] != current_doi:
+        raise AssetError(f'{path}: record one dated {label} change from the previous assignment')
+    change = additions[0]
+    if change['date'] > today:
+        raise AssetError(f'{path}: new {label} change date is in the future (today is {today} UTC)')
+    return change
+
+
+def identifier_correction(key, old, new, correct_edition=None):
+    if correct_edition:
+        text = f'Correction: Identifier {key} recorded in error: {old} belongs to {correct_edition}.'
+        return text + (f' This edition’s DOI is {new}.' if new else '')
+    if old is None:
+        return f'Correction: Identifier {key} assigned: {new}.'
+    if new is None:
+        return f'Correction: Identifier {key} retired: {old}.'
+    return f'Correction: Identifier {key} changed from {old} to {new}.'
 
 
 def check_editorial_history(root: Path, base: str | None = None, *, repo: str | None = None) -> None:
@@ -74,6 +106,11 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         return
     if not COMMIT.fullmatch(base) or git(root, 'rev-parse', '--verify', base + '^{commit}') != base:
         raise AssetError('editorial history base must be an existing full commit SHA')
+    today = datetime.now(UTC).date().isoformat()
+    added_notices = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=A', base, '--', 'notices')
+    for path in sorted(added_notices):
+        if (root / path).read_text(encoding='utf-8')[:10] > today:
+            raise AssetError(f'{path}: new notice date is in the future (today is {today} UTC)')
     added = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=A',
                       base, '--', 'registrations/editions')
     for path in sorted(added):
@@ -114,16 +151,7 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
             raise AssetError('\n'.join(errors))
         if path.parts[:2] == ('registrations', 'works'):
             current = read_registration(root, path) if path in tracked else {}
-            prior_doi = old.get('identifiers', {}).get('concept_doi')
-            current_doi = current.get('identifiers', {}).get('concept_doi')
-            prior_history = old.get('concept_doi_history', [])
-            history = current.get('concept_doi_history', [])
-            if history[:len(prior_history)] != prior_history:
-                raise AssetError(f'{path}: concept DOI history is append-only')
-            additions = history[len(prior_history):]
-            if additions or ((prior_doi or prior_history) and current_doi != prior_doi):
-                if len(additions) != 1 or additions[0]['from'] != prior_doi or additions[0]['to'] != current_doi:
-                    raise AssetError(f'{path}: record one dated concept DOI change from the previous assignment')
+            appended_doi_change(path, old, current, 'concept_doi', today)
             continue
         if path not in tracked:
             raise AssetError(f'{path}: a committed issuance intent cannot be removed')
@@ -139,7 +167,7 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         if first_receipt:
             if old.get('issuing') is not True:
                 raise AssetError(f'{path}: merge the issuing claim before recording publication')
-            if tag in groups or 'identifiers' in current:
+            if tag in groups or 'identifiers' in current or 'version_doi_history' in current:
                 raise AssetError(f'{path}: commit the publication receipt before adding notices or identifiers')
             timestamp = current.pop('published_at')
         if 'cancellation_reason' not in old and 'cancellation_reason' in current:
@@ -149,21 +177,31 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
                                      any(r['tag_name'] == tag for r in release_records(repo))):
                 raise AssetError(f'{path}: cancellation requires absence of the public tag and release')
             current.pop('cancellation_reason')
+        change = appended_doi_change(path, old, current, 'version_doi', today)
+        old.pop('version_doi_history', None)
+        current.pop('version_doi_history', None)
         old_ids = old.pop('identifiers', {})
         new_ids = current.pop('identifiers', {})
-        changed_ids = {key: value for key, value in old_ids.items() if new_ids.get(key) != value}
-        if changed_ids:
+        changed_ids = {key: value for key, value in old_ids.items() if key != 'version_doi' and new_ids.get(key) != value}
+        if change or changed_ids:
             notice_dir = Path('notices') / old['work'] / old['version']
-            added_notices = git_paths(root, 'diff', '--name-only', '-z', '--diff-filter=A', base, '--', str(notice_dir))
             # Dates and notice syntax have already been validated above.
-            corrections = {(root / item).read_text(encoding='utf-8').rstrip('\n').partition(' ')[2]
-                           for item in added_notices}
+            corrections = {(root / item).read_text(encoding='utf-8').rstrip('\n')
+                           for item in added_notices if item.parent == notice_dir}
+            if change:
+                target = change.get('correct_edition')
+                if target:
+                    destination = read_registration(root, edition_registration_path(target))
+                    if (destination.get('identifiers', {}).get('version_doi') != change['from']
+                            or destination['published_at'][:10] > change['date']):
+                        raise AssetError(f'{path}: {target} must be published by the correction date and assign {change["from"]}')
+                statement = identifier_correction('version_doi', change['from'], change['to'], target)
+                expected = change['date'] + ' ' + statement
+                if expected not in corrections:
+                    raise AssetError(f'{path}: version DOI change requires a new dated Correction matching "{expected}"')
             for key, value in changed_ids.items():
-                if key in new_ids:
-                    statement = f'Correction: Identifier {key} changed from {value} to {new_ids[key]}.'
-                else:
-                    statement = f'Correction: Identifier {key} retired: {value}.'
-                if 'published_at' not in old or statement not in corrections:
+                statement = identifier_correction(key, value, new_ids.get(key))
+                if not any(line[11:] == statement for line in corrections):
                     raise AssetError(f'{path}: changing identifier {key} requires a new dated {statement}')
         if old != current:
             raise AssetError(f'{path}: the committed authorization and publication receipt are immutable')

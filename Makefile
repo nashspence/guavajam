@@ -39,20 +39,20 @@ authorization: ## DIR=path/to/edition [STAGED_RUN_ID=id]  Recompute the staging 
 	@set --; if [ -n "$$STAGED_RUN_ID" ]; then set -- "--staged-run-id=$$STAGED_RUN_ID"; fi; \
 		$(PYTHON) scripts/issuance.py prepare "$$@" -- "$${DIR:?Set DIR to the edition directory}"
 
-editorial-checkpoint: ## TAG=works/essay/v1.0.0  Print the checkpoint to retain independently from the current approved commit after receipt and each editorial change.
+editorial-checkpoint: ## TAG=works/essay/v1.0.0  Print the checkpoint to retain independently from the current approved commit after receipt and each metadata or edition-page change.
 	@$(PYTHON) scripts/audit_assets.py --checkpoint "$${TAG:?Set TAG to the issued edition tag}"
 
-check-reader: ## DIR=edition REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest [RECORD_TARGET=https://archive/base] [WORK_SHA256=digest]  Verify edition routes and optionally the work page against retained checkpoints.
+check-reader: ## DIR=edition REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest [RECORD_TARGET=https://archive/base] [WORK_SHA256=digest]  Verify edition routes using archived notices and the approved edition page; optionally check the work page.
 	@$(PYTHON) scripts/audit_assets.py --reader "$${DIR:?Set DIR to the edition directory}" \
 		--registration "$${REGISTRATION:?Set REGISTRATION to the trusted receipt}" \
-		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}" \
+		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the root containing notices and records/editions}" \
 		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}" \
 		$${WORK_SHA256:+"--work-sha256=$$WORK_SHA256"}
 
-check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest [WORK_SHA256=digest]  Verify the backup package, edition routes and optionally the work page before cutover.
+check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest [WORK_SHA256=digest]  Verify standby attachments, archived notices and edition page; optionally check the work page.
 	@$(PYTHON) scripts/audit_assets.py --backup-base "$${BACKUP_BASE:?Set BACKUP_BASE to the recovery host base}" \
 		--registration "$${REGISTRATION:?Set REGISTRATION to the trusted receipt}" \
-		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}" \
+		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the root containing notices and records/editions}" \
 		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}" \
 		$${WORK_SHA256:+"--work-sha256=$$WORK_SHA256"}
 
