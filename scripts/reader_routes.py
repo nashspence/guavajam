@@ -1,4 +1,4 @@
-"""Audit the two unauthenticated URLs a reader uses for an issued edition."""
+"""Audit the public work, edition and reading routes."""
 import hashlib
 from html.parser import HTMLParser
 import os
@@ -121,15 +121,36 @@ def verify_pending_record(raw, manifest, notices, identifiers):
         raise AssetError(f'{url}: public record omits its reading link')
 
 
+def reader_target(repo, archive_base, direct_base):
+    github = 'https://github.com/' + repo + '/releases/tag'
+    base = target_base(direct_base or archive_base or os.environ.get('RECORD_TARGET') or github)
+    return base, direct_base is not None or base != github
+
+
+def verify_work_route(manifest, repo, expected_sha256, *, archive_base=None, direct_base=None):
+    """Read the complete work page from the publisher or its selected recovery host."""
+    base, recovery = reader_target(repo, archive_base, direct_base)
+    work_tag = manifest['tag'].rsplit('/', 1)[0]
+    permanent_url = manifest['record_url'].rsplit('/', 1)[0]
+    url = permanent_url
+    if recovery:
+        url = base + '/' + work_tag
+        if direct_base is None:
+            require_redirect(permanent_url, url)
+    with public_response(url, 'text/html') as response:
+        require_html(response, url)
+        page = b''.join(response_chunks(response, MAX_RECORD_BYTES))
+    if hashlib.sha256(page).hexdigest() != expected_sha256:
+        raise AssetError(f'{url}: work page differs from the approved edition listing')
+
+
 def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archive_base=None, published_at=None,
                          pending=False, direct_base=None):
     tag = manifest['tag']
     url = manifest['record_url']
     if not valid_record_url(url, tag):
         raise AssetError('invalid edition record URL')
-    github = 'https://github.com/' + repo + '/releases/tag'
-    base = target_base(direct_base or archive_base or os.environ.get('RECORD_TARGET') or github)
-    recovery = direct_base is not None or base != github
+    base, recovery = reader_target(repo, archive_base, direct_base)
     bootstrap = pending and not recovery
     record = base + '/' + tag if bootstrap or recovery else url
     read_url = url + '/read'

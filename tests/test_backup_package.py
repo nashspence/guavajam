@@ -76,6 +76,10 @@ class BackupPackageTests(unittest.TestCase):
                                          notices=["- " + notice], identifiers=self.receipt["identifiers"]),
                  record_url + "/read": self.files[self.filename]}
 
+        work_url = record_url.rsplit("/", 1)[0]
+        pages[work_url] = b'<a href="archive-fixture/v1.0.0">v1.0.0</a>'
+        argv.extend(["--work-sha256", hashlib.sha256(pages[work_url]).hexdigest()])
+
         @contextmanager
         def page(url, *args, **kwargs):
             self.requests.append(url)
@@ -87,6 +91,8 @@ class BackupPackageTests(unittest.TestCase):
         with patch.object(sys, "argv", argv), patch("reader_routes.public_response", page):
             self.assertEqual(main(), 0)
             self.assertEqual(self.requests, [*self.files, *pages])
+            pages[work_url] += b"stale edition list"
+            self.assertEqual(main(), 1)
             pages[record_url] = pages[record_url].replace(b"Withdrawal", b"Correction")
             self.assertEqual(main(), 1)
             (parent / "0001.md").unlink()

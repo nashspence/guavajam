@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from asset_policy import AssetError, HOST, MAX_HTML_BYTES
 from deploy_asset_gateway import cf_request, upload_worker
-from identifier_schema import TAG, edition_origin
+from identifier_schema import SLUG, TAG, edition_origin
 
 
 def target_base(value):
@@ -41,6 +41,7 @@ def deploy(root, *, apply=False):
         {'name': 'RECORD_HOST', 'type': 'plain_text', 'text': hostname},
         {'name': 'RECORD_TARGET_BASE', 'type': 'plain_text', 'text': base},
         {'name': 'MAX_HTML_BYTES', 'type': 'plain_text', 'text': str(MAX_HTML_BYTES)},
+        {'name': 'RECORD_SLUG_PATTERN', 'type': 'plain_text', 'text': SLUG.pattern},
         {'name': 'RECORD_TAG_PATTERN', 'type': 'plain_text', 'text': TAG.pattern},
     ]
     if not apply:

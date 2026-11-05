@@ -237,7 +237,8 @@ jobs:
           cp "$RUNNER_TEMP/registration.json" "$registration"
           python scripts/public_record.py --write "$EDITION_TAG" --directory dist/edition
           mkdir -p dist/receipt
-          cp --parents "$registration" "$page_dir/index.html" "$page_dir/provenance.json" dist/receipt/
+          cp --parents "$registration" "$page_dir/index.html" "$page_dir/provenance.json" \
+            "records/works/${edition_path%/*}/index.html" dist/receipt/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: edition-receipt

@@ -8,6 +8,11 @@ const htmlHeaders = {...headers, 'Content-Type': 'text/html; charset=utf-8',
   'Content-Disposition': 'inline', 'Content-Security-Policy':
     "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"};
 
+function publisherPage(repository, path, method) {
+  return fetch('https://raw.githubusercontent.com' + repository + '/refs/heads/main/records/' + path + '/index.html',
+               {method, redirect: 'manual', cf: {cacheTtl: 0}});
+}
+
 async function githubEdition(request, env, repository, tag, slug, version, reading) {
   const filename = slug + '-' + version + '.html';
   const options = {redirect: 'manual', headers: {'User-Agent': 'Press-edition-reader',
@@ -77,6 +82,14 @@ export default {
       const github = base.hostname === 'github.com' && /^(\/[\w.-]+\/[\w.-]+)\/releases\/tag$/.exec(base.pathname);
       if (url.pathname === '/') return redirect(github ? prefix.slice(0, -4) : prefix);
       const parts = url.pathname.slice(1).split('/');
+      if (parts.length === 2 && parts[0] === 'works') {
+        if (typeof env.RECORD_SLUG_PATTERN !== 'string' || !env.RECORD_SLUG_PATTERN) return error(503);
+        if (!new RegExp('^(?:' + env.RECORD_SLUG_PATTERN + ')$', 'u').test(parts[1])) return error(404);
+        if (!github) return redirect(prefix + url.pathname);
+        const page = await publisherPage(github[1], 'works/' + parts[1], request.method);
+        if (page.status !== 200) return error(page.status === 404 ? 404 : 502);
+        return new Response(page.body, {headers: htmlHeaders});
+      }
       const resource = parts.length === 4 ? parts.pop() : null;
       const tag = parts.join('/');
       const match = new RegExp('^(?:' + env.RECORD_TAG_PATTERN + ')$', 'u').exec(tag);
@@ -86,9 +99,8 @@ export default {
       if (!github) return redirect(prefix + url.pathname);
       if (resource !== 'read') {
         // Both the source inputs and the checked, generated record are merged on protected main.
-        const page = await fetch('https://raw.githubusercontent.com' + github[1] +
-          '/refs/heads/main/records/editions/' + match[1] + '/' + match[2] + '/index.html',
-          {method: resource ? 'HEAD' : request.method, redirect: 'manual', cf: {cacheTtl: 0}});
+        const page = await publisherPage(github[1], 'editions/' + match[1] + '/' + match[2],
+                                         resource ? 'HEAD' : request.method);
         if (page.status === 200) {
           if (resource) return redirect('https://github.com' + github[1] + '/releases/download/' +
                                         encodeURIComponent(tag) + '/' + resource);

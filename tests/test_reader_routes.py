@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from asset_policy import AssetError
-from reader_routes import require_redirect, verify_reader_routes
+from reader_routes import require_redirect, verify_reader_routes, verify_work_route
 
 
 class ReaderRouteTests(unittest.TestCase):
@@ -80,6 +80,34 @@ class ReaderRouteTests(unittest.TestCase):
         self.page = original.replace('</ul>', '<li>2026-11-05 Correction: Unexpected change.</li></ul>')
         with self.assertRaisesRegex(AssetError, 'committed notice'):
             self.check()
+
+    def test_work_landing_at_primary_direct_backup_and_after_cutover(self):
+        permanent = self.url.rsplit('/', 1)[0]
+        backup = 'https://archive.test/base'
+        mirror = backup + '/works/work'
+        page = b'<a href="work/v1.0.0">v1.0.0</a>'
+        digest = hashlib.sha256(page).hexdigest()
+        replies = {permanent: (200, {'Content-Type': 'text/html'}, page),
+                   mirror: (200, {'Content-Type': 'text/html'}, page)}
+
+        @contextmanager
+        def serve(url, *args):
+            self.calls.append(url)
+            status, headers, content = replies[url]
+            response = io.BytesIO(content)
+            response.status = status
+            response.getheader = headers.get
+            yield response
+
+        with patch('reader_routes.public_response', serve):
+            verify_work_route(self.manifest, 'owner/press', digest)
+            verify_work_route(self.manifest, 'owner/press', digest, direct_base=backup)
+            replies[permanent] = (302, {'Location': mirror}, b'')
+            verify_work_route(self.manifest, 'owner/press', digest, archive_base=backup)
+            self.assertEqual(self.calls, [permanent, mirror, permanent, mirror])
+            replies[mirror] = (200, {'Content-Type': 'text/html'}, b'<p>Stale listing</p>')
+            with self.assertRaisesRegex(AssetError, 'approved edition listing'):
+                verify_work_route(self.manifest, 'owner/press', digest, direct_base=backup)
 
     def test_github_abbreviates_visible_source_commit_and_notice(self):
         sha = self.manifest['source_commit']

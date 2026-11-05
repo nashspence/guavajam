@@ -6,8 +6,43 @@ const source = await readFile(new URL('../records/worker.js', import.meta.url), 
 const worker = (await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'))).default;
 const env = {RECORD_HOST: 'press.publisher.test',
              RECORD_TARGET_BASE: 'https://github.com/owner/press/releases/tag',
+             RECORD_SLUG_PATTERN: '[a-z0-9]+(?:-[a-z0-9]+)*',
              RECORD_TAG_PATTERN: 'works/(sample-work)/(v1\\.0\\.0)'};
 const address = 'https://press.publisher.test/works/sample-work/v1.0.0';
+
+test('permanent work address serves the approved work page and preserves its path on recovery', async t => {
+  const work = 'https://press.publisher.test/works/sample-work';
+  let status = 200;
+  const upstream = t.mock.method(globalThis, 'fetch', async (url, options) => {
+    assert.equal(url, 'https://raw.githubusercontent.com/owner/press/refs/heads/main/records/works/sample-work/index.html');
+    assert.equal(options.redirect, 'manual');
+    assert.equal(options.cf.cacheTtl, 0);
+    return new Response(options.method === 'HEAD' ? null : '<p>Work record</p>', {status});
+  });
+  for (const method of ['GET', 'HEAD']) {
+    const res = await worker.fetch(new Request(work, {method}), env);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('Content-Type'), /^text\/html/);
+    assert.equal(res.headers.get('Cache-Control'), 'no-store, no-transform');
+    assert.equal(await res.text(), method === 'HEAD' ? '' : '<p>Work record</p>');
+  }
+  for (const [upstreamStatus, expected] of [[404, 404], [301, 502], [503, 502]]) {
+    status = upstreamStatus;
+    assert.equal((await worker.fetch(new Request(work), env)).status, expected);
+  }
+  const calls = upstream.mock.callCount();
+  const base = 'https://archive.test/backup';
+  const recovered = await worker.fetch(new Request(work), {...env, RECORD_TARGET_BASE: base});
+  assert.equal(recovered.status, 302);
+  assert.equal(recovered.headers.get('Location'), base + '/works/sample-work');
+  for (const url of [work + '/', work + '?v=1', work + '/read', work.replace('sample-work', 'Sample'),
+                     work.replace('sample-work', 'sample%2Dwork'), work.replace('sample-work', 'a--b')]) {
+    assert.equal((await worker.fetch(new Request(url), env)).status, 404, url);
+  }
+  assert.equal((await worker.fetch(new Request(work, {method: 'POST'}), env)).status, 405);
+  assert.equal((await worker.fetch(new Request(work), {...env, RECORD_SLUG_PATTERN: undefined})).status, 503);
+  assert.equal(upstream.mock.callCount(), calls);
+});
 
 test('receipted records serve the reviewed main page, even when the release mirror is unavailable', async t => {
   const raw = 'https://raw.githubusercontent.com/owner/press/refs/heads/main/records/editions/sample-work/v1.0.0/index.html';

@@ -14,7 +14,8 @@ from identifier_schema import TAG, valid_utc
 from editorial_notices import edition_notices
 from issuance import check_authorization, check_issuance, read_registration
 from publish_edition import api, gh, release_inventory, release_records, tag_commit
-from reader_routes import verify_reader_routes
+from public_record import WORK_RECORDS
+from reader_routes import verify_reader_routes, verify_work_route
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
 
@@ -54,6 +55,13 @@ def verify_registered_routes(root, repo, manifest, published_at, archive_base):
                          archive_base=archive_base, published_at=published_at, pending="published_at" not in record)
 
 
+def verify_published_work(root, repo, manifest, archive_base):
+    slug = TAG.fullmatch(manifest['tag'])[1]
+    page = root / WORK_RECORDS / slug / 'index.html'
+    verify_work_route(manifest, repo, hashlib.sha256(page.read_bytes()).hexdigest(),
+                      archive_base=archive_base)
+
+
 def audit(root, repo, *, archive_base=None):
     policy = load_policy(root)
     urls = set()
@@ -74,6 +82,7 @@ def audit(root, repo, *, archive_base=None):
                 urls.add(node["c"][2][0])
     unresolved = []
     seen = set()
+    verified_works = set()
     for release in release_records(repo):
         tag = release["tag_name"]
         if release["draft"] or release["prerelease"]:
@@ -85,6 +94,10 @@ def audit(root, repo, *, archive_base=None):
         seen.add(tag)
         manifest = verify_public_release(repo, release, root=root, require_receipt=True)
         verify_registered_routes(root, repo, manifest, release["published_at"], archive_base)
+        work_tag = tag.rsplit('/', 1)[0]
+        if work_tag not in verified_works:
+            verify_published_work(root, repo, manifest, archive_base)
+            verified_works.add(work_tag)
         urls.update(record["source_url"] for record in manifest["assets"]
                     if record["source_kind"] == "https")
     for tag in sorted(expected.keys() - seen):
@@ -132,6 +145,7 @@ def main():
     modes.add_argument("--backup-base", metavar="URL", help="verify a recovery host directly before changing permanent routes")
     modes.add_argument("--checkpoint", metavar="TAG", help="print the editorial SHA-256 from the committed checkout at HEAD")
     parser.add_argument("--editorial-sha256", help="current independently retained editorial checkpoint for --reader or --backup-base")
+    parser.add_argument("--work-sha256", help="also verify the work page against its independently retained current SHA-256")
     parser.add_argument("--registration", type=Path, help="independently trusted publication receipt for --reader or --backup-base")
     parser.add_argument("--archive-root", type=Path, help="checkout or recovery root with the trusted notices/ directory for --reader or --backup-base")
     parser.add_argument("--record-target", help="expected archive base after the permanent record redirect")
@@ -140,8 +154,8 @@ def main():
     recovery = args.reader is not None or args.backup_base is not None
     if recovery and not all((args.registration, args.archive_root, args.editorial_sha256)):
         parser.error("recovery verification requires --registration, --archive-root and --editorial-sha256")
-    if not recovery and any((args.registration, args.archive_root, args.editorial_sha256)):
-        parser.error("--registration, --archive-root and --editorial-sha256 require --reader or --backup-base")
+    if not recovery and any((args.registration, args.archive_root, args.editorial_sha256, args.work_sha256)):
+        parser.error("--registration, --archive-root, --editorial-sha256 and --work-sha256 require --reader or --backup-base")
     if args.backup_base is not None and args.record_target:
         parser.error("--backup-base specifies the direct recovery target by itself")
     root = Path(__file__).resolve().parents[1]
@@ -166,6 +180,10 @@ def main():
             verify_reader_routes(manifest, args.repo, notices=notices, identifiers=receipt.get("identifiers"),
                                  archive_base=args.record_target, direct_base=args.backup_base,
                                  published_at=receipt["published_at"])
+            if args.work_sha256:
+                verify_work_route(manifest, args.repo, args.work_sha256, archive_base=args.record_target,
+                                  direct_base=args.backup_base)
+                print("Verified work page:", tag.rsplit("/", 1)[0])
             print("Verified backup package and reading routes:" if args.backup_base else "Verified public reading routes:", tag)
         elif args.release_id is None:
             audit(root, args.repo, archive_base=args.record_target)

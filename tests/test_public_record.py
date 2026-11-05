@@ -12,13 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from editorial_notices import render_initial_body
 from issuance import authorization
-from public_record import check_records, projection, record_html
+from public_record import check_records, record_html, write_records
 
 
 class PublicRecordTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.git("init", "-q")
+        (self.root / "edition-origin.txt").write_text("https://press.example.org\n")
         self.tag = "works/essay/v1.0.0"
         self.timestamp = "2026-11-04T12:00:00Z"
         self.url = "https://press.example.org/" + self.tag
@@ -47,7 +48,7 @@ class PublicRecordTests(unittest.TestCase):
 
     def generate(self):
         with patch("public_record.verify_edition", return_value=self.manifest) as verify:
-            projection(self.root, self.tag, package=self.package, write=True)
+            write_records(self.root, self.tag, package=self.package)
             verify.assert_called_once_with(self.package, tag=self.tag, commit="a" * 40)
 
     def test_portable_readable_record(self):
@@ -77,13 +78,87 @@ class PublicRecordTests(unittest.TestCase):
         self.save_receipt()
         with self.assertRaisesRegex(AssetError, "stale"):
             check_records(self.root)
-        projection(self.root, self.tag, write=True)
+        write_records(self.root, self.tag)
         check_records(self.root)
         self.assertIn("Attribution updated.", self.page.read_text())
         self.assertIn("OCLC number: 42", self.page.read_text())
         (self.directory / "provenance.json").write_text("{}\n")
         with self.assertRaisesRegex(AssetError, "provenance differs"):
-            projection(self.root, self.tag, write=True)
+            write_records(self.root, self.tag)
+
+    def test_work_listing_tracks_receipts_and_preserves_version_citations(self):
+        self.generate()
+        landing = self.root / "records/works/essay/index.html"
+        original = landing.read_bytes()
+        for version, extra in (("v3.0.0", {}), ("v4.0.0", {"cancellation_reason": "Retired"})):
+            intent = {**self.receipt, "version": version, **extra}
+            del intent["published_at"]
+            path = self.registration.with_name(version + ".json")
+            path.write_text(json.dumps(intent, sort_keys=True, indent=2) + "\n")
+        self.git("add", "registrations", "records")
+        check_records(self.root)
+        notices = self.root / "notices/essay/v1.0.0"
+        notices.mkdir(parents=True)
+        (notices / "0001.md").write_text("2026-11-06 Withdrawal: An error affects the proof.\n")
+        write_records(self.root, self.tag)
+        check_records(self.root)
+        self.assertEqual(landing.read_bytes(), original)
+        self.assertIn("Withdrawal: An error", self.page.read_text())
+
+        for version in ("v1.10.0", "v1.2.0"):
+            tag = "works/essay/" + version
+            manifest = dict(self.manifest, tag=tag, title="Revised essay", canonical_artifact=f"essay-{version}.html",
+                            record_url="https://press.example.org/" + tag)
+            manifest["initial_release_body"] = render_initial_body(manifest)
+            (self.package / "provenance.json").write_text(json.dumps(manifest))
+            receipt = {**authorization(self.package, manifest), "published_at": self.timestamp}
+            path = self.registration.with_name(version + ".json")
+            path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + "\n")
+            self.git("add", str(path))
+            with patch("public_record.verify_edition", return_value=manifest):
+                write_records(self.root, tag, package=self.package)
+        self.git("add", "records")
+        check_records(self.root)
+        html = landing.read_text()
+        self.assertLess(html.index("v1.10.0"), html.index("v1.2.0"))
+        self.assertLess(html.index("v1.2.0"), html.index("v1.0.0"))
+        self.assertNotIn("v3.0.0", html)
+        self.assertNotIn("v4.0.0", html)
+        self.assertIn("Scale &lt; 2 &amp; change", html)
+        self.assertIn("Revised essay", html)
+        canonical = "https://press.example.org/works/essay"
+        self.assertIn(f'<link rel="canonical" href="{canonical}">', html)
+        for base in (canonical, "https://backup.example.org/archive/works/essay"):
+            href = "essay/v1.0.0"
+            self.assertIn(f'href="{href}"', html)
+            self.assertEqual(urljoin(base, href), base + "/v1.0.0")
+            self.assertIn('href="../essay"', self.page.read_text())
+            self.assertEqual(urljoin(base + "/v1.0.0", "../essay"), base)
+
+        landing.write_bytes(original)
+        with self.assertRaisesRegex(AssetError, "stale work record"):
+            check_records(self.root)
+        (self.root / "edition-origin.txt").write_text("https://different.example.org\n")
+        with self.assertRaisesRegex(AssetError, "different permanent work address"):
+            check_records(self.root)
+
+    def test_no_work_page_before_first_receipt_or_through_symlink(self):
+        del self.receipt["published_at"]
+        self.save_receipt()
+        check_records(self.root)
+        work = self.root / "records/works/essay"
+        work.mkdir(parents=True)
+        (work / "index.html").write_text("draft listing")
+        with self.assertRaisesRegex(AssetError, "tracked pages"):
+            check_records(self.root)
+        (work / "index.html").unlink()
+        work.rmdir()
+        work.symlink_to(self.package, target_is_directory=True)
+        self.receipt["published_at"] = self.timestamp
+        self.save_receipt()
+        with self.assertRaisesRegex(AssetError, "symlink"):
+            self.generate()
+        self.assertFalse((self.package / "index.html").exists())
 
     def test_pending_stray_and_symlink_paths_fail(self):
         del self.receipt["published_at"]

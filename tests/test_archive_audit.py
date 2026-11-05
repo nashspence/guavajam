@@ -23,6 +23,7 @@ class ArchiveAuditTests(unittest.TestCase):
                         "body": manifest["initial_release_body"],
                         "assets": [{"name": name, "id": i, "state": "uploaded"}
                                    for i, name in enumerate(names, 1)]}
+        self.work_check = self.enterContext(patch("audit_assets.verify_published_work"))
         self.reader_check = self.enterContext(patch("audit_assets.verify_reader_routes"))
         for name, result in (("release_records", [self.release]), ("gh", ""),
                              ("verify_edition", manifest), ("tag_commit", manifest["source_commit"]),
@@ -102,6 +103,7 @@ class ArchiveAuditTests(unittest.TestCase):
         with patch("audit_assets.check_issuance", return_value={}) as check:
             audit(self.root, "owner/press")
         self.assertTrue(check.call_args.kwargs["require_receipt"])
+        self.work_check.assert_called_once()
 
     def test_fresh_unapproved_draft_is_ignored(self):
         self.release["draft"] = True
