@@ -64,8 +64,8 @@ jobs:
           RETIRE_HEAD_SHA: ${{ inputs.head_sha }}
           B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-          B2_BUCKET_ID: ${{ vars.B2_BUCKET_ID }}
-          B2_BUCKET_NAME: ${{ vars.B2_BUCKET_NAME }}
+          B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
+          B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
         run: |
           case "$OPERATION" in
             preview) python scripts/manage_assets.py gc ;;

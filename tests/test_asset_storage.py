@@ -420,6 +420,9 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual("write", token["with"]["permission-contents"])
         self.assertNotIn("permission-administration", token["with"])
         self.assertIn("${{ github.sha }}", job["steps"][0]["with"]["ref"])
+        operation = next(step for step in job["steps"] if "OPERATION" in step.get("env", {}))
+        for name in asset_storage.VARIABLES:
+            self.assertEqual("${{ secrets." + name + " }}", operation["env"][name])
 
     def test_deletion_ruleset_cannot_grant_a_main_protection_bypass(self):
         rule = deletion_ruleset(123)
