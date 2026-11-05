@@ -37,8 +37,9 @@ def request(root, command, env):
             raise AssetError("HEAD_SHA must be the full reviewed 40-character branch tip")
         fields = {"operation": "retire", "branch": branch, "head_sha": sha}
     # JSON stdin keeps branch names as data and never selects a feature workflow.
-    result = subprocess.run(["gh", "workflow", "run", "maintain-assets.yml", "--repo", repo,
-                             "--ref", "main", "--json"], input=json.dumps(fields), text=True, capture_output=True)
+    result = subprocess.run(["gh", "api", "--method", "POST",
+                             f"repos/{repo}/actions/workflows/maintain-assets.yml/dispatches", "--input", "-"],
+                            input=json.dumps({"ref": "main", "inputs": fields}), text=True, capture_output=True)
     if result.returncode:
         raise AssetError("cannot dispatch asset maintenance on main; check workflow setup and gh authentication")
     print("Requested", fields["operation"], "at https://github.com/" + repo + "/actions/workflows/maintain-assets.yml")

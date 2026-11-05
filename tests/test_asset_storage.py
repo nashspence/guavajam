@@ -395,8 +395,8 @@ class WorkflowTests(unittest.TestCase):
              patch("asset_workflow.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run, \
              contextlib.redirect_stdout(io.StringIO()):
             asset_workflow.request(Path("."), "request-gc", {})
-        self.assertIn("main", run.call_args.args[0])
-        self.assertEqual({"operation": "preview"}, json.loads(run.call_args.kwargs["input"]))
+        self.assertEqual(["gh", "api", "--method", "POST"], run.call_args.args[0][:4])
+        self.assertEqual({"ref": "main", "inputs": {"operation": "preview"}}, json.loads(run.call_args.kwargs["input"]))
 
     def test_main_and_open_prs_cannot_be_retired(self):
         with self.assertRaises(AssetError):
