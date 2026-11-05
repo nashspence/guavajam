@@ -333,7 +333,9 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: invalid or unknown edition slug/version")
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
-            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "version_doi_history", "issuing", "published_at", "cancellation_reason"}, context))
+            optional = {"staged_run_id", "identifiers", "version_doi_history", "issuing", "published_at",
+                        "cancellation_reason", "stop_reason", "abandoned_run_id"}
+            errors.extend(exact_keys(doc, required, optional, context))
             if "staged_run_id" in doc and (not isinstance(doc["staged_run_id"], str)
                                           or not STAGING_RUN_ID.fullmatch(doc["staged_run_id"])):
                 errors.append(f"{path}: staged_run_id must be a positive decimal run ID string")
@@ -357,13 +359,22 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: a publication receipt requires an issuing claim")
             if "published_at" in doc and not valid_utc(doc["published_at"]):
                 errors.append(f"{path}: published_at must be a valid UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
-            if "cancellation_reason" in doc:
-                reason = doc["cancellation_reason"]
+            for field in ("cancellation_reason", "stop_reason"):
+                if field not in doc:
+                    continue
+                reason = doc[field]
                 if (not isinstance(reason, str) or not reason or reason.strip() != reason
                         or not reason.isprintable() or len(reason) > 500):
-                    errors.append(f"{path}: cancellation_reason requires a single printable line of at most 500 characters")
-                if "issuing" in doc or "published_at" in doc:
-                    errors.append(f"{path}: a claimed or published edition cannot be cancelled")
+                    errors.append(f"{path}: {field} requires a single printable line of at most 500 characters")
+            if "cancellation_reason" in doc and ("issuing" in doc or "published_at" in doc):
+                errors.append(f"{path}: a claimed or published edition cannot be cancelled")
+            if "stop_reason" in doc and doc.get("issuing") is not True:
+                errors.append(f"{path}: a publication stop requires an issuing claim")
+            if "abandoned_run_id" in doc:
+                run_id = doc["abandoned_run_id"]
+                if ("stop_reason" not in doc or "published_at" in doc
+                        or not isinstance(run_id, str) or not STAGING_RUN_ID.fullmatch(run_id)):
+                    errors.append(f"{path}: abandonment requires a stopped unpublished claim and confirmation run ID")
             rights = doc.get("rights")
             if not isinstance(rights, str) or rights not in RIGHTS:
                 errors.append(f"{path}: rights must be an approved rights identifier")

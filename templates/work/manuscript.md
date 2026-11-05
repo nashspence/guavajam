@@ -13,7 +13,12 @@ rights: all-rights-reserved
 <a id="sec-1"></a>
 ## § 1 — Definitions and mathematics
 
-Let $S$ be a set. Every element equals itself. In symbols, for $x \in S$:
+Let $S$ be a set. [Equation 1](#eq-1) states that every element equals itself.
+
+<a id="eq-1"></a>
+### Equation 1 — Identity
+
+In symbols, for $x \in S$:
 
 $$
 \forall x \in S,\quad x=x

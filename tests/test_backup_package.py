@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from audit_assets import editorial_checkpoint, main
 from backup_package import verify_backup_package
+from check_backup_archive import check_backup_archive
 from editorial_notices import render_initial_body
 from issuance import authorization, public_receipt
 from public_record import record_html
@@ -140,6 +142,52 @@ class BackupPackageTests(unittest.TestCase):
             self.requests.clear()
             self.assertEqual(main(), 1)
             self.assertEqual(self.requests, [])
+
+    def test_standby_uses_complete_retained_commit_and_reports_multiple_failures(self):
+        def git(*args):
+            return subprocess.check_output(['git', *args], cwd=self.root, text=True).strip()
+
+        def save(path, data):
+            path = self.root / path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+
+        def receipt_path(version):
+            return f'registrations/editions/archive-fixture/{version}.json'
+
+        git('init', '-q')
+        save('README.md', b'No issued editions yet.\n')
+        git('add', 'README.md')
+        git('-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-q', '--allow-empty', '-m', 'empty')
+        empty = git('rev-parse', 'HEAD')
+        with self.assertRaisesRegex(AssetError, 'no issued editions'):
+            check_backup_archive(self.root, empty, self.base, 'owner/press')
+        for version in ('v1.0.0', 'v2.0.0'):
+            manifest = dict(self.manifest, tag='works/archive-fixture/' + version)
+            manifest['initial_release_body'] = render_initial_body(manifest)
+            directory = Path('records/editions/archive-fixture') / version
+            save(directory / 'provenance.json', (json.dumps(manifest) + '\n').encode())
+            receipt = {**self.receipt, **authorization(self.root / directory, manifest)}
+            save(receipt_path(version), (json.dumps(receipt, indent=2, sort_keys=True) + '\n').encode())
+            save(directory / 'index.html', b'approved edition page')
+        save('records/works/archive-fixture/index.html', b'approved work page')
+        git('add', '.')
+        git('-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-qm', 'issued editions')
+        commit = git('rev-parse', 'HEAD')
+        # Standby omissions cannot narrow the inventory, even after the working copy loses an entry.
+        (self.root / receipt_path('v2.0.0')).unlink()
+        save('records/works/archive-fixture/index.html', b'stale work page')
+        with (patch('check_backup_archive.verify_backup_package', side_effect=[None, AssetError('missing archive')]) as package,
+              patch('check_backup_archive.verify_reader_routes') as reader,
+              patch('check_backup_archive.verify_work_route', side_effect=AssetError('stale work')) as work,
+              self.assertRaises(AssetError) as raised):
+            check_backup_archive(self.root, commit, self.base, 'owner/press')
+        self.assertIn('works/archive-fixture/v2.0.0 standby package: missing archive', str(raised.exception))
+        self.assertIn('works/archive-fixture standby work page: stale work', str(raised.exception))
+        self.assertEqual(2, package.call_count)
+        self.assertEqual(2, reader.call_count)
+        work.assert_called_once()
+        self.assertEqual(hashlib.sha256(b'approved work page').hexdigest(), work.call_args.args[2])
 
     def test_issue_from_saved_files_after_historical_runs_are_gone(self):
         claim = {k: v for k, v in self.receipt.items() if k not in {"identifiers", "published_at"}}

@@ -60,12 +60,14 @@ test('receipted records serve the reviewed main page, even when the release mirr
   }
   for (const file of ['SHA256SUMS', 'provenance.json', 'sample-work-v1.0.0.html']) {
     const response = await worker.fetch(new Request(address + '/' + file), env);
+    assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(response.headers.get('Location'), 'https://github.com/owner/press/releases/download/' +
                  encodeURIComponent('works/sample-work/v1.0.0') + '/' + file);
   }
   const backup = {...env, RECORD_TARGET_BASE: 'https://recovered.publisher.test'};
   for (const suffix of ['', '/read', '/provenance.json']) {
     const recovered = await worker.fetch(new Request(address + suffix), backup);
+    assert.equal(recovered.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(recovered.headers.get('Location'), backup.RECORD_TARGET_BASE + '/works/sample-work/v1.0.0' + suffix);
   }
   const catalog = await worker.fetch(new Request('https://press.publisher.test/'), env);
@@ -126,18 +128,22 @@ test('section citations serve only the registered immutable HTML inline, streami
   assert.equal((await worker.fetch(new Request(address + '/read'), primary)).status, 404);
   assert.equal(urls.some(url => url.startsWith('https://api.github.com/')), false);
   record.issuing = true;
+  record.abandoned_run_id = '42';
+  assert.equal((await worker.fetch(new Request(address + '/read'), primary)).status, 404);
+  assert.equal(urls.some(url => url.startsWith('https://api.github.com/')), false);
+  delete record.abandoned_run_id;
   const pending = await worker.fetch(new Request(address), primary);
+  assert.equal(pending.headers.get('Cache-Control'), 'no-store, no-transform');
   assert.equal(pending.headers.get('Location'), 'https://github.com/owner/press/releases/tag/' + tag);
   record.published_at = '2026-11-04T00:00:00Z';
   assert.equal((await worker.fetch(new Request(address), primary)).status, 503);
-  delete record.published_at;
   const read = method => worker.fetch(new Request(address + '/read#part', {method,
     headers: {Cookie: 'reader', Authorization: 'private'}}), {...env, MAX_HTML_BYTES: '150994944'});
   for (const method of ['GET', 'HEAD']) {
     const response = await read(method);
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('Content-Disposition'), 'inline');
-    assert.match(response.headers.get('Cache-Control'), /(?:^|, )no-transform(?:,|$)/);
+    assert.equal(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable, no-transform');
     assert.match(response.headers.get('Content-Type'), /^text\/html/);
     assert.match(response.headers.get('Content-Security-Policy'), /default-src 'none'/);
     assert.equal(response.headers.get('Set-Cookie'), null);
@@ -149,7 +155,9 @@ test('section citations serve only the registered immutable HTML inline, streami
     const original = obj[key];
     obj[key] = value;
     urls.length = 0;
-    assert.equal((await read('GET')).status, 502);
+    const failed = await read('GET');
+    assert.equal(failed.status, 502);
+    assert.equal(failed.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(urls.length, obj === record ? 1 : 2);
     if (original === undefined) delete obj[key]; else obj[key] = original;
   }

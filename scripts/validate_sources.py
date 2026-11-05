@@ -411,7 +411,7 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
     return data, body, body_line, errors
 
 
-def validate_work_fields(relative: Path, data: dict, slug: str, title: str) -> list[str]:
+def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: list) -> list[str]:
     errors: list[str] = []
     unknown = set(data) - META_REQUIRED - META_OPTIONAL
     missing = META_REQUIRED - set(data)
@@ -426,7 +426,10 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title: str) -> l
         errors.append(issue(relative, "schema must be press.work.v1"))
     if data["slug"] != slug:
         errors.append(issue(relative, "slug must match works/<slug>"))
-    if data["title"] != title:
+    if any(node["t"] == "Math" for node in walk(title_inlines)):
+        if re.search(r"\\[A-Za-z]+", data["title"]):
+            errors.append(issue(relative, "use words or Unicode in the bibliographic title for a mathematical H1"))
+    elif data["title"] != plain_text(title_inlines):
         errors.append(issue(relative, "title must exactly match the manuscript H1 plain text"))
     if not LANGUAGE.fullmatch(data["language"]):
         errors.append(issue(relative, "language must be lowercase ISO code optionally followed by region (e.g. en-CA)"))
@@ -642,7 +645,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                     errors.append(issue(rel, "heading levels differ between source and AST", number))
             if rel in front_matters:
                 front = front_matters[rel]
-                title = plain_text(headers[0]["c"][2]) if headers else ""
+                title = headers[0]["c"][2] if headers else []
                 errors.extend(validate_work_fields(rel, front, rel.parts[1], title))
                 errors.extend(validate_pandoc_front_matter(rel, front, ast))
             raw_nodes = [node["c"][1] for node in walk(ast.get("blocks", []))
@@ -655,6 +658,13 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if sorted(raw_nodes) != sorted(expected_raw):
                 errors.append(issue(rel, "raw HTML is prohibited except standalone stable section anchors"))
             maths = [node for node in walk(ast.get("blocks", [])) if node["t"] == "Math"]
+            # Tokenize TeX control words/symbols so escaped backslashes and percent
+            # signs are distinct from commands and comments, respectively.
+            for node in maths:
+                for token in re.findall(r"%[^\n]*|\\[A-Za-z]+|\\.", node["c"][1]):
+                    if token in (r"\tag", r"\label"):
+                        errors.append(issue(rel, f"{token} in math cannot produce a published equation label; "
+                                                 "use a stable heading anchor and link to it"))
             found_inline = sum(1 for m in maths if m["c"][0]["t"] == "InlineMath")
             found_display = sum(1 for m in maths if m["c"][0]["t"] == "DisplayMath")
             if (found_inline, found_display) != (info["inline_math"], info["display_math"]):

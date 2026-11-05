@@ -64,6 +64,10 @@ def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=
         raise AssetError("invalid issuance tag")
     path = Path("registrations/editions") / match[1] / (match[2] + ".json")
     record = read_registration(root, path)
+    if "abandoned_run_id" in record:
+        raise AssetError(f"{tag}: this edition was abandoned before publication")
+    if pending and "stop_reason" in record:
+        raise AssetError(f"{tag}: publication of this claim was stopped")
     if pending and "published_at" in record:
         raise AssetError(f"{tag}: issued edition reverted to draft")
     check_authorization(record, directory, manifest, require_claim=pending or published_at is not None or require_receipt)
