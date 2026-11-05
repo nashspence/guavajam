@@ -132,6 +132,9 @@ class ReaderRouteTests(unittest.TestCase):
         self.primary_record = approved
         self.check(pending=False, published_at=timestamp)
         self.assertEqual(self.calls, [self.url, self.url + '/read'])
+        with patch('public_record.PAGE_STYLE', '<style>body{margin:0}</style>'), \
+             self.assertRaisesRegex(AssetError, 'approved metadata'):
+            self.check(pending=False, published_at=timestamp)
         self.primary_record = None
         self.target = 'https://archive.test/press'
         self.page = approved.decode()
@@ -143,8 +146,8 @@ class ReaderRouteTests(unittest.TestCase):
         # Even a byte-for-byte approved record must lead a backup reader to its local copy.
         bad = approved.replace(b'href="v1.0.0/read"', f'href="{self.url}/read"'.encode())
         self.page = bad.decode()
-        with patch('public_record.record_html', return_value=bad), self.assertRaisesRegex(AssetError, 'reading link'):
-            self.check(direct_base=self.target, pending=False, published_at=timestamp)
+        with self.assertRaisesRegex(AssetError, 'reading link'):
+            self.check(direct_base=self.target, pending=False, published_at=timestamp, checkpoint_page=bad)
         for value in (timestamp, self.notice, 'CC0-1.0'):
             self.page = approved.decode().replace(value, 'changed')
             with self.subTest(value=value), self.assertRaisesRegex(AssetError, 'approved metadata'):

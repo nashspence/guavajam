@@ -5,13 +5,10 @@ import os
 import re
 from urllib.parse import urljoin
 
-from asset_policy import AssetError, MAX_HTML_BYTES, public_response, response_chunks
+from asset_policy import AssetError, MAX_HTML_BYTES, MAX_RECORD_BYTES, public_response, response_chunks
 from deploy_record_gateway import target_base
-from editorial_notices import EDITION_ID_LABELS
+from editorial_notices import EDITION_ID_LABELS, NOTICE_LINE
 from identifier_schema import valid_record_url
-
-# A record is a text page, separate from the potentially image-heavy edition.
-MAX_RECORD_BYTES = 4 * 1024 * 1024
 
 
 class RecordText(HTMLParser):
@@ -113,7 +110,7 @@ def verify_pending_record(raw, manifest, notices, identifiers):
         raise AssetError(f'{url}: public record omits the source commit')
     if manifest['canonical_artifact'] not in text:
         raise AssetError(f'{url}: public record omits the canonical filename')
-    visible_notices = [item for item in parser.items if re.match(r'\d{4}-\d{2}-\d{2} (Correction|Withdrawal|Supersession): ', item)]
+    visible_notices = [item for item in parser.items if NOTICE_LINE.fullmatch(item)]
     if visible_notices != [' '.join(n[2:].split()) for n in notices]:
         raise AssetError(f'{url}: public record differs from the committed notice history')
     labels = tuple(name + ': ' for name in EDITION_ID_LABELS.values())
@@ -149,7 +146,7 @@ def verify_work_route(manifest, repo, expected_sha256, *, archive_base=None, dir
 
 
 def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archive_base=None, published_at=None,
-                         pending=False, direct_base=None):
+                         pending=False, direct_base=None, checkpoint_page=None):
     tag = manifest['tag']
     url = manifest['record_url']
     if not valid_record_url(url, tag):
@@ -168,10 +165,12 @@ def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archiv
     if bootstrap:
         verify_pending_record(raw, manifest, notices, identifiers)
     else:
-        from public_record import record_html
         if not published_at:
             raise AssetError(f'{url}: the public record requires a trusted publication timestamp')
-        expected = record_html(manifest, published_at=published_at, notices=notices, identifiers=identifiers)
+        expected = checkpoint_page
+        if expected is None:
+            from public_record import record_html
+            expected = record_html(manifest, published_at=published_at, notices=notices, identifiers=identifiers)
         if raw != expected:
             raise AssetError(f'{record}: public record differs from the approved metadata and editorial history')
         parser = RecordText()

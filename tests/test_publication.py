@@ -54,6 +54,7 @@ class PublicationLifecycleTests(unittest.TestCase):
             (self.output / name).write_text(name)
         for name, options in [("verify_edition", {"return_value": manifest}),
                               ("require_source_check", {}), ("check_issuance", {"return_value": {}}),
+                              ("edition_notices", {"return_value": []}),
                               ("tag_commit", {"side_effect": lambda *_: self.ref}),
                               ("gh", {"side_effect": self.fake_gh})]:
             mock = patch("publish_edition." + name, **options)
@@ -340,6 +341,32 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.publish()
         self.assertEqual("c" * 40, self.require_source_check.call_args.args[1])
         self.assertIsNone(self.release)
+
+    def test_saved_proof_needs_live_issuer_checks_and_policy_after_historical_runs_are_gone(self):
+        self.main_tip = "b" * 40
+        builder = "c" * 40
+        self.verify_edition.return_value["builder_commit"] = builder
+        self.check_issuance.return_value = {"issuing": True, "staged_run_id": "42"}
+        def promote():
+            return publish_edition("owner/press", self.output, self.commit, self.tag, issuer_commit=self.main_tip,
+                                   policy_token="read-settings", staged_run_id="42", saved_proof=True)
+        with patch("publish_edition.require_main_commit") as history:
+            self.require_source_check.side_effect = AssetError("issuer failed")
+            with self.assertRaisesRegex(AssetError, "issuer failed"):
+                promote()
+            self.assertIsNone(self.release)
+            self.require_source_check.assert_called_once_with("owner/press", self.main_tip)
+            self.assertEqual([self.commit, builder], [c.args[1] for c in history.call_args_list])
+            self.require_source_check.side_effect = None
+            self.policy_enabled = False
+            with self.assertRaisesRegex(AssetError, "enable immutable releases"):
+                promote()
+            self.assertTrue(self.release["draft"])
+            self.policy_enabled = True
+            promote()
+            self.assertFalse(self.release["draft"])
+            self.assertEqual(self.commit, self.ref)
+            self.assertTrue(all(c.args[1] == self.main_tip for c in self.require_source_check.call_args_list))
 
     def test_invalid_drafts_cannot_be_promoted(self):
         self.existing_draft()

@@ -7,10 +7,10 @@ from html import escape
 from pathlib import Path
 from urllib.parse import quote
 
-from asset_policy import AssetError
+from asset_policy import AssetError, bounded_record
 from build_edition import git
 from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices, edition_status
-from identifier_schema import TAG, concept_doi_history, edition_origin, valid_record_url, valid_utc, version_key
+from identifier_schema import TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key
 from issuance import check_authorization, read_registration
 from verify_edition import verify_edition
 
@@ -36,18 +36,23 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         raise AssetError("public record requires the edition’s canonical filename")
 
     title = escape(manifest["title"])
+    status, successor = edition_status(notices, version)
     page = [
         "<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         f"<title>{title} — {version} · Press</title>",
         PAGE_STYLE, "</head>", "<body><main>", "<p>Press · Edition record</p>",
-        f"<h1>{title}</h1>", f'<p>Published <time datetime="{published_at}">{published_at}</time></p>',
+        f"<h1>{title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
     ]
+    if successor:
+        page.append(f'<p><a href="{successor}">Replacement edition {successor}</a></p>')
+    page.append(f'<p>First published <time datetime="{published_at}">{published_at}</time></p>')
     if notices:
         page.append("<h2>Editorial notices</h2><ul>")
         page.extend(f"<li>{escape(item.removeprefix('- '))}</li>" for item in notices)
         page.append("</ul>")
-    page.append(f'<p><a id="press-record-read" href="{version}/read">Read this edition online</a></p>')
+    read_label = "Read this edition online" if status == "Published" else "Read the archived edition"
+    page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a></p>')
     page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
     page.append("<h2>Edition details</h2><dl>")
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
@@ -66,7 +71,7 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         page.append("<h2>Initial editorial note</h2>")
         page.extend(f"<p>{escape(paragraph)}</p>" for paragraph in manifest["initial_note"].strip().split("\n\n") if paragraph)
     page.extend(["</main></body>", "</html>"])
-    return ("\n".join(page) + "\n").encode("utf-8")
+    return bounded_record(("\n".join(page) + "\n").encode("utf-8"))
 
 
 def regular_record(path):
@@ -140,7 +145,7 @@ def work_projection(root, slug, receipts, *, write=False):
         f"<title>{slug} — Editions · Press</title>", PAGE_STYLE, "</head><body><main>",
         "<p>Press · Work record</p>", f"<h1>Editions of {slug}</h1>",
         "<p>This address identifies the work across editions. To cite a passage, choose its edition below. "
-        "Each edition record includes the reading copy and any correction, supersession or withdrawal notices.</p>",
+        "Each edition record includes its current status, reading copy and editorial notices.</p>",
     ]
     statuses = {version: edition_status(edition_notices(root, f"works/{slug}/{version}"), version, receipts)
                 for version in receipts}
@@ -157,7 +162,7 @@ def work_projection(root, slug, receipts, *, write=False):
         page.append("<p><strong>All editions of this work have been withdrawn.</strong></p>")
     registration = Path("registrations/works") / (slug + ".json")
     work = read_registration(root, registration) if registration in tracked_paths(root, registration) else {}
-    history = concept_doi_history(work)
+    history = doi_history(work, "concept_doi")
     doi = work.get("identifiers", {}).get("concept_doi")
     assigned = {change["from"] for change in history} | {doi}
     if doi:
@@ -194,7 +199,7 @@ def work_projection(root, slug, receipts, *, write=False):
         page.append(f'<li><a href="{slug}/{version}">{title} — {version}</a> · '
                     f'<time datetime="{published}">{published[:10]}</time> · <strong>{status}</strong>{link}</li>')
     page.extend(["</ol></main></body></html>", ""])
-    html = "\n".join(page).encode("utf-8")
+    html = bounded_record("\n".join(page).encode("utf-8"))
     path = root / WORK_RECORDS / slug / "index.html"
     regular_record(path)
     if write:

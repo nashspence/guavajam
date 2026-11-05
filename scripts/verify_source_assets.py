@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Verify referenced asset bytes on every push/PR; uses no storage credentials."""
+"""Verify referenced assets, with a CI exception for notice-only changes."""
 from collections import Counter
 import hashlib
+import os
+import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -9,6 +12,32 @@ from urllib.parse import unquote, urlsplit
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, base64_size, check_html_size, fetch_asset,
                           load_policy, verify_bytes)
 from validate_sources import git_sources, local_asset_size, parse_document, walk
+from identifier_schema import SLUG, VERSION
+
+
+def notice_base(root, event_base):
+    """Compare a branch push with trusted main, including its first push."""
+    ref = os.environ.get("GITHUB_REF", "")
+    if (os.environ.get("GITHUB_EVENT_NAME") == "push"
+            and ref.startswith("refs/heads/") and ref != "refs/heads/main"):
+        result = subprocess.run(["git", "merge-base", "HEAD", "refs/remotes/origin/main"],
+                                cwd=root, capture_output=True, text=True)
+        return result.stdout.strip() if result.returncode == 0 else ""
+    return event_base
+
+
+def notice_only_change(root, base):
+    """Only a notice and its generated pages can bypass online image reads in CI."""
+    if not re.fullmatch(r"[0-9a-f]{40}", base) or base == "0" * 40:
+        return False
+    if subprocess.run(["git", "merge-base", "--is-ancestor", base, "HEAD"], cwd=root, capture_output=True).returncode:
+        return False
+    diff = subprocess.check_output(["git", "diff", "--name-only", "--no-renames", "-z", base, "HEAD", "--"], cwd=root)
+    notice = rf"notices/{SLUG.pattern}/{VERSION.pattern}/[0-9]{{4}}\.md"
+    page = rf"records/(?:editions/{SLUG.pattern}/{VERSION.pattern}|works/{SLUG.pattern})/index\.html"
+    paths = [os.fsdecode(path) for path in diff.split(b"\0") if path]
+    return (any(re.fullmatch(notice, path) for path in paths)
+            and all(re.fullmatch(notice, path) or re.fullmatch(page, path) for path in paths))
 
 
 def verify_source_assets(root, *, fetcher=fetch_asset):
@@ -59,7 +88,11 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
 
 def main():
     try:
-        count = verify_source_assets(Path(__file__).resolve().parents[1])
+        root = Path(__file__).resolve().parents[1]
+        if notice_only_change(root, notice_base(root, os.environ.get("PRESS_NOTICE_BASE_SHA", ""))):
+            print("Only editorial notices and generated pages changed; no manuscript image inputs changed.")
+            return 0
+        count = verify_source_assets(root)
     except (AssetError, OSError, ValueError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

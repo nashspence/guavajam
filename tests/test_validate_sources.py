@@ -506,6 +506,30 @@ class StrictSourceTests(unittest.TestCase):
         self.assert_bad("reused across records/formats", other={**files, "works/another/manuscript.md":
                                                                 "---\n" + yaml.safe_dump(second) + "---\n\n" + MANUSCRIPT})
 
+    def test_retired_edition_doi_is_reserved_across_editions_and_works(self):
+        doi = "10.1234/edition"
+        change = {"date": "2026-11-06", "from": doi, "to": None}
+        path = "registrations/editions/sample/v1.0.0.json"
+        target = "works/sample/v2.0.0"
+        other_path = "registrations/editions/sample/v2.0.0.json"
+        second = self.edition(version="v2.0.0", canonical_artifact="sample-v2.0.0.html",
+                              record_url="https://press.example.org/" + target, identifiers={"version_doi": doi})
+        issue = self.edition(version_doi_history=[change])
+        files = {path: self.canonical_json(issue)}
+        self.assertEqual([], self.check(other=files))
+        self.assert_bad("reused across records", metadata={**METADATA, "identifiers": {"concept_doi": doi}}, other=files)
+        files[other_path] = self.canonical_json(second)
+        self.assert_bad("reused across records", other=files)
+        for invalid in ("works/sample/v1.0.0", "sample/v2.0.0", None):
+            change["correct_edition"] = invalid
+            files[path] = self.canonical_json(issue)
+            self.assert_bad("correct_edition", other=files)
+        change["correct_edition"] = target
+        files[path] = self.canonical_json(issue)
+        self.assertEqual([], self.check(other=files))
+        del files[other_path]
+        self.assert_bad("must remain associated", other=files)
+
     def test_concept_doi_history_requires_a_chronological_chain(self):
         first, second = "10.1234/first", "10.1234/second"
         change = {"date": "2026-11-06", "from": first, "to": second}
