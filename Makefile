@@ -1,9 +1,10 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image chat-list chat-extract build verify check-reader check-backup check-backup-archive editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract build verify check-reader check-backup check-backup-archive editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER
 export CONVERSATION TIP OUTPUT
+export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -27,6 +28,21 @@ test: ## Run the Python and asset gateway test suites.
 
 image: ## FILE=figure.svg  Print the upload key, headers, and manuscript URL.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the image path}"
+
+asset-upload: ## FILE=figure.svg [B2_ENV=.env.assets]  Upload original bytes to B2 and verify the public URL. Uses a local bucket/prefix-scoped key.
+	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the image path}"
+
+assets-gc: ## [APPLY=1]  Dispatch a cleanup preview on main; APPLY=1 requests a sweep using protected Actions credentials.
+	@$(PYTHON) scripts/asset_workflow.py request-gc
+
+asset-retire: ## BRANCH=feature/name HEAD_SHA=40-character-sha  Dispatch exact-tip branch retirement and asset cleanup on main.
+	@$(PYTHON) scripts/asset_workflow.py request-retire
+
+assets-policy-plan: ## ASSET_APP=app-slug  Preview deletion-only branch protection; requires independent no-bypass main protection.
+	@$(PYTHON) scripts/configure_asset_maintenance.py
+
+assets-policy-apply: ## ASSET_APP=app-slug  Activate the previewed branch-deletion ruleset using the operator's gh credentials.
+	@$(PYTHON) scripts/configure_asset_maintenance.py --apply
 
 chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also accepts conversations JSON.
 	@$(PYTHON) scripts/extract_chatgpt.py --list -- "$${FILE:?Set FILE to the export path}"

@@ -2,9 +2,24 @@
 """Validate an image and print its upload details and manuscript URL."""
 import argparse
 import hashlib
+import os
+import stat
 import sys
 from pathlib import Path
-from asset_policy import AssetError, MIME, load_policy, verify_bytes
+from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
+
+
+def prepare_image(image):
+    """Read bounded original bytes once, without following a final symlink."""
+    descriptor = os.open(image, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise AssetError("image must be a regular file, not a symlink or device")
+        raw = stream.read(MAX_BYTES + 1)
+    extension = image.suffix[1:]
+    media_type = verify_bytes(raw, extension, MIME.get(extension, ""))
+    key = f"sha256/{hashlib.sha256(raw).hexdigest()}.{extension}"
+    return raw, key, media_type
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -14,15 +29,10 @@ def main():
         policy = load_policy(Path(__file__).resolve().parents[1])
         if policy is None:
             raise AssetError("no approved asset origin configured")
-        if args.image.is_symlink():
-            raise AssetError("image must not be a symlink")
-        raw = args.image.read_bytes()
-        extension = args.image.suffix[1:]
-        media_type = verify_bytes(raw, extension, MIME.get(extension, ""))
+        raw, key, media_type = prepare_image(args.image)
     except (AssetError, OSError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1
-    key = f"sha256/{hashlib.sha256(raw).hexdigest()}.{extension}"
     print("Object:", key)
     print("URL:", f"{policy.origin}/{key}")
     print("Content-Type:", media_type)
