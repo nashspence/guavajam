@@ -1,5 +1,6 @@
 """Exercise the exact Git range that can omit online image fetching in CI."""
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -8,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from verify_source_assets import main, notice_only_change
+from verify_source_assets import main, editorial_only_change
 
 
 class NoticeAssetCheckTests(unittest.TestCase):
@@ -72,19 +73,60 @@ class NoticeAssetCheckTests(unittest.TestCase):
     def test_incomplete_or_mixed_comparisons_use_the_full_check(self):
         for base in ("", "main", "0" * 40, self.notice):
             with self.subTest(base=base):
-                self.assertFalse(notice_only_change(self.root, base))
+                self.assertFalse(editorial_only_change(self.root, base))
         self.git("mv", "works/essay/manuscript.md", "notices/essay/v1.0.0/0002.md")
         self.commit()
-        self.assertFalse(notice_only_change(self.root, self.base))
+        self.assertFalse(editorial_only_change(self.root, self.base))
+
+    def test_claim_receipt_and_later_identifier_updates(self):
+        registration = "registrations/editions/essay/v1.0.0.json"
+        self.write(registration)
+        receipt = {"issuing": True}
+        (self.root / registration).write_text(json.dumps(receipt))
+        claim = self.commit()
+        self.assertFalse(editorial_only_change(self.root, self.notice))
+        receipt["published_at"] = "2026-11-04T00:00:00Z"
+        (self.root / registration).write_text(json.dumps(receipt))
+        self.write("records/editions/essay/v1.0.0/provenance.json")
+        published = self.commit()
+        self.assertTrue(editorial_only_change(self.root, claim))
+        receipt["identifiers"] = {"version_doi": "10.1234/essay.v1"}
+        (self.root / registration).write_text(json.dumps(receipt))
+        self.commit()
+        self.assertTrue(editorial_only_change(self.root, published))
+        self.git("rm", registration)
+        self.commit()
+        self.assertFalse(editorial_only_change(self.root, published))
+
+    def test_stopping_an_existing_issuing_claim_is_metadata_only(self):
+        registration = "registrations/editions/essay/v1.0.0.json"
+        self.write(registration)
+        path = self.root / registration
+        path.write_text(json.dumps({"issuing": True}))
+        claim = self.commit()
+        path.write_text(json.dumps({"issuing": True, "stop_reason": "Incorrect caption"}))
+        self.commit()
+        self.assertTrue(editorial_only_change(self.root, claim))
+        self.write("records/editions/essay/v1.0.0/provenance.json")
+        self.commit()
+        self.assertFalse(editorial_only_change(self.root, claim))
+
+    def test_work_registration_and_mixed_change(self):
+        self.write("registrations/works/essay.json")
+        self.commit()
+        self.assertTrue(editorial_only_change(self.root, self.notice))
+        self.write("templates/edition.html")
+        self.commit()
+        self.assertFalse(editorial_only_change(self.root, self.notice))
 
     def test_check_requires_a_notice_and_exact_generated_paths(self):
         self.write("records/works/another/index.html")
         self.commit()
-        self.assertFalse(notice_only_change(self.root, self.notice))
+        self.assertFalse(editorial_only_change(self.root, self.notice))
         for file in ("records/worker.js", "asset-policy.json", ".github/workflows/validate-source.yml",
                      "records/editions/essay/v1.0.0/provenance.json", "notices/essay/v1.0.0/0002.md.png"):
             with self.subTest(file=file):
                 self.git("reset", "--hard", self.notice)
                 self.write(file)
                 self.commit()
-                self.assertFalse(notice_only_change(self.root, self.base))
+                self.assertFalse(editorial_only_change(self.root, self.base))

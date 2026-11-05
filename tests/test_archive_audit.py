@@ -18,6 +18,7 @@ class ArchiveAuditTests(unittest.TestCase):
                     "assets": [], "record_url": "https://press.example.org/works/sample/v1.0.0"}
         manifest["initial_release_body"] = render_initial_body(manifest)
         names = [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]
+        self.manifest = manifest
         self.record_path = Path("registrations/editions/sample/v1.0.0.json")
         self.release = {"tag_name": manifest["tag"], "name": "Sample — v1.0.0", "immutable": True, "draft": False, "prerelease": False, "published_at": "2026-11-04T13:00:00Z",
                         "body": manifest["initial_release_body"],
@@ -105,6 +106,59 @@ class ArchiveAuditTests(unittest.TestCase):
             audit(self.root, "owner/press")
         self.assertTrue(check.call_args.kwargs["require_receipt"])
         self.work_check.assert_called_once()
+
+    def test_audit_reports_stale_mirror_and_other_edition_reader_and_origin(self):
+        self.release['body'] += 'stale'
+        second = dict(self.release, tag_name='works/sample/v2.0.0', name='Sample — v2.0.0')
+        manifest = dict(self.manifest, tag=second['tag_name'], canonical_artifact='sample-v2.0.0.html')
+        second['body'] = manifest['initial_release_body'] = render_initial_body(manifest)
+        second['assets'] = [dict(self.release['assets'][0], name=manifest['canonical_artifact']), *self.release['assets'][1:]]
+        url = 'https://assets.press.nash.spence.0819870.xyz/sha256/' + 'a' * 64 + '.png'
+        manifest['assets'] = [{'source_kind': 'https', 'source_url': url}]
+        self.reader_check.side_effect = [None, AssetError('reader offline')]
+        with (patch('audit_assets.release_records', return_value=[self.release, second]),
+              patch('audit_assets.git_sources', return_value=[self.record_path, self.record_path.with_name('v2.0.0.json'),
+                                                             self.record_path.with_name('v3.0.0.json')]),
+              patch('audit_assets.read_registration', return_value={}),
+              patch('audit_assets.verify_edition', side_effect=[self.manifest, manifest]),
+              patch('audit_assets.fetch_asset', side_effect=AssetError('asset missing')) as fetch,
+              self.assertRaises(AssetError) as raised):
+            audit(self.root, 'owner/press')
+        message = str(raised.exception)
+        for expected in ('release notes differ', 'works/sample/v2.0.0 reader: reader offline',
+                         'Unresolved publication intent', 'asset missing'):
+            self.assertIn(expected, message)
+        fetch.assert_called_once()
+        self.work_check.assert_called_once()
+        with self.assertRaisesRegex(AssetError, 'release notes differ'):
+            verify_public_release('owner/press', self.release, root=self.root)
+
+    def test_missing_primary_still_checks_reader_only_with_independent_commitments(self):
+        with (patch('audit_assets.release_records', return_value=[]),
+              patch('audit_assets.saved_manifest', return_value=self.manifest),
+              patch('audit_assets.check_authorization') as auth):
+            with self.assertRaisesRegex(AssetError, 'missing registered edition'):
+                audit(self.root, 'owner/press')
+            self.reader_check.assert_called_once()
+            self.work_check.assert_called_once()
+            self.assertTrue(auth.call_args.kwargs['require_claim'])
+            self.reader_check.reset_mock()
+            auth.side_effect = AssetError('untrusted local manifest')
+            with self.assertRaisesRegex(AssetError, 'untrusted local manifest'):
+                audit(self.root, 'owner/press')
+            self.reader_check.assert_not_called()
+
+    def test_unconfirmed_stop_still_needs_resolution_and_abandoned_release_is_an_error(self):
+        receipt = {'issuing': True, 'stop_reason': 'Unable to finish'}
+        with patch('audit_assets.read_registration', return_value=receipt):
+            with patch('audit_assets.release_records', return_value=[]):
+                with self.assertRaisesRegex(AssetError, 'Unresolved publication intent'):
+                    audit(self.root, 'owner/press')
+                receipt['abandoned_run_id'] = '345'
+                audit(self.root, 'owner/press')
+            with (patch('audit_assets.check_issuance', side_effect=AssetError('receipt missing')),
+                  self.assertRaisesRegex(AssetError, 'public release exists for a confirmed abandoned claim')):
+                audit(self.root, 'owner/press')
 
     def test_fresh_unapproved_draft_is_ignored(self):
         self.release["draft"] = True

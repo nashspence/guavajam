@@ -71,7 +71,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertTrue({"Header", "Strong", "Emph", "Strikeout", "Code", "CodeBlock",
                          "BulletList", "OrderedList", "BlockQuote", "Table", "Note",
                          "Image", "Link", "Math"} <= kinds)
-        self.assertEqual([1, 2, 3, 3, 4, 2, 2],
+        self.assertEqual([1, 2, 3, 3, 3, 4, 2, 2],
                          [node["c"][0] for node in nodes if node["t"] == "Header"])
         # Preserve literal LaTeX in the fixture so mobile rendering failures remain visible.
         self.assertIn("Let $S$ be a set.", (self.root / source).read_text(encoding="utf-8"))
@@ -177,6 +177,20 @@ class StrictSourceTests(unittest.TestCase):
     def test_reject_legacy_math(self):
         self.assert_bad("not backslash math delimiters", MANUSCRIPT + r"\(x\)" + "\n")
 
+    def test_equation_labels_require_a_heading_anchor(self):
+        for command in (r"\label{eq-a}", r"\tag{A}", r"\tag*{A}", r"\% \label{eq-a}"):
+            with self.subTest(command=command):
+                self.assert_bad("use a stable heading anchor", MANUSCRIPT + "\n$$\nx " + command + "\n$$\n")
+        self.assert_bad("use a stable heading anchor", MANUSCRIPT + r"Inline $x\tag{A}$." + "\n")
+
+    def test_equation_command_examples_and_tex_comments(self):
+        source = MANUSCRIPT + r"Use `\label{eq-a}` or `\tag*{A}` in TeX." + "\n"
+        source += "\n$$\nx % " + r"\label{ignored}" + "\n+y\n$$\n"
+        source += "\n$$\n" + r"\begin{matrix}x\\tag\end{matrix}" + "\n$$\n"
+        self.assertEqual([], self.check(source))
+        self.assert_bad("use a stable heading anchor", MANUSCRIPT + "\n$$\nx % ignored\n"
+                        + r"y\label{eq-a}" + "\n$$\n")
+
     def test_unbalanced_inline_math(self):
         self.assert_bad("unmatched inline $", MANUSCRIPT + "An $unclosed dollar.\n")
 
@@ -270,6 +284,11 @@ class StrictSourceTests(unittest.TestCase):
 
     def test_metadata_schema(self):
         self.assert_bad("schema keys mismatch", metadata={**METADATA, "extra": "unexpected"})
+
+    def test_bibliographic_title_for_mathematical_h1(self):
+        source = MANUSCRIPT.replace(METADATA["title"], r"The $\alpha$-invariant")
+        self.assertEqual([], self.check(source, {**METADATA, "title": "The α-invariant"}))
+        self.assert_bad("use words or Unicode", source, {**METADATA, "title": r"The \alpha-invariant"})
 
     def test_metadata_title_mismatch(self):
         self.assert_bad("title must exactly match", metadata={**METADATA, "title": "Incorrect"})

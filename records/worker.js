@@ -26,7 +26,7 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
   if (record.schema !== 'press.edition-registration.v1' || record.work !== slug || record.version !== version ||
       record.record_url !== 'https://' + env.RECORD_HOST + '/' + tag || record.canonical_artifact !== filename ||
       !/^[0-9a-f]{64}$/.test(record.artifact_sha256) || 'cancellation_reason' in record) return error(502);
-  if (record.issuing !== true) return error(404);
+  if (record.issuing !== true || 'abandoned_run_id' in record) return error(404);
 
   // Only the initial public readback uses the release page. A receipted edition
   // with a missing publisher record must never fall back to stale release notes.
@@ -64,7 +64,8 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
   }
   if (response.status !== 200 || response.headers.get('Content-Length') !== String(asset.size) ||
       ![null, 'identity'].includes(response.headers.get('Content-Encoding'))) return error(502);
-  return new Response(response.body, {headers: htmlHeaders});
+  return new Response(response.body, {headers: {...htmlHeaders,
+    'Cache-Control': 'public, max-age=31536000, immutable, no-transform'}});
 }
 
 export default {

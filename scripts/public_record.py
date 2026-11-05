@@ -25,6 +25,10 @@ PAGE_STYLE = (
 )
 
 
+def doi_link(doi):
+    return f'<a href="https://doi.org/{escape(quote(doi, safe="/"))}">{escape(doi)}</a>'
+
+
 def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     tag = manifest["tag"]
     match = TAG.fullmatch(tag)
@@ -36,10 +40,12 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         raise AssetError("public record requires the edition’s canonical filename")
 
     title = escape(manifest["title"])
+    permanent = escape(manifest["record_url"])
     status, successor = edition_status(notices, version)
     page = [
         "<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        f'<link rel="canonical" href="{permanent}">',
         f"<title>{title} — {version} · Press</title>",
         PAGE_STYLE, "</head>", "<body><main>", "<p>Press · Edition record</p>",
         f"<h1>{title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
@@ -52,8 +58,15 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         page.extend(f"<li>{escape(item.removeprefix('- '))}</li>" for item in notices)
         page.append("</ul>")
     read_label = "Read this edition online" if status == "Published" else "Read the archived edition"
-    page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a></p>')
+    size = f' ({manifest["html_byte_count"]:,} bytes)' if "html_byte_count" in manifest else ""
+    page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a>{size}</p>')
     page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
+    author = escape(manifest.get("author", ""))
+    version_doi = (identifiers or {}).get("version_doi")
+    citation_doi = f"DOI: {doi_link(version_doi)}. " if version_doi else ""
+    page.append("<h2>Cite this edition</h2>")
+    page.append(f'<p>{author + ". " if author else ""}<cite>{title}</cite>. {version}. Press, {published_at[:10]}. '
+                f'{citation_doi}<a href="{permanent}">{permanent}</a></p>')
     page.append("<h2>Edition details</h2><dl>")
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
     for label, value in edition_fields(manifest).items():
@@ -61,11 +74,16 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         # Resolve next to the extensionless record URL, including on the recovery host.
         if label in attachments:
             value = f'<a href="{version}/{value}">{value}</a>'
+        if label == "Concept DOI":
+            label = "Concept DOI at issuance"
+            value += f' · <a href="../{slug}">Current work DOI and history</a>'
         page.append(f"<dt>{escape(label)}</dt><dd>{value}</dd>")
     page.append("</dl>")
     if identifiers:
         page.append("<h2>Edition identifiers</h2><ul>")
-        page.extend(f"<li>{EDITION_ID_LABELS[key]}: {escape(identifiers[key])}</li>" for key in sorted(identifiers))
+        for key in sorted(identifiers):
+            value = doi_link(identifiers[key]) if key == "version_doi" else escape(identifiers[key])
+            page.append(f"<li>{EDITION_ID_LABELS[key]}: {value}</li>")
         page.append("</ul>")
     if manifest.get("initial_note"):
         page.append("<h2>Initial editorial note</h2>")
@@ -146,6 +164,7 @@ def work_projection(root, slug, receipts, *, write=False):
         "<p>Press · Work record</p>", f"<h1>Editions of {slug}</h1>",
         "<p>This address identifies the work across editions. To cite a passage, choose its edition below. "
         "Each edition record includes its current status, reading copy and editorial notices.</p>",
+        f'<p>Permanent work address: <a href="{work_url}">{work_url}</a></p>',
     ]
     statuses = {version: edition_status(edition_notices(root, f"works/{slug}/{version}"), version, receipts)
                 for version in receipts}
@@ -166,7 +185,7 @@ def work_projection(root, slug, receipts, *, write=False):
     doi = work.get("identifiers", {}).get("concept_doi")
     assigned = {change["from"] for change in history} | {doi}
     if doi:
-        page.append(f'<p>Concept DOI: <a href="https://doi.org/{escape(quote(doi, safe="/"))}">{escape(doi)}</a></p>')
+        page.append(f"<p>Current concept DOI: {doi_link(doi)}</p>")
     if history:
         page.append("<h2>Concept DOI history</h2><ul>")
         for change in history:

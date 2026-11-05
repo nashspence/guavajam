@@ -7,13 +7,14 @@ import sys
 import tempfile
 from urllib.parse import quote
 
+from abandon_edition import require_absent, verify_confirmation
 from asset_policy import AssetError
 from audit_assets import verify_public_release
 from build_edition import COMMIT, git
 from editorial_notices import edition_notices
 from identifier_schema import TAG, edition_registration_path, require_current_edition_origin, strict_json, validate_registrations
 from issuance import authorization, read_registration
-from publish_edition import api, release_records, tag_commit
+from publish_edition import api
 from reviewed_artifact import download_reviewed
 from verify_edition import verify_edition
 
@@ -115,7 +116,7 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
                       base, '--', 'registrations/editions')
     for path in sorted(added):
         record = read_registration(root, path)
-        if {'issuing', 'published_at', 'cancellation_reason'} & record.keys():
+        if {'issuing', 'published_at', 'cancellation_reason', 'stop_reason', 'abandoned_run_id'} & record.keys():
             raise AssetError(f'{path}: commit the pending authorization before claiming or cancelling it')
         if repo is not None:
             if 'staged_run_id' not in record:
@@ -164,6 +165,16 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
             current.pop('issuing')
             if repo is not None and not first_receipt:
                 require_compatible_proof(root, tag, old)
+        if 'stop_reason' not in old and 'stop_reason' in current:
+            if old.get('issuing') is not True or 'published_at' in old or first_receipt:
+                raise AssetError(f'{path}: stop an existing unpublished claim in a separate change')
+            current.pop('stop_reason')
+        if 'abandoned_run_id' not in old and 'abandoned_run_id' in current:
+            if 'stop_reason' not in old:
+                raise AssetError(f'{path}: merge the stop before confirming abandonment')
+            run_id = current.pop('abandoned_run_id')
+            if repo is not None:
+                verify_confirmation(root, repo, path, base, old, run_id)
         if first_receipt:
             if old.get('issuing') is not True:
                 raise AssetError(f'{path}: merge the issuing claim before recording publication')
@@ -173,9 +184,8 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         if 'cancellation_reason' not in old and 'cancellation_reason' in current:
             if 'issuing' in old or 'published_at' in old or first_receipt:
                 raise AssetError(f'{path}: a claimed or issued edition cannot be cancelled')
-            if repo is not None and (tag_commit(repo, tag) is not None or
-                                     any(r['tag_name'] == tag for r in release_records(repo))):
-                raise AssetError(f'{path}: cancellation requires absence of the public tag and release')
+            if repo is not None:
+                require_absent(repo, tag, "cancellation")
             current.pop('cancellation_reason')
         change = appended_doi_change(path, old, current, 'version_doi', today)
         old.pop('version_doi_history', None)

@@ -309,6 +309,10 @@ def main():
                 if not valid_utc(record["published_at"]):
                     raise AssetError("invalid publication timestamp in trusted registration")
                 result = "Package matches the publication receipt of " + record["published_at"]
+            elif "abandoned_run_id" in record:
+                result = "Package matches the abandoned claim"
+            elif "stop_reason" in record:
+                result = "Package matches the stopped claim"
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

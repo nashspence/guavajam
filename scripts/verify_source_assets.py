@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Verify referenced assets, with a CI exception for notice-only changes."""
+"""Verify referenced assets, with a CI exception for editorial metadata changes."""
 from collections import Counter
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -12,7 +13,7 @@ from urllib.parse import unquote, urlsplit
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, base64_size, check_html_size, fetch_asset,
                           load_policy, verify_bytes)
 from validate_sources import git_sources, local_asset_size, parse_document, walk
-from identifier_schema import SLUG, VERSION
+from identifier_schema import SLUG, VERSION, valid_utc
 
 
 def notice_base(root, event_base):
@@ -26,8 +27,8 @@ def notice_base(root, event_base):
     return event_base
 
 
-def notice_only_change(root, base):
-    """Only a notice and its generated pages can bypass online image reads in CI."""
+def editorial_only_change(root, base):
+    """Skip online reads only for editorial changes verified by the independent history and record checks."""
     if not re.fullmatch(r"[0-9a-f]{40}", base) or base == "0" * 40:
         return False
     if subprocess.run(["git", "merge-base", "--is-ancestor", base, "HEAD"], cwd=root, capture_output=True).returncode:
@@ -35,9 +36,33 @@ def notice_only_change(root, base):
     diff = subprocess.check_output(["git", "diff", "--name-only", "--no-renames", "-z", base, "HEAD", "--"], cwd=root)
     notice = rf"notices/{SLUG.pattern}/{VERSION.pattern}/[0-9]{{4}}\.md"
     page = rf"records/(?:editions/{SLUG.pattern}/{VERSION.pattern}|works/{SLUG.pattern})/index\.html"
-    paths = [os.fsdecode(path) for path in diff.split(b"\0") if path]
-    return (any(re.fullmatch(notice, path) for path in paths)
-            and all(re.fullmatch(notice, path) or re.fullmatch(page, path) for path in paths))
+    edition = rf"registrations/editions/({SLUG.pattern})/({VERSION.pattern})\.json"
+    work = rf"registrations/works/{SLUG.pattern}\.json"
+    paths = {os.fsdecode(path) for path in diff.split(b"\0") if path}
+    allowed = {path for path in paths if re.fullmatch(notice, path) or re.fullmatch(work, path)}
+    for path in paths:
+        match = re.fullmatch(edition, path)
+        if not match:
+            continue
+        # Reservation and initial claim changes still run the full online check.
+        old = subprocess.run(["git", "show", f"{base}:{path}"], cwd=root, capture_output=True)
+        new = subprocess.run(["git", "show", f"HEAD:{path}"], cwd=root, capture_output=True)
+        if old.returncode or new.returncode:
+            return False
+        try:
+            before, after = json.loads(old.stdout), json.loads(new.stdout)
+        except (ValueError, UnicodeError):
+            return False
+        if not (isinstance(before, dict) and isinstance(after, dict)
+                and before.get("issuing") is True and after.get("issuing") is True):
+            return False
+        receipted = valid_utc(after.get("published_at"))
+        if receipted and "published_at" not in before:
+            allowed.add(f"records/editions/{match[1]}/{match[2]}/provenance.json")
+        if not (receipted or after.get("stop_reason") or after.get("abandoned_run_id")):
+            return False
+        allowed.add(path)
+    return bool(allowed) and all(path in allowed or re.fullmatch(page, path) for path in paths)
 
 
 def verify_source_assets(root, *, fetcher=fetch_asset):
@@ -89,8 +114,8 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
 def main():
     try:
         root = Path(__file__).resolve().parents[1]
-        if notice_only_change(root, notice_base(root, os.environ.get("PRESS_NOTICE_BASE_SHA", ""))):
-            print("Only editorial notices and generated pages changed; no manuscript image inputs changed.")
+        if editorial_only_change(root, notice_base(root, os.environ.get("PRESS_NOTICE_BASE_SHA", ""))):
+            print("Only editorial metadata and record files changed; no manuscript image inputs changed.")
             return 0
         count = verify_source_assets(root)
     except (AssetError, OSError, ValueError, TypeError) as exc:

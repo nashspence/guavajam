@@ -107,6 +107,8 @@ class RenderContractTests(EditionTests):
         parser = EditionHTML(PROFILE)
         parser.feed(html)
         parser.close()
+        self.assertIn('id="eq-1"', html)
+        self.assertIn('href="#eq-1"', html)
         self.assertIn('id="sec-1"', html)
         self.assertIn('id="def-1"', html)
         self.assertIn('id="proof-1"', html)
@@ -136,6 +138,21 @@ class RenderContractTests(EditionTests):
         self.assertIn('id="press-edition-css"', html)
         self.assertEqual(PROFILE, manifest['presentation_profile'])
         self.assertEqual(manifest, verify_edition(self.output))
+
+    def test_mathematical_title_in_article_and_citation(self):
+        self.sample_with_structures()
+        manuscript = self.repo / "works/sample-work/manuscript.md"
+        manuscript.write_text(manuscript.read_text(encoding="utf-8").replace(
+            "title: Sample Work", "title: The α-invariant").replace(
+            "# Sample Work", r"# The $\alpha$-invariant"), encoding="utf-8")
+        self.git("commit", "-qam", "Use a mathematical heading with a plain citation")
+        self.commit = self.git("rev-parse", "HEAD")
+        manifest = self.build()
+        page = self.page().read_text(encoding="utf-8")
+        self.assertEqual(manifest["title"], "The α-invariant")
+        self.assertIn("<title>The α-invariant — v1.0.0</title>", page)
+        self.assertIn('<cite lang="en">The α-invariant</cite>', " ".join(page.split()))
+        self.assertRegex(page, r"(?s)<h1[^>]*>The\s+<math\b.*?<mi>α</mi>.*?</math>-invariant</h1>")
 
     def test_citation_identifies_the_exact_release(self):
         self.sample_with_structures()

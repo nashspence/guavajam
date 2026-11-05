@@ -123,7 +123,7 @@ class EditorialHistoryTests(unittest.TestCase):
         self.record['rights'] = 'all-rights-reserved'
         self.record['cancellation_reason'] = 'Rights were declined.'
         self.save()
-        with patch('check_editorial_history.tag_commit', return_value=None), patch('check_editorial_history.release_records', return_value=[]) as releases:
+        with patch('abandon_edition.tag_commit', return_value=None), patch('abandon_edition.release_records', return_value=[]) as releases:
             self.check(base, repo='owner/press')
             releases.return_value = [{'tag_name': 'works/essay/v1.0.0'}]
             with self.assertRaisesRegex(AssetError, 'cancellation requires'):
@@ -157,6 +157,101 @@ class EditorialHistoryTests(unittest.TestCase):
         self.claim()
         with self.assertRaisesRegex(AssetError, 'cannot be claimed'):
             self.check(cancelled)
+
+    def test_stop_is_permanent_and_can_reconcile_a_publication_that_won_the_race(self):
+        reserved = self.baseline()
+        self.claim()
+        self.record['stop_reason'] = 'Illustration clearance withdrawn.'
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'stop an existing unpublished claim'):
+            self.check(reserved)
+        del self.record['stop_reason']
+        self.save()
+        claimed = self.baseline()
+        self.record['stop_reason'] = 'Illustration clearance withdrawn.'
+        self.save()
+        self.check(claimed)
+        stopped = self.baseline()
+        for field in ('stop_reason', 'issuing'):
+            with self.subTest(field=field):
+                value = self.record.pop(field)
+                self.save()
+                with self.assertRaises(AssetError):
+                    self.check(stopped)
+                self.record[field] = value
+        self.record['published_at'] = self.timestamp
+        self.save()
+        self.check(stopped)
+        issued = self.baseline()
+        self.record['abandoned_run_id'] = '42'
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'abandonment requires a stopped unpublished claim'):
+            self.check(issued)
+
+    def test_terminal_decision_requires_exact_stopped_claim_and_serialized_run(self):
+        from abandon_edition import confirm_stop
+        self.claim()
+        claimed = self.baseline()
+        self.record['stop_reason'] = 'Rights were withdrawn.'
+        self.record['abandoned_run_id'] = '42'
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'merge the stop'):
+            self.check(claimed)
+        del self.record['abandoned_run_id']
+        self.save()
+        stopped = self.baseline()
+        tag, repo = 'works/essay/v1.0.0', 'owner/press'
+        run = {'head_sha': stopped, 'head_branch': 'main', 'head_repository': {'full_name': repo},
+               'path': '.github/workflows/confirm-abandonment.yml', 'event': 'workflow_dispatch',
+               'status': 'completed', 'conclusion': 'success', 'run_attempt': 2}
+        job = {'name': 'Confirm ' + tag, 'conclusion': 'success',
+               'steps': [{'name': 'Verify release and tag absence', 'conclusion': 'success'}]}
+        def get_run(repository, path):
+            self.assertEqual(repository, repo)
+            if path == 'actions/runs/42':
+                return run
+            self.assertEqual(path, 'actions/runs/42/attempts/2/jobs?per_page=100')
+            return {'total_count': 1, 'jobs': [job]}
+
+        with (patch('abandon_edition.api', side_effect=get_run),
+              patch('abandon_edition.tag_commit', return_value=None) as ref,
+              patch('abandon_edition.release_records', return_value=[]) as releases):
+            confirm_stop(self.root, repo, tag)
+            for draft in (True, False):
+                releases.return_value = [{'tag_name': tag, 'draft': draft}]
+                with self.assertRaisesRegex(AssetError, 'absence'):
+                    confirm_stop(self.root, repo, tag)
+            releases.return_value = []
+            self.record['abandoned_run_id'] = '42'
+            self.save()
+            self.check(stopped, repo=repo)
+            for obj, changes in ((run, {'head_sha': claimed}), (run, {'conclusion': 'failure'}),
+                                 (run, {'head_branch': 'feature'}), (job, {'name': 'Confirm works/other/v1.0.0'}),
+                                 (job, {'steps': []})):
+                with self.subTest(changes=changes), patch.dict(obj, changes), self.assertRaises(AssetError):
+                    self.check(stopped, repo=repo)
+            ref.return_value = 'a' * 40
+            with self.assertRaisesRegex(AssetError, 'absence'):
+                self.check(stopped, repo=repo)
+            ref.return_value = None
+            abandoned = self.baseline()
+            del self.record['abandoned_run_id']
+            self.save()
+            with self.assertRaisesRegex(AssetError, 'immutable'):
+                self.check(abandoned)
+
+    def test_confirmation_uses_the_promotion_lock_and_reviewer(self):
+        import yaml
+        workflows = Path(__file__).resolve().parents[1] / '.github/workflows'
+        def job(filename, name):
+            return yaml.safe_load((workflows / filename).read_text())['jobs'][name]
+        release = job('prepare-edition.yml', 'release')
+        confirmation = job('confirm-abandonment.yml', 'confirm')
+        self.assertEqual(confirmation['concurrency'], release['concurrency'])
+        self.assertEqual(confirmation['environment'], release['environment'])
+        self.assertEqual(confirmation['permissions']['contents'], 'write')
+        self.assertEqual(confirmation['name'], 'Confirm ${{ inputs.edition_tag }}')
+        self.assertTrue(any(step.get('name') == 'Verify release and tag absence' for step in confirmation['steps']))
 
     def test_late_identifier_and_documented_correction_or_retirement(self):
         self.claim()

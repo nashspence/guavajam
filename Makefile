@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image build verify check-reader check-backup editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image build verify check-reader check-backup check-backup-archive editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
-export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT BACKUP_BASE RECORD_TARGET RECORD_WORKER
+export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -55,6 +55,10 @@ check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCH
 		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the root containing notices and records/editions}" \
 		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}" \
 		$${WORK_SHA256:+"--work-sha256=$$WORK_SHA256"}
+
+check-backup-archive: ## BACKUP_BASE=https://archive/base ARCHIVE_COMMIT=sha  Verify every issued edition, reading copy and work page against an independently retained current commit.
+	@$(PYTHON) scripts/check_backup_archive.py --backup-base "$${BACKUP_BASE:?Set BACKUP_BASE to the recovery host base}" \
+		--commit "$${ARCHIVE_COMMIT:?Set ARCHIVE_COMMIT to the independently retained current commit SHA}"
 
 receipt: ## DIR=path/to/edition  Read back the public release and print its verified registration with timestamp.
 	@$(PYTHON) scripts/issuance.py receipt -- "$${DIR:?Set DIR to the edition directory}"

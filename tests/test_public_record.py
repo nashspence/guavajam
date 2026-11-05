@@ -26,7 +26,7 @@ class PublicRecordTests(unittest.TestCase):
         self.manifest = dict(title="Scale < 2 & change", author="Nash Spence", language="en",
                              work_identifiers={"concept_doi": "10.1234/essay"}, tag=self.tag,
                              canonical_artifact="essay-v1.0.0.html", source_commit="a" * 40,
-                             html_sha256="b" * 64, record_url=self.url, rights="all-rights-reserved",
+                             html_sha256="b" * 64, html_byte_count=12345, record_url=self.url, rights="all-rights-reserved",
                              initial_note="Plate I & caption.\n\nSecond paragraph.\n")
         self.manifest["initial_release_body"] = render_initial_body(self.manifest, self.manifest["initial_note"])
         self.package = self.root / "dist"
@@ -73,18 +73,31 @@ class PublicRecordTests(unittest.TestCase):
             write_records(self.root, tag, package=self.package)
 
     def test_portable_readable_record(self):
-        html = record_html(self.manifest, published_at=self.timestamp, identifiers={"oclc": "12345"},
+        html = record_html(self.manifest, published_at=self.timestamp, identifiers={"oclc": "12345", "version_doi": "10.1234/essay.v1"},
                            notices=["- 2026-11-05 Withdrawal: Check A & B."]).decode()
         for text in ("Scale &lt; 2 &amp; change", "Nash Spence", "10.1234/essay", self.timestamp,
                      "<p>Plate I &amp; caption.</p>", "<p>Second paragraph.</p>", "a" * 40,
                      "<li>OCLC number: 12345</li>", "<li>2026-11-05 Withdrawal: Check A &amp; B.</li>",
-                     'href="v1.0.0/read"'):
+                     'href="v1.0.0/read"', "(12,345 bytes)", "Concept DOI at issuance",
+                     f'<link rel="canonical" href="{self.url}">', f'<a href="{self.url}">{self.url}</a>',
+                     "Nash Spence. <cite>Scale &lt; 2 &amp; change</cite>. v1.0.0. Press, 2026-11-04.",
+                     '<a href="https://doi.org/10.1234/essay.v1">10.1234/essay.v1</a>'):
             self.assertIn(text, html)
         for name in ("essay-v1.0.0.html", "SHA256SUMS", "provenance.json"):
             href = "v1.0.0/" + name
             self.assertIn(f'href="{href}"', html)
             for base in (self.url, "https://backup.example.org/archive/" + self.tag):
                 self.assertEqual(urljoin(base, href), base + "/" + name)
+
+    def test_citation_follows_the_current_edition_doi_and_keeps_its_address(self):
+        for identifiers in ({"version_doi": "10.1234/essay.v1"}, {}):
+            with self.subTest(identifiers=identifiers):
+                html = record_html(self.manifest, published_at=self.timestamp,
+                                   identifiers=identifiers, notices=[]).decode()
+                citation = html.split("<h2>Cite this edition</h2>")[1].split("</p>", 1)[0]
+                self.assertIn(f'<a href="{self.url}">{self.url}</a>', citation)
+                self.assertEqual('href="https://doi.org/10.1234/essay.v1"' in citation, bool(identifiers))
+                self.assertIn('10.1234/essay · <a href="../essay">Current work DOI and history</a>', html)
 
     def test_reconcile_from_package_then_from_saved_provenance(self):
         self.generate()
@@ -170,6 +183,7 @@ class PublicRecordTests(unittest.TestCase):
         self.assertIn("Revised essay", html)
         canonical = "https://press.example.org/works/essay"
         self.assertIn(f'<link rel="canonical" href="{canonical}">', html)
+        self.assertIn(f'<a href="{canonical}">{canonical}</a>', html)
         for base in (canonical, "https://backup.example.org/archive/works/essay"):
             href = "essay/v1.0.0"
             self.assertIn(f'href="{href}"', html)

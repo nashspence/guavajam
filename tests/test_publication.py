@@ -155,6 +155,23 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.publish()
             self.assertFalse(self.release['draft'])
 
+    def test_stopped_and_abandoned_claims_cannot_create_or_promote_a_draft(self):
+        from issuance import authorization, check_issuance
+        manifest = self.verify_edition.return_value
+        manifest["html_sha256"] = "c" * 64
+        record = dict(authorization(self.output, manifest), issuing=True, stop_reason="Do not issue.")
+        self.check_issuance.side_effect = check_issuance
+        with patch("issuance.read_registration", return_value=record):
+            for has_draft in (False, True):
+                if has_draft:
+                    self.existing_draft()
+                for extra, error in (({}, "stopped"), ({"abandoned_run_id": "42"}, "abandoned")):
+                    with self.subTest(has_draft=has_draft, extra=extra), patch.dict(record, extra):
+                        with self.assertRaisesRegex(AssetError, error):
+                            self.publish()
+                        self.assertFalse(any("--method" in args or args[:2] == ("release", "upload")
+                                             for args in self.operations))
+
     def test_initial_notes_and_issuance_are_required_before_any_publish(self):
         manifest = self.verify_edition.return_value
         manifest["initial_release_body"] = render_initial_body(manifest, "Plate I used by permission.\n")
