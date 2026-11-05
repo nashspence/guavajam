@@ -5,11 +5,12 @@ import json
 import sys
 from html import escape
 from pathlib import Path
+from urllib.parse import quote
 
 from asset_policy import AssetError
 from build_edition import git
-from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices
-from identifier_schema import TAG, edition_origin, valid_record_url, valid_utc
+from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices, edition_status
+from identifier_schema import TAG, concept_doi_history, edition_origin, valid_record_url, valid_utc, version_key
 from issuance import check_authorization, read_registration
 from verify_edition import verify_edition
 
@@ -46,7 +47,7 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         page.append("<h2>Editorial notices</h2><ul>")
         page.extend(f"<li>{escape(item.removeprefix('- '))}</li>" for item in notices)
         page.append("</ul>")
-    page.append(f'<p><a href="{escape(manifest["record_url"])}/read">Read this edition online</a></p>')
+    page.append(f'<p><a id="press-record-read" href="{version}/read">Read this edition online</a></p>')
     page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
     page.append("<h2>Edition details</h2><dl>")
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
@@ -73,12 +74,18 @@ def regular_record(path):
         raise AssetError(f"{path}: public records require regular files without symlinks")
 
 
-def saved_manifest(path, receipt):
+def saved_manifest(root, slug, version, registration):
+    path = root / EDITION_RECORDS / slug / version / "provenance.json"
     regular_record(path)
+    if not path.is_file():
+        raise AssetError(f"{path}: claimed editions require their reviewed provenance")
     raw = path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != receipt["provenance_sha256"]:
-        raise AssetError(f"{path}: record provenance differs from the receipt")
-    return json.loads(raw)
+    if hashlib.sha256(raw).hexdigest() != registration["provenance_sha256"]:
+        raise AssetError(f"{path}: record provenance differs from the registration")
+    manifest = json.loads(raw)
+    if manifest["tag"] != f"works/{slug}/{version}":
+        raise AssetError(f"{path}: record provenance names a different edition")
+    return manifest
 
 
 def edition_projection(root, slug, version, receipt, *, package=None, write=False):
@@ -92,9 +99,7 @@ def edition_projection(root, slug, version, receipt, *, package=None, write=Fals
         manifest = verify_edition(package, tag=tag, commit=receipt["source_commit"])
         raw = (package / "provenance.json").read_bytes()
     else:
-        manifest = saved_manifest(provenance, receipt)
-    if manifest["tag"] != tag:
-        raise AssetError(f"{tag}: record provenance names a different edition")
+        manifest = saved_manifest(root, slug, version, receipt)
     check_authorization(receipt, package if package is not None else directory, manifest)
     html = record_html(manifest, published_at=receipt["published_at"], notices=edition_notices(root, tag),
                        identifiers=receipt.get("identifiers"))
@@ -112,18 +117,16 @@ def tracked_paths(root, *paths):
     return {Path(item.decode()) for item in raw.split(b"\0") if item}
 
 
-def published_receipts(root, paths):
-    works = {}
+def claimed_registrations(root, paths):
     for path in sorted(paths):
         tag = f"works/{path.parent.name}/{path.stem}"
         if len(path.parts) != 4 or path.suffix != ".json" or not TAG.fullmatch(tag):
             raise AssetError(f"{path}: invalid edition registration path")
-        receipt = read_registration(root, path)
-        if "published_at" in receipt:
-            if not valid_utc(receipt["published_at"]):
-                raise AssetError(f"{tag}: invalid publication timestamp")
-            works.setdefault(path.parent.name, {})[path.stem] = receipt
-    return works
+        record = read_registration(root, path)
+        if "published_at" in record and (record.get("issuing") is not True or not valid_utc(record["published_at"])):
+            raise AssetError(f"{tag}: publication receipt requires an issuing claim and valid timestamp")
+        if record.get("issuing") is True:
+            yield path.parent.name, path.stem, record
 
 
 def work_projection(root, slug, receipts, *, write=False):
@@ -138,17 +141,58 @@ def work_projection(root, slug, receipts, *, write=False):
         "<p>Press · Work record</p>", f"<h1>Editions of {slug}</h1>",
         "<p>This address identifies the work across editions. To cite a passage, choose its edition below. "
         "Each edition record includes the reading copy and any correction, supersession or withdrawal notices.</p>",
-        "<ol>",
     ]
-    for version in sorted(receipts, key=lambda v: tuple(map(int, v[1:].split("."))), reverse=True):
+    statuses = {version: edition_status(edition_notices(root, f"works/{slug}/{version}"), version, receipts)
+                for version in receipts}
+    checked = set()
+    for version in statuses:
+        chain = set()
+        while version and version not in checked:
+            if version in chain:
+                raise AssetError(f"{slug}/{version}: replacement links form a cycle")
+            chain.add(version)
+            version = statuses[version][1]
+        checked.update(chain)
+    if all(status == "Withdrawn" for status, _ in statuses.values()):
+        page.append("<p><strong>All editions of this work have been withdrawn.</strong></p>")
+    registration = Path("registrations/works") / (slug + ".json")
+    work = read_registration(root, registration) if registration in tracked_paths(root, registration) else {}
+    history = concept_doi_history(work)
+    doi = work.get("identifiers", {}).get("concept_doi")
+    assigned = {change["from"] for change in history} | {doi}
+    if doi:
+        page.append(f'<p>Concept DOI: <a href="https://doi.org/{escape(quote(doi, safe="/"))}">{escape(doi)}</a></p>')
+    if history:
+        page.append("<h2>Concept DOI history</h2><ul>")
+        for change in history:
+            old, new = change["from"], change["to"]
+            if old is None:
+                decision = f"Assigned {new}."
+            elif new is None:
+                decision = f"Retired {old}."
+            else:
+                decision = f"Corrected {old} to {new}."
+            page.append(f'<li>{escape(change["date"])} · {escape(decision)}</li>')
+        page.append("</ul>")
+    page.append("<ol>")
+    for version in sorted(receipts, key=version_key, reverse=True):
         receipt = receipts[version]
         if receipt["record_url"] != f"{work_url}/{version}":
             raise AssetError(f"{slug}/{version}: receipt uses a different permanent work address")
-        manifest = saved_manifest(root / EDITION_RECORDS / slug / version / "provenance.json", receipt)
+        manifest = saved_manifest(root, slug, version, receipt)
         title = escape(manifest["title"])
         published = receipt["published_at"]
+        captured = manifest.get("work_identifiers", {}).get("concept_doi")
+        if captured and captured not in assigned:
+            raise AssetError(f"{slug}/{version}: captured concept DOI has no matching work registration or history")
+        status, successor = statuses[version]
+        link = ""
+        if successor:
+            target_status = statuses[successor][0]
+            label = f" ({target_status})" if target_status != "Published" else ""
+            link = f' · <a href="{slug}/{successor}">Replacement {successor}{label}</a>'
         page.append(f'<li><a href="{slug}/{version}">{title} — {version}</a> · '
-                    f'<time datetime="{published}">{published[:10]}</time></li>')
+                    f'<time datetime="{published}">{published[:10]}</time> · <strong>{status}</strong>{link}</li>')
     page.extend(["</ol></main></body></html>", ""])
     html = "\n".join(page).encode("utf-8")
     path = root / WORK_RECORDS / slug / "index.html"
@@ -165,7 +209,8 @@ def write_records(root, tag, *, package=None):
     if not match:
         raise AssetError("invalid public record edition tag")
     slug, version = match.groups()
-    receipts = published_receipts(root, tracked_paths(root, REGISTRATIONS / slug)).get(slug, {})
+    paths = tracked_paths(root, REGISTRATIONS / slug)
+    receipts = {v: record for _, v, record in claimed_registrations(root, paths) if "published_at" in record}
     if version not in receipts:
         raise AssetError(f"{tag}: public records require a tracked, receipted edition")
     edition_projection(root, slug, version, receipts[version], package=package, write=True)
@@ -174,12 +219,19 @@ def write_records(root, tag, *, package=None):
 
 def check_records(root):
     tracked = tracked_paths(root, REGISTRATIONS, EDITION_RECORDS, WORK_RECORDS)
-    works = published_receipts(root, (path for path in tracked if path.is_relative_to(REGISTRATIONS)))
+    paths = (path for path in tracked if path.is_relative_to(REGISTRATIONS))
+    works = {}
     expected = set()
+    for slug, version, record in claimed_registrations(root, paths):
+        directory = EDITION_RECORDS / slug / version
+        expected.add(directory / "provenance.json")
+        if "published_at" in record:
+            edition_projection(root, slug, version, record)
+            expected.add(directory / "index.html")
+            works.setdefault(slug, {})[version] = record
+        else:
+            saved_manifest(root, slug, version, record)
     for slug, receipts in works.items():
-        for version, receipt in receipts.items():
-            edition_projection(root, slug, version, receipt)
-            expected.update(EDITION_RECORDS / slug / version / name for name in ("index.html", "provenance.json"))
         work_projection(root, slug, receipts)
         expected.add(WORK_RECORDS / slug / "index.html")
 
@@ -192,7 +244,7 @@ def check_records(root):
     indexed = {p for p in tracked if not p.is_relative_to(REGISTRATIONS)}
     inconsistent = (present ^ expected) | (indexed ^ expected)
     if inconsistent:
-        raise AssetError("public records must contain exactly the tracked pages and provenance of receipted editions: "
+        raise AssetError("public records must contain exactly the tracked pages of receipted editions and the provenance of claimed editions: "
                          + ", ".join(str(p) for p in sorted(inconsistent)))
 
 

@@ -201,8 +201,6 @@ jobs:
           if [[ "$REBUILD" == true ]]; then command=verify; fi
           python scripts/reviewed_artifact.py "$command" "$STAGED_RUN_ID" "$PROVENANCE_SHA256" dist/edition
       - name: Check the staged presentation profile
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           python scripts/check_profile_history.py --candidate dist/edition/provenance.json
       - name: Create a repository-scoped read-only policy token
@@ -227,7 +225,6 @@ jobs:
         env:
           EDITION_TAG: ${{ inputs.edition_tag }}
           GH_TOKEN: ${{ github.token }}
-          RECORD_TARGET: ${{ vars.RECORD_TARGET }}
         run: |
           edition_path=${EDITION_TAG#works/}
           registration="registrations/editions/$edition_path.json"

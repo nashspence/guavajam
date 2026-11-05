@@ -44,10 +44,12 @@ def read_registration(root: Path, path: Path) -> dict:
     return record
 
 
-def check_authorization(record: dict, directory: Path, manifest: dict) -> None:
+def check_authorization(record: dict, directory: Path, manifest: dict, *, require_claim=False) -> None:
     """Compare a separately trusted registration with the edition's commitments."""
     if "cancellation_reason" in record:
         raise AssetError(f"{manifest['tag']}: issuance intent was cancelled; this version is retired")
+    if (require_claim or "published_at" in record or "issuing" in record) and record.get("issuing") is not True:
+        raise AssetError(f"{manifest['tag']}: merge the issuing claim before promotion")
     for key, value in authorization(directory, manifest).items():
         if record.get(key) != value:
             raise AssetError(f"{manifest['tag']}: issuance record {key} differs from the reviewed package")
@@ -64,7 +66,7 @@ def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=
     record = read_registration(root, path)
     if pending and "published_at" in record:
         raise AssetError(f"{tag}: issued edition reverted to draft")
-    check_authorization(record, directory, manifest)
+    check_authorization(record, directory, manifest, require_claim=pending or published_at is not None or require_receipt)
     if require_receipt and "published_at" not in record:
         raise AssetError(f"{tag}: record the public release timestamp {published_at} in {path}")
     if published_at is not None and record.get("published_at") not in (None, published_at):
@@ -75,8 +77,6 @@ def check_issuance(root: Path, directory: Path, manifest: dict, *, published_at=
 def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> dict:
     """Produce a commit-ready receipt only after verifying this exact public edition."""
     from audit_assets import verify_public_release
-    from editorial_notices import edition_notices
-    from reader_routes import verify_reader_routes
     from publish_edition import api
 
     tag = manifest["tag"]
@@ -86,8 +86,6 @@ def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> di
     verify_public_release(repo, release, root=root)
     timestamp = release["published_at"]
     record = check_issuance(root, directory, manifest, published_at=timestamp)
-    verify_reader_routes(manifest, repo, notices=edition_notices(root, tag),
-                         identifiers=record.get("identifiers"), published_at=timestamp, pending="published_at" not in record)
     return {**record, "published_at": timestamp}
 
 

@@ -26,6 +26,7 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
   if (record.schema !== 'press.edition-registration.v1' || record.work !== slug || record.version !== version ||
       record.record_url !== 'https://' + env.RECORD_HOST + '/' + tag || record.canonical_artifact !== filename ||
       !/^[0-9a-f]{64}$/.test(record.artifact_sha256) || 'cancellation_reason' in record) return error(502);
+  if (record.issuing !== true) return error(404);
 
   // Only the initial public readback uses the release page. A receipted edition
   // with a missing publisher record must never fall back to stale release notes.

@@ -36,6 +36,10 @@ ARXIV_NEW = re.compile(r"[0-9]{2}(?:0[1-9]|1[0-2])\.[0-9]{4,5}\Z")
 ARXIV_OLD = re.compile(r"[a-z][a-z0-9.-]*/[0-9]{7}\Z")
 
 
+def version_key(version: str) -> tuple[int, ...]:
+    return tuple(map(int, version[1:].split(".")))
+
+
 def valid_origin(value: str) -> bool:
     return value.startswith("https://") and bool(HOST.fullmatch(value[8:]))
 
@@ -192,6 +196,42 @@ def valid_utc(value: object) -> bool:
         return False
 
 
+def concept_doi_history(record):
+    """Check the ordered transitions against the current assignment."""
+    if "concept_doi_history" not in record:
+        return []
+    history = record["concept_doi_history"]
+    if not isinstance(history, list) or not history:
+        raise AssetError("concept_doi_history must be a nonempty list of dated changes")
+    previous_date, retired = "", set()
+    for index, change in enumerate(history):
+        if not isinstance(change, dict) or set(change) != {"date", "from", "to"}:
+            raise AssetError("each concept DOI change requires exactly date, from and to")
+        day, old, new = change["date"], change["from"], change["to"]
+        if not isinstance(day, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", day):
+            raise AssetError("concept DOI change requires YYYY-MM-DD")
+        try:
+            dt.date.fromisoformat(day)
+        except ValueError as exc:
+            raise AssetError("concept DOI change requires a valid date") from exc
+        if day < previous_date:
+            raise AssetError("concept DOI change dates must be in order")
+        for value in (old, new):
+            if value is not None and identifier_error("concept_doi", value):
+                raise AssetError("concept DOI change requires a bare DOI or null")
+        if index == 0 and old is None:
+            raise AssetError("the first concept DOI change must name the initial assignment")
+        if old == new or (index and old != history[index - 1]["to"]) or new in retired:
+            raise AssetError("concept DOI changes must form a chain without reassigning a retired DOI")
+        if old is not None:
+            retired.add(old)
+        previous_date = day
+    identifiers = record.get("identifiers")
+    if not isinstance(identifiers, dict) or history[-1]["to"] != identifiers.get("concept_doi"):
+        raise AssetError("concept DOI history must end at the current assignment")
+    return history
+
+
 def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[Path, dict]) -> list[str]:
     """Offline verification of optional registration records in tracked tree."""
     errors = []
@@ -248,11 +288,22 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             slug = path.stem
             if len(path.parts) != 3 or not SLUG.fullmatch(slug) or slug not in has_work:
                 errors.append(f"{path}: work registration must point to an existing work slug")
-            errors.extend(exact_keys(doc, {"schema", "work", "identifiers"}, set(), context))
+            errors.extend(exact_keys(doc, {"schema", "work", "identifiers"}, {"concept_doi_history"}, context))
             if doc.get("schema") != REGISTRY_SCHEMAS["work"] or doc.get("work") != slug:
                 errors.append(f"{path}: incorrect work registration schema or work")
             ids = doc.get("identifiers")
-            errors.extend(check_identifier_map(ids, WORK_IDS, context))
+            try:
+                history = concept_doi_history(doc)
+            except AssetError as exc:
+                errors.append(f"{path}: {exc}")
+                history = []
+            if not (ids == {} and history):
+                errors.extend(check_identifier_map(ids, WORK_IDS, context))
+            for change in history:
+                register_identifiers("work", {"concept_doi": change["from"]}, Path(f"works/{slug}/manuscript.md"))
+            front_doi = source_ids.get(slug, {}).get("concept_doi")
+            if history and front_doi and front_doi != ids.get("concept_doi"):
+                errors.append(f"{path}: manuscript concept DOI conflicts with the current assignment")
             if isinstance(ids, dict):
                 for key, value in ids.items():
                     if key in source_ids.get(slug, {}) and source_ids[slug][key] != value:
@@ -267,7 +318,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: invalid or unknown edition slug/version")
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
-            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "published_at", "cancellation_reason"}, context))
+            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "issuing", "published_at", "cancellation_reason"}, context))
             if "staged_run_id" in doc and (not isinstance(doc["staged_run_id"], str)
                                           or not STAGING_RUN_ID.fullmatch(doc["staged_run_id"])):
                 errors.append(f"{path}: staged_run_id must be a positive decimal run ID string")
@@ -285,6 +336,10 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 digest = doc.get(field)
                 if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
                     errors.append(f"{path}: {field} must be lowercase hexadecimal SHA-256")
+            if "issuing" in doc and doc["issuing"] is not True:
+                errors.append(f"{path}: issuing must be true when present")
+            if "published_at" in doc and doc.get("issuing") is not True:
+                errors.append(f"{path}: a publication receipt requires an issuing claim")
             if "published_at" in doc and not valid_utc(doc["published_at"]):
                 errors.append(f"{path}: published_at must be a valid UTC timestamp (YYYY-MM-DDTHH:MM:SSZ)")
             if "cancellation_reason" in doc:
@@ -292,8 +347,8 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 if (not isinstance(reason, str) or not reason or reason.strip() != reason
                         or not reason.isprintable() or len(reason) > 500):
                     errors.append(f"{path}: cancellation_reason requires a single printable line of at most 500 characters")
-                if "published_at" in doc:
-                    errors.append(f"{path}: a published edition cannot be cancelled")
+                if "issuing" in doc or "published_at" in doc:
+                    errors.append(f"{path}: a claimed or published edition cannot be cancelled")
             rights = doc.get("rights")
             if not isinstance(rights, str) or rights not in RIGHTS:
                 errors.append(f"{path}: rights must be an approved rights identifier")

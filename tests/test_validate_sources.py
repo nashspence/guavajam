@@ -440,6 +440,7 @@ class StrictSourceTests(unittest.TestCase):
             "source_commit": "b" * 40,
             "provenance_sha256": "c" * 64,
             "initial_notes_sha256": "d" * 64,
+            "issuing": True,
             "published_at": "2026-10-29T01:20:00Z",
             "rights": "all-rights-reserved",
         }
@@ -489,6 +490,37 @@ class StrictSourceTests(unittest.TestCase):
         doc = self.edition(identifiers={"version_doi":"10.5281/zenodo.1234567"})
         metadata = {**METADATA, "identifiers":{"concept_doi":"10.5281/zenodo.1234567"}}
         self.assert_bad("version_doi must differ", metadata=metadata, other={path:self.canonical_json(doc)})
+
+    def test_retired_work_dois_cannot_be_reassigned(self):
+        old = "10.1234/retired"
+        record = {"schema": "press.work-registration.v1", "work": "sample", "identifiers": {},
+                  "concept_doi_history": [{"date": "2026-11-06", "from": old, "to": None}]}
+        files = {"registrations/works/sample.json": self.canonical_json(record)}
+        self.assertEqual([], self.check(other=files))
+        self.assert_bad("conflicts with the current assignment", metadata={**METADATA, "identifiers": {"concept_doi": old}},
+                        other=files)
+        edition = self.edition(identifiers={"version_doi": old})
+        self.assert_bad("reused across records/formats", other={**files, "registrations/editions/sample/v1.0.0.json":
+                                                                self.canonical_json(edition)})
+        second = {**METADATA, "slug": "another", "identifiers": {"concept_doi": old}}
+        self.assert_bad("reused across records/formats", other={**files, "works/another/manuscript.md":
+                                                                "---\n" + yaml.safe_dump(second) + "---\n\n" + MANUSCRIPT})
+
+    def test_concept_doi_history_requires_a_chronological_chain(self):
+        first, second = "10.1234/first", "10.1234/second"
+        change = {"date": "2026-11-06", "from": first, "to": second}
+        for history, current in (
+            ([{**change, "date": "2026-02-31"}], second),
+            ([{**change, "from": None}], second),
+            ([change], first),
+            ([change, {**change, "date": "2026-11-05", "from": second, "to": None}], None),
+            ([change, {**change, "from": "10.1234/other", "to": None}], None),
+            ([change, {**change, "from": second, "to": first}], first),
+        ):
+            with self.subTest(history=history, current=current):
+                record = {"schema": "press.work-registration.v1", "work": "sample",
+                          "identifiers": {"concept_doi": current} if current else {}, "concept_doi_history": history}
+                self.assert_bad("concept DOI", other={"registrations/works/sample.json": self.canonical_json(record)})
 
     def test_edition_wrong_record_url(self):
         path = "registrations/editions/sample/v1.0.0.json"

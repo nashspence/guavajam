@@ -11,11 +11,12 @@ import time
 from urllib.parse import quote
 
 from asset_policy import AssetError
-from identifier_schema import TAG
+from identifier_schema import SLUG, TAG, VERSION
 
 
-def affected_tags(changed):
+def affected_tags(changed, root):
     tags = set()
+    works = set()
     for name in changed.decode("utf-8").split("\0"):
         if not name:
             continue
@@ -27,16 +28,30 @@ def affected_tags(changed):
         elif (len(path.parts) == 5 and path.parts[:2] == ("records", "editions")
               and path.name in {"index.html", "provenance.json"}):
             tag = "/".join(("works", *path.parts[2:4]))
+        elif len(path.parts) == 4 and path.parts[:2] == ("records", "works") and path.name == "index.html":
+            slug = path.parent.name
+            if not SLUG.fullmatch(slug):
+                raise AssetError(f"invalid work record at {path}")
+            works.add(slug)
+            continue
         else:
             raise AssetError(f"unexpected editorial path: {path}")
         if not TAG.fullmatch(tag):
             raise AssetError(f"invalid edition tag at {path}")
         tags.add(tag)
+    for slug in works:
+        # A work-only update needs one public edition to exercise the shared route.
+        versions = sorted(p.parent.name for p in (root / "records/editions" / slug).glob("*/index.html")
+                          if VERSION.fullmatch(p.parent.name))
+        if not versions:
+            raise AssetError(f"{slug}: work record has no receipted edition page")
+        if not any(f"works/{slug}/{version}" in tags for version in versions):
+            tags.add(f"works/{slug}/{versions[0]}")
     return sorted(tags)
 
 
 def sync(root, repo, tag):
-    from audit_assets import verify_public_release
+    from audit_assets import verify_public_release, verify_published_work
     from build_edition import git
     from editorial_notices import edition_notices, release_notes
     from issuance import read_registration
@@ -65,6 +80,7 @@ def sync(root, repo, tag):
         try:
             verify_reader_routes(manifest, repo, notices=notices, identifiers=record.get("identifiers"),
                                  published_at=record["published_at"])
+            verify_published_work(root, repo, manifest, archive_base=None)
             break
         except (OSError, ValueError):
             if attempt == len(delays):
@@ -103,7 +119,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     try:
         if args.changed:
-            print(json.dumps(affected_tags(sys.stdin.buffer.read())))
+            print(json.dumps(affected_tags(sys.stdin.buffer.read(), root)))
         elif args.select is not None:
             if not TAG.fullmatch(args.select):
                 raise AssetError("invalid edition tag")

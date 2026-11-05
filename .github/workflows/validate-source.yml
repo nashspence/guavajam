@@ -32,9 +32,7 @@ jobs:
       - name: Install the authoring toolchain
         run: make setup
 
-      - name: Check profiles used by official editions
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Check presentation profiles against claimed editions
         run: .venv/bin/python scripts/check_profile_history.py
 
       - name: Verify editorial history against the event base

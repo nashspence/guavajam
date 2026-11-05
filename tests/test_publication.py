@@ -139,6 +139,21 @@ class PublicationLifecycleTests(unittest.TestCase):
                         issuer_commit=self.commit, policy_token="read-settings", staged_run_id="42")
         self.assertFalse(self.release["draft"])
 
+    def test_reservation_cannot_create_a_draft_and_claim_can_resume(self):
+        from issuance import authorization, check_issuance
+        manifest = self.verify_edition.return_value
+        manifest['html_sha256'] = 'c' * 64
+        record = authorization(self.output, manifest)
+        self.check_issuance.side_effect = check_issuance
+        with patch('issuance.read_registration', return_value=record):
+            with self.assertRaisesRegex(AssetError, 'merge the issuing claim'):
+                self.publish()
+            self.assertIsNone(self.release)
+            record['issuing'] = True
+            self.publish()
+            self.publish()
+            self.assertFalse(self.release['draft'])
+
     def test_initial_notes_and_issuance_are_required_before_any_publish(self):
         manifest = self.verify_edition.return_value
         manifest["initial_release_body"] = render_initial_body(manifest, "Plate I used by permission.\n")

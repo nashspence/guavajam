@@ -14,7 +14,7 @@ from asset_policy import AssetError
 from audit_assets import editorial_checkpoint, main
 from backup_package import verify_backup_package
 from editorial_notices import render_initial_body
-from issuance import authorization
+from issuance import authorization, public_receipt
 from public_record import record_html
 
 
@@ -41,7 +41,7 @@ class BackupPackageTests(unittest.TestCase):
         manifest["initial_release_body"] = render_initial_body(manifest)
         raw = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
         (self.root / "provenance.json").write_bytes(raw)
-        self.receipt = {**authorization(self.root, manifest), "published_at": "2026-11-05T14:00:00Z",
+        self.receipt = {**authorization(self.root, manifest), "issuing": True, "published_at": "2026-11-05T14:00:00Z",
                         "identifiers": {"oclc": "42"}}
         (self.root / "provenance.json").unlink()
         self.files = {self.filename: html, "provenance.json": raw}
@@ -60,6 +60,34 @@ class BackupPackageTests(unittest.TestCase):
         response.status = 200 if name in self.files else 404
         response.getheader = {}.get
         yield response
+
+    def test_receipt_reads_original_release_bytes_during_reader_outage(self):
+        for name, data in self.files.items():
+            (self.root / name).write_bytes(data)
+        claim = {**authorization(self.root, self.manifest), "issuing": True}
+        registration = self.root / "registrations/editions/archive-fixture/v1.0.0.json"
+        registration.parent.mkdir(parents=True)
+        registration.write_text(json.dumps(claim, indent=2, sort_keys=True) + "\n")
+        release = {"tag_name": self.tag, "draft": False, "prerelease": False, "immutable": True,
+                   "published_at": self.receipt["published_at"], "name": self.manifest["title"] + " — v1.0.0",
+                   "body": self.manifest["initial_release_body"],
+                   "assets": [{"name": n, "id": i, "state": "uploaded"} for i, n in enumerate(self.files, 1)]}
+
+        def download(*args):
+            self.assertEqual(args[:6], ("release", "download", self.tag, "--repo", "owner/press", "--pattern"))
+            name = args[6]
+            (Path(args[-1]) / name).write_bytes(self.files[name])
+
+        with (patch("publish_edition.api", return_value=release), patch("audit_assets.gh", side_effect=download),
+              patch("audit_assets.tag_commit", return_value=self.manifest["source_commit"]),
+              patch("reader_routes.public_response", side_effect=OSError("reader host offline"))):
+            result = public_receipt(self.root, self.root, self.manifest, "owner/press")
+            self.assertEqual(result, {**claim, "published_at": release["published_at"]})
+            registration.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+            self.assertEqual(result, public_receipt(self.root, self.root, self.manifest, "owner/press"))
+            self.files[self.filename] += b"corrupt public download"
+            with self.assertRaisesRegex(AssetError, "checksums do not match"):
+                public_receipt(self.root, self.root, self.manifest, "owner/press")
 
     def test_checks_backup_attachments_and_reading_routes_before_cutover(self):
         registration = self.root / "receipt.json"

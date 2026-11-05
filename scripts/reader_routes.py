@@ -3,6 +3,7 @@ import hashlib
 from html.parser import HTMLParser
 import os
 import re
+from urllib.parse import urljoin
 
 from asset_policy import AssetError, MAX_HTML_BYTES, public_response, response_chunks
 from deploy_record_gateway import target_base
@@ -25,6 +26,7 @@ class RecordText(HTMLParser):
         self.hidden = []
         self.text = []
         self.links = set()
+        self.read_links = []
         self.times = set()
         self.commit_text = None
         self.item_start = None
@@ -47,6 +49,8 @@ class RecordText(HTMLParser):
         if tag == 'a':
             href = attrs.get('href') or ''
             self.links.add(href)
+            if attrs.get('id') == 'press-record-read':
+                self.read_links.append(href)
             # GitHub visually abbreviates SHAs. Reconstruct the identifier for comparison
             # only if a visible commit link actually displays that SHA's abbreviation.
             match = re.fullmatch(r'(?:https://github\.com)?/[\w.-]+/[\w.-]+/commit/([a-f0-9]{40})', href)
@@ -156,10 +160,8 @@ def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archiv
     read_url = url + '/read'
     if direct_base is None and (recovery or bootstrap):
         require_redirect(url, record)
-    if recovery:
-        if direct_base is None:
-            require_redirect(read_url, record + '/read')
-        read_url = record + '/read'
+    if recovery and direct_base is None:
+        require_redirect(read_url, record + '/read')
     with public_response(record, 'text/html') as response:
         require_html(response, record)
         raw = b''.join(response_chunks(response, MAX_RECORD_BYTES))
@@ -172,6 +174,13 @@ def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archiv
         expected = record_html(manifest, published_at=published_at, notices=notices, identifiers=identifiers)
         if raw != expected:
             raise AssetError(f'{record}: public record differs from the approved metadata and editorial history')
+        parser = RecordText()
+        parser.feed(raw.decode('utf-8'))
+        parser.close()
+        destinations = [urljoin(record, href) for href in parser.read_links]
+        if destinations != [record + '/read']:
+            raise AssetError(f'{record}: reading link must resolve to this host’s edition copy')
+        read_url = destinations[0]
     digest = hashlib.sha256()
     with public_response(read_url, 'text/html', timeout=120) as response:
         require_html(response, read_url)

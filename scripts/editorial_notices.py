@@ -6,7 +6,7 @@ import re
 import sys
 
 from asset_policy import AssetError
-from identifier_schema import EDITION_IDS, TAG, check_identifier_map
+from identifier_schema import EDITION_IDS, TAG, VERSION, check_identifier_map, version_key
 
 
 EDITION_ID_LABELS = {"version_doi": "Edition DOI", "arxiv_version": "arXiv version",
@@ -97,6 +97,27 @@ def release_notes(manifest, notices=(), *, identifiers=None):
         sections.append("## Edition identifiers\n\n" + "\n".join(
             f"- {EDITION_ID_LABELS[key]}: `{identifiers[key]}`" for key in sorted(identifiers)))
     return "\n\n".join([*sections, reviewed_initial_body(manifest)])
+
+
+def edition_status(notices, version, receipts):
+    status, successor = "Published", None
+    for entry in notices:
+        day, kind, prose = entry[2:].split(" ", 2)
+        replacement = None
+        if "[replacement:" in prose:
+            suffix = re.fullmatch(r".+ \[replacement: (" + VERSION.pattern + r")\]", prose)
+            if not suffix or prose.count("[replacement:") != 1 or kind == "Correction:":
+                raise AssetError("expected a single [replacement: vX.Y.Z] suffix on a withdrawal or supersession")
+            replacement = suffix[1]
+            if replacement == version or replacement not in receipts or receipts[replacement]["published_at"][:10] > day:
+                raise AssetError(f"{version}: replacement must be another edition of this work published by {day}")
+            if kind == "Supersession:" and version_key(replacement) < version_key(version):
+                raise AssetError(f"{version}: a supersession replacement must be a higher edition")
+        if kind == "Withdrawal:":
+            status, successor = "Withdrawn", replacement
+        elif kind == "Supersession:" and status != "Withdrawn":
+            status, successor = "Superseded", replacement
+    return status, successor
 
 
 def edition_notices(root: Path, tag: str) -> list[str]:

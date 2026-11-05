@@ -202,7 +202,7 @@ class RenderContractTests(EditionTests):
                                    str(self.output)], text=True, capture_output=True)
 
         self.assertIn("pending authorization", check().stdout)
-        self.assertIn("publication receipt", check(published_at="2026-11-04T01:00:00Z").stdout)
+        self.assertIn("publication receipt", check(issuing=True, published_at="2026-11-04T01:00:00Z").stdout)
         self.assertNotEqual(check(cancellation_reason="Retired").returncode, 0)
         self._repack(html=self.page().read_bytes().replace(b"</article>", b"<p>Changed.</p></article>"))
         verify_edition(self.output)

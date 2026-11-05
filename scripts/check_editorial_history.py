@@ -22,11 +22,17 @@ def git_paths(root, *args):
     return {Path(item.decode('utf-8')) for item in raw.split(b'\0') if item}
 
 
+def require_compatible_proof(root, tag, record):
+    require_current_edition_origin(root, {'tag': tag, 'record_url': record['record_url']})
+    if git(root, 'diff', '--cached', '--raw', '--no-renames', record['source_commit'], '--', '.github/workflows'):
+        raise AssetError(f'{tag}: workflow files differ from the proof source; restore compatible workflows or restage')
+
+
 def check_editorial_history(root: Path, base: str | None = None, *, repo: str | None = None) -> None:
     root = root.resolve()
     if (root / 'registrations').is_symlink():
         raise AssetError('registrations: expected a directory without symlinks')
-    scopes = ('notices', 'registrations/editions')
+    scopes = ('notices', 'registrations/editions', 'registrations/works')
     tracked = git_paths(root, 'ls-files', '-z', '--', *scopes, ':(glob)works/*/manuscript.md')
     groups = {}
     for path in sorted(tracked):
@@ -72,8 +78,8 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
                       base, '--', 'registrations/editions')
     for path in sorted(added):
         record = read_registration(root, path)
-        if {'published_at', 'cancellation_reason'} & record.keys():
-            raise AssetError(f'{path}: commit the pending authorization before its publication receipt')
+        if {'issuing', 'published_at', 'cancellation_reason'} & record.keys():
+            raise AssetError(f'{path}: commit the pending authorization before claiming or cancelling it')
         if repo is not None:
             if 'staged_run_id' not in record:
                 raise AssetError(f'{path}: new authorizations require the hosted proof’s staged_run_id')
@@ -83,12 +89,20 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
                 download_reviewed(repo, run_id, record['provenance_sha256'], directory)
                 tag = f'works/{path.parent.name}/{path.stem}'
                 manifest = verify_edition(directory, tag=tag, commit=record['source_commit'])
-                require_current_edition_origin(root, manifest)
-                if git(root, 'diff', '--cached', '--raw', '--no-renames', manifest['source_commit'], '--', '.github/workflows'):
-                    raise AssetError(f'{tag}: workflow files differ from the proof source; restage from compatible source before reserving')
+                require_compatible_proof(root, tag, manifest)
+                captured = manifest.get('work_identifiers', {}).get('concept_doi')
+                work_path = Path('registrations/works') / (path.parent.name + '.json')
+                if captured and (work_path not in tracked or
+                                 read_registration(root, work_path)['identifiers'].get('concept_doi') != captured):
+                    raise AssetError(f'{tag}: register the staged concept DOI on the work before reserving this edition')
                 # read_registration already requires the exact canonical UTF-8 JSON encoding.
                 if record != authorization(directory, manifest, staged_run_id=run_id):
                     raise AssetError(f'{path}: authorization differs from the verified staged proof')
+    new_works = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=A',
+                          base, '--', 'registrations/works')
+    for path in new_works:
+        if 'concept_doi_history' in read_registration(root, path):
+            raise AssetError(f'{path}: commit the initial concept DOI assignment before recording a change')
     # Treat renames as deletion/addition so moving a notice or an issued record cannot reset it.
     changed = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=MDT',
                         base, '--', *scopes)
@@ -98,18 +112,39 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         old, errors = strict_json(git(root, 'show', f'{base}:{path.as_posix()}', binary=True), path)
         if errors:
             raise AssetError('\n'.join(errors))
+        if path.parts[:2] == ('registrations', 'works'):
+            current = read_registration(root, path) if path in tracked else {}
+            prior_doi = old.get('identifiers', {}).get('concept_doi')
+            current_doi = current.get('identifiers', {}).get('concept_doi')
+            prior_history = old.get('concept_doi_history', [])
+            history = current.get('concept_doi_history', [])
+            if history[:len(prior_history)] != prior_history:
+                raise AssetError(f'{path}: concept DOI history is append-only')
+            additions = history[len(prior_history):]
+            if additions or ((prior_doi or prior_history) and current_doi != prior_doi):
+                if len(additions) != 1 or additions[0]['from'] != prior_doi or additions[0]['to'] != current_doi:
+                    raise AssetError(f'{path}: record one dated concept DOI change from the previous assignment')
+            continue
         if path not in tracked:
             raise AssetError(f'{path}: a committed issuance intent cannot be removed')
         current = read_registration(root, path)
         tag = f'works/{old["work"]}/{old["version"]}'
         first_receipt = 'published_at' not in old and 'published_at' in current
+        if 'issuing' not in old and 'issuing' in current:
+            if 'cancellation_reason' in old:
+                raise AssetError(f'{path}: a cancelled edition cannot be claimed')
+            current.pop('issuing')
+            if repo is not None and not first_receipt:
+                require_compatible_proof(root, tag, old)
         if first_receipt:
+            if old.get('issuing') is not True:
+                raise AssetError(f'{path}: merge the issuing claim before recording publication')
             if tag in groups or 'identifiers' in current:
                 raise AssetError(f'{path}: commit the publication receipt before adding notices or identifiers')
             timestamp = current.pop('published_at')
         if 'cancellation_reason' not in old and 'cancellation_reason' in current:
-            if 'published_at' in old or first_receipt:
-                raise AssetError(f'{path}: an issued edition cannot be cancelled')
+            if 'issuing' in old or 'published_at' in old or first_receipt:
+                raise AssetError(f'{path}: a claimed or issued edition cannot be cancelled')
             if repo is not None and (tag_commit(repo, tag) is not None or
                                      any(r['tag_name'] == tag for r in release_records(repo))):
                 raise AssetError(f'{path}: cancellation requires absence of the public tag and release')

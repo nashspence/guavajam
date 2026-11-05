@@ -34,6 +34,7 @@ class SyncTests(unittest.TestCase):
         self.enterContext(patch("publish_edition.gh", side_effect=self.gh))
         self.validate_main = self.enterContext(patch("publish_edition.require_source_check"))
         self.verify_package = self.enterContext(patch("audit_assets.verify_public_release"))
+        self.verify_work = self.enterContext(patch("audit_assets.verify_published_work"))
         self.verify_reader = self.enterContext(patch("reader_routes.verify_reader_routes"))
         self.enterContext(patch("sync_editorial_record.time.sleep"))
 
@@ -61,9 +62,11 @@ class SyncTests(unittest.TestCase):
     def test_one_job_per_affected_edition(self):
         paths = (b"notices/essay/v1.0.0/0001.md\0registrations/editions/essay/v1.0.0.json\0"
                  b"notices/other/v2.0.0/0001.md\0records/editions/other/v2.0.0/index.html\0")
-        self.assertEqual(affected_tags(paths), [self.tag, "works/other/v2.0.0"])
+        self.assertEqual(affected_tags(paths, self.root), [self.tag, "works/other/v2.0.0"])
+        self.provenance_file.with_name("index.html").touch()
+        self.assertEqual(affected_tags(b"records/works/essay/index.html\0", self.root), [self.tag])
         with self.assertRaises(AssetError):
-            affected_tags(b"notices/essay/not-a-version/0001.md\0")
+            affected_tags(b"notices/essay/not-a-version/0001.md\0", self.root)
 
     def test_workflow_scopes_writes_to_main_and_serializes_each_edition(self):
         path = Path(__file__).resolve().parents[1] / ".github/workflows/sync-editorial-record.yml"
@@ -83,6 +86,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(len(self.writes), 1)
         self.assertIn("Withdrawal: See the next edition.", self.release["body"])
         self.assertEqual(self.verify_reader.call_count, 2)
+        self.assertEqual(self.verify_work.call_count, 2)
 
     def test_pending_registration_skips_release(self):
         del self.record["published_at"]

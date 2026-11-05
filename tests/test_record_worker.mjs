@@ -123,6 +123,9 @@ test('section citations serve only the registered immutable HTML inline, streami
     throw new Error('unexpected URL');
   });
   const primary = {...env, MAX_HTML_BYTES: '150994944'};
+  assert.equal((await worker.fetch(new Request(address + '/read'), primary)).status, 404);
+  assert.equal(urls.some(url => url.startsWith('https://api.github.com/')), false);
+  record.issuing = true;
   const pending = await worker.fetch(new Request(address), primary);
   assert.equal(pending.headers.get('Location'), 'https://github.com/owner/press/releases/tag/' + tag);
   record.published_at = '2026-11-04T00:00:00Z';

@@ -50,13 +50,63 @@ class EditorialHistoryTests(unittest.TestCase):
         self.git('commit', '-qm', 'Baseline')
         return self.git('rev-parse', 'HEAD')
 
+    def claim(self):
+        self.record['issuing'] = True
+        self.save()
+
     def issue(self):
+        self.claim()
         self.record['published_at'] = self.timestamp
         self.save()
 
     def check(self, base=None, **options):
         self.git('add', '-A')
         check_editorial_history(self.root, base, **options)
+
+    def test_work_doi_changes_require_a_dated_append_only_transition(self):
+        path = self.root / 'registrations/works/essay.json'
+        path.parent.mkdir()
+        old, new = '10.1234/old', '10.1234/new'
+        record = {'schema': 'press.work-registration.v1', 'work': 'essay', 'identifiers': {'concept_doi': old}}
+
+        def write():
+            path.write_text(json.dumps(record, sort_keys=True, indent=2) + '\n')
+
+        empty = self.baseline()
+        write()
+        base = self.baseline()
+        record['identifiers']['concept_doi'] = new
+        write()
+        with self.assertRaisesRegex(AssetError, 'record one dated'):
+            self.check(base)
+        path.unlink()
+        with self.assertRaisesRegex(AssetError, 'record one dated'):
+            self.check(base)
+        history = record['concept_doi_history'] = [{'date': '2026-11-06', 'from': old, 'to': new}]
+        write()
+        self.check(base)
+        with self.assertRaisesRegex(AssetError, 'commit the initial'):
+            self.check(empty)
+        corrected = self.baseline()
+        history[0]['date'] = '2026-11-01'
+        write()
+        with self.assertRaisesRegex(AssetError, 'append-only'):
+            self.check(corrected)
+        history[0]['date'] = '2026-11-06'
+        record['identifiers'] = {}
+        history.append({'date': '2026-11-07', 'from': new, 'to': None})
+        write()
+        self.check(corrected)
+        with self.assertRaisesRegex(AssetError, 'record one dated'):
+            self.check(base)
+        retired = self.baseline()
+        path.unlink()
+        with self.assertRaisesRegex(AssetError, 'append-only'):
+            self.check(retired)
+        record['identifiers']['concept_doi'] = '10.1234/fresh'
+        history.append({'date': '2026-11-08', 'from': None, 'to': '10.1234/fresh'})
+        write()
+        self.check(retired)
 
     def test_committed_authorization_is_immutable_and_cancelled_only_once(self):
         base = self.baseline()
@@ -81,7 +131,32 @@ class EditorialHistoryTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'immutable'):
             self.check(cancelled)
 
+    def test_claim_and_cancellation_cannot_both_win(self):
+        reserved = self.baseline()
+        self.issue()
+        with self.assertRaisesRegex(AssetError, 'merge the issuing claim'):
+            self.check(reserved)
+        del self.record['published_at']
+        self.save()
+        self.check(reserved)
+        claimed = self.baseline()
+        del self.record['issuing']
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'immutable'):
+            self.check(claimed)
+        self.record['cancellation_reason'] = 'Permission withdrawn.'
+        self.save()
+        self.check(reserved)
+        with self.assertRaisesRegex(AssetError, 'cannot be cancelled'):
+            self.check(claimed)
+        cancelled = self.baseline()
+        del self.record['cancellation_reason']
+        self.claim()
+        with self.assertRaisesRegex(AssetError, 'cannot be claimed'):
+            self.check(cancelled)
+
     def test_late_identifier_and_documented_correction_or_retirement(self):
+        self.claim()
         base = self.baseline()
         self.issue()
         self.check(base)
@@ -105,6 +180,7 @@ class EditorialHistoryTests(unittest.TestCase):
         self.check(corrected)
 
     def test_first_receipt_cannot_replace_the_approved_package(self):
+        self.claim()
         base = self.baseline()
         self.record['provenance_sha256'] = 'e' * 64
         self.issue()
@@ -118,6 +194,10 @@ class EditorialHistoryTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'pending authorization'):
             self.check(base)
         del self.record['published_at']
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'pending authorization'):
+            self.check(base)
+        del self.record['issuing']
         self.save()
         self.check(base)
 
@@ -153,6 +233,10 @@ class EditorialHistoryTests(unittest.TestCase):
             self.save()
             self.check(base, repo='owner/rehearsal')
             verify.assert_called_once_with(fetch.call_args.args[-1], tag=manifest['tag'], commit=manifest['source_commit'])
+            manifest['work_identifiers'] = {'concept_doi': '10.1234/manuscript'}
+            with self.assertRaisesRegex(AssetError, 'register the staged concept DOI'):
+                self.check(base, repo='owner/rehearsal')
+            del manifest['work_identifiers']
             workflow.write_text('changed workflow\n')
             with self.assertRaisesRegex(AssetError, 'workflow files differ'):
                 self.check(base, repo='owner/rehearsal')
@@ -168,8 +252,19 @@ class EditorialHistoryTests(unittest.TestCase):
             fetch.side_effect = AssetError('staging artifact expired')
             with self.assertRaisesRegex(AssetError, 'artifact expired'):
                 self.check(base, repo='owner/rehearsal')
+            fetch.reset_mock()
+            self.record['rights'] = manifest['rights']
+            self.save()
+            claimed_base = self.baseline()
+            self.claim()
+            self.check(claimed_base, repo='owner/rehearsal')
+            fetch.assert_not_called()
+            workflow.write_text('changed since reservation\n')
+            with self.assertRaisesRegex(AssetError, 'workflow files differ'):
+                self.check(claimed_base, repo='owner/rehearsal')
 
     def test_first_receipt_precedes_later_identifiers_and_notices(self):
+        self.claim()
         base = self.baseline()
         self.issue()
         self.record['identifiers'] = {'oclc': '42'}
@@ -183,6 +278,7 @@ class EditorialHistoryTests(unittest.TestCase):
             self.check(base)
 
     def test_online_first_receipt_requires_exact_public_release(self):
+        self.claim()
         base = self.baseline()
         self.issue()
         release = {'tag_name': 'works/essay/v1.0.0', 'published_at': self.timestamp,

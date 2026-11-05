@@ -107,7 +107,7 @@ def audit(root, repo, *, archive_base=None):
         if "cancellation_reason" not in record:
             unresolved.append(tag)
     if unresolved:
-        raise AssetError("Unresolved publication intent (reconcile or explicitly cancel): "
+        raise AssetError("Unresolved publication intent (complete issuance or cancel an unclaimed reservation): "
                          + ", ".join(unresolved))
     for url in sorted(urls):
         fetch_asset(policy, url)
