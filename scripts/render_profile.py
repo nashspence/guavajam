@@ -63,7 +63,7 @@ def plain_text(value) -> str:
     def visit(node):
         if isinstance(node, dict):
             token = node.get("t")
-            if token == "Str":
+            if token in ("Str", "MetaString"):
                 bits.append(node["c"])
             elif token in ("Space", "SoftBreak", "LineBreak"):
                 bits.append(" ")
@@ -103,7 +103,7 @@ def _anchor_from_block(block: dict) -> str | None:
     return match.group(1) if match else None
 
 
-def prepare_presentation_ast(ast: dict) -> dict:
+def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.
 
     This gives published editions permanent anchor IDs, independently of
@@ -144,6 +144,15 @@ def prepare_presentation_ast(ast: dict) -> dict:
                     attr[1].append("press-formal-heading")
                     attr[1].append("press-" + kind)
                     attr[2].append(["data-press-kind", kind])
+                if record_url:
+                    # Author-written #fragment links stay local in downloaded copies.
+                    # Keep the permalink separate from any links in the heading text.
+                    link_attr = ["", ["press-permalink"], [
+                        ["lang", "en"], ["aria-label", "Permalink to section " + anchored],
+                    ]]
+                    title.extend([{"t": "Space"}, {"t": "Link", "c": [
+                        link_attr, [{"t": "Str", "c": "¶"}], [record_url + "/read#" + anchored, ""],
+                    ]}])
         new.append(block)
         i += 1
     ast["blocks"] = new

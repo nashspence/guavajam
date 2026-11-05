@@ -10,6 +10,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from asset_policy import AssetError
 from check_editorial_history import check_editorial_history
+from editorial_notices import render_initial_body
+from issuance import authorization
 
 
 class EditorialHistoryTests(unittest.TestCase):
@@ -118,6 +120,54 @@ class EditorialHistoryTests(unittest.TestCase):
         del self.record['published_at']
         self.save()
         self.check(base)
+
+    def test_online_reservation_requires_exact_authorization_from_staged_package(self):
+        self.registration.unlink()
+        origin = self.root / 'edition-origin.txt'
+        origin.write_text('https://press.example.org\n')
+        workflow = self.root / '.github/workflows/validate-source.yml'
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text('original source workflow\n')
+        base = self.baseline()
+        self.record['source_commit'] = base
+        self.save()
+        with self.assertRaisesRegex(AssetError, 'staged_run_id'):
+            self.check(base, repo='owner/rehearsal')
+
+        manifest = {'tag': 'works/essay/v1.0.0', 'title': 'Essay', 'html_sha256': 'a' * 64,
+                    **{k: self.record[k] for k in ('source_commit', 'canonical_artifact', 'rights', 'record_url')}}
+        manifest['initial_release_body'] = render_initial_body(manifest)
+        raw = json.dumps(manifest).encode()
+        package = self.root / 'proof'
+        package.mkdir()
+        (package / 'provenance.json').write_bytes(raw)
+        self.record = authorization(package, manifest, staged_run_id='42')
+
+        def download(repo, run, digest, directory):
+            self.assertEqual((repo, run, digest), ('owner/rehearsal', '42', self.record['provenance_sha256']))
+            directory.mkdir()
+            (directory / 'provenance.json').write_bytes(raw)
+
+        with (patch('check_editorial_history.download_reviewed', side_effect=download) as fetch,
+              patch('check_editorial_history.verify_edition', return_value=manifest) as verify):
+            self.save()
+            self.check(base, repo='owner/rehearsal')
+            verify.assert_called_once_with(fetch.call_args.args[-1], tag=manifest['tag'], commit=manifest['source_commit'])
+            workflow.write_text('changed workflow\n')
+            with self.assertRaisesRegex(AssetError, 'workflow files differ'):
+                self.check(base, repo='owner/rehearsal')
+            workflow.write_text('original source workflow\n')
+            origin.write_text('https://changed.example.org\n')
+            with self.assertRaisesRegex(AssetError, 'different permanent record origin'):
+                self.check(base, repo='owner/rehearsal')
+            origin.write_text('https://press.example.org\n')
+            self.record['rights'] = 'CC0-1.0'
+            self.save()
+            with self.assertRaisesRegex(AssetError, 'differs from the verified staged proof'):
+                self.check(base, repo='owner/rehearsal')
+            fetch.side_effect = AssetError('staging artifact expired')
+            with self.assertRaisesRegex(AssetError, 'artifact expired'):
+                self.check(base, repo='owner/rehearsal')
 
     def test_first_receipt_precedes_later_identifiers_and_notices(self):
         base = self.baseline()

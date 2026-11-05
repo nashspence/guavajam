@@ -18,6 +18,17 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 a { color: #235b9d; }
+.press-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: inherit;
+  padding: .3rem 0;
+  border-bottom: 1px solid #888;
+  font-size: .85rem;
+}
+:target, :focus-visible { scroll-margin-top: 4rem; }
+.press-permalink { padding: .15em; font-size: .8em; font-weight: normal; }
 img, svg { max-width: 100%; height: auto; }
 figure { margin: 2rem 0; }
 figcaption, footer { font-size: .85rem; }
@@ -38,4 +49,6 @@ footer { border-top: 1px solid #888; margin-top: 3rem; padding-top: 1rem; }
 @media print {
   :root { color-scheme: light; }
   body { max-width: none; background: white; color: black; }
+  .press-status { position: static; }
+  .press-permalink { display: none; }
 }

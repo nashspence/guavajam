@@ -19,6 +19,9 @@ class SyncTests(unittest.TestCase):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.tag = "works/essay/v1.0.0"
         self.provenance = json.dumps({"tag": self.tag, "initial_release_body": "Reviewed body"}).encode()
+        self.provenance_file = self.root / "records/editions/essay/v1.0.0/provenance.json"
+        self.provenance_file.parent.mkdir(parents=True)
+        self.provenance_file.write_bytes(self.provenance)
         self.record = {"published_at": "2026-11-04T12:00:00Z",
                        "provenance_sha256": hashlib.sha256(self.provenance).hexdigest()}
         self.release = {"id": 42, "draft": False, "prerelease": False, "immutable": True,
@@ -57,7 +60,7 @@ class SyncTests(unittest.TestCase):
 
     def test_one_job_per_affected_edition(self):
         paths = (b"notices/essay/v1.0.0/0001.md\0registrations/editions/essay/v1.0.0.json\0"
-                 b"notices/other/v2.0.0/0001.md\0")
+                 b"notices/other/v2.0.0/0001.md\0records/editions/other/v2.0.0/index.html\0")
         self.assertEqual(affected_tags(paths), [self.tag, "works/other/v2.0.0"])
         with self.assertRaises(AssetError):
             affected_tags(b"notices/essay/not-a-version/0001.md\0")
@@ -92,7 +95,7 @@ class SyncTests(unittest.TestCase):
         self.main = "b" * 40
         with self.assertRaisesRegex(AssetError, "main moved"):
             self.run_sync()
-        self.provenance += b" "
+        self.provenance_file.write_bytes(self.provenance + b" ")
         with self.assertRaisesRegex(AssetError, "provenance differs"):
             self.run_sync()
         self.assertFalse(self.writes)
@@ -109,8 +112,14 @@ class SyncTests(unittest.TestCase):
             self.run_sync()
         self.assertFalse(self.writes)
 
-    def test_permanent_reader_failure_fails_after_single_update(self):
+    def test_permanent_reader_failure_blocks_mirror_update(self):
         self.verify_reader.side_effect = AssetError("reader record is stale")
         with self.assertRaisesRegex(AssetError, "reader record is stale"):
             self.run_sync()
-        self.assertEqual(len(self.writes), 1)
+        self.assertEqual(len(self.writes), 0)
+
+    def test_publisher_record_is_verified_when_github_refuses_body_write(self):
+        with patch("publish_edition.gh", side_effect=AssetError("GitHub denied the release edit")):
+            with self.assertRaisesRegex(AssetError, "denied"):
+                self.run_sync()
+        self.verify_reader.assert_called_once()

@@ -9,17 +9,17 @@ from urllib.parse import quote
 
 from asset_policy import AssetError
 from editorial_notices import reviewed_initial_body
-from identifier_schema import REGISTRY_SCHEMAS, TAG, strict_json, valid_utc
+from identifier_schema import REGISTRY_SCHEMAS, STAGING_RUN_ID, TAG, strict_json, valid_utc
 from verify_edition import verify_edition
 
 
-def authorization(directory: Path, manifest: dict) -> dict:
+def authorization(directory: Path, manifest: dict, *, staged_run_id: str | None = None) -> dict:
     tag = manifest["tag"]
     match = TAG.fullmatch(tag)
     if not match:
         raise AssetError("invalid issuance tag")
     slug, version = match.groups()
-    return {
+    record = {
         "schema": REGISTRY_SCHEMAS["edition"], "work": slug, "version": version,
         "record_url": manifest["record_url"],
         "canonical_artifact": manifest["canonical_artifact"], "rights": manifest["rights"],
@@ -27,6 +27,11 @@ def authorization(directory: Path, manifest: dict) -> dict:
         "initial_notes_sha256": hashlib.sha256(reviewed_initial_body(manifest).encode("utf-8")).hexdigest(),
         "provenance_sha256": hashlib.sha256((directory / "provenance.json").read_bytes()).hexdigest(),
     }
+    if staged_run_id is not None:
+        if not STAGING_RUN_ID.fullmatch(staged_run_id):
+            raise AssetError("expected a positive decimal staging run ID")
+        record["staged_run_id"] = staged_run_id
+    return record
 
 
 def read_registration(root: Path, path: Path) -> dict:
@@ -82,7 +87,7 @@ def public_receipt(root: Path, directory: Path, manifest: dict, repo: str) -> di
     timestamp = release["published_at"]
     record = check_issuance(root, directory, manifest, published_at=timestamp)
     verify_reader_routes(manifest, repo, notices=edition_notices(root, tag),
-                         identifiers=record.get("identifiers"), published_at=timestamp)
+                         identifiers=record.get("identifiers"), published_at=timestamp, pending="published_at" not in record)
     return {**record, "published_at": timestamp}
 
 
@@ -91,13 +96,14 @@ def main():
     parser.add_argument("command", choices=("prepare", "receipt"))
     parser.add_argument("directory", type=Path, help="directory containing a verified edition")
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "nashspence/press"))
+    parser.add_argument("--staged-run-id", help="successful hosted build supplying this authorization")
     args = parser.parse_args()
     try:
         manifest = verify_edition(args.directory)
         if args.command == "receipt":
             record = public_receipt(Path(__file__).resolve().parents[1], args.directory, manifest, args.repo)
         else:
-            record = authorization(args.directory, manifest)
+            record = authorization(args.directory, manifest, staged_run_id=args.staged_run_id)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

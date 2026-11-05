@@ -8,11 +8,12 @@ import sys
 from pathlib import Path
 
 from asset_policy import AssetError
+from identifier_schema import STAGING_RUN_ID
 from publish_edition import api, gh
 
 
 def staging_builder(repo, run_id, digest):
-    if not re.fullmatch(r"[1-9][0-9]*", run_id) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+    if not STAGING_RUN_ID.fullmatch(run_id) or not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise AssetError("promotion requires a staging run ID and the reviewed provenance SHA-256")
     run = api(repo, f"actions/runs/{run_id}")
     if (run["path"] != ".github/workflows/prepare-edition.yml"

@@ -13,8 +13,8 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
-from editorial_notices import check_rights_statement, reviewed_initial_body
-from identifier_schema import valid_record_url, valid_utc
+from editorial_notices import check_initial_notes, check_rights_statement, reviewed_initial_body
+from identifier_schema import WORK_IDS, check_identifier_map, identifier_error, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 
@@ -37,13 +37,17 @@ class EditionHTML(html.parser.HTMLParser):
         self.fragment_links = []
         self.record_links = []
         self.read_links = []
+        self.status_links = []
+        self.authors = []
+        self.permalinks = []
+        self.current_heading = None
         self.in_footer = False
         self.in_rights = False
         self.rights_text = None
         self.heading_ids = []
         self.formal_kinds = []
         self.viewport = False
-        self.html_lang = False
+        self.html_lang = ""
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -70,7 +74,7 @@ class EditionHTML(html.parser.HTMLParser):
             if attributes.get("id") != "press-edition-css":
                 self.errors.append("unexpected stylesheet element")
         if tag == "html":
-            self.html_lang = bool(attributes.get("lang", "").strip())
+            self.html_lang = attributes.get("lang", "").strip()
         if tag == "main":
             self.main_count += 1
         if tag == "article":
@@ -84,6 +88,7 @@ class EditionHTML(html.parser.HTMLParser):
             if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", heading_id):
                 self.errors.append("section heading requires an explicit stable ID")
             self.heading_ids.append(heading_id)
+            self.current_heading = heading_id
             kind = attributes.get("data-press-kind")
             if kind is not None:
                 classes = set(attributes.get("class", "").split())
@@ -102,12 +107,22 @@ class EditionHTML(html.parser.HTMLParser):
                 self.record_links.append(target)
             if identifier == "press-edition-read":
                 self.read_links.append(target)
+            if identifier == "press-edition-status":
+                self.status_links.append(target)
+                if self.article_count:
+                    self.errors.append("edition status must precede the manuscript")
+            if "press-permalink" in attributes.get("class", "").split():
+                self.permalinks.append((self.current_heading, target))
+                if not attributes.get("aria-label", "").strip() or "tabindex" in attributes:
+                    self.errors.append("section permalink requires an accessible, keyboard-focusable link")
             if target.startswith("#"):
                 if target[1:]:
                     self.fragment_links.append(unquote(target[1:]))
             elif not valid_edition_link(target):
                 self.errors.append("standalone HTML link requires a fragment, HTTPS or mailto URL")
         if tag == "meta":
+            if attributes.get("name") == "author":
+                self.authors.append(attributes.get("content"))
             if attributes.get("name") == "press-presentation-profile":
                 self.profile_meta = attributes.get("content") == self.profile
             if attributes.get("name") == "viewport":
@@ -134,6 +149,8 @@ class EditionHTML(html.parser.HTMLParser):
             self.images[digest] = (raw, match[1])
 
     def handle_endtag(self, tag):
+        if tag in {"h2", "h3", "h4", "h5", "h6"}:
+            self.current_heading = None
         if tag == "style":
             self.style = False
         if tag == "footer":
@@ -161,6 +178,8 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         reviewed_initial_body(manifest)
     if "rights_statement" in manifest:
         check_rights_statement(manifest["rights_statement"])
+    if "initial_note" in manifest:
+        check_initial_notes(manifest["initial_note"])
     source_commit = manifest.get("source_commit", "")
     edition_tag = manifest.get("tag", "")
     tag_match = TAG.fullmatch(edition_tag)
@@ -179,7 +198,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     check_html_size((directory / filename).stat().st_size)
     checksums = "".join(hashlib.sha256((directory / name).read_bytes()).hexdigest() + "  " + name + "\n"
                         for name in [filename, "provenance.json"])
-    if (directory / "SHA256SUMS").read_text(encoding="ascii") != checksums:
+    if (directory / "SHA256SUMS").read_bytes() != checksums.encode("ascii"):
         raise AssetError("edition checksums do not match")
     raw = (directory / filename).read_bytes()
     if hashlib.sha256(raw).hexdigest() != manifest["html_sha256"] or len(raw) != manifest["html_byte_count"]:
@@ -201,8 +220,23 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         if (not valid_record_url(manifest.get("record_url"), edition_tag)
                 or parser.record_links != [manifest["record_url"]]):
             raise AssetError("edition record link differs from its permanent address in provenance")
-    if "initial_release_body" in manifest and parser.read_links != [manifest["record_url"] + "/read"]:
-        raise AssetError("edition reading link differs from its permanent address in provenance")
+    if "initial_release_body" in manifest:
+        record_url = manifest["record_url"]
+        if parser.read_links != [record_url + "/read"]:
+            raise AssetError("edition reading link differs from its permanent address in provenance")
+        if parser.status_links != [record_url]:
+            raise AssetError("edition status link differs from its permanent record")
+        if parser.permalinks != [(key, record_url + "/read#" + key) for key in parser.heading_ids]:
+            parser.errors.append("every section requires its own canonical permalink")
+        if (not manifest.get("author") or parser.authors != [manifest["author"]]
+                or parser.html_lang != manifest.get("language")):
+            raise AssetError("edition attribution or language differs from provenance")
+        if "author_orcid" in manifest and identifier_error("orcid", manifest["author_orcid"]):
+            raise AssetError("invalid edition author ORCID")
+        if "work_identifiers" in manifest:
+            errors = check_identifier_map(manifest["work_identifiers"], WORK_IDS, edition_tag)
+            if errors:
+                raise AssetError("\n".join(errors))
     if (not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
             or manifest.get("template_path") != template_path
             or manifest.get("stylesheet_path") != stylesheet_path

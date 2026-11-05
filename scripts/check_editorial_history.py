@@ -3,15 +3,18 @@ import argparse
 from pathlib import Path
 import re
 import sys
+import tempfile
 from urllib.parse import quote
 
 from asset_policy import AssetError
 from audit_assets import verify_public_release
 from build_edition import COMMIT, git
 from editorial_notices import edition_notices
-from identifier_schema import TAG, strict_json, validate_registrations
-from issuance import read_registration
+from identifier_schema import TAG, require_current_edition_origin, strict_json, validate_registrations
+from issuance import authorization, read_registration
 from publish_edition import api, release_records, tag_commit
+from reviewed_artifact import download_reviewed
+from verify_edition import verify_edition
 
 
 def git_paths(root, *args):
@@ -68,8 +71,24 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
     added = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=A',
                       base, '--', 'registrations/editions')
     for path in sorted(added):
-        if {'published_at', 'cancellation_reason'} & read_registration(root, path).keys():
+        record = read_registration(root, path)
+        if {'published_at', 'cancellation_reason'} & record.keys():
             raise AssetError(f'{path}: commit the pending authorization before its publication receipt')
+        if repo is not None:
+            if 'staged_run_id' not in record:
+                raise AssetError(f'{path}: new authorizations require the hosted proof’s staged_run_id')
+            with tempfile.TemporaryDirectory(prefix='press-authorization-') as temp:
+                directory = Path(temp) / 'edition'
+                run_id = record['staged_run_id']
+                download_reviewed(repo, run_id, record['provenance_sha256'], directory)
+                tag = f'works/{path.parent.name}/{path.stem}'
+                manifest = verify_edition(directory, tag=tag, commit=record['source_commit'])
+                require_current_edition_origin(root, manifest)
+                if git(root, 'diff', '--cached', '--raw', '--no-renames', manifest['source_commit'], '--', '.github/workflows'):
+                    raise AssetError(f'{tag}: workflow files differ from the proof source; restage from compatible source before reserving')
+                # read_registration already requires the exact canonical UTF-8 JSON encoding.
+                if record != authorization(directory, manifest, staged_run_id=run_id):
+                    raise AssetError(f'{path}: authorization differs from the verified staged proof')
     # Treat renames as deletion/addition so moving a notice or an issued record cannot reset it.
     changed = git_paths(root, 'diff', '--name-only', '-z', '--no-renames', '--diff-filter=MDT',
                         base, '--', *scopes)

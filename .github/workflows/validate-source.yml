@@ -11,6 +11,9 @@ permissions:
 jobs:
   source:
     name: Validate manuscript sources
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -48,6 +51,9 @@ jobs:
           fi
           git merge-base --is-ancestor "$BASE_SHA" HEAD
           .venv/bin/python scripts/check_editorial_history.py --repo "$GITHUB_REPOSITORY" --base "$BASE_SHA"
+
+      - name: Verify public edition records against receipts and notices
+        run: .venv/bin/python scripts/public_record.py --check
 
       - name: Run executable tests
         run: make test

@@ -19,7 +19,7 @@ from urllib.parse import unquote, urlsplit
 
 from editorial_notices import check_initial_notes, check_rights_statement
 from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
-from asset_policy import AssetError, load_policy, svg_errors
+from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
@@ -482,8 +482,16 @@ def validate_pandoc_front_matter(relative: Path, data: dict, ast: dict) -> list[
     return errors
 
 
-def validate_svg(path: Path, rel: Path) -> list[str]:
-    return [issue(rel, message) for message in svg_errors(path.read_bytes())]
+def local_asset_size(path: Path) -> int:
+    if not path.is_file() or path.resolve() != path.absolute():
+        raise AssetError("asset must be a regular file, not a symlink")
+    extension = path.suffix[1:]
+    if extension not in MIME:
+        raise AssetError(f"unsupported asset extension: {path.suffix!r}")
+    with path.open("rb") as source:
+        raw = source.read(MAX_BYTES + 1)
+    verify_bytes(raw, extension, MIME[extension])
+    return len(raw)
 
 
 def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
@@ -496,24 +504,10 @@ def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
             errors.append(issue(rel, "invalid work slug"))
         if not all(re.fullmatch(r"[a-z0-9][a-z0-9._-]*", part) for part in parts[3:]):
             errors.append(issue(rel, "asset names must use lowercase ASCII letters, digits, dot, dash, underscore"))
-        path = root / rel
-        if path.is_symlink() or not path.is_file():
-            errors.append(issue(rel, "asset must be a regular file, not a symlink"))
-            continue
-        if path.stat().st_size > 10 * 1024 * 1024:
-            errors.append(issue(rel, "asset exceeds 10 MiB limit"))
-        ext = path.suffix
-        header = path.read_bytes()[:16]
-        if ext == ".svg":
-            errors.extend(validate_svg(path, rel))
-        elif ext == ".png" and not header.startswith(b"\x89PNG\r\n\x1a\n"):
-            errors.append(issue(rel, "invalid PNG file header"))
-        elif ext in {".jpg", ".jpeg"} and not header.startswith(b"\xff\xd8\xff"):
-            errors.append(issue(rel, "invalid JPEG file header"))
-        elif ext == ".webp" and not (header.startswith(b"RIFF") and header[8:12] == b"WEBP"):
-            errors.append(issue(rel, "invalid WebP file header"))
-        elif ext not in {".png", ".jpg", ".jpeg", ".webp", ".svg"}:
-            errors.append(issue(rel, f"unsupported asset extension: {ext!r}"))
+        try:
+            local_asset_size(root / rel)
+        except (AssetError, OSError) as exc:
+            errors.append(issue(rel, str(exc)))
     return errors
 
 

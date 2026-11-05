@@ -157,7 +157,12 @@ class IssuanceTests(unittest.TestCase):
             result = public_receipt(self.root, self.package, self.manifest, 'owner/press')
             self.assertEqual(result, {**self.record, 'published_at': release['published_at']})
             verify.assert_called_once_with('owner/press', release, root=self.root)
-            readers.assert_called_once_with(self.manifest, 'owner/press', notices=[], identifiers=None, published_at=release['published_at'])
+            readers.assert_called_once_with(self.manifest, 'owner/press', notices=[], identifiers=None,
+                                            published_at=release['published_at'], pending=True)
+            self.record = result
+            self.write()
+            public_receipt(self.root, self.package, self.manifest, 'owner/press')
+            self.assertFalse(readers.call_args.kwargs['pending'])
             verify.side_effect = AssetError('readback failed')
             with self.assertRaisesRegex(AssetError, 'readback failed'):
                 public_receipt(self.root, self.package, self.manifest, 'owner/press')

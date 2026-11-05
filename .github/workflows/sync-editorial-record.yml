@@ -6,6 +6,7 @@ on:
     paths:
       - 'notices/**'
       - 'registrations/editions/**'
+      - 'records/editions/**'
   workflow_dispatch:
     inputs:
       edition_tag:
@@ -36,7 +37,7 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             tags=$(python3 scripts/sync_editorial_record.py --select "$EDITION_TAG")
           else
-            tags=$(git diff --name-only --no-renames -z "${BEFORE:?Missing push baseline}" "$GITHUB_SHA" -- notices registrations/editions | python3 scripts/sync_editorial_record.py --changed)
+            tags=$(git diff --name-only --no-renames -z "${BEFORE:?Missing push baseline}" "$GITHUB_SHA" -- notices registrations/editions records/editions | python3 scripts/sync_editorial_record.py --changed)
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
 

@@ -36,6 +36,7 @@ class PublicationLifecycleTests(unittest.TestCase):
     def setUp(self):
         self.commit = "a" * 40
         self.main_tip = self.commit
+        self.origin = self.enterContext(patch("identifier_schema.edition_origin", return_value="https://press.test"))
         self.tag = "works/sample/v1.0.0"
         self.ref = None
         self.release = None
@@ -115,6 +116,28 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.assertEqual(("api", "repos/owner/press/git/ref/heads/main"), self.operations[promotion - 1])
         for operations in [self.operations[:promotion], self.operations[promotion+1:]]:
             self.assertEqual(3, sum(args[:2] == ("release", "download") for args in operations))
+
+    def test_origin_change_blocks_issuance_but_allows_read_only_verification(self):
+        self.origin.return_value = "https://other.test"
+        with self.assertRaisesRegex(AssetError, "different permanent record origin"):
+            self.publish()
+        self.assertIsNone(self.release)
+        self.origin.return_value = "https://press.test"
+        self.publish()
+        self.origin.return_value = "https://other.test"
+        self.operations.clear()
+        self.publish()
+        self.assertFalse(any("--method" in args for args in self.operations))
+
+    def test_promotion_must_use_the_reserved_staging_run(self):
+        self.check_issuance.return_value = {"staged_run_id": "42"}
+        with self.assertRaisesRegex(AssetError, "staging run named"):
+            publish_edition("owner/press", self.output, self.commit, self.tag,
+                            issuer_commit=self.commit, staged_run_id="41")
+        self.assertIsNone(self.release)
+        publish_edition("owner/press", self.output, self.commit, self.tag,
+                        issuer_commit=self.commit, policy_token="read-settings", staged_run_id="42")
+        self.assertFalse(self.release["draft"])
 
     def test_initial_notes_and_issuance_are_required_before_any_publish(self):
         manifest = self.verify_edition.return_value
@@ -381,7 +404,8 @@ class RequiredCheckTests(unittest.TestCase):
                     "head_repository": {"full_name": self.repo}}
         self.runs = [self.run]
         self.jobs = [{"name": "Validate manuscript sources", "conclusion": "success",
-                      "steps": [{"name": "Verify editorial history against the event base", "conclusion": "success"}]},
+                      "steps": [{"name": "Verify editorial history against the event base", "conclusion": "success"},
+                                {"name": "Verify public edition records against receipts and notices", "conclusion": "success"}]},
                      {"name": "Verify manuscript assets", "conclusion": "success"}]
         self.api = self.enterContext(patch("publish_edition.api", side_effect=self.lookup))
 
@@ -410,6 +434,10 @@ class RequiredCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, "previous tip"):
             require_source_check(self.repo, self.commit)
         self.jobs[0]["steps"][0]["conclusion"] = "success"
+        self.jobs[0]["steps"][1]["conclusion"] = "skipped"
+        with self.assertRaisesRegex(AssetError, "public edition records"):
+            require_source_check(self.repo, self.commit)
+        self.jobs[0]["steps"][1]["conclusion"] = "success"
         self.jobs.pop()
         with self.assertRaisesRegex(AssetError, "re-run all jobs"):
             require_source_check(self.repo, self.commit)

@@ -12,6 +12,8 @@ from identifier_schema import EDITION_IDS, TAG, check_identifier_map
 EDITION_ID_LABELS = {"version_doi": "Edition DOI", "arxiv_version": "arXiv version",
                      "isbn_epub": "EPUB ISBN", "isbn_pdf": "PDF ISBN", "isbn_print": "Print ISBN",
                      "oclc": "OCLC number"}
+WORK_ID_LABELS = {"concept_doi": "Concept DOI", "arxiv": "arXiv work",
+                  "openalex": "OpenAlex work", "wikidata": "Wikidata work"}
 
 
 def markdown_text(value):
@@ -28,6 +30,11 @@ def edition_fields(manifest):
               "Canonical artifact": manifest["canonical_artifact"], "Rights": manifest["rights"],
               "Source commit": manifest["source_commit"], "Provenance": "provenance.json",
               "Checksums": "SHA256SUMS"}
+    for key, label in (("author", "Author"), ("language", "Language"), ("author_orcid", "Author ORCID")):
+        if key in manifest:
+            fields[label] = manifest[key]
+    for key, value in sorted(manifest.get("work_identifiers", {}).items()):
+        fields[WORK_ID_LABELS[key]] = value
     if "rights_statement" in manifest:
         statement = manifest["rights_statement"]
         check_rights_statement(statement)

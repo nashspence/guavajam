@@ -138,6 +138,30 @@ class SourceBudgetTests(unittest.TestCase):
                 verify_source_assets(root, fetcher=fetcher)
 
 
+    def test_combined_local_remote_budget_and_repeated_embedding_cost(self):
+        from verify_source_assets import verify_source_assets
+
+        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        (root / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
+        path = Path("works/sample/manuscript.md")
+        local = path.parent / "assets/figure.svg"
+        (root / local.parent).mkdir(parents=True)
+        (root / local).write_bytes(SVG)
+        (root / path).write_text(f"![Local](assets/figure.svg)\n![Remote]({URL})\n![Local again](assets/figure.svg)\n")
+        fetcher = Mock(return_value=(SVG, "image/svg+xml"))
+        with patch("verify_source_assets.git_sources", return_value=[path, local]):
+            with patch("verify_source_assets.MAX_ASSETS", 1), self.assertRaisesRegex(AssetError, "distinct image"):
+                verify_source_assets(root, fetcher=fetcher)
+            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG)), self.assertRaisesRegex(AssetError, "total image bytes?"):
+                verify_source_assets(root, fetcher=fetcher)
+            with patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG)) * 2), \
+                 self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
+                verify_source_assets(root, fetcher=fetcher)
+            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG) * 2), \
+                 patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG)) * 3):
+                self.assertEqual(verify_source_assets(root, fetcher=fetcher), 1)
+
+
 class FetchTests(unittest.TestCase):
     def fetch(self, raw=SVG, headers=None, status=200, url=URL):
         response = Mock()

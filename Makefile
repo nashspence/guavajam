@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image build verify check-reader authorization receipt release-notes gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image build verify check-reader check-backup editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
-export FILE DIR TAG REGISTRATION ARCHIVE_ROOT RECORD_TARGET RECORD_WORKER
+export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 ARCHIVE_ROOT BACKUP_BASE RECORD_TARGET RECORD_WORKER
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -35,16 +35,31 @@ verify: ## DIR=path/to/edition [REGISTRATION=trusted.json]  Verify the package a
 	@set --; if [ -n "$$REGISTRATION" ]; then set -- "--registration=$$REGISTRATION"; fi; \
 		$(PYTHON) scripts/verify_edition.py "$$@" -- "$${DIR:?Set DIR to the edition directory}"
 
-authorization: ## DIR=path/to/edition  Print the registration for a reviewed staging package.
-	@$(PYTHON) scripts/issuance.py prepare -- "$${DIR:?Set DIR to the edition directory}"
+authorization: ## DIR=path/to/edition [STAGED_RUN_ID=id]  Recompute the staging authorization or print an offline proof without its run ID.
+	@set --; if [ -n "$$STAGED_RUN_ID" ]; then set -- "--staged-run-id=$$STAGED_RUN_ID"; fi; \
+		$(PYTHON) scripts/issuance.py prepare "$$@" -- "$${DIR:?Set DIR to the edition directory}"
 
-check-reader: ## DIR=edition REGISTRATION=receipt.json ARCHIVE_ROOT=archive [RECORD_TARGET=https://archive/base]  Verify the public record and reading copy against the saved edition, receipt and notices.
+editorial-checkpoint: ## TAG=works/essay/v1.0.0  Print the checkpoint to retain independently from the current approved commit after receipt and each editorial change.
+	@$(PYTHON) scripts/audit_assets.py --checkpoint "$${TAG:?Set TAG to the issued edition tag}"
+
+check-reader: ## DIR=edition REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest [RECORD_TARGET=https://archive/base]  Verify the public record and reading copy against the saved edition, receipt and notices.
 	@$(PYTHON) scripts/audit_assets.py --reader "$${DIR:?Set DIR to the edition directory}" \
 		--registration "$${REGISTRATION:?Set REGISTRATION to the trusted receipt}" \
-		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}"
+		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}" \
+		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}"
+
+check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCHIVE_ROOT=archive EDITORIAL_SHA256=digest  Fetch and verify the backup package, record and reading copy before cutover.
+	@$(PYTHON) scripts/audit_assets.py --backup-base "$${BACKUP_BASE:?Set BACKUP_BASE to the recovery host base}" \
+		--registration "$${REGISTRATION:?Set REGISTRATION to the trusted receipt}" \
+		--archive-root "$${ARCHIVE_ROOT:?Set ARCHIVE_ROOT to the directory containing the notice history}" \
+		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}"
 
 receipt: ## DIR=path/to/edition  Read back the public release and print its verified registration with timestamp.
 	@$(PYTHON) scripts/issuance.py receipt -- "$${DIR:?Set DIR to the edition directory}"
+
+record: ## TAG=works/essay/v1.0.0 [DIR=edition]  Generate the public record; provide the verified package with the first receipt.
+	@set --; if [ -n "$$DIR" ]; then set -- "--directory=$$DIR"; fi; \
+		$(PYTHON) scripts/public_record.py --write "$${TAG:?Set TAG to the issued edition tag}" "$$@"
 
 release-notes: ## DIR=path/to/edition  Print the public body with registered identifiers and editorial notices.
 	@$(PYTHON) scripts/editorial_notices.py -- "$${DIR:?Set DIR to the edition directory}"

@@ -44,7 +44,7 @@ def deploy(root, *, apply=False):
         {'name': 'RECORD_TAG_PATTERN', 'type': 'plain_text', 'text': TAG.pattern},
     ]
     if not apply:
-        print(f'Plan: deploy records/worker.js as {name}; attach {origin}; redirect editions to {base}')
+        print(f'Plan: deploy records/worker.js as {name}; attach {origin}; use archive target {base}')
         return
     account, token = values['CLOUDFLARE_ACCOUNT_ID'], values['CLOUDFLARE_API_TOKEN']
     domains = cf_request(account, 'domains?hostname=' + hostname, token)

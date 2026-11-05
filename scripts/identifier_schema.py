@@ -30,6 +30,7 @@ RIGHTS = frozenset({"all-rights-reserved", "CC-BY-4.0", "CC-BY-ND-4.0", "CC-BY-N
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 VERSION = re.compile(r"v(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}")
 TAG = re.compile(rf"works/({SLUG.pattern})/({VERSION.pattern})")
+STAGING_RUN_ID = re.compile(r"[1-9][0-9]*")
 DOI = re.compile(r"10\.[0-9]{4,9}/[a-z0-9][a-z0-9._;()/:+%-]*\Z")
 ARXIV_NEW = re.compile(r"[0-9]{2}(?:0[1-9]|1[0-2])\.[0-9]{4,5}\Z")
 ARXIV_OLD = re.compile(r"[a-z][a-z0-9.-]*/[0-9]{7}\Z")
@@ -61,6 +62,10 @@ def edition_record_url(root: Path, tag: str) -> str:
         raise AssetError("invalid edition tag")
     return edition_origin(root) + "/" + tag
 
+
+def require_current_edition_origin(root: Path, manifest: dict) -> None:
+    if manifest["record_url"] != edition_record_url(root, manifest["tag"]):
+        raise AssetError(f"{manifest['tag']}: staged proof uses a different permanent record origin")
 
 def valid_orcid(value: str) -> bool:
     if not re.fullmatch(r"[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]", value):
@@ -262,7 +267,10 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                 errors.append(f"{path}: invalid or unknown edition slug/version")
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
-            errors.extend(exact_keys(doc, required, {"identifiers", "published_at", "cancellation_reason"}, context))
+            errors.extend(exact_keys(doc, required, {"staged_run_id", "identifiers", "published_at", "cancellation_reason"}, context))
+            if "staged_run_id" in doc and (not isinstance(doc["staged_run_id"], str)
+                                          or not STAGING_RUN_ID.fullmatch(doc["staged_run_id"])):
+                errors.append(f"{path}: staged_run_id must be a positive decimal run ID string")
             if doc.get("schema") != REGISTRY_SCHEMAS["edition"] or doc.get("work") != slug or doc.get("version") != version:
                 errors.append(f"{path}: edition schema, work and version must match path")
             if not valid_record_url(doc.get("record_url"), f"works/{slug}/{version}"):

@@ -31,6 +31,17 @@ class ArchivedEditionTests(unittest.TestCase):
             manifest = verify_archived(directory)
         self.assertEqual(manifest["presentation_profile"], "press.html.v1")
 
+    def test_checksums_use_the_exact_archived_bytes(self):
+        import shutil
+        import tempfile
+        source = Path(__file__).parent / 'fixtures/archived-v1'
+        with tempfile.TemporaryDirectory() as temp:
+            directory = shutil.copytree(source, Path(temp) / 'edition')
+            sums = directory / 'SHA256SUMS'
+            sums.write_bytes(sums.read_bytes().replace(b'\n', b'\r\n'))
+            with self.assertRaisesRegex(AssetError, 'checksums do not match'):
+                verify_edition(directory)
+
     def test_edition_link_targets(self):
         for href in ("#section", "https://example.org/work", "mailto:press@example.org"):
             with self.subTest(href=href):
@@ -130,15 +141,53 @@ class RenderContractTests(EditionTests):
         self.sample_with_structures()
         manifest = self.build()
         html = self.page().read_text(encoding="utf-8")
-        self.assertIn("Nash Spence. <cite>Sample Work</cite>. Press, edition v1.0.0.", " ".join(html.split()))
+        self.assertIn('Nash Spence. <cite lang="en">Sample Work</cite>. Press, edition v1.0.0.', ' '.join(html.split()))
         record = "https://press.example.org/works/sample-work/v1.0.0"
         self.assertEqual(record, manifest["record_url"])
         self.assertIn(f'href="{record}/read"', html)
         self.assertIn(f'href="{record}">{record}</a>', html)
+        self.assertIn('Corrections and withdrawal status</a>', html[:html.index('<article')])
+        parser = EditionHTML(PROFILE)
+        parser.feed(html)
+        self.assertEqual(parser.status_links, [record])
+        self.assertEqual(parser.permalinks, [(key, record + '/read#' + key) for key in parser.heading_ids])
+        self.assertIn(('theorem-1', record + '/read#theorem-1'), parser.permalinks)
+        self.assertIn('href="#def-1"', html)  # existing navigation also works offline
+        self.assertEqual((manifest['author'], manifest['language']), ('Nash Spence', 'en'))
+        self.assertNotIn('initial_note', manifest)
         self._repack(html=self.page().read_bytes().replace(
             ('href="' + record + '"').encode(), b'href="https://other.example.org/"'))
         with self.assertRaisesRegex(AssetError, "edition record link"):
             verify_edition(self.output)
+
+    def test_offline_theorem_link_cannot_point_to_another_passage(self):
+        self.sample_with_structures()
+        self.build()
+        original = self.page().read_bytes()
+        self._repack(html=original.replace(b'/read#theorem-1"', b'/read#def-1"'))
+        with self.assertRaisesRegex(AssetError, 'canonical permalink'):
+            verify_edition(self.output)
+
+    def test_reviewed_attribution_includes_work_registration_and_source_ids(self):
+        self.sample_with_structures()
+        path = self.repo / 'works/sample-work/manuscript.md'
+        path.write_text(path.read_text().replace('language: en', 'language: fr-CA\n'
+            'author_orcid: 0000-0002-1825-0097\nidentifiers:\n  arxiv: "1501.01234"'))
+        reg = self.repo / 'registrations/works/sample-work.json'
+        reg.parent.mkdir(parents=True)
+        reg.write_text(json.dumps({'schema': 'press.work-registration.v1', 'work': 'sample-work',
+                                   'identifiers': {'concept_doi': '10.1234/essai'}}, sort_keys=True, indent=2) + '\n')
+        self.git('add', '-A')
+        self.git('commit', '-qm', 'Review bibliographic metadata')
+        self.commit = self.git('rev-parse', 'HEAD')
+        manifest = self.build()
+        self.assertEqual(manifest['work_identifiers'], {'arxiv': '1501.01234', 'concept_doi': '10.1234/essai'})
+        self.assertEqual(manifest['author_orcid'], '0000-0002-1825-0097')
+        self.assertEqual(manifest['language'], 'fr-CA')
+        body = manifest['initial_release_body']
+        for field in ('Author: Nash Spence', 'Language: fr-CA', 'Concept DOI: 10.1234/essai',
+                      'Author ORCID: 0000-0002-1825-0097', 'arXiv work: 1501.01234'):
+            self.assertIn(field, body)
 
     def test_trusted_registration_verifies_the_reviewed_bytes_offline(self):
         from issuance import authorization
@@ -173,6 +222,7 @@ class RenderContractTests(EditionTests):
         path.write_text("Unreviewed terms.\n")
         manifest = self.build()
         self.assertEqual(statement, manifest["rights_statement"])
+        self.assertEqual(manifest["initial_note"], "Editorial introduction.\n")
         page = self.page().read_text(encoding="utf-8")
         notes = subprocess.check_output(["pandoc", "-f", "gfm", "-t", "html5", "--wrap=none"],
                                         input=release_notes(manifest), text=True)

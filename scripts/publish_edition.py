@@ -12,6 +12,7 @@ from pathlib import Path
 
 from asset_policy import AssetError
 from build_edition import COMMIT
+from identifier_schema import require_current_edition_origin
 from issuance import check_issuance
 from editorial_notices import edition_notices, release_notes
 from verify_edition import verify_edition
@@ -103,10 +104,12 @@ def require_source_check(repo, commit, *, wait_seconds=0):
         matching = [job for job in jobs if job["name"] == name]
         if len(matching) != 1 or matching[0]["conclusion"] != "success":
             raise AssetError(f"latest validation attempt requires successful {name}; re-run all jobs")
-        if name == "Validate manuscript sources" and not any(
-                step["name"] == "Verify editorial history against the event base" and step["conclusion"] == "success"
-                for step in matching[0]["steps"]):
-            raise AssetError("the main push did not verify editorial history against its previous tip")
+        if name == "Validate manuscript sources":
+            succeeded = {step["name"] for step in matching[0]["steps"] if step["conclusion"] == "success"}
+            if "Verify editorial history against the event base" not in succeeded:
+                raise AssetError("the main push did not verify editorial history against its previous tip")
+            if "Verify public edition records against receipts and notices" not in succeeded:
+                raise AssetError("the main push did not verify the public edition records")
 
 
 def require_immutable_releases(repo, policy_token):
@@ -171,7 +174,7 @@ def verify_remote(repo, release_id, directory, commit, tag, manifest, names, *, 
         raise AssetError("edition attachments changed during verification")
 
 
-def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token=None):
+def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token=None, staged_run_id=None):
     if not COMMIT.fullmatch(issuer_commit or ""):
         raise AssetError("promotion requires the full issuer commit SHA")
     manifest = verify_edition(directory, commit=commit, tag=tag)
@@ -188,6 +191,8 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token
     release = matches[0] if matches else None
     record = check_issuance(root, directory, manifest, pending=release is None or release["draft"],
                             published_at=release.get("published_at") if release else None)
+    if record.get("staged_run_id") != staged_run_id:
+        raise AssetError("promotion must use the staging run named in the approved registration")
     if release is not None and not release["draft"]:
         verify_remote(repo, release["id"], directory, commit, tag, manifest, names, draft=False,
                       notices=edition_notices(root, tag), identifiers=record.get("identifiers"))
@@ -197,6 +202,7 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token
         if api(repo, "git/ref/heads/main")["object"]["sha"] != issuer_commit:
             raise AssetError("main moved; re-dispatch promotion using the same reviewed staging run")
 
+    require_current_edition_origin(root, manifest)
     require_current_issuer()
     if release is None:
         release = json.loads(gh("api", "--method", "POST", f"repos/{repo}/releases",
@@ -243,13 +249,14 @@ def main():
     parser.add_argument("--commit", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--issuer-commit", required=True, help="Promotion workflow dispatch commit")
+    parser.add_argument("--staged-run-id", required=True, help="Staging run named in the registration")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", args.repo):
         parser.error("invalid repository")
     try:
         policy_token = os.environ.pop("PRESS_POLICY_READ_TOKEN", None)
         publish_edition(args.repo, args.directory, args.commit, args.tag, issuer_commit=args.issuer_commit,
-                        policy_token=policy_token)
+                        policy_token=policy_token, staged_run_id=args.staged_run_id)
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

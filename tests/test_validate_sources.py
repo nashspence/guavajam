@@ -233,7 +233,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertEqual([], self.check(section, other=preview))
 
     def test_section_id_cannot_shadow_a_generated_footnote_or_template_id(self):
-        for identifier in ("fn1", "fnref1", "footnotes", "press-edition-css"):
+        for identifier in ("fn1", "fnref1", "footnotes", "press-edition-css", "press-edition-status"):
             with self.subTest(identifier=identifier):
                 body = MANUSCRIPT.replace("sec-1", identifier) + "\nA note.[^one]\n\n[^one]: Note text.\n"
                 self.assert_bad("duplicate published HTML IDs", body)
@@ -255,6 +255,10 @@ class StrictSourceTests(unittest.TestCase):
         source = MANUSCRIPT + "![plot](assets/figure.svg)\n"
         other = {"works/sample/assets/figure.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>\n'}
         self.assertEqual([], self.check(source, other=other))
+
+    def test_local_raster_with_valid_magic_but_truncated_pixels(self):
+        self.assert_bad("invalid or unsafe raster image", MANUSCRIPT + "![Chart](assets/chart.png)\n",
+                        other={"works/sample/assets/chart.png": b"\x89PNG\r\n\x1a\n" + b"x" * 50})
 
     def test_reject_executable_svg(self):
         source = MANUSCRIPT + "![plot](assets/figure.svg)\n"

@@ -36,6 +36,10 @@ class AssetError(ValueError):
     pass
 
 
+def base64_size(size: int) -> int:
+    return 4 * ((size + 2) // 3)
+
+
 def check_html_size(size: int) -> None:
     if size > MAX_HTML_BYTES:
         raise AssetError(f"canonical HTML exceeds {MAX_HTML_BYTES // (1024 * 1024)} MiB size limit")

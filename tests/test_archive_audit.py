@@ -108,3 +108,62 @@ class ArchiveAuditTests(unittest.TestCase):
         with patch("audit_assets.git_sources", return_value=[]), patch("audit_assets.check_issuance") as check:
             audit(self.root, "owner/press")
         check.assert_not_called()
+
+
+class RecoveryCheckpointTests(unittest.TestCase):
+    def test_committed_checkpoint_detects_stale_or_missing_editorial_state_before_readback(self):
+        import json
+        import subprocess
+        import tempfile
+
+        from audit_assets import committed_checkpoint
+
+        tag = 'works/sample/v1.0.0'
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(*args):
+                subprocess.run(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.org', *args],
+                               cwd=root, check=True, capture_output=True)
+
+            git('init')
+            receipt = root / 'registrations/editions/sample/v1.0.0.json'
+            receipt.parent.mkdir(parents=True)
+            def write_receipt(**extra):
+                doc = {'work': 'sample', 'version': 'v1.0.0', 'published_at': '2026-11-04T13:00:00Z', **extra}
+                receipt.write_text(json.dumps(doc, indent=2, sort_keys=True) + '\n')
+
+            write_receipt()
+            git('add', '.')
+            git('commit', '-m', 'Receipt')
+            original = committed_checkpoint(root, tag)
+            notice = root / 'notices/sample/v1.0.0/0001.md'
+            notice.parent.mkdir(parents=True)
+            notice.write_text('2026-11-05 Withdrawal: Result withdrawn.\n')
+            write_receipt(identifiers={'oclc': '42'})
+            self.assertEqual(committed_checkpoint(root, tag), original)
+            git('add', '.')
+            git('commit', '-m', 'Editorial update')
+            current = committed_checkpoint(root, tag)
+            self.assertNotEqual(original, current)
+
+            def verify(expected):
+                argv = ['audit_assets.py', '--reader', str(root), '--registration', str(receipt),
+                        '--archive-root', str(root), '--editorial-sha256', expected]
+                with patch.object(sys, 'argv', argv), patch('audit_assets.verify_edition', return_value={'tag': tag}), \
+                     patch('audit_assets.check_authorization'), patch('audit_assets.verify_reader_routes') as routes:
+                    status = main()
+                    self.assertEqual(routes.called, status == 0)
+                    return status
+
+            self.assertEqual(verify(current), 0)
+            self.assertEqual(verify(original), 1)
+            write_receipt()
+            self.assertEqual(verify(current), 1)
+            write_receipt(identifiers={'oclc': '42'})
+            notice.unlink()
+            notice.parent.rmdir()
+            self.assertEqual(verify(current), 1)
+            write_receipt()
+            self.assertEqual(verify(original), 0)  # A trusted zero-notice checkpoint is explicit.
+            receipt.unlink()
+            self.assertEqual(verify(original), 1)

@@ -28,6 +28,7 @@ class ReaderRouteTests(unittest.TestCase):
         self.disposition = 'inline'
         self.location = None
         self.calls = []
+        self.primary_record = None
         self.enterContext(patch('reader_routes.public_response', self.response))
         self.enterContext(patch.dict('os.environ', {'RECORD_TARGET': ''}))
 
@@ -35,7 +36,9 @@ class ReaderRouteTests(unittest.TestCase):
     def response(self, url, *args, **kwargs):
         self.calls.append(url)
         target = self.target + '/' + self.tag
-        if url == self.url or (url == self.url + '/read' and not target.startswith('https://github.com/')):
+        if url == self.url and self.primary_record is not None:
+            status, headers, data = 200, {'Content-Type': 'text/html'}, self.primary_record
+        elif url == self.url or (url == self.url + '/read' and not target.startswith('https://github.com/')):
             status, headers, data = 302, {'Location': self.location or target + url[len(self.url):]}, b''
         elif url == target:
             status, headers, data = 200, {'Content-Type': 'text/html'}, self.page.encode()
@@ -49,7 +52,7 @@ class ReaderRouteTests(unittest.TestCase):
         yield file
 
     def check(self, **kwargs):
-        verify_reader_routes(self.manifest, 'owner/press', notices=['- ' + self.notice], **kwargs)
+        verify_reader_routes(self.manifest, 'owner/press', notices=['- ' + self.notice], pending=kwargs.pop('pending', True), **kwargs)
 
     def test_citation_follows_exact_record_and_verifies_inline_bytes(self):
         self.check()
@@ -93,14 +96,26 @@ class ReaderRouteTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'inline HTML'):
             self.check()
 
-    def test_recovered_archive_checks_original_time_notices_and_reads_same_bytes(self):
-        self.target = 'https://archive.test/press'
+    def test_publisher_and_recovery_hosts_serve_the_verified_current_record(self):
+        from public_record import record_html
         timestamp = '2026-11-01T12:00:00Z'
-        with self.assertRaisesRegex(AssetError, 'original publication timestamp'):
-            self.check(archive_base=self.target, published_at=timestamp)
-        self.page += f'<time datetime="{timestamp}">1 November</time>'
-        self.check(archive_base=self.target, published_at=timestamp)
-        self.assertTrue(self.calls[-1].startswith(self.target))
+        self.manifest.update(title='Work', rights='CC0-1.0', author='A. Writer', language='en')
+        approved = record_html(self.manifest, published_at=timestamp, notices=['- ' + self.notice], identifiers=None)
+        self.primary_record = approved
+        self.check(pending=False, published_at=timestamp)
+        self.assertEqual(self.calls, [self.url, self.url + '/read'])
+        self.primary_record = None
+        self.target = 'https://archive.test/press'
+        self.page = approved.decode()
+        self.check(archive_base=self.target, pending=False, published_at=timestamp)
+        record = self.target + '/' + self.tag
+        self.calls.clear()
+        self.check(direct_base=self.target, pending=False, published_at=timestamp)
+        self.assertEqual(self.calls, [record, record + '/read'])
+        for value in (timestamp, self.notice, 'CC0-1.0'):
+            self.page = approved.decode().replace(value, 'changed')
+            with self.subTest(value=value), self.assertRaisesRegex(AssetError, 'approved metadata'):
+                self.check(direct_base=self.target, pending=False, published_at=timestamp)
 
 
 class RedirectDiagnosticTests(unittest.TestCase):

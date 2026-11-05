@@ -3,7 +3,6 @@ import hashlib
 from html.parser import HTMLParser
 import os
 import re
-from urllib.parse import urlsplit
 
 from asset_policy import AssetError, MAX_HTML_BYTES, public_response, response_chunks
 from deploy_record_gateway import target_base
@@ -98,20 +97,12 @@ def require_html(response, url):
         raise AssetError(f'{url}: expected publicly readable inline HTML (HTTP {response.status})')
 
 
-def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archive_base=None, published_at=None):
-    tag = manifest['tag']
+def verify_pending_record(raw, manifest, notices, identifiers):
     url = manifest['record_url']
-    if not valid_record_url(url, tag):
-        raise AssetError('invalid edition record URL')
-    github = 'https://github.com/' + repo + '/releases/tag'
-    base = target_base(archive_base or os.environ.get('RECORD_TARGET') or github)
-    record = base + '/' + tag
-    require_redirect(url, record)
+    read_url = url + '/read'
     parser = RecordText()
-    with public_response(record, 'text/html') as response:
-        require_html(response, record)
-        parser.feed(b''.join(response_chunks(response, MAX_RECORD_BYTES)).decode('utf-8'))
-        parser.close()
+    parser.feed(raw.decode('utf-8'))
+    parser.close()
     text = ' '.join(''.join(parser.text).split())
     source = manifest['source_commit']
     if source not in text:
@@ -126,16 +117,40 @@ def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archiv
     expected_ids = [EDITION_ID_LABELS[key] + ': ' + value for key, value in (identifiers or {}).items()]
     if sorted(visible_ids) != sorted(expected_ids):
         raise AssetError(f'{url}: public record differs from the registered identifiers')
-    read_url = url + '/read'
     if read_url not in parser.links:
         raise AssetError(f'{url}: public record omits its reading link')
-    # A migrated archive hosts the record and the reading copy side by side.
-    # GitHub downloads attachments, so the Worker serves those bytes inline.
-    if urlsplit(base).hostname != 'github.com':
-        if published_at is not None and published_at not in text and published_at not in parser.times:
-            raise AssetError(f'{url}: recovered record omits the original publication timestamp')
-        require_redirect(read_url, record + '/read')
+
+
+def verify_reader_routes(manifest, repo, *, notices=(), identifiers=None, archive_base=None, published_at=None,
+                         pending=False, direct_base=None):
+    tag = manifest['tag']
+    url = manifest['record_url']
+    if not valid_record_url(url, tag):
+        raise AssetError('invalid edition record URL')
+    github = 'https://github.com/' + repo + '/releases/tag'
+    base = target_base(direct_base or archive_base or os.environ.get('RECORD_TARGET') or github)
+    recovery = direct_base is not None or base != github
+    bootstrap = pending and not recovery
+    record = base + '/' + tag if bootstrap or recovery else url
+    read_url = url + '/read'
+    if direct_base is None and (recovery or bootstrap):
+        require_redirect(url, record)
+    if recovery:
+        if direct_base is None:
+            require_redirect(read_url, record + '/read')
         read_url = record + '/read'
+    with public_response(record, 'text/html') as response:
+        require_html(response, record)
+        raw = b''.join(response_chunks(response, MAX_RECORD_BYTES))
+    if bootstrap:
+        verify_pending_record(raw, manifest, notices, identifiers)
+    else:
+        from public_record import record_html
+        if not published_at:
+            raise AssetError(f'{url}: the public record requires a trusted publication timestamp')
+        expected = record_html(manifest, published_at=published_at, notices=notices, identifiers=identifiers)
+        if raw != expected:
+            raise AssetError(f'{record}: public record differs from the approved metadata and editorial history')
     digest = hashlib.sha256()
     with public_response(read_url, 'text/html', timeout=120) as response:
         require_html(response, read_url)

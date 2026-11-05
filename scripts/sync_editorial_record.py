@@ -1,4 +1,4 @@
-"""Publish the editorial record approved on main and read back the affected GitHub release."""
+"""Verify the publisher record approved on main, then mirror its notes to GitHub."""
 import argparse
 import hashlib
 import json
@@ -24,6 +24,9 @@ def affected_tags(changed):
             tag = "/".join(("works", *path.parts[1:3]))
         elif len(path.parts) == 4 and path.parts[:2] == ("registrations", "editions") and path.suffix == ".json":
             tag = f"works/{path.parent.name}/{path.stem}"
+        elif (len(path.parts) == 5 and path.parts[:2] == ("records", "editions")
+              and path.name in {"index.html", "provenance.json"}):
+            tag = "/".join(("works", *path.parts[2:4]))
         else:
             raise AssetError(f"unexpected editorial path: {path}")
         if not TAG.fullmatch(tag):
@@ -48,18 +51,31 @@ def sync(root, repo, tag):
     if "published_at" not in record:
         print(f"{tag}: no publication receipt to synchronize")
         return
+    # The checked-in public record already contains the merged decision. Verify it
+    # independently of the optional release-body write and the original release target.
+    raw = (root / "records" / "editions" / match[1] / match[2] / "provenance.json").read_bytes()
+    if hashlib.sha256(raw).hexdigest() != record["provenance_sha256"]:
+        raise AssetError(f"{tag}: record provenance differs from receipt")
+    manifest = json.loads(raw)
+    notices = edition_notices(root, tag)
+    delays = (0, 5, 15, 60, 120, 120)
+    for attempt, delay in enumerate(delays, 1):
+        if delay:
+            time.sleep(delay)
+        try:
+            verify_reader_routes(manifest, repo, notices=notices, identifiers=record.get("identifiers"),
+                                 published_at=record["published_at"])
+            break
+        except (OSError, ValueError):
+            if attempt == len(delays):
+                raise
+    print(f"{tag}: verified the current publisher record", flush=True)
     release = api(repo, "releases/tags/" + quote(tag, safe=""))
     if (release["tag_name"] != tag or release["published_at"] != record["published_at"]
             or release["draft"] or release["prerelease"] or release.get("immutable") is not True):
         raise AssetError(f"{tag}: expected the receipted, immutable public release")
+    body = release_notes(manifest, notices, identifiers=record.get("identifiers"))
     with tempfile.TemporaryDirectory(prefix="press-notes-") as tmp:
-        gh("release", "download", tag, "--repo", repo, "--pattern", "provenance.json", "--dir", tmp)
-        raw = (Path(tmp) / "provenance.json").read_bytes()
-        if hashlib.sha256(raw).hexdigest() != record["provenance_sha256"]:
-            raise AssetError(f"{tag}: public provenance differs from receipt")
-        manifest = json.loads(raw)
-        notices = edition_notices(root, tag)
-        body = release_notes(manifest, notices, identifiers=record.get("identifiers"))
         # Verify the full immutable package, its tag and its receipt before applying
         # the single proposed mutable field. This also catches an incorrect release title.
         verify_public_release(repo, {**release, "body": body}, root=root, require_receipt=True)
@@ -74,18 +90,7 @@ def sync(root, repo, tag):
     public = api(repo, f"releases/{release['id']}")
     if public["id"] != release["id"] or public["tag_name"] != tag or public["body"] != body:
         raise AssetError(f"{tag}: public editorial record differs after synchronization")
-    # GitHub's API and the reader-facing page may converge a few seconds apart.
-    for delay in (0, 5, 15):
-        if delay:
-            time.sleep(delay)
-        try:
-            verify_reader_routes(manifest, repo, notices=notices, identifiers=record.get("identifiers"),
-                                 published_at=record["published_at"])
-            break
-        except (OSError, ValueError):
-            if delay == 15:
-                raise
-    print(f"{tag}: verified current notes at the public record")
+    print(f"{tag}: verified the GitHub release mirror")
 
 
 def main():

@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+$for(author-meta)$<meta name="author" content="$author-meta$">
+$endfor$
 <meta name="press-presentation-profile" content="press.html.v1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>$pagetitle$ — $edition$</title>
@@ -10,11 +12,12 @@
 @@PRESS_EDITION_CSS@@</style>
 </head>
 <body>
+<header class="press-status" lang="en"><a id="press-edition-status" href="$record_url$">Corrections and withdrawal status</a></header>
 <main><article class="press-edition" data-press-profile="press.html.v1">
 $body$
 </article></main>
-<footer>
-<p>Cite this edition as $author$. <cite>$pagetitle$</cite>. Press, edition $edition$. <a id="press-edition-read" href="$record_url$/read">Read this edition online</a>.</p>
+<footer lang="en">
+<p>Cite this edition as $author$. <cite lang="$lang$">$pagetitle$</cite>. Press, edition $edition$. <a id="press-edition-read" href="$record_url$/read">Read this edition online</a>.</p>
 <p>Official edition record and notices: <a id="press-edition-record" href="$record_url$">$record_url$</a><br>
 Rights: $rights$<br>
 $if(rights_statement)$Edition rights: <span data-press-field="rights">$rights_statement$</span><br>

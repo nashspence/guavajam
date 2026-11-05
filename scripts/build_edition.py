@@ -20,7 +20,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_asset,
-                          check_html_size, load_policy, verify_bytes)
+                          base64_size, check_html_size, load_policy, verify_bytes)
 from editorial_notices import render_initial_body
 from identifier_schema import TAG, edition_record_url
 from validate_sources import parse_document, plain_text, validate_repository, walk
@@ -134,21 +134,34 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # Keep a local-reference build tree for inspection; only verified files are
         # read for embedding. Pandoc gets data URIs, so it has no resource to fetch.
         (build / "document.json").write_text(json.dumps(ast), encoding="utf-8")
-        embedded = prepare_presentation_ast(copy.deepcopy(ast))
+        record_url = edition_record_url(root, tag)
+        embedded = prepare_presentation_ast(copy.deepcopy(ast), record_url)
         embedded_size = 0
         for node in walk(embedded["blocks"]):
             if node.get("t") == "Image":
                 local = build / node["c"][2][0]
                 extension = local.suffix[1:]
                 # Repeated references each occupy space in the standalone HTML.
-                embedded_size += 4 * ((local.stat().st_size + 2) // 3)
+                embedded_size += base64_size(local.stat().st_size)
                 check_html_size(embedded_size)
                 raw = local.read_bytes()
                 node["c"][2][0] = "data:" + MIME[extension] + ";base64," + base64.b64encode(raw).decode("ascii")
+        citation = {key: plain_text(ast["meta"][key]) for key in ("title", "author", "language")}
+        if "author_orcid" in ast["meta"]:
+            citation["author_orcid"] = plain_text(ast["meta"]["author_orcid"])
+        work_ids = {key: plain_text(node) for key, node in
+                    ast["meta"].get("identifiers", {}).get("c", {}).items()}
+        registration = Path("registrations/works") / (slug + ".json")
+        if registration in paths:
+            # The snapshot validator already rejects conflicting assignments.
+            work_ids.update(json.loads((root / registration).read_bytes())["identifiers"])
+        if work_ids:
+            citation["work_identifiers"] = work_ids
+        for key in ("author", "title", "language"):
+            embedded["meta"][key] = {"t": "MetaString", "c": citation[key]}
         embedded["meta"]["pagetitle"] = embedded["meta"]["title"]
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
-        record_url = edition_record_url(root, tag)
         embedded["meta"]["record_url"] = {"t": "MetaString", "c": record_url}
         rights_file = manuscript.parent / "editions" / (version + ".rights.txt")
         rights_statement = ""
@@ -181,7 +194,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         filename = slug + "-" + version + ".html"
         manifest = {
             "schema": "press.edition.v1", "source_commit": commit, "tag": tag, "record_url": record_url,
-            "title": plain_text(ast["meta"]["title"]["c"]),
+            **citation,
             "rights": plain_text(ast["meta"]["rights"]["c"]),
             "pandoc": "3.12.1", "asset_origin": load_policy(root).origin if load_policy(root) else None,
             "presentation_profile": PROFILE, "builder_commit": builder_commit,
@@ -194,6 +207,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             manifest["rights_statement"] = rights_statement
         notes = manuscript.parent / "editions" / (version + ".md")
         prose = (root / notes).read_text(encoding="utf-8") if notes in paths else None
+        if prose is not None:
+            manifest["initial_note"] = prose
         manifest["initial_release_body"] = render_initial_body(manifest, prose)
         packaged = temp / "packaged"
         packaged.mkdir()

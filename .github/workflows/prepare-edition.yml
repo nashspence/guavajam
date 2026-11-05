@@ -81,7 +81,7 @@ jobs:
       - name: Prepare the registration and release notes for editorial review
         run: |
           mkdir -p dist/review
-          python scripts/issuance.py prepare dist/edition > dist/review/authorization.json
+          python scripts/issuance.py prepare dist/edition --staged-run-id "$GITHUB_RUN_ID" > dist/review/authorization.json
           python scripts/editorial_notices.py --initial dist/edition > dist/review/release-notes.md
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -218,20 +218,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PRESS_POLICY_READ_TOKEN: ${{ steps.policy-token.outputs.token }}
+          STAGED_RUN_ID: ${{ inputs.staged_run_id }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           EDITION_TAG: ${{ inputs.edition_tag }}
         run: |
-          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA"
+          python scripts/publish_edition.py --directory dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --issuer-commit "$GITHUB_SHA" --staged-run-id "$STAGED_RUN_ID"
       - name: Prepare the verified publication receipt
         env:
+          EDITION_TAG: ${{ inputs.edition_tag }}
           GH_TOKEN: ${{ github.token }}
           RECORD_TARGET: ${{ vars.RECORD_TARGET }}
         run: |
+          edition_path=${EDITION_TAG#works/}
+          registration="registrations/editions/$edition_path.json"
+          page_dir="records/editions/$edition_path"
+          python scripts/issuance.py receipt dist/edition > "$RUNNER_TEMP/registration.json"
+          # Change only this ephemeral checkout to render the committed projection.
+          cp "$RUNNER_TEMP/registration.json" "$registration"
+          python scripts/public_record.py --write "$EDITION_TAG" --directory dist/edition
           mkdir -p dist/receipt
-          python scripts/issuance.py receipt dist/edition > dist/receipt/registration.json
+          cp --parents "$registration" "$page_dir/index.html" "$page_dir/provenance.json" dist/receipt/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: edition-receipt
-          path: dist/receipt/registration.json
+          path: dist/receipt/
           if-no-files-found: error
           retention-days: 90

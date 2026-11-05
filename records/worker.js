@@ -4,7 +4,11 @@ const headers = {'Cache-Control': 'no-store, no-transform', 'X-Content-Type-Opti
 const error = status => new Response(null, {status, headers});
 const redirect = target => new Response(null, {status: 302, headers: {...headers, Location: target}});
 
-async function githubReadingCopy(request, env, repository, tag, slug, version) {
+const htmlHeaders = {...headers, 'Content-Type': 'text/html; charset=utf-8',
+  'Content-Disposition': 'inline', 'Content-Security-Policy':
+    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"};
+
+async function githubEdition(request, env, repository, tag, slug, version, reading) {
   const filename = slug + '-' + version + '.html';
   const options = {redirect: 'manual', headers: {'User-Agent': 'Press-edition-reader',
                    'Accept': 'application/json'}, cf: {cacheEverything: true, cacheTtlByStatus: {'200': 300, '400-599': 0}}};
@@ -18,6 +22,10 @@ async function githubReadingCopy(request, env, repository, tag, slug, version) {
       record.record_url !== 'https://' + env.RECORD_HOST + '/' + tag || record.canonical_artifact !== filename ||
       !/^[0-9a-f]{64}$/.test(record.artifact_sha256) || 'cancellation_reason' in record) return error(502);
 
+  // Only the initial public readback uses the release page. A receipted edition
+  // with a missing publisher record must never fall back to stale release notes.
+  if (!reading && 'published_at' in record) return error(503);
+
   const release = await fetch('https://api.github.com/repos' + repository + '/releases/tags/' +
     encodeURIComponent(tag), {...options, cf: {cacheEverything: true, cacheTtlByStatus: {'200': 3600, '400-599': 0}}});
   if (release.status === 404) return error(404);
@@ -29,6 +37,8 @@ async function githubReadingCopy(request, env, repository, tag, slug, version) {
   const asset = assets[0];
   if (assets.length !== 1 || asset.state !== 'uploaded' || asset.digest !== 'sha256:' + record.artifact_sha256 ||
       !Number.isSafeInteger(asset.size) || asset.size <= 0 || asset.size > Number(env.MAX_HTML_BYTES)) return error(502);
+
+  if (!reading) return redirect('https://github.com' + repository + '/releases/tag/' + tag);
 
   // An immutable asset's GitHub digest binds this download to the reviewed registration.
   // Stream the CDN response: a valid edition can exceed the Worker's memory limit.
@@ -48,9 +58,7 @@ async function githubReadingCopy(request, env, repository, tag, slug, version) {
   }
   if (response.status !== 200 || response.headers.get('Content-Length') !== String(asset.size) ||
       ![null, 'identity'].includes(response.headers.get('Content-Encoding'))) return error(502);
-  return new Response(response.body, {headers: {...headers, 'Content-Type': 'text/html; charset=utf-8',
-    'Content-Disposition': 'inline', 'Content-Security-Policy':
-      "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}});
+  return new Response(response.body, {headers: htmlHeaders});
 }
 
 export default {
@@ -68,13 +76,29 @@ export default {
       const prefix = base.href.replace(/\/$/, '');
       const github = base.hostname === 'github.com' && /^(\/[\w.-]+\/[\w.-]+)\/releases\/tag$/.exec(base.pathname);
       if (url.pathname === '/') return redirect(github ? prefix.slice(0, -4) : prefix);
-      const reading = url.pathname.endsWith('/read');
-      const tag = url.pathname.slice(1, reading ? -5 : undefined);
+      const parts = url.pathname.slice(1).split('/');
+      const resource = parts.length === 4 ? parts.pop() : null;
+      const tag = parts.join('/');
       const match = new RegExp('^(?:' + env.RECORD_TAG_PATTERN + ')$', 'u').exec(tag);
       if (!match) return error(404);
-      if (!reading || !github) return redirect(prefix + '/' + tag + (reading ? '/read' : ''));
+      const filename = match[1] + '-' + match[2] + '.html';
+      if (resource !== null && !['read', filename, 'provenance.json', 'SHA256SUMS'].includes(resource)) return error(404);
+      if (!github) return redirect(prefix + url.pathname);
+      if (resource !== 'read') {
+        // Both the source inputs and the checked, generated record are merged on protected main.
+        const page = await fetch('https://raw.githubusercontent.com' + github[1] +
+          '/refs/heads/main/records/editions/' + match[1] + '/' + match[2] + '/index.html',
+          {method: resource ? 'HEAD' : request.method, redirect: 'manual', cf: {cacheTtl: 0}});
+        if (page.status === 200) {
+          if (resource) return redirect('https://github.com' + github[1] + '/releases/download/' +
+                                        encodeURIComponent(tag) + '/' + resource);
+          return new Response(page.body, {headers: htmlHeaders});
+        }
+        if (page.status !== 404) return error(502);
+        if (resource) return error(404);
+      }
       if (!Number.isSafeInteger(Number(env.MAX_HTML_BYTES)) || Number(env.MAX_HTML_BYTES) <= 0) return error(503);
-      return await githubReadingCopy(request, env, github[1], tag, match[1], match[2]);
+      return await githubEdition(request, env, github[1], tag, match[1], match[2], resource === 'read');
     } catch { return error(502); }
   },
 };
