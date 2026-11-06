@@ -10,7 +10,7 @@ from urllib.parse import quote
 from asset_policy import AssetError, bounded_record
 from build_edition import git
 from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices, edition_status
-from identifier_schema import LANGUAGE, TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key
+from identifier_schema import LANGUAGE, TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key, work_citation_version
 from issuance import check_authorization, read_registration
 from verify_edition import verify_edition
 from bibliography import author_text, check_optional_bibliography, ordered_authors
@@ -287,7 +287,8 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
     if not receipts or any(not valid_utc(r.get("published_at")) for r in receipts.values()):
         raise AssetError("work citation requires published edition receipts")
     first = min(receipts, key=lambda v: (receipts[v]["published_at"], version_key(v)))
-    basis = manifests[first]
+    selected = work_citation_version(work, receipts) or first
+    basis = manifests[selected]
     published_at = receipts[first]["published_at"]
     doi = work.get("identifiers", {}).get("concept_doi")
     identifier = "https://doi.org/" + doi if doi else work_url

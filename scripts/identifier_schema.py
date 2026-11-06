@@ -247,12 +247,27 @@ def doi_history(record, key):
     return history
 
 
+def work_citation_version(work: dict, receipts: dict) -> str | None:
+    """An explicit work citation basis must reference an issued edition of this work."""
+    if "citation_edition" not in work:
+        return None
+    version = work["citation_edition"]
+    if not isinstance(version, str) or not VERSION.fullmatch(version):
+        raise AssetError("citation_edition must be an edition version such as v1.0.0")
+    receipt = receipts.get(version, {})
+    if receipt.get("issuing") is not True or not valid_utc(receipt.get("published_at")):
+        raise AssetError("citation_edition must select a receipted edition of this work")
+    return version
+
+
 def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[Path, dict]) -> list[str]:
     """Offline verification of optional registration records in tracked tree."""
     errors = []
     paths = set(paths)
     seen: dict[tuple[str, str], tuple[str, str]] = {}
     corrected_dois = []
+    work_citations = []
+    edition_records = {}
     has_work = {p.parts[1] for p in paths if len(p.parts) == 3 and p.parts[0] == "works" and p.name == "manuscript.md"}
 
     def register_identifiers(scope: str, identifiers: dict, where: Path):
@@ -304,16 +319,18 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             slug = path.stem
             if len(path.parts) != 3 or not SLUG.fullmatch(slug) or slug not in has_work:
                 errors.append(f"{path}: work registration must point to an existing work slug")
-            errors.extend(exact_keys(doc, {"schema", "work", "identifiers"}, {"concept_doi_history"}, context))
+            errors.extend(exact_keys(doc, {"schema", "work", "identifiers"}, {"concept_doi_history", "citation_edition"}, context))
             if doc.get("schema") != REGISTRY_SCHEMAS["work"] or doc.get("work") != slug:
                 errors.append(f"{path}: incorrect work registration schema or work")
+            if "citation_edition" in doc:
+                work_citations.append((path, doc))
             ids = doc.get("identifiers")
             try:
                 history = doi_history(doc, "concept_doi")
             except AssetError as exc:
                 errors.append(f"{path}: {exc}")
                 history = []
-            if not (ids == {} and history):
+            if not (ids == {} and (history or "citation_edition" in doc)):
                 errors.extend(check_identifier_map(ids, WORK_IDS, context))
             for change in history:
                 register_identifiers("work", {"concept_doi": change["from"]}, Path(f"works/{slug}/manuscript.md"))
@@ -332,6 +349,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             slug, version = path.parts[2], path.stem
             if not SLUG.fullmatch(slug) or slug not in has_work or not VERSION.fullmatch(version):
                 errors.append(f"{path}: invalid or unknown edition slug/version")
+            edition_records.setdefault(slug, {})[version] = doc
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
             optional = {"staged_run_id", "identifiers", "version_doi_history", "issuing", "published_at",
@@ -431,6 +449,11 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             errors.extend(check_identifier_map(identifiers, SERIES_IDS, context))
             if isinstance(identifiers, dict):
                 register_identifiers("series", identifiers, path)
+    for path, work in work_citations:
+        try:
+            work_citation_version(work, edition_records.get(path.stem, {}))
+        except AssetError as exc:
+            errors.append(f"{path}: {exc}")
     for source, value, target in corrected_dois:
         if seen.get(("doi", value)) != (str(target), "version_doi"):
             errors.append(f"{source}: misrecorded DOI {value} must remain associated with {target}")

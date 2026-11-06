@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from bibliography import MAX_ABSTRACT_BYTES, MAX_AUTHORS
 from preview_site import assemble_preview
-from public_record import record_html, work_html, write_records
+from public_record import check_records, record_html, work_html, write_records
 from test_assets import EditionTests
 from test_public_record import PublicRecordTests
 from test_render_contract import RenderContractTests
@@ -235,7 +235,7 @@ class RecordBibliographyTests(PublicRecordTests):
         return work_html("https://press.example.org", "essay", receipts, manifests, notices,
                          work or {"identifiers": {"concept_doi": "10.1234/essay"}})
 
-    def test_work_citation_uses_first_chronological_identity_through_withdrawal_and_doi_changes(self):
+    def test_initial_work_citation_does_not_change_implicitly_with_editions_or_doi_changes(self):
         later = dict(self.manifest, title="Later title", author="Later author", tag="works/essay/v2.0.0")
         first = dict(self.manifest, authors=AUTHORS, title="Original title", abstract=ABSTRACT, schema_type="ScholarlyArticle")
         del first["author"]
@@ -265,6 +265,47 @@ class RecordBibliographyTests(PublicRecordTests):
             self.assertNotIn("v1.0.0", citation)
             self.assertIn(b"Withdrawn", page)
             self.assertIn(b"Later title", page)
+
+    def test_explicit_reviewed_work_basis_changes_title_and_authors_without_rewriting_editions(self):
+        self.generate()
+        original_edition = self.page.read_bytes()
+        self.issue_version("v2.0.0", title="Changed work identity", author="New author")
+        second_page = self.root / "records/editions/essay/v2.0.0/index.html"
+        second = second_page.read_bytes()
+        landing = self.root / "records/works/essay/index.html"
+        self.assertEqual([self.manifest["title"]], Metadata(landing.read_bytes()).meta["DC.title"])
+        self.save_work({"concept_doi": "10.1234/essay"}, citation_edition="v2.0.0")
+        write_records(self.root, self.tag)
+        values = Metadata(landing.read_bytes()).meta
+        self.assertEqual(["Changed work identity"], values["DC.title"])
+        self.assertEqual(["New author"], values["DC.creator"])
+        self.assertEqual([self.timestamp], values["DCTERMS.issued"])
+        self.assertEqual(["https://doi.org/10.1234/essay"], values["DC.identifier"])
+        citation = landing.read_text().split("<h2>Cite this work</h2>")[1].split("</p>")[0]
+        self.assertIn("New author. <cite>Changed work identity</cite>", citation)
+        self.assertEqual(original_edition, self.page.read_bytes())
+        self.assertEqual(second, second_page.read_bytes())
+        self.assertEqual([self.manifest["title"]], Metadata(original_edition).meta["DC.title"])
+        self.assertEqual(["Changed work identity"], Metadata(second).meta["DC.title"])
+        self.git("add", "records"); check_records(self.root)
+
+    def test_selected_work_basis_keeps_original_publication_date_and_allows_no_doi(self):
+        later = dict(self.manifest, title="Reviewed work title", author="Reviewed author")
+        receipts = {"v1.0.0": self.receipt, "v2.0.0": dict(self.receipt,
+            record_url="https://press.example.org/works/essay/v2.0.0", published_at="2027-01-01T00:00:00Z")}
+        first = dict(self.manifest); first.pop("work_identifiers")
+        later.pop("work_identifiers")
+        manifests = {"v1.0.0": first, "v2.0.0": later}
+        for doi in (None, "10.1234/assigned"):
+            work = {"citation_edition": "v2.0.0", "identifiers": {"concept_doi": doi} if doi else {}}
+            page = self.landing(receipts, manifests, work=work)
+            values = Metadata(page).meta
+            self.assertEqual(["Reviewed work title"], values["DC.title"])
+            self.assertEqual([self.timestamp], values["DCTERMS.issued"])
+            self.assertEqual(["https://doi.org/" + doi if doi else "https://press.example.org/works/essay"], values["DC.identifier"])
+            citation = page.decode().split("<h2>Cite this work</h2>")[1].split("</p>")[0]
+            self.assertIn("Press, 2026", citation)
+            self.assertNotIn("2027", citation)
 
     def test_chronology_beats_version_and_equal_timestamps_use_numeric_version(self):
         receipts = {v: dict(self.receipt, record_url="https://press.example.org/works/essay/" + v,
