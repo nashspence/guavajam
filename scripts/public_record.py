@@ -23,6 +23,8 @@ REGISTRATIONS = Path("registrations/editions")
 # Work/edition records are regenerated from approved source and reviewed as
 # exact bytes; they must not fetch CSS or inherit deployment styling.
 PAGE_STYLE = """<style>
+/* Record pages are bibliographic covers, not alternate reading copies.
+   The palette mirrors edition-v1; HTML, provenance, and citations stay standalone. */
 :root {
   color-scheme: light dark;
   --press-paper: #faf9f6;
@@ -46,16 +48,54 @@ body {
   overflow-wrap: break-word;
 }
 h1, h2 { line-height: 1.25; text-wrap: balance; }
-h1 { font-size: clamp(1.65rem, 4vw, 2.2rem); margin: 1.5rem 0 1rem; }
-h2 { font-size: 1.35rem; margin: 2rem 0 .7rem; }
-p { margin: 0 0 1.1em; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.2rem); margin: .55rem 0 .7rem; }
+h2 { font-size: 1.25rem; margin: 2.1rem 0 .7rem; }
+p { margin: 0 0 1em; }
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }
+a:hover { text-decoration-thickness: .12em; }
 a:focus-visible { outline: 3px solid var(--press-focus); outline-offset: 3px; }
-li { margin: .4em 0; }
-dt { font-weight: bold; margin-top: .7rem; }
-dd { margin: 0 0 .6rem; overflow-wrap: anywhere; }
+:target { scroll-margin-top: 1rem; }
+.press-record-header { border-bottom: 1px solid var(--press-border); padding: .1rem 0 1.05rem; margin-bottom: 1.25rem; }
+.press-record-header > p:first-child {
+  color: var(--press-muted);
+  font: 600 .78rem/1.5 system-ui, sans-serif;
+  letter-spacing: .045em;
+  margin: 0;
+}
+.press-record-authors { font-size: 1.07rem; line-height: 1.45; margin: 0 0 .7rem; }
+.press-record-facts, .press-record-identifier, .press-record-address {
+  font: .87rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  margin: .3rem 0 0;
+}
+.press-record-facts, .press-record-address { color: var(--press-muted); }
+.press-record-facts strong { color: var(--press-ink); }
+.press-record-identifier a, .press-record-address a { overflow-wrap: anywhere; }
+.press-record-intro { color: var(--press-muted); }
+.press-record-notice { border-left: .2rem solid var(--press-border); padding: .15rem 0 .15rem .9rem; margin: 1.25rem 0; }
+.press-record-access { margin: 1.1rem 0 1.75rem; }
+.press-record-access p { margin: .45rem 0; }
+.press-record-access a#press-record-read { font-weight: 700; text-underline-offset: .2em; }
+.press-record-size { color: var(--press-muted); font: .8rem/1.5 system-ui, sans-serif; }
+.press-record-citation { border-left: .18rem solid var(--press-border); padding: .15rem 0 .15rem 1rem; }
+.press-record-citation p { overflow-wrap: anywhere; }
+.press-record-details { display: grid; grid-template-columns: minmax(8rem, 33%) minmax(0, 1fr); gap: 0 .9rem; margin: 0; }
+.press-record-details dt, .press-record-details dd { border-bottom: 1px solid var(--press-border); padding: .5rem 0; }
+.press-record-details dt { font: 600 .85rem/1.5 system-ui, sans-serif; color: var(--press-muted); }
+.press-record-details dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.press-record-list { padding-left: 1.4rem; }
+.press-record-list li { padding: .6rem .15rem .75rem; border-bottom: 1px solid var(--press-border); }
+.press-record-list li::marker { color: var(--press-muted); }
+.press-record-list li strong { font-weight: 600; }
+li { margin: .35em 0; }
 code { font: .92em/1.45 ui-monospace, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+@media (max-width: 36rem) {
+  .press-record-details { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+  .press-record-details dt { border-bottom: 0; padding-bottom: 0; }
+  .press-record-details dd { padding-top: .15rem; }
+  .press-record-authors { font-size: 1rem; }
+}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
@@ -79,12 +119,13 @@ code { font: .92em/1.45 ui-monospace, Menlo, Consolas, monospace; overflow-wrap:
     --press-visited: #164a7c;
   }
   body { max-width: none; padding: 0; }
+  .press-record-header, .press-record-list li { break-inside: avoid; }
 }
 </style>"""
 
 
 def doi_link(doi):
-    return f'<a href="https://doi.org/{escape(quote(doi, safe="/"))}">{escape(doi)}</a>'
+    return f'<a href="https://doi.org/{escape(quote(doi, safe="/"))}">https://doi.org/{escape(doi)}</a>'
 
 
 def authored_title(manifest):
@@ -172,29 +213,41 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         f'<link rel="canonical" href="{permanent}">',
         f"<title>{title} — {version} · Press</title>",
         *dublin_core(manifest, published_at, metadata_ids, description=True),
-        PAGE_STYLE, "</head>", "<body><main>", "<p>Press · Edition record</p>",
-        f"<h1>{visible_title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
+        PAGE_STYLE, "</head>", "<body><main>", '<header class="press-record-header">',
+        "<p>Press · Edition record</p>", f"<h1>{visible_title}</h1>",
     ]
+    authors = author_text(ordered_authors(manifest, allow_missing=True))
+    if authors:
+        page.append(f'<p class="press-record-authors">{escape(authors)}</p>')
+    page.append(f'<p class="press-record-facts">Edition {version} · <strong>{status}</strong>'
+                f' · First published <time datetime="{published_at}">{published_at[:10]}</time></p>')
+    if version_doi:
+        page.append(f'<p class="press-record-identifier">Edition DOI: {doi_link(version_doi)}</p>')
+    page.append("</header>")
     if successor:
-        page.append(f'<p>The editorial notice named {successor} as the replacement. '
+        page.append(f'<p class="press-record-notice">The editorial notice named {successor} as the replacement. '
                     f'<a href="{successor}">Check the status of {successor}</a> or '
                     f'<a href="../{slug}">view all editions of this work</a>.</p>')
-    page.append(f'<p>First published <time datetime="{published_at}">{published_at}</time></p>')
-    if "abstract" in manifest:
-        language = f' lang="{escape(manifest["language"])}"' if "language" in manifest else ""
-        page.extend(["<h2>Abstract</h2>", f'<p{language}>{escape(manifest["abstract"])}</p>'])
     if notices:
         page.append("<h2>Editorial notices</h2><ul>")
         page.extend(f"<li>{escape(item.removeprefix('- '))}</li>" for item in notices)
         page.append("</ul>")
     read_label = "Read this edition online" if status == "Published" else "Read the archived edition"
     size = f' ({manifest["html_byte_count"]:,} bytes)' if "html_byte_count" in manifest else ""
-    page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a>{size}</p>')
+    page.append('<div class="press-record-access">')
+    page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a>'
+                f'<span class="press-record-size">{size}</span></p>')
     if not successor:
         page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
+    page.append("</div>")
+    if "abstract" in manifest:
+        language = f' lang="{escape(manifest["language"])}"' if "language" in manifest else ""
+        page.extend(["<h2>Abstract</h2>", f'<p{language}>{escape(manifest["abstract"])}</p>'])
     page.append("<h2>Cite this edition</h2>")
+    page.append('<div class="press-record-citation">')
     page.append(edition_citation(manifest, published_at, version_doi))
-    page.append("<h2>Edition details</h2><dl>")
+    page.append('</div>')
+    page.append('<h2>Edition details</h2><dl class="press-record-details">')
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
     for label, value in edition_fields(manifest).items():
         value = authored_title(manifest) if label == "Work" else escape(value)
@@ -298,11 +351,23 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
         f'<link rel="canonical" href="{work_url}">',
         f'<title>{escape(basis["title"])} — Editions · Press</title>',
         *dublin_core(basis, published_at, [identifier]), PAGE_STYLE, "</head><body><main>",
-        "<p>Press · Work record</p>", f"<h1>Editions of {slug}</h1>",
-        "<p>This address identifies the work across editions. To cite a passage, choose its edition below. "
-        "Each edition record includes its current status, reading copy and editorial notices.</p>",
-        f'<p>Permanent work address: <a href="{work_url}">{work_url}</a></p>',
+        '<header class="press-record-header">',
+        "<p>Press · Work record</p>", f"<h1>{authored_title(basis)}</h1>",
     ]
+    attribution = escape(author_text(ordered_authors(basis, allow_missing=True)))
+    if attribution:
+        page.append(f'<p class="press-record-authors">{attribution}</p>')
+    page.append(f'<p class="press-record-facts">Work across editions · First published '
+                f'<time datetime="{published_at}">{published_at[:10]}</time></p>')
+    if doi:
+        page.append(f'<p class="press-record-identifier">Current concept DOI: {doi_link(doi)}</p>')
+    page.append(f'<p class="press-record-address">Permanent work address: '
+                f'<a href="{work_url}">{work_url}</a></p>')
+    page.extend(["</header>",
+        '<p class="press-record-intro">This address identifies the work across editions. '
+        'To cite a passage, choose its edition below. Each edition record includes its current status, '
+        'reading copy and editorial notices.</p>',
+    ])
     statuses = {version: edition_status(notices[version], version, receipts)
                 for version in receipts}
     checked = set()
@@ -316,30 +381,12 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
         checked.update(chain)
     states = {status for status, _ in statuses.values()}
     if states == {"Withdrawn"}:
-        page.append("<p><strong>All editions of this work have been withdrawn.</strong></p>")
+        page.append('<p class="press-record-notice"><strong>All editions of this work have been withdrawn.</strong></p>')
     elif "Published" not in states:
-        page.append("<p><strong>This work has no current edition.</strong></p>")
+        page.append('<p class="press-record-notice"><strong>This work has no current edition.</strong></p>')
     history = doi_history(work, "concept_doi")
     assigned = {change["from"] for change in history} | {doi}
-    if doi:
-        page.append(f"<p>Current concept DOI: {doi_link(doi)}</p>")
-    if history:
-        page.append("<h2>Concept DOI history</h2><ul>")
-        for change in history:
-            old, new = change["from"], change["to"]
-            if old is None:
-                decision = f"Assigned {new}."
-            elif new is None:
-                decision = f"Retired {old}."
-            else:
-                decision = f"Corrected {old} to {new}."
-            page.append(f'<li>{escape(change["date"])} · {escape(decision)}</li>')
-        page.append("</ul>")
-    attribution = escape(author_text(ordered_authors(basis, allow_missing=True)))
-    citation_id = doi_link(doi) if doi else f'<a href="{work_url}">{work_url}</a>'
-    page.extend(["<h2>Cite this work</h2>", '<p>' + (attribution + ". " if attribution else "") +
-                 f'<cite>{authored_title(basis)}</cite>. Press, {published_at[:4]}. {citation_id}</p>'])
-    page.append("<ol>")
+    page.append('<h2 id="press-editions">Editions</h2><ol class="press-record-list">')
     for version in sorted(receipts, key=version_key, reverse=True):
         receipt = receipts[version]
         if receipt["record_url"] != f"{work_url}/{version}":
@@ -358,7 +405,24 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
             link = f' · <a href="{slug}/{successor}">Replacement {successor}{label}</a>'
         page.append(f'<li><a href="{slug}/{version}">{title} — {version}</a> · '
                     f'<time datetime="{published}">{published[:10]}</time> · <strong>{status}</strong>{link}</li>')
-    page.extend(["</ol></main></body></html>", ""])
+    page.append("</ol>")
+    citation_id = doi_link(doi) if doi else f'<a href="{work_url}">{work_url}</a>'
+    page.extend(["<h2>Cite this work</h2>", '<div class="press-record-citation"><p>' +
+                 (attribution + ". " if attribution else "") +
+                 f'<cite>{authored_title(basis)}</cite>. Press, {published_at[:4]}. {citation_id}</p></div>'])
+    if history:
+        page.append("<h2>Concept DOI history</h2><ul>")
+        for change in history:
+            old, new = change["from"], change["to"]
+            if old is None:
+                decision = f"Assigned {new}."
+            elif new is None:
+                decision = f"Retired {old}."
+            else:
+                decision = f"Corrected {old} to {new}."
+            page.append(f'<li>{escape(change["date"])} · {escape(decision)}</li>')
+        page.append("</ul>")
+    page.extend(["</main></body></html>", ""])
     return bounded_record("\n".join(page).encode("utf-8"))
 
 
