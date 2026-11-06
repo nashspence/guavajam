@@ -22,11 +22,47 @@ versioned edition builder; `PAGE_STYLE` in `scripts/public_record.py` is embedde
 by the regenerateable publisher record builder. The offline presentation tests
 check that light, dark, and print palette values do not drift between them.
 
-The publisher wraps Pandoc table and display-math blocks in keyboard-focusable,
-accessible horizontal scroll containers. Tables remain semantic `<table>` elements,
-and equation MathML remains unchanged. On narrow screens readers can pan these
-regions without having to scroll the entire document. Supporting-record passage
-content remains escaped and literal; its presentation is owned by the edition CSS.
+The publisher keeps native tables, MathML and preformatted code. Table and
+display-math blocks have one focusable scrolling `div`; native `pre` elements
+receive focus directly, including when Pandoc adds a syntax-highlighting wrapper.
+These focus targets are named `group` elements, not landmarks. Their context names
+are “Table”, “Displayed mathematics” and “Code block”. A native table's accessible
+name still comes from its own caption; the wrapper does not repeat that caption
+or assign another name to the table.
+
+This choice follows an Orca 46.1 / Firefox 157 trial: generic focusable wrappers
+were silent on focus, while named groups supplied context without adding regions
+to landmark navigation. Naming the group from the caption repeated the caption
+when entering the native table, so the group keeps only its context name. Orca's
+native table navigation continued to report captions, headers, cell values and
+row/column positions. These observations do not establish identical speech in
+VoiceOver or NVDA; retain those combinations in future manual release reviews.
+
+All three targets keep an explicit tab stop and visible focus. WebKit's tested
+keyboard sequence skipped overflowing code without one, although Chromium and
+Firefox reached it automatically. Pinned Pandoc puts highlighted CodeBlock AST
+attributes on the outer syntax-highlighting `div`; the shared publisher HTML
+pass therefore adds focus to the native `pre` after rendering. It preserves all
+code markup and text. Even a short sample can overflow after text zoom, a font
+change or a narrower viewport; static HTML cannot conditionally focus only the
+currently overflowing samples. The small cost of a tab stop on a fitting sample
+is deliberate. No script, extra code container or new source annotation is used.
+
+Tables use automatic width constrained by the viewport and ordinary cell text
+wraps at word boundaries. Simple and text-heavy tables fit phone widths; native
+math and unbroken identifiers retain their intrinsic minimum widths and pan
+inside the wrapper when necessary. Numeric columns are not forced to break into
+individual characters. Captions remain native table children. Print retains the
+full-width table and paper-specific wrapping rules. Supporting-record passages
+remain escaped, literal text owned by the edition CSS.
+
+English public-record pages keep `lang="en"` on their publisher chrome. Visible
+authored titles in headings, citations, work-detail values and edition links get
+a local language span from each edition's reviewed language when it differs from
+English. A mixed-language work does not lend one edition's language to another.
+Language values use the same validated source grammar and title text is escaped;
+older verified provenance without a language field keeps its existing unmarked
+output rather than acquiring an invented language declaration.
 
 Pandoc emits each footnote citation as an anchor containing a superscript numeral.
 The underline must belong to that raised numeral, not its enclosing anchor:

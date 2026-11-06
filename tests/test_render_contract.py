@@ -127,8 +127,8 @@ class RenderContractTests(EditionTests):
         self.assertIn('<em>', html)
         self.assertIn('class="footnote-ref"', html)
         self.assertIn('<table', html)
-        self.assertIn('class="press-scroll press-table-scroll" tabindex="0"', html)
-        self.assertIn('class="press-scroll press-math-scroll" tabindex="0"', html)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', html)
+        self.assertIn('class="press-scroll press-math-scroll" role="group" aria-label="Displayed mathematics" tabindex="0"', html)
         self.assertNotIn('aria-label="Scrollable table"', html)
         self.assertNotIn('aria-label="Scrollable equation"', html)
         self.assertIn('<code', html)
@@ -157,7 +157,7 @@ class RenderContractTests(EditionTests):
         direct_captions = re.findall(r"<table\b[^>]*>\s*<caption>(.*?)</caption>", page, re.S)
         self.assertEqual([html.unescape(" ".join(c.split())) for c in direct_captions], ["Table 1 — Notation"])
         self.assertNotRegex(page, r"<p>:\s*Table")
-        self.assertIn('class="press-scroll press-table-scroll" tabindex="0"', page)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', page)
         self.assertEqual(manifest, verify_edition(self.output))
 
     def test_invalid_caption_cannot_pass_validation_or_build(self):
@@ -208,7 +208,7 @@ class RenderContractTests(EditionTests):
                 if self.in_pre: self.text.append(text)
         parser = NativeCode(); parser.feed(self.page().read_text())
         self.assertEqual(len(parser.pres), 2)
-        self.assertTrue(all(p.get("tabindex") == "0" for p in parser.pres))
+        self.assertTrue(all(p.get("tabindex") == "0" and p.get("role") == "group" and p.get("aria-label") == "Code block" for p in parser.pres))
         self.assertTrue(parser.wrappers)
         self.assertTrue(all("tabindex" not in d for d in parser.wrappers))
         self.assertIn(literal, "".join(parser.text))

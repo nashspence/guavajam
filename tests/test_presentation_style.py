@@ -106,16 +106,18 @@ class PresentationStyleTests(unittest.TestCase):
                 attributes, children = wrapped["c"]
                 self.assertEqual([original], children)
                 self.assertEqual(["press-scroll", cls], attributes[1])
-                self.assertEqual([["tabindex", "0"]], attributes[2])
+                self.assertEqual([["role", "group"], ["aria-label", "Table" if cls == "press-table-scroll" else "Displayed mathematics"], ["tabindex", "0"]], attributes[2])
         self.assertIs(inline, ast["blocks"][2])
 
     def test_native_code_focus_preserves_markup_and_escaped_source(self):
         from asset_policy import AssetError
-        source = '<pre><code>&lt;pre&gt;literal</code></pre><div class="sourceCode"><pre class="python"><code>x</code></pre></div>'
+        source = '<!-- literal <pre> -->\n<pre><code>&lt;pre&gt;literal</code></pre><div class="sourceCode"><pre class="python"><code>x</code></pre></div>'
         focused = prepare_code_focus(source)
-        self.assertEqual(focused.replace(' tabindex="0"', ''), source)
+        self.assertEqual(focused.replace(' tabindex="0" role="group" aria-label="Code block"', ''), source)
         self.assertEqual(focused.count(' tabindex="0"'), 2)
-        self.assertIn('<div class="sourceCode"><pre class="python" tabindex="0">', focused)
+        unusual = '<pre class="tabindex=0" data-example="a > b"><code>literal</code></pre>'
+        self.assertIn('class="tabindex=0" data-example="a > b" tabindex="0"', prepare_code_focus(unusual))
+        self.assertIn('<div class="sourceCode"><pre class="python" tabindex="0" role="group" aria-label="Code block">', focused)
         with self.assertRaisesRegex(AssetError, "unexpected native pre focus"):
             prepare_code_focus('<pre tabindex="-1"><code>x</code></pre>')
 

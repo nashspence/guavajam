@@ -6,6 +6,7 @@ anchors to heading IDs and adds publisher-owned semantics to formal headings.
 from __future__ import annotations
 
 import hashlib
+from html.parser import HTMLParser
 import re
 from pathlib import Path
 
@@ -178,9 +179,10 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
             for node in walk(block)
         ))
         if kind == "Table" or display_math:
+            label = "Table" if kind == "Table" else "Displayed mathematics"
             cls = "press-table-scroll" if kind == "Table" else "press-math-scroll"
             wrapped.append({"t": "Div", "c": [
-                ["", ["press-scroll", cls], [["tabindex", "0"]]], [block],
+                ["", ["press-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
             ]})
         else:
             wrapped.append(block)
@@ -194,9 +196,21 @@ def prepare_code_focus(rendered: str) -> str:
     Pandoc puts CodeBlock attributes on a surrounding div when highlighting,
     so an AST tabindex would focus the wrong box. Source HTML remains forbidden.
     """
-    def focus(match):
-        tag = match[0]
-        if re.search(r"\btabindex\s*=", tag):
-            raise AssetError("unexpected native pre focus attribute from the pinned writer")
-        return tag[:-1] + ' tabindex="0">'
-    return re.sub(r"<pre(?:\s[^<>]*?)?>", focus, rendered)
+    offsets = [0] + [match.end() for match in re.finditer("\n", rendered)]
+    edits = []
+    class CodeFocus(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag != "pre":
+                return
+            if any(key in {"tabindex", "role", "aria-label"} for key, _ in attrs):
+                raise AssetError("unexpected native pre focus attribute from the pinned writer")
+            raw = self.get_starttag_text()
+            line, column = self.getpos()
+            edits.append((offsets[line - 1] + column, len(raw), raw[:-1] +
+                          ' tabindex="0" role="group" aria-label="Code block">'))
+    parser = CodeFocus()
+    parser.feed(rendered)
+    parser.close()
+    for start, size, replacement in reversed(edits):
+        rendered = rendered[:start] + replacement + rendered[start + size:]
+    return rendered

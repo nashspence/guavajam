@@ -301,7 +301,10 @@ def render_html(ast: dict, relative: Path, expected_math: int, manuscript: bool)
     if result.returncode:
         return set(), [issue(relative, "Pandoc HTML5/MathML render failed or warned: " + result.stderr.strip())]
     parser = HtmlCheck()
-    parser.feed(prepare_code_focus(result.stdout) if manuscript else result.stdout)
+    try:
+        parser.feed(prepare_code_focus(result.stdout) if manuscript else result.stdout)
+    except AssetError as exc:
+        return set(), [issue(relative, str(exc))]
     errors = []
     if manuscript and parser.h1 != 1:
         errors.append(issue(relative, f"rendered HTML must contain exactly one H1, found {parser.h1}"))
