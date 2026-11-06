@@ -171,7 +171,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
                 {"t": "MetaMap", "c": {key: {"t": "MetaString", "c": value} for key, value in author.items()}}
                 for author in authors]}
         if "abstract" in citation:
-            embedded["meta"]["abstract"] = {"t": "MetaString", "c": citation["abstract"]}
+            embedded["meta"]["description"] = {"t": "MetaString", "c": citation["abstract"]}
         embedded["meta"]["pagetitle"] = embedded["meta"]["title"]
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
