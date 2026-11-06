@@ -82,13 +82,65 @@ class PublicRecordTests(unittest.TestCase):
                      'href="v1.0.0/read"', "(12,345 bytes)", "Concept DOI at issuance",
                      f'<link rel="canonical" href="{self.url}">', f'<a href="{self.url}">{self.url}</a>',
                      "Nash Spence. <cite>Scale &lt; 2 &amp; change</cite>. v1.0.0. Press, 2026-11-04.",
-                     '<a href="https://doi.org/10.1234/essay.v1">10.1234/essay.v1</a>'):
+                     '<a href="https://doi.org/10.1234/essay.v1">https://doi.org/10.1234/essay.v1</a>'):
             self.assertIn(text, html)
         for name in ("essay-v1.0.0.html", "SHA256SUMS", "provenance.json"):
             href = "v1.0.0/" + name
             self.assertIn(f'href="{href}"', html)
             for base in (self.url, "https://backup.example.org/archive/" + self.tag):
                 self.assertEqual(urljoin(base, href), base + "/" + name)
+
+    def test_edition_landing_prioritizes_identity_status_access_and_citation(self):
+        html = record_html(self.manifest, published_at=self.timestamp,
+                           identifiers={"version_doi": "10.1234/essay.v1"}, notices=[]).decode()
+        self.assertEqual(1, html.count("<h1>"))
+        self.assertIn('<header class="press-record-header">', html)
+        self.assertIn('<p class="press-record-authors">Nash Spence</p>', html)
+        self.assertIn('Edition v1.0.0 · <strong>Published</strong>', html)
+        self.assertIn('<p class="press-record-identifier">Edition DOI: '
+                      '<a href="https://doi.org/10.1234/essay.v1">'
+                      'https://doi.org/10.1234/essay.v1</a></p>', html)
+        self.assertLess(html.index('<h1>'), html.index('id="press-record-read"'))
+        self.assertLess(html.index('id="press-record-read"'), html.index('<h2>Cite this edition</h2>'))
+        self.assertLess(html.index('<h2>Cite this edition</h2>'), html.index('<h2>Edition details</h2>'))
+        self.assertIn('<dl class="press-record-details">', html)
+        # #45's published identifiers and bibliographic facts remain unchanged.
+        self.assertIn(f'<link rel="canonical" href="{self.url}">', html)
+        self.assertIn('<meta name="DCTERMS.issued" content="' + self.timestamp + '">', html)
+
+    def test_withdrawn_edition_keeps_advisory_notices_before_access(self):
+        html = record_html(self.manifest, published_at=self.timestamp,
+                           identifiers={}, notices=['- 2026-11-05 Withdrawal: Do not rely on this edition.']).decode()
+        self.assertLess(html.index('<strong>Withdrawn</strong>'),
+                        html.index('<h2>Editorial notices</h2>'))
+        self.assertLess(html.index('Withdrawal: Do not rely on this edition.'),
+                        html.index('id="press-record-read"'))
+        self.assertIn('Read the archived edition', html)
+        self.assertIn('href="v1.0.0/read"', html)
+
+    def test_work_landing_uses_reviewed_identity_and_keeps_edition_history(self):
+        self.generate()
+        self.issue_version('v2.0.0', title='A later edition', author='Other author')
+        html = (self.root / 'records/works/essay/index.html').read_text()
+        self.assertIn('<h1>Scale &lt; 2 &amp; change</h1>', html)
+        self.assertIn('<p class="press-record-authors">Nash Spence</p>', html)
+        self.assertIn('Current concept DOI: <a href="https://doi.org/10.1234/essay">'
+                      'https://doi.org/10.1234/essay</a>', html)
+        self.assertLess(html.index('<h2 id="press-editions">Editions</h2>'),
+                        html.index('<h2>Cite this work</h2>'))
+        self.assertLess(html.index('href="essay/v2.0.0"'), html.index('href="essay/v1.0.0"'))
+        self.assertIn('Press, 2026.', html)
+
+    def test_record_css_retains_reading_palette_without_remote_dependencies(self):
+        from public_record import PAGE_STYLE
+        self.assertIn('grid-template-columns: minmax(8rem, 33%) minmax(0, 1fr)', PAGE_STYLE)
+        self.assertIn('@media (max-width: 36rem)', PAGE_STYLE)
+        self.assertIn('@media (prefers-color-scheme: dark)', PAGE_STYLE)
+        self.assertIn('@media print', PAGE_STYLE)
+        self.assertIn('outline: 3px solid var(--press-focus)', PAGE_STYLE)
+        self.assertNotIn('@import', PAGE_STYLE)
+        self.assertNotIn('url(', PAGE_STYLE)
+        self.assertNotIn('@font-face', PAGE_STYLE)
 
     def test_reviewed_title_language_is_local_to_visible_title_parts(self):
         title = 'Échelle < 2 & changements "révisés"'
