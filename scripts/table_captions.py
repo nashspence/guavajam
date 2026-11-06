@@ -92,7 +92,7 @@ def normalize_table_captions(ast, source, relative, parse):
                 # immediately after a top-level table must not silently publish.
                 if TABLE_LIKE.match(lines[i]) and one_blank(i):
                     for j, block in enumerate(marked["blocks"]):
-                        if (j and block.get("t") == "CodeBlock" and block["c"][1].splitlines() == [token]
+                        if (j and block.get("t") == "CodeBlock" and block["c"][1].splitlines()[:1] == [token]
                                 and marked["blocks"][j - 1].get("t") == "Table"):
                             return None, [error(i, "remove indentation; use an unindented ': Table …' line")]
                 continue

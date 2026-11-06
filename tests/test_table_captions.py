@@ -83,7 +83,7 @@ class TableCaptionTests(unittest.TestCase):
     def test_malformed_indented_escaped_and_arbitrary_caption_variants(self):
         for caption in (': Table', ': Table ', ': Table   ', ':Table 1', ': table 1', ': TABLE 1',
                         ' : Table 1', '   : Table 1', '    : Table 1', '\t: Table 1',
-                        r'\: Table 1', r'\\: Table 1', ': **Table** 1', ': Notation', ':: Table 1'):
+                        r'\: Table 1', r'\\: Table 1', ': **Table** 1', ': Notation', ':: Table 1', '    : Table 1\n    continued'):
             with self.subTest(caption=caption):
                 self.bad(TABLE + '\n' + caption + '\n', 5, 'caption:')
 
