@@ -268,6 +268,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-table-scroll table { width: 100%; }
   th, td { white-space: normal; overflow-wrap: anywhere; }
   pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
   figure, blockquote, pre { break-inside: avoid; }
   footer { break-before: auto; }
 }
