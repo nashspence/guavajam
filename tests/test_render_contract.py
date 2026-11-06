@@ -127,8 +127,8 @@ class RenderContractTests(EditionTests):
         self.assertIn('<em>', html)
         self.assertIn('class="footnote-ref"', html)
         self.assertIn('<table', html)
-        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', html)
-        self.assertIn('class="press-scroll press-math-scroll" role="group" aria-label="Displayed mathematics" tabindex="0"', html)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', " ".join(html.split()))
+        self.assertIn('class="press-scroll press-math-scroll" role="group" aria-label="Displayed mathematics" tabindex="0"', " ".join(html.split()))
         self.assertNotIn('aria-label="Scrollable table"', html)
         self.assertNotIn('aria-label="Scrollable equation"', html)
         self.assertIn('<code', html)
@@ -157,7 +157,7 @@ class RenderContractTests(EditionTests):
         direct_captions = re.findall(r"<table\b[^>]*>\s*<caption>(.*?)</caption>", page, re.S)
         self.assertEqual([html.unescape(" ".join(c.split())) for c in direct_captions], ["Table 1 — Notation"])
         self.assertNotRegex(page, r"<p>:\s*Table")
-        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', page)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', " ".join(page.split()))
         self.assertEqual(manifest, verify_edition(self.output))
 
     def test_invalid_caption_cannot_pass_validation_or_build(self):
