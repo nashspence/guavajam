@@ -8,6 +8,9 @@ The [presentation design rationale and release review](docs/presentation.md) des
 
 Start with the [manuscript template](templates/work/manuscript.md) at `works/<slug>/manuscript.md`. Run `make help` for commands. Retain section IDs when headings change. To cite an equation, give its heading a stable ID and put the visible number in the heading, as in the template. For a mathematical H1, review the plain-text title in the citation alongside the typeset heading. This public workflow requires the manuscript in public main history before staging and keeps downloadable review artifacts for 90 days. Keep embargoed material private until that disclosure is authorized. Inspect original images before staging, including embedded location, notes and credit metadata. The edition preserves their bytes.
 
+For semantic table captions, follow the [caption source grammar](docs/table-captions.md)
+and the table in the starter. The author supplies the visible label and numbering.
+
 ## Include selected supporting records
 
 A passage in the manuscript can link directly to the exchange, notebook entry or review that informed it. For example, write `[the endpoint check](supporting/note.json#endpoint)` using the [sample notebook record](templates/work/supporting/note.json). Copy the reviewed record into `works/<slug>/supporting/note.json`. A link to `supporting/note.json` cites the whole record. Ordinary HTTPS links also work for materials preserved elsewhere.
