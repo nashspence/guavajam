@@ -10,7 +10,7 @@ from urllib.parse import quote
 from asset_policy import AssetError, bounded_record
 from build_edition import git
 from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices, edition_status
-from identifier_schema import TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key
+from identifier_schema import LANGUAGE, TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key
 from issuance import check_authorization, read_registration
 from verify_edition import verify_edition
 
@@ -86,6 +86,19 @@ def doi_link(doi):
     return f'<a href="https://doi.org/{escape(quote(doi, safe="/"))}">{escape(doi)}</a>'
 
 
+def authored_title(manifest):
+    """Mark only reviewed title text, leaving English publisher chrome local."""
+    title = escape(manifest["title"])
+    if "language" not in manifest:
+        # Older verified packages did not capture this field. Preserve their
+        # existing output rather than inventing a new language declaration.
+        return title
+    language = manifest["language"]
+    if not isinstance(language, str) or not LANGUAGE.fullmatch(language):
+        raise AssetError("public record requires a valid reviewed manuscript language")
+    return title if language == "en" else f'<span lang="{escape(language)}">{title}</span>'
+
+
 def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     tag = manifest["tag"]
     match = TAG.fullmatch(tag)
@@ -97,6 +110,7 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         raise AssetError("public record requires the edition’s canonical filename")
 
     title = escape(manifest["title"])
+    visible_title = authored_title(manifest)
     permanent = escape(manifest["record_url"])
     status, successor = edition_status(notices, version)
     page = [
@@ -105,7 +119,7 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         f'<link rel="canonical" href="{permanent}">',
         f"<title>{title} — {version} · Press</title>",
         PAGE_STYLE, "</head>", "<body><main>", "<p>Press · Edition record</p>",
-        f"<h1>{title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
+        f"<h1>{visible_title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
     ]
     if successor:
         page.append(f'<p>The editorial notice named {successor} as the replacement. '
@@ -125,12 +139,12 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     version_doi = (identifiers or {}).get("version_doi")
     citation_doi = f"DOI: {doi_link(version_doi)}. " if version_doi else ""
     page.append("<h2>Cite this edition</h2>")
-    page.append(f'<p>{author + ". " if author else ""}<cite>{title}</cite>. {version}. Press, {published_at[:10]}. '
+    page.append(f'<p>{author + ". " if author else ""}<cite>{visible_title}</cite>. {version}. Press, {published_at[:10]}. '
                 f'{citation_doi}<a href="{permanent}">{permanent}</a></p>')
     page.append("<h2>Edition details</h2><dl>")
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
     for label, value in edition_fields(manifest).items():
-        value = escape(value)
+        value = authored_title(manifest) if label == "Work" else escape(value)
         # Resolve next to the extensionless record URL, including on the recovery host.
         if label in attachments:
             value = f'<a href="{version}/{value}">{value}</a>'
@@ -267,7 +281,7 @@ def work_projection(root, slug, receipts, *, write=False):
         if receipt["record_url"] != f"{work_url}/{version}":
             raise AssetError(f"{slug}/{version}: receipt uses a different permanent work address")
         manifest = saved_manifest(root, slug, version, receipt)
-        title = escape(manifest["title"])
+        title = authored_title(manifest)
         published = receipt["published_at"]
         captured = manifest.get("work_identifiers", {}).get("concept_doi")
         if captured and captured not in assigned:

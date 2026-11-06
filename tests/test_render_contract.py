@@ -127,10 +127,10 @@ class RenderContractTests(EditionTests):
         self.assertIn('<em>', html)
         self.assertIn('class="footnote-ref"', html)
         self.assertIn('<table', html)
-        self.assertIn('class="press-scroll press-table-scroll" role="region"', html)
-        self.assertIn('class="press-scroll press-math-scroll" role="region"', html)
-        self.assertIn('aria-label="Scrollable table" tabindex="0"', html)
-        self.assertIn('aria-label="Scrollable equation" tabindex="0"', html)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', " ".join(html.split()))
+        self.assertIn('class="press-scroll press-math-scroll" role="group" aria-label="Displayed mathematics" tabindex="0"', " ".join(html.split()))
+        self.assertNotIn('aria-label="Scrollable table"', html)
+        self.assertNotIn('aria-label="Scrollable equation"', html)
         self.assertIn('<code', html)
         # Inline LaTeX is deliberate; the published edition must render it.
         self.assertEqual(9, html.count('<math'))
@@ -157,7 +157,7 @@ class RenderContractTests(EditionTests):
         direct_captions = re.findall(r"<table\b[^>]*>\s*<caption>(.*?)</caption>", page, re.S)
         self.assertEqual([html.unescape(" ".join(c.split())) for c in direct_captions], ["Table 1 — Notation"])
         self.assertNotRegex(page, r"<p>:\s*Table")
-        self.assertIn('aria-label="Scrollable table" tabindex="0"', page)
+        self.assertIn('class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0"', " ".join(page.split()))
         self.assertEqual(manifest, verify_edition(self.output))
 
     def test_invalid_caption_cannot_pass_validation_or_build(self):
@@ -182,6 +182,37 @@ class RenderContractTests(EditionTests):
         with patch.object(Path, "read_bytes", changed):
             with self.assertRaisesRegex(AssetError, "builder files must match.*scripts/table_captions.py"):
                 self.build()
+
+    def test_plain_and_highlighted_code_focus_the_native_pre(self):
+        from html.parser import HTMLParser
+        self.sample_with_structures()
+        source = self.repo / "works/sample-work/manuscript.md"
+        literal = "LONG_LITERAL_" * 40
+        source.write_text(source.read_text().replace("A fenced code block preserves literal code and indentation:",
+            "```\n" + literal + "\n```\n\nA fenced code block preserves literal code and indentation:"))
+        self.git("commit", "-qam", "Review plain and highlighted code")
+        self.commit = self.git("rev-parse", "HEAD")
+        self.build()
+        class NativeCode(HTMLParser):
+            def __init__(self):
+                super().__init__(); self.pres = []; self.wrappers = []; self.text = []; self.in_pre = False
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if tag == "pre":
+                    self.pres.append(attrs); self.in_pre = True
+                if tag == "div" and "sourceCode" in attrs.get("class", "").split():
+                    self.wrappers.append(attrs)
+            def handle_endtag(self, tag):
+                if tag == "pre": self.in_pre = False
+            def handle_data(self, text):
+                if self.in_pre: self.text.append(text)
+        parser = NativeCode(); parser.feed(self.page().read_text())
+        self.assertEqual(len(parser.pres), 2)
+        self.assertTrue(all(p.get("tabindex") == "0" and p.get("role") == "group" and p.get("aria-label") == "Code block" for p in parser.pres))
+        self.assertTrue(parser.wrappers)
+        self.assertTrue(all("tabindex" not in d for d in parser.wrappers))
+        self.assertIn(literal, "".join(parser.text))
+        self.assertIn("def identity(value):", "".join(parser.text))
 
     def test_mathematical_title_in_article_and_citation(self):
         self.sample_with_structures()

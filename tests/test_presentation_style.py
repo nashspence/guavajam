@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from public_record import PAGE_STYLE
-from render_profile import canonical_template, prepare_presentation_ast
+from render_profile import canonical_template, prepare_code_focus, prepare_presentation_ast
 
 
 COLORS = ("paper", "ink", "muted", "link", "visited", "border", "tint", "focus")
@@ -99,16 +99,27 @@ class PresentationStyleTests(unittest.TestCase):
         ast = {"blocks": [table, equation, inline]}
         prepare_presentation_ast(ast)
         self.assertEqual(3, len(ast["blocks"]))
-        for wrapped, original, cls, label in zip(ast["blocks"][:2], (table, equation),
-                                                  ("press-table-scroll", "press-math-scroll"),
-                                                  ("Scrollable table", "Scrollable equation")):
+        for wrapped, original, cls in zip(ast["blocks"][:2], (table, equation),
+                                            ("press-table-scroll", "press-math-scroll")):
             with self.subTest(cls=cls):
                 self.assertEqual("Div", wrapped["t"])
                 attributes, children = wrapped["c"]
                 self.assertEqual([original], children)
                 self.assertEqual(["press-scroll", cls], attributes[1])
-                self.assertEqual([["role", "region"], ["aria-label", label], ["tabindex", "0"]], attributes[2])
+                self.assertEqual([["role", "group"], ["aria-label", "Table" if cls == "press-table-scroll" else "Displayed mathematics"], ["tabindex", "0"]], attributes[2])
         self.assertIs(inline, ast["blocks"][2])
+
+    def test_native_code_focus_preserves_markup_and_escaped_source(self):
+        from asset_policy import AssetError
+        source = '<!-- literal <pre> -->\n<pre><code>&lt;pre&gt;literal</code></pre><div class="sourceCode"><pre class="python"><code>x</code></pre></div>'
+        focused = prepare_code_focus(source)
+        self.assertEqual(focused.replace(' tabindex="0" role="group" aria-label="Code block"', ''), source)
+        self.assertEqual(focused.count(' tabindex="0"'), 2)
+        unusual = '<pre class="tabindex=0" data-example="a > b"><code>literal</code></pre>'
+        self.assertIn('class="tabindex=0" data-example="a > b" tabindex="0"', prepare_code_focus(unusual))
+        self.assertIn('<div class="sourceCode"><pre class="python" tabindex="0" role="group" aria-label="Code block">', focused)
+        with self.assertRaisesRegex(AssetError, "unexpected native pre focus"):
+            prepare_code_focus('<pre tabindex="-1"><code>x</code></pre>')
 
     def test_supporting_passage_uses_versioned_styles(self):
         self.assertIn('class="press-supporting-passage"',

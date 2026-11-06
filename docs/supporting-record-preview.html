@@ -55,7 +55,7 @@ a:hover { text-decoration-thickness: .13em; }
   text-underline-offset: .08em;
 }
 .footnote-ref:hover > sup { text-decoration-thickness: .12em; }
-a:focus-visible, .press-scroll:focus-visible {
+a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
   outline: 3px solid var(--press-focus);
   outline-offset: 3px;
 }
@@ -123,7 +123,8 @@ pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
 .press-table-scroll table {
   border-collapse: collapse;
   margin: 0;
-  width: max-content;
+  width: auto;
+  max-width: 100%;
   border-top: 2px solid var(--press-border);
   border-bottom: 2px solid var(--press-border);
 }
@@ -139,7 +140,7 @@ th, td {
   border: 0;
   border-bottom: 1px solid var(--press-border);
   text-align: start;
-  white-space: nowrap;
+  white-space: normal;
   overflow-wrap: normal;
 }
 th { font-weight: 700; }

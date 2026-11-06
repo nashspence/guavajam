@@ -57,7 +57,7 @@ a:hover { text-decoration-thickness: .13em; }
   text-underline-offset: .08em;
 }
 .footnote-ref:hover > sup { text-decoration-thickness: .12em; }
-a:focus-visible, .press-scroll:focus-visible {
+a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
   outline: 3px solid var(--press-focus);
   outline-offset: 3px;
 }
@@ -125,7 +125,8 @@ pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
 .press-table-scroll table {
   border-collapse: collapse;
   margin: 0;
-  width: max-content;
+  width: auto;
+  max-width: 100%;
   border-top: 2px solid var(--press-border);
   border-bottom: 2px solid var(--press-border);
 }
@@ -141,7 +142,7 @@ th, td {
   border: 0;
   border-bottom: 1px solid var(--press-border);
   text-align: start;
-  white-space: nowrap;
+  white-space: normal;
   overflow-wrap: normal;
 }
 th { font-weight: 700; }
@@ -326,7 +327,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
 <p>We call <em>x ∈ S</em> a <strong>fixed point</strong> of <em>f</em> when <em>f(x) = x</em>. The definition does not depend on how we choose to describe the elements of <em>S</em>.</p>
 <h3 id="theorem-1" class="press-formal-heading" data-press-kind="theorem">Theorem 1 — Identity preserves every point <a href="#theorem-1" class="press-permalink" aria-label="Permalink to theorem">¶</a></h3>
 <p>For the identity map, every point is fixed:</p>
-<div class="press-scroll press-math-scroll" tabindex="0" role="region" aria-label="Displayed identity equation, horizontally scrollable">
+<div class="press-scroll press-math-scroll" role="group" aria-label="Displayed mathematics" tabindex="0">
 <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mo>∀</mo><mi>x</mi><mo>∈</mo><mi>S</mi><mo>,</mo><mspace width="0.8em"/><msub><mi>id</mi><mi>S</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>x</mi><mo>.</mo></mrow></math>
 </div>
 <h4 id="proof-1" class="press-formal-heading" data-press-kind="proof">Proof <a href="#proof-1" class="press-permalink" aria-label="Permalink to proof">¶</a></h4>
@@ -334,12 +335,12 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
 <h2 id="sec-2">§ 2 — Quotations, tables, and code <a href="#sec-2" class="press-permalink" aria-label="Permalink to section sec-2">¶</a></h2>
 <blockquote><p>The purpose of careful typesetting is not decoration. It is to help the reader follow the argument without distraction.</p></blockquote>
 <p>On a narrow screen, this deliberately wide table scrolls horizontally while preserving ordinary table semantics:</p>
-<div class="press-scroll press-table-scroll" tabindex="0" role="region" aria-label="Wide example table, horizontally scrollable">
+<div class="press-scroll press-table-scroll" role="group" aria-label="Table" tabindex="0">
 <table><caption>Identity and fixed-point properties</caption><thead><tr><th scope="col">Property</th><th scope="col">Identity map</th><th scope="col">General map</th><th scope="col">Reader's interpretation</th></tr></thead>
 <tbody><tr><td>Fixed points</td><td>Every element</td><td>May have none</td><td>Preserved under application</td></tr>
 <tr><td>Composition</td><td>Idempotent</td><td>Depends on map</td><td>Compare structure across steps</td></tr></tbody></table></div>
 <p>An identifier such as <code>fixed_points</code> stays distinct in running text without an intrusive badge. A code block gets its own differentiated surface:</p>
-<pre><code>def fixed_points(items, function):
+<pre tabindex="0" role="group" aria-label="Code block"><code>def fixed_points(items, function):
     return [x for x in items if function(x) == x]</code></pre>
 <section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
 <hr>
