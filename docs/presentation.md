@@ -38,6 +38,27 @@ The checked-in `docs/reader-preview.html` deliberately mirrors the actual
 Pandoc footnote structure and embeds the *exact* current edition CSS; the
 presentation tests reject drift between the two.
 
+## Mathematical hierarchy and tables
+
+Before the first issuance, four treatments were compared side by side at 375px
+and 1120px in light and dark Chromium: the initial boxed table and larger
+formal headings; compact headings with horizontal-rule tables; the same with
+automatically italicized theorem prose; and a partially compact alternative.
+The compact, non-italicizing treatment kept a clearer hierarchy between
+section headings and mathematical assertions, without sacrificing heading IDs
+or the 44px minimum permalink target. Horizontal rules were easier to follow
+than a full grid, especially on narrow screens where columns scroll. Captions
+are visually secondary and must supply any actual numbering in the source,
+not through generated CSS counters.
+
+This is an intentional *partial* adoption of LaTeX conventions. Press keeps
+formal statements as explicit source headings, so an adjacent paragraph might
+be introductory material rather than the entire theorem. Blanket automatic
+italics, generated theorem numbers, and invented end-of-proof markers could
+misstate source structure; the author owns those distinctions. Print tables
+retain the light/dark-independent rule treatment, with editorial review still
+needed when exceptionally wide material will not fit the paper.
+
 ## Release review
 
 Review the HTML generated from the **starter manuscript**, including a wide table,

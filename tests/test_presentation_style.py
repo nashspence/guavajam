@@ -52,6 +52,20 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('role="doc-noteref"><sup>1</sup></a>', preview)
         self.assertIn('class="footnote-back" role="doc-backlink"', preview)
 
+    def test_mathematical_sections_and_tables_use_scholarly_rhythm(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        self.assertIn("h3.press-formal-heading { font-size: 1.08rem; }", css)
+        self.assertIn(".press-formal-heading[data-press-kind='proof'] {", css)
+        self.assertIn("margin-top: .9rem;", css)
+        self.assertIn("border-top: 2px solid var(--press-border);", css)
+        self.assertIn("border-bottom: 2px solid var(--press-border);", css)
+        self.assertIn("thead th { border-bottom-width: 2px; }", css)
+        header = re.search(r"(?m)^th \{([^}]+)\}", css)
+        self.assertIsNotNone(header)
+        self.assertNotIn("background", header.group(1))
+        self.assertIn("<caption>Identity and fixed-point properties</caption>",
+                      (ROOT / "docs/reader-preview.html").read_text())
+
     def test_embedded_stylesheet_keeps_its_no_network_contract(self):
         template, template_sha, css_sha = canonical_template(ROOT)
         self.assertIn("<style id=\"press-edition-css\">", template)

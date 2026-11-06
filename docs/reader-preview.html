@@ -121,15 +121,31 @@ pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
 /* Keep real table semantics; the focusable wrapper scrolls on narrow screens. */
 .press-scroll { max-width: 100%; overflow-x: auto; }
 .press-table-scroll { margin: 1.5rem 0; }
-.press-table-scroll table { border-collapse: collapse; margin: 0; width: max-content; }
+/* Book-style horizontal rules provide structure without a boxed spreadsheet grid. */
+.press-table-scroll table {
+  border-collapse: collapse;
+  margin: 0;
+  width: max-content;
+  border-top: 2px solid var(--press-border);
+  border-bottom: 2px solid var(--press-border);
+}
+caption {
+  caption-side: top;
+  padding: 0 0 .4rem;
+  color: var(--press-muted);
+  text-align: start;
+  font-size: .9em;
+}
 th, td {
-  padding: .4rem .7rem;
-  border: 1px solid var(--press-border);
+  padding: .43rem .72rem;
+  border: 0;
+  border-bottom: 1px solid var(--press-border);
   text-align: start;
   white-space: nowrap;
   overflow-wrap: normal;
 }
-th { font-weight: 700; background: var(--press-tint); }
+th { font-weight: 700; }
+thead th { border-bottom-width: 2px; }
 .press-math-scroll { margin: 1.2rem 0; }
 .press-math-scroll p { margin: 0; }
 .press-math-scroll math[display='block'] { width: max-content; min-width: 100%; }
@@ -160,9 +176,23 @@ footer {
   font-size: .85rem;
 }
 
-/* Names and semantics belong to the publisher, not Pandoc's generated IDs. */
-.press-formal-heading { font-weight: 700; }
-.press-formal-heading[data-press-kind='proof'] { font-style: italic; }
+/* Keep explicit, citable formal headings but give them a compact paper rhythm.
+   The heading level still conveys structure; never infer theorem-body italics or
+   numbering from the next paragraph, which need not be a complete statement. */
+.press-formal-heading {
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.2rem 0 .35rem;
+}
+h2.press-formal-heading { font-size: 1.2rem; }
+h3.press-formal-heading { font-size: 1.08rem; }
+h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
+  font-size: 1.02rem;
+}
+.press-formal-heading[data-press-kind='proof'] {
+  font-style: italic;
+  margin-top: .9rem;
+}
 .press-supporting-passage { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (prefers-color-scheme: dark) {
@@ -254,7 +284,7 @@ footer {
 <blockquote><p>The purpose of careful typesetting is not decoration. It is to help the reader follow the argument without distraction.</p></blockquote>
 <p>On a narrow screen, this deliberately wide table scrolls horizontally while preserving ordinary table semantics:</p>
 <div class="press-scroll press-table-scroll" tabindex="0" role="region" aria-label="Wide example table, horizontally scrollable">
-<table><thead><tr><th scope="col">Property</th><th scope="col">Identity map</th><th scope="col">General map</th><th scope="col">Reader's interpretation</th></tr></thead>
+<table><caption>Identity and fixed-point properties</caption><thead><tr><th scope="col">Property</th><th scope="col">Identity map</th><th scope="col">General map</th><th scope="col">Reader's interpretation</th></tr></thead>
 <tbody><tr><td>Fixed points</td><td>Every element</td><td>May have none</td><td>Preserved under application</td></tr>
 <tr><td>Composition</td><td>Idempotent</td><td>Depends on map</td><td>Compare structure across steps</td></tr></tbody></table></div>
 <p>An identifier such as <code>fixed_points</code> stays distinct in running text without an intrusive badge. A code block gets its own differentiated surface:</p>
