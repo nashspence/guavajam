@@ -226,10 +226,11 @@ def claimed_registrations(root, paths):
             yield path.parent.name, path.stem, record
 
 
-def work_projection(root, slug, receipts, *, write=False):
+def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
+    """Render supplied edition metadata; callers establish its authority."""
     # The extensionless URL is a file to the browser. Include the slug in each
     # relative link so it also resolves at a recovery host below a path prefix.
-    work_url = f"{edition_origin(root)}/works/{slug}"
+    work_url = f"{origin}/works/{slug}"
     page = [
         "<!doctype html>", '<html lang="en"><head><meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -240,7 +241,7 @@ def work_projection(root, slug, receipts, *, write=False):
         "Each edition record includes its current status, reading copy and editorial notices.</p>",
         f'<p>Permanent work address: <a href="{work_url}">{work_url}</a></p>',
     ]
-    statuses = {version: edition_status(edition_notices(root, f"works/{slug}/{version}"), version, receipts)
+    statuses = {version: edition_status(notices[version], version, receipts)
                 for version in receipts}
     checked = set()
     for version in statuses:
@@ -256,8 +257,6 @@ def work_projection(root, slug, receipts, *, write=False):
         page.append("<p><strong>All editions of this work have been withdrawn.</strong></p>")
     elif "Published" not in states:
         page.append("<p><strong>This work has no current edition.</strong></p>")
-    registration = Path("registrations/works") / (slug + ".json")
-    work = read_registration(root, registration) if registration in tracked_paths(root, registration) else {}
     history = doi_history(work, "concept_doi")
     doi = work.get("identifiers", {}).get("concept_doi")
     assigned = {change["from"] for change in history} | {doi}
@@ -280,7 +279,7 @@ def work_projection(root, slug, receipts, *, write=False):
         receipt = receipts[version]
         if receipt["record_url"] != f"{work_url}/{version}":
             raise AssetError(f"{slug}/{version}: receipt uses a different permanent work address")
-        manifest = saved_manifest(root, slug, version, receipt)
+        manifest = manifests[version]
         title = authored_title(manifest)
         published = receipt["published_at"]
         captured = manifest.get("work_identifiers", {}).get("concept_doi")
@@ -295,7 +294,15 @@ def work_projection(root, slug, receipts, *, write=False):
         page.append(f'<li><a href="{slug}/{version}">{title} — {version}</a> · '
                     f'<time datetime="{published}">{published[:10]}</time> · <strong>{status}</strong>{link}</li>')
     page.extend(["</ol></main></body></html>", ""])
-    html = bounded_record("\n".join(page).encode("utf-8"))
+    return bounded_record("\n".join(page).encode("utf-8"))
+
+
+def work_projection(root, slug, receipts, *, write=False):
+    registration = Path("registrations/works") / (slug + ".json")
+    work = read_registration(root, registration) if registration in tracked_paths(root, registration) else {}
+    manifests = {version: saved_manifest(root, slug, version, receipt) for version, receipt in receipts.items()}
+    notices = {version: edition_notices(root, f"works/{slug}/{version}") for version in receipts}
+    html = work_html(edition_origin(root), slug, receipts, manifests, notices, work)
     path = root / WORK_RECORDS / slug / "index.html"
     regular_record(path)
     if write:
