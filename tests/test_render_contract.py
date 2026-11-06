@@ -127,6 +127,10 @@ class RenderContractTests(EditionTests):
         self.assertIn('<em>', html)
         self.assertIn('class="footnote-ref"', html)
         self.assertIn('<table', html)
+        self.assertIn('class="press-scroll press-table-scroll" role="region"', html)
+        self.assertIn('class="press-scroll press-math-scroll" role="region"', html)
+        self.assertIn('aria-label="Scrollable table" tabindex="0"', html)
+        self.assertIn('aria-label="Scrollable equation" tabindex="0"', html)
         self.assertIn('<code', html)
         # Inline LaTeX is deliberate; the published edition must render it.
         self.assertEqual(9, html.count('<math'))
@@ -293,8 +297,8 @@ class RenderContractTests(EditionTests):
         self.build()
         page = self.page()
         original = page.read_bytes()
-        self.assertIn(b'color: #222;', original)
-        self._repack(html=original.replace(b'color: #222;', b'color: #333;'))
+        self.assertIn(b'--press-ink: #222;', original)
+        self._repack(html=original.replace(b'--press-ink: #222;', b'--press-ink: #333;'))
         with self.assertRaisesRegex(AssetError, "CSS"):
             verify_edition(self.output)
 

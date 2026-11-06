@@ -4,6 +4,8 @@ An independent publishing imprint under the authority of Nash Spence.
 
 Cite the issued HTML edition. Use the ¶ link beside a heading to copy the permanent address of a theorem or passage, including from a downloaded copy. Follow “Corrections and withdrawal status” to check the current editorial record. [Edition catalog](https://github.com/nashspence/press/releases) · [Copyright and permissions](COPYRIGHT.md)
 
+The [presentation design rationale and release review](docs/presentation.md) describe the self-contained reader style, mobile/dark-mode behavior, and checks to perform before issuing a first edition.
+
 Start with the [manuscript template](templates/work/manuscript.md) at `works/<slug>/manuscript.md`. Run `make help` for commands. Retain section IDs when headings change. To cite an equation, give its heading a stable ID and put the visible number in the heading, as in the template. For a mathematical H1, review the plain-text title in the citation alongside the typeset heading. This public workflow requires the manuscript in public main history before staging and keeps downloadable review artifacts for 90 days. Keep embargoed material private until that disclosure is authorized. Inspect original images before staging, including embedded location, notes and credit metadata. The edition preserves their bytes.
 
 ## Include selected supporting records

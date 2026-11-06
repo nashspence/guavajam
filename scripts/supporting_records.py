@@ -120,7 +120,7 @@ def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: 
                 # Character references preserve carriage returns through HTML parsing.
                 literal = html.escape(item["text"], quote=False).replace("\r", "&#13;")
                 appendix.append({"t": "RawBlock", "c": [
-                    "html", '<div style="white-space: pre-wrap; overflow-wrap: anywhere">'
+                    "html", '<div class="press-supporting-passage">'
                     + literal + "</div>",
                 ]})
             passages_by_record[slug] = anchors
