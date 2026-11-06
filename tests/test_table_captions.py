@@ -55,6 +55,22 @@ class TableCaptionTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(ast, parse_pandoc(source))
 
+    def test_captionless_starter_preserves_the_previous_reader_ast(self):
+        source = (Path(__file__).resolve().parents[1] / "templates/work/manuscript.md").read_text()
+        source = source.replace("\n: Table 1 — Notation\n", "")
+        self.assertEqual(self.good(source), parse_pandoc(source))
+
+    def test_metadata_and_literal_contexts_do_not_interfere_with_real_captions(self):
+        for literal in ("```\n: Table literal\n```", "> Quoted text\n: Table lazy continuation",
+                        "    : Table literal", ": Ordinary prose."):
+            source = literal + "\n\n" + TABLE + "\n" + CAPTION + "\n"
+            ast = self.good(source)
+            table = next(b for b in ast["blocks"] if b["t"] == "Table")
+            self.assertTrue(table["c"][1][1])
+        source = "---\ntitle: |\n  : Table literal metadata\n---\n\n" + TABLE + "\n" + CAPTION + "\n"
+        ast = self.good(source)
+        self.assertEqual(ast["meta"], parse_pandoc(source)["meta"])
+
     def test_multiple_identical_tables_and_captions_have_proven_source_order(self):
         source = TABLE + '\n' + CAPTION + '\n\n' + TABLE + '\nProse label.\n\n' + TABLE + '\n' + CAPTION + '\n'
         ast = self.good(source)

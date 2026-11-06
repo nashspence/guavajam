@@ -85,6 +85,8 @@ def normalize_table_captions(ast, source, relative, parse):
         marked = parse(tagged(candidates))
         selected = {}
         for i, token in candidates.items():
+            if _contains(marked.get("meta", {}), token):
+                continue
             literal = [node for node in walk(marked["blocks"])
                        if node["t"] in {"CodeBlock", "BlockQuote", "Math"} and _contains(node, token)]
             if literal:
