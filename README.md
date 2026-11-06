@@ -11,6 +11,19 @@ Start with the [manuscript template](templates/work/manuscript.md) at `works/<sl
 For semantic table captions, follow the [caption source grammar](docs/table-captions.md)
 and the table in the starter. The author supplies the visible label and numbering.
 
+The local site preview builds committed `HEAD`, including the proposed reading copy,
+work page, edition record and package downloads, at production-style routes on
+loopback. Commit edits before previewing; restart to include a newer commit.
+Choose an unused version: registered versions and local edition tags are rejected.
+Its marked work and candidate record pages use a simulated publication timestamp
+and confer no release authorization. The candidate HTML, CSS and provenance keep
+their exact verified bytes. Canonical/citation links and existing editions’ reading
+copies and downloads open the publisher origin. The normal preview removes its
+temporary files on exit; the build-only variant retains a new external directory
+for inspection. Neither changes registrations, Git refs or public services.
+Immutable release policy, the true publication timestamp, the live gateway and R2
+replication still need the normal issuance checks. See `make help` for arguments.
+
 ## Include selected supporting records
 
 A passage in the manuscript can link directly to the exchange, notebook entry or review that informed it. For example, write `[the endpoint check](supporting/note.json#endpoint)` using the [sample notebook record](templates/work/supporting/note.json). Copy the reviewed record into `works/<slug>/supporting/note.json`. A link to `supporting/note.json` cites the whole record. Ordinary HTTPS links also work for materials preserved elsewhere.

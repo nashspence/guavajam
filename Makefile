@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
-export CONVERSATION TIP OUTPUT PACKAGE_ROOT
+export CONVERSATION TIP OUTPUT PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
 
 help: ## Show this help.
@@ -54,6 +54,12 @@ chat-extract: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.json [TIP=n
 build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag>/.
 	@$(PYTHON) scripts/build_edition.py --commit "$$(git rev-parse HEAD)" \
 		--tag "$${TAG:?Set TAG to the intended edition tag}" --output "dist/$$TAG"
+
+preview: ## TAG=works/essay/v1.0.0 [PORT=8000]  Preview committed HEAD on loopback; Ctrl-C removes temporary files. PORT=0 selects a free port.
+	@$(PYTHON) scripts/preview_site.py --tag "$${TAG:?Set TAG to the proposed edition tag}" --port "$${PORT:-8000}"
+
+preview-build: ## TAG=works/essay/v1.0.0 OUTPUT=../preview  Build a simulated site in a new external directory without serving it.
+	@$(PYTHON) scripts/preview_site.py --tag "$${TAG:?Set TAG to the proposed edition tag}" --output "$${OUTPUT:?Set OUTPUT to a new external directory}"
 
 verify: ## DIR=path/to/edition [REGISTRATION=trusted.json]  Verify the package and optionally its authorization offline.
 	@set --; if [ -n "$$REGISTRATION" ]; then set -- "--registration=$$REGISTRATION"; fi; \
