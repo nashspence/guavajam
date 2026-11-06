@@ -51,7 +51,9 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
         f"<h1>{title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
     ]
     if successor:
-        page.append(f'<p><a href="{successor}">Replacement edition {successor}</a></p>')
+        page.append(f'<p>The editorial notice named {successor} as the replacement. '
+                    f'<a href="{successor}">Check the status of {successor}</a> or '
+                    f'<a href="../{slug}">view all editions of this work</a>.</p>')
     page.append(f'<p>First published <time datetime="{published_at}">{published_at}</time></p>')
     if notices:
         page.append("<h2>Editorial notices</h2><ul>")
@@ -60,7 +62,8 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     read_label = "Read this edition online" if status == "Published" else "Read the archived edition"
     size = f' ({manifest["html_byte_count"]:,} bytes)' if "html_byte_count" in manifest else ""
     page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a>{size}</p>')
-    page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
+    if not successor:
+        page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
     author = escape(manifest.get("author", ""))
     version_doi = (identifiers or {}).get("version_doi")
     citation_doi = f"DOI: {doi_link(version_doi)}. " if version_doi else ""
@@ -177,8 +180,11 @@ def work_projection(root, slug, receipts, *, write=False):
             chain.add(version)
             version = statuses[version][1]
         checked.update(chain)
-    if all(status == "Withdrawn" for status, _ in statuses.values()):
+    states = {status for status, _ in statuses.values()}
+    if states == {"Withdrawn"}:
         page.append("<p><strong>All editions of this work have been withdrawn.</strong></p>")
+    elif "Published" not in states:
+        page.append("<p><strong>This work has no current edition.</strong></p>")
     registration = Path("registrations/works") / (slug + ".json")
     work = read_registration(root, registration) if registration in tracked_paths(root, registration) else {}
     history = doi_history(work, "concept_doi")

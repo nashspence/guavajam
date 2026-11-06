@@ -123,16 +123,34 @@ class EditorialHistoryTests(unittest.TestCase):
         self.record['rights'] = 'all-rights-reserved'
         self.record['cancellation_reason'] = 'Rights were declined.'
         self.save()
-        with patch('abandon_edition.tag_commit', return_value=None), patch('abandon_edition.release_records', return_value=[]) as releases:
+        with self.assertRaisesRegex(AssetError, 'cancellation requires'):
+            self.check(base)
+        self.record['cancellation_run_id'] = '42'
+        self.save()
+        with patch('check_editorial_history.verify_confirmation') as verify:
             self.check(base, repo='owner/press')
-            releases.return_value = [{'tag_name': 'works/essay/v1.0.0'}]
-            with self.assertRaisesRegex(AssetError, 'cancellation requires'):
-                self.check(base, repo='owner/press')
+            verify.assert_called_once()
+            self.assertEqual(verify.call_args.args[-1], '42')
+            self.assertNotIn('cancellation_reason', verify.call_args.args[-2])
         cancelled = self.baseline()
         del self.record['cancellation_reason']
+        del self.record['cancellation_run_id']
         self.save()
         with self.assertRaisesRegex(AssetError, 'immutable'):
             self.check(cancelled)
+
+    def test_protected_confirmation_detects_an_untagged_draft_on_an_unclaimed_reservation(self):
+        from abandon_edition import confirm_absence
+        tag = 'works/essay/v1.0.0'
+        with (patch('abandon_edition.tag_commit', return_value=None),
+              patch('abandon_edition.release_records', return_value=[{'tag_name': tag, 'draft': True}]) as releases):
+            with self.assertRaisesRegex(AssetError, 'absence'):
+                confirm_absence(self.root, 'owner/press', tag)
+            releases.return_value = []
+            confirm_absence(self.root, 'owner/press', tag)
+            self.claim()
+            with self.assertRaisesRegex(AssetError, 'stopped unpublished claim'):
+                confirm_absence(self.root, 'owner/press', tag)
 
     def test_claim_and_cancellation_cannot_both_win(self):
         reserved = self.baseline()
@@ -148,12 +166,14 @@ class EditorialHistoryTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'immutable'):
             self.check(claimed)
         self.record['cancellation_reason'] = 'Permission withdrawn.'
+        self.record['cancellation_run_id'] = '42'
         self.save()
         self.check(reserved)
         with self.assertRaisesRegex(AssetError, 'cannot be cancelled'):
             self.check(claimed)
         cancelled = self.baseline()
         del self.record['cancellation_reason']
+        del self.record['cancellation_run_id']
         self.claim()
         with self.assertRaisesRegex(AssetError, 'cannot be claimed'):
             self.check(cancelled)
@@ -189,7 +209,7 @@ class EditorialHistoryTests(unittest.TestCase):
             self.check(issued)
 
     def test_terminal_decision_requires_exact_stopped_claim_and_serialized_run(self):
-        from abandon_edition import confirm_stop
+        from abandon_edition import confirm_absence
         self.claim()
         claimed = self.baseline()
         self.record['stop_reason'] = 'Rights were withdrawn.'
@@ -216,11 +236,11 @@ class EditorialHistoryTests(unittest.TestCase):
         with (patch('abandon_edition.api', side_effect=get_run),
               patch('abandon_edition.tag_commit', return_value=None) as ref,
               patch('abandon_edition.release_records', return_value=[]) as releases):
-            confirm_stop(self.root, repo, tag)
+            confirm_absence(self.root, repo, tag)
             for draft in (True, False):
                 releases.return_value = [{'tag_name': tag, 'draft': draft}]
                 with self.assertRaisesRegex(AssetError, 'absence'):
-                    confirm_stop(self.root, repo, tag)
+                    confirm_absence(self.root, repo, tag)
             releases.return_value = []
             self.record['abandoned_run_id'] = '42'
             self.save()
@@ -403,7 +423,7 @@ class EditorialHistoryTests(unittest.TestCase):
                 self.check(base, repo='owner/rehearsal')
             del manifest['work_identifiers']
             workflow.write_text('changed workflow\n')
-            with self.assertRaisesRegex(AssetError, 'workflow files differ'):
+            with self.assertRaisesRegex(AssetError, r'workflow files differ.*\.github/workflows/validate-source\.yml'):
                 self.check(base, repo='owner/rehearsal')
             workflow.write_text('original source workflow\n')
             origin.write_text('https://changed.example.org\n')
@@ -425,7 +445,7 @@ class EditorialHistoryTests(unittest.TestCase):
             self.check(claimed_base, repo='owner/rehearsal')
             fetch.assert_not_called()
             workflow.write_text('changed since reservation\n')
-            with self.assertRaisesRegex(AssetError, 'workflow files differ'):
+            with self.assertRaisesRegex(AssetError, r'workflow files differ.*\.github/workflows/validate-source\.yml'):
                 self.check(claimed_base, repo='owner/rehearsal')
 
     def test_first_receipt_precedes_later_identifiers_and_notices(self):

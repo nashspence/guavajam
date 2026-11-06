@@ -44,8 +44,15 @@ def deploy(root, *, apply=False):
         {'name': 'RECORD_SLUG_PATTERN', 'type': 'plain_text', 'text': SLUG.pattern},
         {'name': 'RECORD_TAG_PATTERN', 'type': 'plain_text', 'text': TAG.pattern},
     ]
+    bucket = os.environ.get('READING_BUCKET') or ''
+    if bucket:
+        if not re.fullmatch(r'[a-z0-9][a-z0-9-]{1,61}[a-z0-9]', bucket):
+            raise AssetError('READING_BUCKET requires a valid R2 bucket name')
+        bindings.append({'name': 'READING_COPIES', 'type': 'r2_bucket', 'bucket_name': bucket})
     if not apply:
         print(f'Plan: deploy records/worker.js as {name}; attach {origin}; use archive target {base}')
+        if bucket:
+            print(f'Use private R2 reading replica: {bucket}')
         return
     account, token = values['CLOUDFLARE_ACCOUNT_ID'], values['CLOUDFLARE_API_TOKEN']
     domains = cf_request(account, 'domains?hostname=' + hostname, token)
@@ -56,6 +63,9 @@ def deploy(root, *, apply=False):
         existing = {item['name']: item for item in settings.get('bindings', [])}
         if existing.get('RECORD_HOST', {}).get('text') != hostname:
             raise AssetError('existing record Worker belongs to a different hostname')
+        replica = existing.get('READING_COPIES')
+        if replica and (replica.get('bucket_name') != bucket or replica.get('jurisdiction') not in (None, 'default')):
+            raise AssetError('refusing to replace or remove the existing R2 replica; check READING_BUCKET and its jurisdiction')
     upload_worker(root / 'records/worker.js', account, name, token, bindings)
     cf_request(account, 'domains', token, method='PUT', body=json.dumps({
         'hostname': hostname, 'service': name, 'environment': 'production',

@@ -265,6 +265,8 @@ class CollectionTests(unittest.TestCase):
                "GITHUB_EVENT_NAME": "workflow_dispatch"}
         with patch.dict(os.environ, env, clear=True):
             require_action("publisher/press")
+        with patch.dict(os.environ, {**env, "GITHUB_EVENT_NAME": "schedule"}, clear=True), self.assertRaises(AssetError):
+            require_action("publisher/press")
         for name in env:
             with patch.dict(os.environ, {**env, name: "untrusted"}, clear=True), self.assertRaises(AssetError):
                 require_action("publisher/press")
@@ -398,6 +400,18 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(["gh", "api", "--method", "POST"], run.call_args.args[0][:4])
         self.assertEqual({"ref": "main", "inputs": {"operation": "preview"}}, json.loads(run.call_args.kwargs["input"]))
 
+    def test_retire_command_requires_no_storage_inventory_or_credentials(self):
+        repo = "publisher/press"
+        head = "a" * 40
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": repo,
+               "GITHUB_WORKFLOW_REF": repo + "/.github/workflows/maintain-assets.yml@refs/heads/main",
+               "GITHUB_EVENT_NAME": "workflow_dispatch", "RETIRE_BRANCH": "feature", "RETIRE_HEAD_SHA": head,
+               "PRESS_ASSET_RETIRE_TOKEN": "fixture"}
+        with patch.dict(os.environ, env, clear=True), patch.object(sys, "argv", ["asset_workflow.py", "retire"]), \
+             patch("asset_workflow.repository", return_value=repo), patch("asset_workflow.retire") as retire:
+            self.assertEqual(0, asset_workflow.main())
+        retire.assert_called_once_with(Path(__file__).resolve().parents[1], repo, "feature", head, "fixture")
+
     def test_main_and_open_prs_cannot_be_retired(self):
         with self.assertRaises(AssetError):
             asset_workflow.retire(Path("."), "publisher/press", "main", "a" * 40, "fixture")
@@ -421,6 +435,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertNotIn("permission-administration", token["with"])
         self.assertIn("${{ github.sha }}", job["steps"][0]["with"]["ref"])
         operation = next(step for step in job["steps"] if "OPERATION" in step.get("env", {}))
+        self.assertEqual("inputs.operation != 'retire'", operation["if"])
+        self.assertEqual("${{ github.event_name == 'schedule' && 'preview' || inputs.operation }}", operation["env"]["OPERATION"])
+        retirement = next(step for step in job["steps"] if "PRESS_ASSET_RETIRE_TOKEN" in step.get("env", {}))
+        self.assertEqual("inputs.operation == 'retire'", retirement["if"])
+        self.assertTrue(asset_storage.VARIABLES.isdisjoint(retirement["env"]))
+        self.assertNotIn("PRESS_ASSET_RETIRE_TOKEN", operation["env"])
         for name in asset_storage.VARIABLES:
             self.assertEqual("${{ secrets." + name + " }}", operation["env"][name])
 

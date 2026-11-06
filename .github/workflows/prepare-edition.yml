@@ -58,10 +58,13 @@ jobs:
           python - <<'PY'
           import os, re, sys
           sys.path.insert(0, "scripts")
+          from pathlib import Path
+          from check_editorial_history import require_compatible_workflows
           from publish_edition import require_source_check
           commit = os.environ["SOURCE_COMMIT"]
           if not re.fullmatch(r"[0-9a-f]{40}", commit):
               raise SystemExit("Expected full commit SHA")
+          require_compatible_workflows(Path.cwd(), commit)
           for sha in dict.fromkeys([commit, os.environ["GITHUB_SHA"]]):
               require_source_check(os.environ["GITHUB_REPOSITORY"], sha)
           PY

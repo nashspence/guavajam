@@ -1,5 +1,6 @@
 """Selection, disclosure boundaries and output safety of the local export importer."""
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,23 @@ class ExtractTests(unittest.TestCase):
                 self.record["mapping"]["user"]["parent"] = parent
                 transcript(self.record, "tip")
 
+    def test_checkout_output_including_linked_directories_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "conversations.json"
+            source.write_text(json.dumps([self.record]), encoding="utf-8")
+            checkout = root / "press"
+            scripts = shutil.copytree(SCRIPTS, checkout / "scripts")
+            (root / "linked").symlink_to(checkout, target_is_directory=True)
+            for parent in (checkout, root / "linked"):
+                output = parent / "review.json"
+                result = subprocess.run([sys.executable, str(scripts / "extract_chatgpt.py"),
+                                         source, "--conversation", "selected", "--output", output],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("outside the Press checkout", result.stderr)
+                self.assertFalse(output.exists())
+
     def test_sharded_zip_plain_json_and_output_protection(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -72,7 +90,8 @@ class ExtractTests(unittest.TestCase):
                 archive.writestr("conversations-000.json", '[{"id":"other","title":"Unrelated"}]')
                 archive.writestr("conversations-001.json", payload)
                 archive.writestr("private-attachment", "unused")
-            cmd = [sys.executable, str(SCRIPTS / "extract_chatgpt.py")]
+            scripts = shutil.copytree(SCRIPTS, root / "press/scripts")
+            cmd = [sys.executable, str(scripts / "extract_chatgpt.py")]
             args = ["--conversation", "selected", "--output", str(output)]
             subprocess.run([*cmd, source, *args], check=True)
             expected = output.read_bytes()

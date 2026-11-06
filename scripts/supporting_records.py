@@ -111,11 +111,11 @@ def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: 
                 {"t": "Str", "c": ". SHA-256: "}, {"t": "Code", "c": [["", [], []], digest]},
             ]})
             anchors = {}
-            for item in record["passages"]:
+            for number, item in enumerate(record["passages"], start=1):
                 # The length makes dashed record/passage pairs unambiguous.
                 anchor = f"passage-{len(slug)}-{slug}-{item['id']}"
                 anchors[item["id"]] = anchor
-                appendix.extend(_heading(3, anchor, item["label"]))
+                appendix.extend(_heading(3, anchor, f"Passage {number} — {item['label']}"))
                 # A div keeps an initial newline, which a pre element would swallow.
                 # Character references preserve carriage returns through HTML parsing.
                 literal = html.escape(item["text"], quote=False).replace("\r", "&#13;")

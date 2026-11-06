@@ -142,7 +142,7 @@ class PublicRecordTests(unittest.TestCase):
         self.generate()
         landing = self.root / "records/works/essay/index.html"
         original = landing.read_bytes()
-        for version, extra in (("v3.0.0", {}), ("v4.0.0", {"cancellation_reason": "Retired"})):
+        for version, extra in (("v3.0.0", {}), ("v4.0.0", {"cancellation_reason": "Retired", "cancellation_run_id": "42"})):
             intent = {**self.receipt, "version": version, **extra}
             del intent["published_at"]
             del intent["issuing"]
@@ -210,7 +210,7 @@ class PublicRecordTests(unittest.TestCase):
         edition = (self.root / "records/editions/essay/v2.0.0/index.html").read_text()
         read = edition.index("Read the archived edition")
         self.assertLess(edition.index("<strong>Withdrawn</strong>"), read)
-        self.assertLess(edition.index('href="v1.0.0">Replacement edition v1.0.0'), read)
+        self.assertLess(edition.index('href="v1.0.0">Check the status of v1.0.0'), read)
         for host in ("https://press.example.org", "https://backup.example.org/archive"):
             self.assertEqual(urljoin(host + "/works/essay/v2.0.0", "v1.0.0"), host + "/works/essay/v1.0.0")
         earlier = self.root / "notices/essay/v1.0.0/0001.md"
@@ -221,6 +221,36 @@ class PublicRecordTests(unittest.TestCase):
         earlier.write_text("2026-11-07 Withdrawal: See the second edition. [replacement: v2.0.0]\n")
         with self.assertRaisesRegex(AssetError, "replacement links form a cycle"):
             write_records(self.root, self.tag)
+
+    def test_withdrawal_and_reinstatement_of_a_replacement(self):
+        self.generate()
+        self.issue_version("v2.0.0")
+        notices = self.root / "notices/essay"
+        earlier = notices / "v1.0.0"
+        earlier.mkdir(parents=True)
+        (earlier / "0001.md").write_text("2026-11-06 Supersession: Revised. [replacement: v2.0.0]\n")
+        write_records(self.root, self.tag)
+        self.git("add", "records")
+        archived = self.page.read_text()
+        self.assertIn("The editorial notice named v2.0.0 as the replacement.", archived)
+        self.assertIn('<a href="v2.0.0">Check the status of v2.0.0</a>', archived)
+        self.assertIn('<a href="../essay">view all editions of this work</a>', archived)
+
+        latest = notices / "v2.0.0"
+        latest.mkdir()
+        landing = self.root / "records/works/essay/index.html"
+        for step, decision, label, no_current in (
+                ("0001", "Withdrawal: Figures under review.", "Replacement v2.0.0 (Withdrawn)", True),
+                ("0002", "Reinstatement: Figures verified.", "Replacement v2.0.0", False)):
+            with self.subTest(decision=decision):
+                (latest / (step + ".md")).write_text(f"2026-11-07 {decision}\n")
+                write_records(self.root, "works/essay/v2.0.0")
+                check_records(self.root)
+                work = landing.read_text()
+                self.assertEqual("This work has no current edition." in work, no_current)
+                self.assertNotIn("All editions of this work have been withdrawn", work)
+                self.assertIn(f'<a href="essay/v2.0.0">{label}</a>', work)
+                self.assertEqual(self.page.read_text(), archived)
 
     def test_reinstatement_is_explicit_and_preserves_the_notice_history(self):
         self.generate()
@@ -243,7 +273,7 @@ class PublicRecordTests(unittest.TestCase):
                 page = self.page.read_text()
                 self.assertIn("<strong>Published</strong>", page)
                 self.assertIn("Read this edition online", page)
-                self.assertNotIn("Replacement edition", page)
+                self.assertNotIn("Check the status of", page)
                 self.assertIn(f"{kind}: Decision under review.", page)
                 self.assertIn("Reinstatement: The original decision was in error.", page)
                 landing = (self.root / "records/works/essay/index.html").read_text()

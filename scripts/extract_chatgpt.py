@@ -102,7 +102,7 @@ def main():
     select.add_argument("--list", action="store_true", help="print IDs and titles locally as JSON lines")
     select.add_argument("--conversation", help="exact conversation ID")
     parser.add_argument("--tip", help="mapping node to use in place of current_node")
-    parser.add_argument("--output", type=Path, help="new supporting-record JSON file, required for extraction")
+    parser.add_argument("--output", type=Path, help="new review JSON file outside the Press checkout")
     args = parser.parse_args()
     if args.list and (args.tip or args.output) or not args.list and not args.output:
         parser.error("use --list alone, or --conversation with --output and an optional --tip")
@@ -125,7 +125,10 @@ def main():
         data = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
-        with open(args.output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
+        output = args.output.parent.resolve(strict=True) / args.output.name
+        if output.is_relative_to(Path(__file__).resolve().parents[1]):
+            raise ValueError("private review output must be outside the Press checkout")
+        with open(output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
             stream.write(data)
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         parser.exit(1, f"{parser.prog}: {exc}\n")

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 
@@ -99,18 +100,18 @@ test('invalid archive configuration cannot redirect readers', async () => {
   assert.equal((await worker.fetch(new Request(address), {...env, RECORD_TAG_PATTERN: undefined})).status, 503);
 });
 
-test('section citations serve only the registered immutable HTML inline, streaming the fixed public download', async t => {
+function readingArchive(t) {
   const tag = 'works/sample-work/v1.0.0';
   const file = 'sample-work-v1.0.0.html';
   const html = '<h2 id="part">Part</h2>';
   const download = 'https://github.com/owner/press/releases/download/' + encodeURIComponent(tag) + '/' + file;
   const cdn = 'https://release-assets.githubusercontent.com/file?signed=example';
-  const sha = 'a'.repeat(64);
+  const sha = createHash('sha256').update(html).digest('hex');
   const record = {schema: 'press.edition-registration.v1', work: 'sample-work', version: 'v1.0.0',
                   record_url: address, canonical_artifact: file, artifact_sha256: sha};
   const asset = {name: file, digest: 'sha256:' + sha, state: 'uploaded', size: html.length, browser_download_url: download};
   const release = {tag_name: tag, immutable: true, draft: false, prerelease: false, assets: [asset]};
-  let location = cdn;
+  const archive = {location: cdn, apiStatus: 200, body: html};
   const urls = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     urls.push(url);
@@ -118,12 +119,17 @@ test('section citations serve only the registered immutable HTML inline, streami
     assert.ok(!options.headers?.Cookie && !options.headers?.Authorization);
     if (url.endsWith('/index.html')) return new Response(null, {status: 404});
     if (url === 'https://raw.githubusercontent.com/owner/press/refs/heads/main/registrations/editions/sample-work/v1.0.0.json') return Response.json(record);
-    if (url === 'https://api.github.com/repos/owner/press/releases/tags/' + encodeURIComponent(tag)) return Response.json(release);
-    if (url === download) return new Response(null, {status: 302, headers: {Location: location}});
-    if (url === cdn) return new Response(options.method === 'HEAD' ? null : html, {
+    if (url === 'https://api.github.com/repos/owner/press/releases/tags/' + encodeURIComponent(tag)) return Response.json(release, {status: archive.apiStatus});
+    if (url === download) return new Response(null, {status: 302, headers: {Location: archive.location}});
+    if (url === cdn) return new Response(options.method === 'HEAD' ? null : archive.body, {
       headers: {'Content-Length': String(html.length), 'Content-Disposition': 'attachment', 'Set-Cookie': 'secret'}});
     throw new Error('unexpected URL');
   });
+  return {archive, html, record, asset, release, tag, urls, file};
+}
+
+test('section citations serve only the registered immutable HTML inline, streaming the fixed public download', async t => {
+  const {archive, html, record, asset, release, tag, urls, file} = readingArchive(t);
   const primary = {...env, MAX_HTML_BYTES: '150994944'};
   assert.equal((await worker.fetch(new Request(address + '/read'), primary)).status, 404);
   assert.equal(urls.some(url => url.startsWith('https://api.github.com/')), false);
@@ -161,9 +167,100 @@ test('section citations serve only the registered immutable HTML inline, streami
     assert.equal(urls.length, obj === record ? 1 : 2);
     if (original === undefined) delete obj[key]; else obj[key] = original;
   }
-  location = 'https://untrusted.test/redirect';
+  archive.location = 'https://untrusted.test/redirect';
   assert.equal((await read('GET')).status, 502);
-  assert.ok(!urls.includes(location));
+  assert.ok(!urls.includes(archive.location));
   const mirror = await worker.fetch(new Request(address + '/read#part'), {...env, RECORD_TARGET_BASE: 'https://archive.test/backups'});
   assert.equal(mirror.headers.get('Location'), 'https://archive.test/backups/' + tag + '/read');
+});
+
+function replicaFixture(t) {
+  const {archive, html, record, urls} = readingArchive(t);
+  record.issuing = true;
+  record.published_at = '2026-11-04T00:00:00Z';
+  const key = 'sha256/' + record.artifact_sha256 + '.html';
+  const bucket = {
+    object: null,
+    get: t.mock.fn(k => k === key ? bucket.object : null),
+    head: t.mock.fn(k => k === key ? bucket.object : null),
+    put: t.mock.fn(async (k, stream, options) => {
+      assert.equal(k, key);
+      assert.equal(options.onlyIf.get('If-None-Match'), '*');
+      assert.ok(stream instanceof ReadableStream);
+      const bytes = Buffer.from(await new Response(stream).arrayBuffer());
+      const digest = createHash('sha256').update(bytes).digest();
+      assert.equal(options.sha256, digest.toString('hex'));
+      if (bucket.object) return null;
+      bucket.object = {body: bytes, size: bytes.length, checksums: {sha256: Uint8Array.from(digest).buffer}};
+      return bucket.object;
+    }),
+  };
+  const read = (method = 'GET') => worker.fetch(new Request(address + '/read', {method}),
+    {...env, MAX_HTML_BYTES: '150994944', READING_COPIES: bucket});
+  return {archive, bucket, html, read, record, urls};
+}
+
+test('concurrent first reads fill one digest-checked replica and warm reads bypass the Releases API', async t => {
+  const {archive, bucket, html, read, urls} = replicaFixture(t);
+  for (const response of await Promise.all([read(), read()])) {
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('X-Press-Reading-Source'), 'replica');
+    assert.equal(await response.text(), html);
+  }
+  const puts = await Promise.all(bucket.put.mock.calls.map(call => call.result));
+  assert.equal(puts.length, 2);
+  assert.equal(puts.filter(Boolean).length, 1);
+
+  archive.apiStatus = 503;
+  urls.length = 0;
+  for (const method of ['GET', 'HEAD']) {
+    const response = await read(method);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('Content-Length'), String(Buffer.byteLength(html)));
+    assert.equal(response.headers.get('Content-Disposition'), 'inline');
+    assert.equal(response.headers.get('X-Press-Reading-Source'), 'replica');
+    assert.equal(await response.text(), method === 'HEAD' ? '' : html);
+  }
+  assert.equal(bucket.head.mock.callCount(), 1);
+  assert.equal(bucket.put.mock.callCount(), 2);
+  assert.deepEqual(urls.map(url => new URL(url).hostname),
+    ['raw.githubusercontent.com', 'raw.githubusercontent.com']);
+});
+
+test('damaged bytes cannot populate the replica and a mismatched stored checksum fails closed', async t => {
+  const {archive, bucket, html, read} = replicaFixture(t);
+  archive.body = 'x'.repeat(html.length);
+  const failed = await read();
+  assert.equal(failed.status, 502);
+  assert.equal(await failed.text(), '');
+  assert.equal(bucket.put.mock.callCount(), 1);
+  assert.equal(bucket.object, null);
+  archive.body = html;
+  assert.equal((await read()).status, 200);
+  for (const checksum of [undefined, new ArrayBuffer(32)]) {
+    bucket.object.checksums.sha256 = checksum;
+    for (const method of ['GET', 'HEAD']) assert.equal((await read(method)).status, 502);
+  }
+});
+
+test('R2 lookup failure still serves a verified release', async t => {
+  const {bucket, html, read} = replicaFixture(t);
+  bucket.head = bucket.get = async () => { throw Error('R2 unavailable'); };
+  for (const method of ['GET', 'HEAD']) {
+    const response = await read(method);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('X-Press-Reading-Source'), 'release');
+    assert.equal(await response.text(), method === 'HEAD' ? '' : html);
+  }
+  assert.equal(bucket.put.mock.callCount(), 0);
+});
+
+test('unpublished and abandoned claims cannot consume or seed replica objects', async t => {
+  const {bucket, read, record} = replicaFixture(t);
+  delete record.published_at;
+  assert.equal((await read()).headers.get('X-Press-Reading-Source'), 'release');
+  record.abandoned_run_id = '42';
+  assert.equal((await read()).status, 404);
+  assert.equal(bucket.get.mock.callCount(), 0);
+  assert.equal(bucket.put.mock.callCount(), 0);
 });

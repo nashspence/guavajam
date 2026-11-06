@@ -271,8 +271,8 @@ def require_action(repo):
     if (os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("GITHUB_REF") != "refs/heads/main"
             or os.environ.get("GITHUB_REPOSITORY") != repo
             or os.environ.get("GITHUB_WORKFLOW_REF") != repo + "/.github/workflows/maintain-assets.yml@refs/heads/main"
-            or os.environ.get("GITHUB_EVENT_NAME") not in {"workflow_dispatch", "schedule"}):
-        raise AssetError("asset deletion runs only through the main-branch asset maintenance Action")
+            or os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch"):
+        raise AssetError("deletion requires a manual dispatch of the main-branch asset maintenance Action")
 
 
 def main():
