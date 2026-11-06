@@ -39,6 +39,15 @@ p { margin: 0 0 1.1em; }
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }
 a:hover { text-decoration-thickness: .13em; }
+/* Pandoc puts the numeral in <sup> inside an <a class="footnote-ref">.
+   Underlining the outer link draws a detached stroke at the prose baseline. */
+.footnote-ref { text-decoration: none; white-space: nowrap; }
+.footnote-ref > sup {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .08em;
+}
+.footnote-ref:hover > sup { text-decoration-thickness: .12em; }
 a:focus-visible, .press-scroll:focus-visible {
   outline: 3px solid var(--press-focus);
   outline-offset: 3px;
@@ -68,7 +77,10 @@ a:focus-visible, .press-scroll:focus-visible {
   text-decoration: none;
   vertical-align: middle;
 }
-.press-permalink:hover, .press-permalink:focus-visible { background: var(--press-tint); }
+.press-permalink:hover, .press-permalink:focus-visible {
+  background: var(--press-tint);
+  border-radius: .2rem;
+}
 
 blockquote {
   margin: 1.6rem 0;
@@ -81,6 +93,11 @@ code, pre, kbd, samp {
   font-size: .92em;
 }
 code { overflow-wrap: anywhere; }
+:not(pre) > code {
+  padding: .08em .2em;
+  border-radius: .15em;
+  background: var(--press-tint);
+}
 pre {
   max-width: 100%;
   overflow-x: auto;
@@ -121,7 +138,8 @@ figcaption { margin-top: .45rem; color: var(--press-muted); font-size: .88em; }
 }
 .footnotes hr { display: none; }
 .footnotes li { padding-left: .15rem; }
-.footnote-back { margin-left: .3em; }
+.footnote-back { margin-left: .3em; text-decoration: none; }
+.footnote-back:hover { text-decoration: underline; text-underline-offset: .12em; }
 li { margin: .25em 0; }
 li > p { margin-bottom: .5em; }
 input[type='checkbox'] { accent-color: var(--press-link); }

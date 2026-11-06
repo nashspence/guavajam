@@ -28,10 +28,21 @@ and equation MathML remains unchanged. On narrow screens readers can pan these
 regions without having to scroll the entire document. Supporting-record passage
 content remains escaped and literal; its presentation is owned by the edition CSS.
 
+Pandoc emits each footnote citation as an anchor containing a superscript numeral.
+The underline must belong to that raised numeral, not its enclosing anchor:
+otherwise the underline sits at the paragraph baseline far below the number.
+Footnote backlinks remain visibly colored and keyboard-focusable, with a less
+intrusive arrow treatment. Inline code gets a subtle paper-toned backing while
+preformatted blocks retain scrolling and their distinct presentation.
+The checked-in `docs/reader-preview.html` deliberately mirrors the actual
+Pandoc footnote structure and embeds the *exact* current edition CSS; the
+presentation tests reject drift between the two.
+
 ## Release review
 
 Review the HTML generated from the **starter manuscript**, including a wide table,
-long equation, footnote, proof, code block, image, supporting record and a long
+long equation, linked footnote superscript and backlink, proof, inline and
+fenced code, image, supporting record and a long
 permanent URL. Check phones (320px and 375px), tablet, desktop, light/dark system
 preferences, keyboard focus and horizontal panning, browser text zoom/reflow, and
 print output while the OS prefers dark mode. Long equations and wide tables can

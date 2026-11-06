@@ -36,6 +36,22 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertEqual(tokens(edition, "print")["link"], "#164a7c")
         self.assertEqual(tokens(edition, "print")["visited"], "#164a7c")
 
+    def test_footnote_links_decorate_the_raised_numeral(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        self.assertIn(".footnote-ref { text-decoration: none; white-space: nowrap; }", css)
+        self.assertIn(".footnote-ref > sup {", css)
+        self.assertIn("text-decoration-line: underline;", css)
+        self.assertIn(".footnote-back { margin-left: .3em; text-decoration: none; }", css)
+
+    def test_reader_preview_uses_exact_css_and_pandoc_note_structure(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        preview = (ROOT / "docs/reader-preview.html").read_text()
+        embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
+        self.assertEqual(css, embedded)
+        self.assertIn('class="footnote-ref"', preview)
+        self.assertIn('role="doc-noteref"><sup>1</sup></a>', preview)
+        self.assertIn('class="footnote-back" role="doc-backlink"', preview)
+
     def test_embedded_stylesheet_keeps_its_no_network_contract(self):
         template, template_sha, css_sha = canonical_template(ROOT)
         self.assertIn("<style id=\"press-edition-css\">", template)
