@@ -19,7 +19,7 @@ SELECTOR = re.compile(rf"supporting/({SLUG.pattern})\.json(?:#({SLUG.pattern}))?
 TIMESTAMP = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
     r"(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?"
-    r"(?:Z|[+-][0-9]{2}:[0-9]{2}))?\Z"
+    r"(?:Z|[+-][0-9]{2}:[0-5][0-9]))?\Z"
 )
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
