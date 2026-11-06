@@ -1,10 +1,10 @@
-name: Confirm edition abandonment
+name: Confirm edition absence
 
 on:
   workflow_dispatch:
     inputs:
       edition_tag:
-        description: Stopped edition whose absence should be confirmed
+        description: Unclaimed reservation or stopped claim whose absence should be confirmed
         required: true
         type: string
 

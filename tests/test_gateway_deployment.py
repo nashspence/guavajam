@@ -55,7 +55,7 @@ class RecordDeploymentTests(unittest.TestCase):
         (self.root / 'records').mkdir()
         (self.root / 'records/worker.js').write_text('export default {};\n')
         self.values = {'CLOUDFLARE_API_TOKEN': 'test-token', 'CLOUDFLARE_ACCOUNT_ID': 'a' * 32,
-                       'CLOUDFLARE_ZONE_ID': 'b' * 32, 'RECORD_WORKER': '', 'RECORD_TARGET': ''}
+                       'CLOUDFLARE_ZONE_ID': 'b' * 32, 'RECORD_WORKER': '', 'RECORD_TARGET': '', 'READING_BUCKET': ''}
 
     def test_plan_is_read_only_and_uses_committed_origin(self):
         output = io.StringIO()
@@ -90,6 +90,24 @@ class RecordDeploymentTests(unittest.TestCase):
                  patch('deploy_record_gateway.upload_worker') as upload, self.assertRaises(AssetError):
                 deploy_records(self.root, apply=True)
             upload.assert_not_called()
+
+    def test_existing_private_replica_must_be_redeployed_with_the_same_binding(self):
+        bucket = 'press-reading'
+        replica = {'name': 'READING_COPIES', 'type': 'r2_bucket', 'bucket_name': bucket}
+        host = {'name': 'RECORD_HOST', 'text': 'press.publisher.test'}
+        for selected, jurisdiction in (('', None), ('another-bucket', None), (bucket, 'eu'), (bucket, 'default')):
+            settings = {'bindings': [host, {**replica, 'jurisdiction': jurisdiction}]}
+            with self.subTest(selected=selected, jurisdiction=jurisdiction), \
+                 patch.dict(os.environ, {**self.values, 'READING_BUCKET': selected}), \
+                 patch('deploy_record_gateway.cf_request', side_effect=[[], settings, {}]), \
+                 patch('deploy_record_gateway.upload_worker') as upload, contextlib.redirect_stdout(io.StringIO()):
+                if selected == bucket and jurisdiction == 'default':
+                    deploy_records(self.root, apply=True)
+                    self.assertIn(replica, upload.call_args.args[-1])
+                else:
+                    with self.assertRaises(AssetError):
+                        deploy_records(self.root, apply=True)
+                    upload.assert_not_called()
 
     def test_operator_target_cannot_contain_credentials_or_ambiguous_paths(self):
         for target in ('http://archive.test', 'https://user@archive.test', 'https://archive.test:443',

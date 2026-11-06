@@ -91,6 +91,18 @@ class SupportingRecordTests(unittest.TestCase):
         append_supporting_records(untouched, self.root, MANUSCRIPT, {self.path})
         self.assertEqual(before, untouched)
 
+    def test_repeated_speaker_headings_are_distinct_without_changing_citations(self):
+        record = copy.deepcopy(RECORD)
+        record["passages"] = [{"id": key, "label": "User", "text": key} for key in ("one", "two")]
+        self.absolute.write_text(json.dumps(record), encoding="utf-8")
+        ast = manuscript("supporting/field-note.json#two")
+        append_supporting_records(ast, self.root, MANUSCRIPT, {self.path})
+        prepare_presentation_ast(ast)
+        headings = [block["c"] for block in ast["blocks"] if block["t"] == "Header" and block["c"][0] == 3]
+        self.assertEqual([(attr[0], text[0]["c"]) for _, attr, text in headings],
+                         [("passage-10-field-note-one", "Passage 1 — User"),
+                          ("passage-10-field-note-two", "Passage 2 — User")])
+
     def test_broken_references_fail_before_publication(self):
         for url in ("supporting/field-note.json?raw=1", "supporting/field-note.json#",
                     "supporting/../private.json", "supporting/field-note.json#not-a-passage",

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Preview orphaned assets, sweep eligible versions, or retire a closed branch then sweep
+        description: Preview orphaned assets, sweep during a coordinated pause, or retire a closed branch
         type: choice
         options: [preview, sweep, retire]
         default: preview
@@ -55,13 +55,19 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
-      - name: Retire exact branch tip and collect eligible asset versions
+      - name: Retire exact branch tip
+        if: inputs.operation == 'retire'
         env:
           GH_TOKEN: ${{ github.token }}
           PRESS_ASSET_RETIRE_TOKEN: ${{ steps.app-token.outputs.token }}
-          OPERATION: ${{ github.event_name == 'schedule' && 'sweep' || inputs.operation }}
           RETIRE_BRANCH: ${{ inputs.branch }}
           RETIRE_HEAD_SHA: ${{ inputs.head_sha }}
+        run: python scripts/asset_workflow.py retire
+      - name: Preview or sweep eligible asset versions
+        if: inputs.operation != 'retire'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ github.event_name == 'schedule' && 'preview' || inputs.operation }}
           B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_BUCKET_ID: ${{ secrets.B2_BUCKET_ID }}
@@ -70,6 +76,5 @@ jobs:
           case "$OPERATION" in
             preview) python scripts/manage_assets.py gc ;;
             sweep) python scripts/manage_assets.py gc --apply ;;
-            retire) python scripts/asset_workflow.py retire ;;
             *) echo 'Unsupported asset-maintenance operation.' >&2; exit 1 ;;
           esac

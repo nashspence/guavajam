@@ -16,6 +16,7 @@ from audit_assets import editorial_checkpoint, main
 from backup_package import verify_backup_package
 from check_backup_archive import check_backup_archive
 from editorial_notices import render_initial_body
+from export_archive import export_archive
 from issuance import authorization, public_receipt
 from public_record import record_html
 from reviewed_artifact import restore_claimed
@@ -188,6 +189,99 @@ class BackupPackageTests(unittest.TestCase):
         self.assertEqual(2, reader.call_count)
         work.assert_called_once()
         self.assertEqual(hashlib.sha256(b'approved work page').hexdigest(), work.call_args.args[2])
+
+    def prepare_export(self):
+        self.checkout, self.packages, self.output = (self.root / name for name in ("checkout", "packages", "standby"))
+        self.checkout.mkdir()
+        self.git("init", "-q")
+        (self.checkout / "README.md").write_text("Fixture\n")
+        self.git("add", ".")
+        self.git("commit", "-qm", "root")
+        self.ancestor = self.git("rev-parse", "HEAD")
+        tag = Path(self.tag)
+        edition = tag.relative_to("works")
+        record = self.checkout / "records/editions" / edition
+        record.mkdir(parents=True)
+        (record / "provenance.json").write_bytes(self.files["provenance.json"])
+        notice = "2026-11-05 Withdrawal: Withdrawn for reanalysis."
+        notices = self.checkout / "notices" / edition
+        notices.mkdir(parents=True)
+        (notices / "0001.md").write_text(notice + "\n")
+        self.edition_page = record_html(self.manifest, published_at=self.receipt["published_at"],
+                                       notices=["- " + notice], identifiers=self.receipt["identifiers"])
+        (record / "index.html").write_bytes(self.edition_page)
+        receipt = self.checkout / "registrations/editions" / edition.with_name(tag.name + ".json")
+        receipt.parent.mkdir(parents=True)
+        receipt.write_text(json.dumps(self.receipt, indent=2, sort_keys=True) + "\n")
+        self.work_page = self.checkout / "records" / tag.parent / "index.html"
+        self.work_page.parent.mkdir(parents=True)
+        self.work_page.write_bytes(b"<p>All editions withdrawn</p>")
+        self.git("add", ".")
+        self.git("commit", "-qm", "receipt and withdrawal")
+        self.approved = self.git("rev-parse", "HEAD")
+        self.source = self.packages / tag
+        self.source.mkdir(parents=True)
+        for name, data in self.files.items():
+            (self.source / name).write_bytes(data)
+
+    def git(self, *args, cwd=None):
+        return subprocess.check_output(["git", "-c", "user.name=Test", "-c", "user.email=test@example.org", *args],
+                                       cwd=cwd or self.checkout, text=True).strip()
+
+    def test_standby_export_restores_only_approved_history_and_public_files(self):
+        self.prepare_export()
+        self.work_page.write_bytes(b"newer page")
+        self.git("commit", "-qam", "later checkpoint")
+        later = self.git("rev-parse", "HEAD")
+        self.assertEqual(export_archive(self.checkout, self.approved, self.packages, self.output), 1)
+        self.assertEqual({p.name for p in self.output.iterdir()}, {"archive.bundle", "ARCHIVE_COMMIT", "public"})
+        self.assertEqual((self.output / "ARCHIVE_COMMIT").read_text(), self.approved + "\n")
+        tag, public = Path(self.tag), self.output / "public"
+        expected = {tag / n: data for n, data in self.files.items()}
+        expected.update({tag / "index.html": self.edition_page, tag / "read.html": self.files[self.filename],
+                         tag.parent / "index.html": b"<p>All editions withdrawn</p>"})
+        self.assertEqual({p.relative_to(public): p.read_bytes() for p in public.rglob("*") if p.is_file()}, expected)
+        restored = self.root / "restored"
+        self.git("clone", "-q", str(self.output / "archive.bundle"), str(restored))
+        self.assertEqual(self.git("rev-parse", "HEAD", cwd=restored), self.approved)
+        self.assertEqual(self.git("rev-parse", "HEAD^", cwd=restored), self.ancestor)
+        self.assertNotEqual(subprocess.run(["git", "cat-file", "-e", later], cwd=restored).returncode, 0)
+        with self.assertRaisesRegex(AssetError, "new directory outside"):
+            export_archive(self.checkout, self.approved, self.packages, self.output)
+
+    def test_standby_export_refuses_incomplete_or_linked_inputs_without_partial_output(self):
+        self.prepare_export()
+        with self.assertRaisesRegex(AssetError, "no issued editions"):
+            export_archive(self.checkout, self.ancestor, self.packages, self.output)
+        with self.assertRaisesRegex(AssetError, "new directory outside"):
+            export_archive(self.checkout, self.approved, self.packages, self.checkout / "standby")
+        shallow = self.root / "shallow"
+        self.git("clone", "-q", "--depth=1", self.checkout.as_uri(), str(shallow))
+        with self.assertRaisesRegex(AssetError, "shallow"):
+            export_archive(shallow, self.approved, self.packages, self.output)
+        checksum = self.source / "SHA256SUMS"
+        checksum.unlink()
+        with self.assertRaisesRegex(AssetError, "exactly HTML"):
+            export_archive(self.checkout, self.approved, self.packages, self.output)
+        (self.root / "other").write_bytes(self.files["SHA256SUMS"])
+        checksum.symlink_to(self.root / "other")
+        with self.assertRaisesRegex(AssetError, "symlinks"):
+            export_archive(self.checkout, self.approved, self.packages, self.output)
+        checksum.unlink()
+        checksum.write_bytes(self.files["SHA256SUMS"])
+        (self.source / self.filename).write_bytes(b"stale")
+        with self.assertRaisesRegex(AssetError, "checksums do not match"):
+            export_archive(self.checkout, self.approved, self.packages, self.output)
+        (self.source / self.filename).write_bytes(self.files[self.filename])
+        # Even a self-consistent three-file package cannot replace the independently receipted one.
+        provenance = self.files["provenance.json"] + b"\n"
+        (self.source / "provenance.json").write_bytes(provenance)
+        checksum.write_bytes(self.files["SHA256SUMS"].replace(self.receipt["provenance_sha256"].encode(),
+                                                              hashlib.sha256(provenance).hexdigest().encode()))
+        with self.assertRaisesRegex(AssetError, "provenance_sha256 differs"):
+            export_archive(self.checkout, self.approved, self.packages, self.output)
+        self.assertFalse(self.output.exists())
+        self.assertEqual(list(self.output.parent.glob(".press-export-*")), [])
 
     def test_issue_from_saved_files_after_historical_runs_are_gone(self):
         claim = {k: v for k, v in self.receipt.items() if k not in {"identifiers", "published_at"}}

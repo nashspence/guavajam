@@ -8,6 +8,18 @@ const htmlHeaders = {...headers, 'Content-Type': 'text/html; charset=utf-8',
   'Content-Disposition': 'inline', 'Content-Security-Policy':
     "default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"};
 
+const readingHeaders = {...htmlHeaders, 'Cache-Control': 'public, max-age=31536000, immutable, no-transform'};
+
+async function replicaResponse(bucket, key, sha256, method, limit) {
+  const object = method === 'HEAD' ? await bucket.head(key) : await bucket.get(key);
+  if (!object) return null;
+  const checksum = object.checksums?.sha256;
+  if (!checksum || Array.from(new Uint8Array(checksum), byte => byte.toString(16).padStart(2, '0')).join('') !== sha256 ||
+      !Number.isSafeInteger(object.size) || object.size <= 0 || object.size > limit) return error(502);
+  return new Response(method === 'HEAD' ? null : object.body, {headers: {...readingHeaders,
+    'Content-Length': String(object.size), 'X-Press-Reading-Source': 'replica'}});
+}
+
 function publisherPage(repository, path, method) {
   return fetch('https://raw.githubusercontent.com' + repository + '/refs/heads/main/records/' + path + '/index.html',
                {method, redirect: 'manual', cf: {cacheTtl: 0}});
@@ -31,6 +43,19 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
   // Only the initial public readback uses the release page. A receipted edition
   // with a missing publisher record must never fall back to stale release notes.
   if (!reading && 'published_at' in record) return error(503);
+
+  // A merged receipt authorizes this exact object. Pending proofs never read or seed the replica.
+  let bucket = reading && record.published_at && env.READING_COPIES;
+  const key = 'sha256/' + record.artifact_sha256 + '.html';
+  if (bucket) {
+    try {
+      const stored = await replicaResponse(bucket, key, record.artifact_sha256, request.method, Number(env.MAX_HTML_BYTES));
+      if (stored) return stored;
+    } catch {
+      // When storage is unavailable, serve the existing verified immutable release path.
+      bucket = null;
+    }
+  }
 
   const release = await fetch('https://api.github.com/repos' + repository + '/releases/tags/' +
     encodeURIComponent(tag), {...options, cf: {cacheEverything: true, cacheTtlByStatus: {'200': 3600, '400-599': 0}}});
@@ -64,8 +89,13 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
   }
   if (response.status !== 200 || response.headers.get('Content-Length') !== String(asset.size) ||
       ![null, 'identity'].includes(response.headers.get('Content-Encoding'))) return error(502);
-  return new Response(response.body, {headers: {...htmlHeaders,
-    'Cache-Control': 'public, max-age=31536000, immutable, no-transform'}});
+  if (bucket && request.method === 'GET') {
+    // R2 verifies the full streamed body against the receipt before committing it.
+    // Concurrent first reads may race. Only the first put creates the immutable key.
+    await bucket.put(key, response.body, {sha256: record.artifact_sha256, onlyIf: new Headers({'If-None-Match': '*'})});
+    return await replicaResponse(bucket, key, record.artifact_sha256, 'GET', Number(env.MAX_HTML_BYTES)) || error(502);
+  }
+  return new Response(response.body, {headers: {...readingHeaders, 'X-Press-Reading-Source': 'release'}});
 }
 
 export default {

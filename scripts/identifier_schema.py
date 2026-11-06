@@ -334,7 +334,7 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
             required = {"schema", "work", "version", "record_url", "canonical_artifact", "rights",
                         "artifact_sha256", "source_commit", "provenance_sha256", "initial_notes_sha256"}
             optional = {"staged_run_id", "identifiers", "version_doi_history", "issuing", "published_at",
-                        "cancellation_reason", "stop_reason", "abandoned_run_id"}
+                        "cancellation_reason", "cancellation_run_id", "stop_reason", "abandoned_run_id"}
             errors.extend(exact_keys(doc, required, optional, context))
             if "staged_run_id" in doc and (not isinstance(doc["staged_run_id"], str)
                                           or not STAGING_RUN_ID.fullmatch(doc["staged_run_id"])):
@@ -368,6 +368,10 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
                     errors.append(f"{path}: {field} requires a single printable line of at most 500 characters")
             if "cancellation_reason" in doc and ("issuing" in doc or "published_at" in doc):
                 errors.append(f"{path}: a claimed or published edition cannot be cancelled")
+            if "cancellation_reason" in doc or "cancellation_run_id" in doc:
+                run_id = doc.get("cancellation_run_id")
+                if "cancellation_reason" not in doc or not isinstance(run_id, str) or not STAGING_RUN_ID.fullmatch(run_id):
+                    errors.append(f"{path}: cancellation requires a reason and positive decimal confirmation run ID string")
             if "stop_reason" in doc and doc.get("issuing") is not True:
                 errors.append(f"{path}: a publication stop requires an issuing claim")
             if "abandoned_run_id" in doc:

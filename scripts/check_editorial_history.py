@@ -7,7 +7,7 @@ import sys
 import tempfile
 from urllib.parse import quote
 
-from abandon_edition import require_absent, verify_confirmation
+from abandon_edition import verify_confirmation
 from asset_policy import AssetError
 from audit_assets import verify_public_release
 from build_edition import COMMIT, git
@@ -26,8 +26,16 @@ def git_paths(root, *args):
 
 def require_compatible_proof(root, tag, record):
     require_current_edition_origin(root, {'tag': tag, 'record_url': record['record_url']})
-    if git(root, 'diff', '--cached', '--raw', '--no-renames', record['source_commit'], '--', '.github/workflows'):
-        raise AssetError(f'{tag}: workflow files differ from the proof source; restore compatible workflows or restage')
+    require_compatible_workflows(root, record['source_commit'])
+
+
+def require_compatible_workflows(root, source_commit):
+    changed = git_paths(root, 'diff', '--cached', '--name-only', '-z', '--no-renames', source_commit,
+                        '--', '.github/workflows')
+    if changed:
+        paths = ', '.join(str(path) for path in sorted(changed))
+        raise AssetError(f'{source_commit}: workflow files differ from the proof source ({paths}); '
+                         'stage a source with the current workflows or restore the reviewed workflow tree')
 
 
 def appended_doi_change(path, old, current, key, today):
@@ -184,8 +192,9 @@ def check_editorial_history(root: Path, base: str | None = None, *, repo: str | 
         if 'cancellation_reason' not in old and 'cancellation_reason' in current:
             if 'issuing' in old or 'published_at' in old or first_receipt:
                 raise AssetError(f'{path}: a claimed or issued edition cannot be cancelled')
+            run_id = current.pop('cancellation_run_id')
             if repo is not None:
-                require_absent(repo, tag, "cancellation")
+                verify_confirmation(root, repo, path, base, old, run_id)
             current.pop('cancellation_reason')
         change = appended_doi_change(path, old, current, 'version_doi', today)
         old.pop('version_doi_history', None)

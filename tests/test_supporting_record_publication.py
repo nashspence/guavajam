@@ -2,6 +2,7 @@
 import hashlib
 import html
 import json
+import shutil
 import subprocess
 import sys
 import unittest
@@ -36,8 +37,10 @@ class SupportingRecordPublicationTests(fixtures.EditionTests):
                  "mapping": {"root": {"parent": None, "message": None}, "current": reply(literal),
                              "sibling": reply("Discarded answer")}},
                 {"id": "unrelated", "title": "Unrelated account chat"}]))
+        private_review = self.base / "review.json"
         subprocess.run([sys.executable, ROOT / "scripts/extract_chatgpt.py", archive,
-                        "--conversation", "chosen", "--output", record], check=True)
+                        "--conversation", "chosen", "--output", private_review], check=True)
+        shutil.copyfile(private_review, record)
         source = json.loads(record.read_bytes())
         passage = source["passages"][0]["id"]
         digest = hashlib.sha256(record.read_bytes()).hexdigest()

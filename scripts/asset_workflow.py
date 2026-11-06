@@ -10,9 +10,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 from asset_policy import AssetError
-from asset_storage import B2, credentials
-from manage_assets import SHA, collect, git, operator_lock, pages, repository, require_action, retained_assets
-from publish_edition import api, gh
+from manage_assets import SHA, git, pages, repository, require_action
+from publish_edition import gh
 
 
 def branch_name(root, branch):
@@ -67,15 +66,14 @@ def retire(root, repo, branch, expected, token):
         if ((pr["head"].get("repo") or {}).get("full_name") == repo and pr["head"]["ref"] == branch
                 or pr["base"]["ref"] == branch):
             raise AssetError("close or merge every PR using the branch before retiring it")
-    # A retry after successful deletion may still finish cleanup. Only an actual
-    # HTTP 404 establishes absence; network/auth failures are never treated as it.
+    # Only an HTTP 404 establishes that a previous retirement is already complete.
     ref = "refs/heads/" + branch
     result = subprocess.run(["gh", "api", f"repos/{repo}/git/ref/heads/{quote(branch, safe='')}"],
                             capture_output=True, text=True)
     if result.returncode:
         if not re.search(r"\bHTTP 404\b", result.stderr):
             raise AssetError("cannot establish branch state before retirement")
-        summary({"branch": branch, "expected_head": expected, "retirement": "already absent; cleanup retry"})
+        summary({"branch": branch, "expected_head": expected, "retirement": "already absent"})
         return
     actual = json.loads(result.stdout)
     if actual.get("ref") != ref or actual.get("object", {}).get("sha") != expected:
@@ -86,7 +84,7 @@ def retire(root, repo, branch, expected, token):
         "push", "--no-verify", "--porcelain", "--force-with-lease=" + ref + ":" + expected,
         "https://github.com/" + repo + ".git", ":" + ref,
         env={**os.environ, "GH_TOKEN": token})
-    summary({"branch": branch, "expected_head": expected, "retirement": "deleted", "cleanup": "pending"})
+    summary({"branch": branch, "expected_head": expected, "retirement": "deleted"})
 
 
 def main():
@@ -100,16 +98,8 @@ def main():
         else:
             repo = repository(root)
             require_action(repo)
-            with operator_lock(root):
-                store = B2(credentials(root), operation="delete")
-                # Establish a complete retention/storage inventory before deleting
-                # a branch. Credentials or scan failures leave that branch intact.
-                retained_assets(root, repo)
-                store.versions()
-                retire(root, repo, os.environ.get("RETIRE_BRANCH", ""), os.environ.get("RETIRE_HEAD_SHA", ""),
-                       os.environ.get("PRESS_ASSET_RETIRE_TOKEN", ""))
-                count = collect(root, repo, store, apply=True)
-                summary({"cleanup": "complete", "deleted_versions": count})
+            retire(root, repo, os.environ.get("RETIRE_BRANCH", ""), os.environ.get("RETIRE_HEAD_SHA", ""),
+                   os.environ.get("PRESS_ASSET_RETIRE_TOKEN", ""))
         return 0
     except AssetError as exc:
         print("ERROR:", exc, file=sys.stderr)
