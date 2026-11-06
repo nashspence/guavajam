@@ -59,12 +59,48 @@ misstate source structure; the author owns those distinctions. Print tables
 retain the light/dark-independent rule treatment, with editorial review still
 needed when exceptionally wide material will not fit the paper.
 
+## Supporting records: documentary evidence, not a chat application
+
+Supporting records deliberately share the main edition's paper/ink palette and
+serif text, but have their own quieter hierarchy. Tufte CSS's academic restraint,
+Primer's compact chronological reading rhythm, and GOV.UK Summary List's clear
+metadata labeling inform the layout; no library is imported. The record title
+and scope introduce the material. A small semantic definition list keeps the
+**complete** source path and SHA-256 digest visible, selectable, and printable,
+while passage headings use smaller system text and thin rules. The first entry
+follows the provenance without a redundant second rule. There are no chat
+bubbles, participant avatars, or styling inferred from a speaker label.
+
+The reviewed JSON record format still requires `title`, `scope` and `passages`.
+Each passage retains `id`, `label` and literal `text`, with an **optional**
+`timestamp` string. A date-only value `YYYY-MM-DD` remains date-only; a datetime
+must specify seconds and an explicit timezone (`Z` or `+HH:MM`/`-HH:MM`). Invalid
+calendar dates, unsupported values and missing zones fail validation. The visible
+short date/time is always paired with a semantic `<time datetime="...">` holding
+the exact reviewed value; no client clock or script interprets it. Do not
+manufacture precision or infer a timestamp from record order, file modification,
+extraction time, or author identity.
+
+The ChatGPT import copies an eligible message's numeric `create_time` in UTC,
+retaining available fractional seconds; it never uses `update_time` to fill in
+missing creation times. Timestamps can disclose private chronology, so review
+and redact them in the private extraction copy **before** committing. Notebook
+dates must be supported by their own source; partial dates must not be upgraded
+to fabricated times. A record without any timestamps remains valid.
+
+The supporting-passage renderer escapes the original text and preserves line
+breaks and Markdown characters literally. Its stable IDs, complete provenance,
+standalone HTML, and versioned CSS remain unchanged in purpose. The separate
+[illustrative supporting-record preview](supporting-record-preview.html) is
+not an issued edition; its dummy notebook and conversation timestamps exist
+only to exercise the visual treatment.
+
 ## Release review
 
 Review the HTML generated from the **starter manuscript**, including a wide table,
 long equation, linked footnote superscript and backlink, proof, inline and
-fenced code, image, supporting record and a long
-permanent URL. Check phones (320px and 375px), tablet, desktop, light/dark system
+fenced code, image, notebook entry and long chat with and without timestamps,
+long SHA-256 and source paths, and a long permanent URL. Check phones (320px and 375px), tablet, desktop, light/dark system
 preferences, keyboard focus and horizontal panning, browser text zoom/reflow, and
 print output while the OS prefers dark mode. Long equations and wide tables can
 require editorial attention on paper even when they scroll successfully on a phone.

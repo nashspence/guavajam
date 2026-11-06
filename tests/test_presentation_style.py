@@ -52,6 +52,19 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('role="doc-noteref"><sup>1</sup></a>', preview)
         self.assertIn('class="footnote-back" role="doc-backlink"', preview)
 
+    def test_supporting_preview_uses_exact_css_and_literal_passages(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        preview = (ROOT / "docs/supporting-record-preview.html").read_text()
+        embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
+        self.assertEqual(css, embedded)
+        self.assertIn('class="press-record-provenance"', preview)
+        self.assertIn('class="press-passage-heading"', preview)
+        self.assertIn('datetime="2026-11-05T14:37:09.125Z"', preview)
+        self.assertIn('datetime="2026-11-04"', preview)
+        self.assertNotIn('datetime=""', preview)
+        self.assertIn('**For all x in [0,1]', preview)
+        self.assertIn('role="doc-', (ROOT / 'docs/reader-preview.html').read_text())
+
     def test_mathematical_sections_and_tables_use_scholarly_rhythm(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         self.assertIn("h3.press-formal-heading { font-size: 1.08rem; }", css)
@@ -100,8 +113,12 @@ class PresentationStyleTests(unittest.TestCase):
     def test_supporting_passage_uses_versioned_styles(self):
         self.assertIn('class="press-supporting-passage"',
                       (ROOT / "scripts/supporting_records.py").read_text())
-        self.assertIn(".press-supporting-passage { white-space: pre-wrap; overflow-wrap: anywhere; }",
-                      (ROOT / "styles/edition-v1.css").read_text())
+        stylesheet = (ROOT / "styles/edition-v1.css").read_text()
+        self.assertIn(".press-supporting-passage {", stylesheet)
+        self.assertIn("white-space: pre-wrap;", stylesheet)
+        self.assertIn(".press-record-provenance {", stylesheet)
+        self.assertIn(".press-passage-heading {", stylesheet)
+        self.assertIn(".press-passage-datetime {", stylesheet)
 
 
 if __name__ == "__main__":

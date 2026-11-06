@@ -184,7 +184,57 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   font-style: italic;
   margin-top: .9rem;
 }
-.press-supporting-passage { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Supporting evidence: restrained archival entries, not chat bubbles or an app UI. */
+.press-record-heading { margin-top: 3rem; }
+.press-record-intro { margin: .6rem 0 1.55rem; }
+.press-record-scope { margin-bottom: .8rem; }
+.press-record-provenance {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: .22rem .8rem;
+  margin: 0;
+  padding: .65rem 0;
+  border-top: 1px solid var(--press-border);
+  border-bottom: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+}
+.press-record-provenance dt { font-weight: 600; }
+.press-record-provenance dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.press-record-provenance code {
+  padding: 0;
+  background: transparent;
+  font-size: .96em;
+  overflow-wrap: anywhere;
+}
+.press-passage-heading {
+  margin: 1.25rem 0 .35rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--press-border);
+  font: 600 .94rem/1.4 system-ui, sans-serif;
+}
+.press-record-intro + .press-passage-heading {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: .8rem;
+}
+.press-passage-heading .press-permalink { font-size: .8rem; }
+.press-passage-datetime {
+  margin: -.3rem 0 .4rem;
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.press-supporting-passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .96em;
+  line-height: 1.55;
+}
+@media (max-width: 36rem) {
+  .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-record-provenance dd { margin-bottom: .35rem; }
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
