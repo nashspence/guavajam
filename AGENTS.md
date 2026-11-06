@@ -1,7 +1,13 @@
-# Repository guidance
+# Working on Press
 
-- Give each enforceable rule one definition and cover it with executable tests. Test the starter authors copy. Reserve prose for essential human decisions and manual steps.
-- Keep README.md an absolutely minimal entry point: identity, essential links, and `make help`. Keep design rationale and verification history in issues/PRs.
-- `make help` is authoritative for targets and arguments. Update it with the recipe and omit command lists and usage examples from other prose.
-- Change unused versions in place. A merged issuance claim freezes the presentation files named in its reviewed provenance. Use a successor profile for changes to those files.
-- After recording verification results in the owning issue, delete disposable rehearsal repositories and task-created hosting resources. The owner has authorized this cleanup; do not retain or archive rehearsal repositories or ask for deletion confirmation.
+The [tests](tests/) are authoritative for enforceable behavior. Change tests and implementation together; test the starter authors actually copy.
+
+- Developers: [required CI](.github/workflows/validate-source.yml) and [tests](tests/).
+- Submitters: [manuscript starter](templates/work/manuscript.md) and [source contract](tests/test_validate_sources.py).
+- Publishers: [publication workflow](.github/workflows/prepare-edition.yml), [publication contract](tests/test_publication.py), and [recovery contract](tests/test_backup_package.py).
+
+Use `make help` for commands and arguments; maintain that help with its [recipes](Makefile).
+
+Keep README.md absolutely minimal and this file a short onboarding map. Link to tested contracts instead of restating them. Keep rationale and verification history in issues/PRs.
+
+After recording rehearsal results in the owning issue/PR, delete disposable repositories and task-created hosting resources. The owner has authorized this cleanup without further confirmation.
