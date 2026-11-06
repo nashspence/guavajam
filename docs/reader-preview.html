@@ -190,6 +190,7 @@ footer {
 .preview-controls label { display: inline-flex; align-items: center; gap: .25rem; margin: .2rem .8rem .2rem 0; cursor: pointer; }
 .preview-controls input { accent-color: var(--press-link); }
 .preview-note { color: var(--press-muted); font: .86rem/1.5 system-ui,sans-serif; }
+@media screen {
 :root:has(#preview-light:checked) {
   color-scheme: light;
   --press-paper: #faf9f6; --press-ink: #222; --press-muted: #555d63;
@@ -201,6 +202,7 @@ footer {
   --press-paper: #181a1c; --press-ink: #e4e4df; --press-muted: #b5b9b9;
   --press-link: #96c7ff; --press-visited: #d5b6ed; --press-border: #868b8e;
   --press-tint: #25292c; --press-focus: #a8d2ff;
+}
 }
 @media print { .preview-controls, .preview-note { display:none; } }
 </style>
