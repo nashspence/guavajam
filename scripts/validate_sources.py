@@ -22,6 +22,7 @@ from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast, walk
 from supporting_records import append_supporting_records, load_record, record_path
+from table_captions import normalize_table_captions
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -235,15 +236,26 @@ def inspect_manuscript_syntax(relative: Path, source: str, first_line: int = 1) 
             "display_math": display_math_count, "footnote_refs": len(footnote_refs)}, errors
 
 
-def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
-    result = subprocess.run(["pandoc", "--fail-if-warnings", "--from", FORMAT, "--to", "json", str(path)],
-                            capture_output=True, text=True, check=False)
+def parse_pandoc(source: str) -> dict:
+    result = subprocess.run(["pandoc", "--fail-if-warnings", "--from", FORMAT, "--to", "json"],
+                            input=source, capture_output=True, text=True, check=False)
     if result.returncode:
-        return None, [issue(relative, "Pandoc parse failed or warned: " + result.stderr.strip())]
+        raise ValueError("Pandoc parse failed or warned: " + result.stderr.strip())
     try:
-        return json.loads(result.stdout), []
+        return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        return None, [issue(relative, f"Pandoc returned invalid JSON: {exc}")]
+        raise ValueError(f"Pandoc returned invalid JSON: {exc}") from exc
+
+
+def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
+    try:
+        source = path.read_bytes().decode("utf-8", "strict")
+        ast = parse_pandoc(source)
+    except (OSError, UnicodeError, ValueError) as exc:
+        return None, [issue(relative, str(exc))]
+    if len(relative.parts) == 3 and relative.parts[0] == "works" and relative.name == "manuscript.md":
+        return normalize_table_captions(ast, source, relative, parse_pandoc)
+    return ast, []
 
 
 class HtmlCheck(html.parser.HTMLParser):

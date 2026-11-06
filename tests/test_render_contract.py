@@ -143,6 +143,46 @@ class RenderContractTests(EditionTests):
         self.assertEqual(PROFILE, manifest['presentation_profile'])
         self.assertEqual(manifest, verify_edition(self.output))
 
+    def test_starter_caption_survives_validation_build_and_offline_verification(self):
+        from validate_sources import parse_document, plain_text, validate_repository
+        self.sample_with_structures()
+        source = Path("works/sample-work/manuscript.md")
+        ast, errors = parse_document(self.repo / source, source)
+        self.assertEqual(errors, [])
+        self.assertEqual(validate_repository(self.repo, [Path(p) for p in self.git("ls-files").splitlines()]), [])
+        captions = [b["c"][1] for b in ast["blocks"] if b["t"] == "Table"]
+        self.assertEqual([plain_text(c[1]) for c in captions], ["Table 1 — Notation"])
+        manifest = self.build()
+        page = self.page().read_text(encoding="utf-8")
+        direct_captions = re.findall(r"<table\b[^>]*>\s*<caption>(.*?)</caption>", page, re.S)
+        self.assertEqual([html.unescape(" ".join(c.split())) for c in direct_captions], ["Table 1 — Notation"])
+        self.assertNotRegex(page, r"<p>:\s*Table")
+        self.assertIn('aria-label="Scrollable table" tabindex="0"', page)
+        self.assertEqual(manifest, verify_edition(self.output))
+
+    def test_invalid_caption_cannot_pass_validation_or_build(self):
+        from validate_sources import validate_repository
+        self.sample_with_structures()
+        path = self.repo / "works/sample-work/manuscript.md"
+        path.write_text(path.read_text().replace(": Table 1 — Notation", ": Table 1 — *Notation*"))
+        self.git("commit", "-qam", "Reject a formatted caption")
+        self.commit = self.git("rev-parse", "HEAD")
+        errors = validate_repository(self.repo, [Path(p) for p in self.git("ls-files").splitlines()])
+        self.assertTrue(any("table caption: plain text only" in e for e in errors), errors)
+        with self.assertRaisesRegex(AssetError, "table caption: plain text only"):
+            self.build()
+        self.assertFalse(self.output.exists())
+
+    def test_caption_compiler_is_part_of_exact_builder_provenance(self):
+        root = Path(__file__).resolve().parents[1]
+        compiler = root / "scripts/table_captions.py"
+        read = Path.read_bytes
+        def changed(path):
+            return read(path) + (b"# uncommitted compiler change\n" if path == compiler else b"")
+        with patch.object(Path, "read_bytes", changed):
+            with self.assertRaisesRegex(AssetError, "builder files must match.*scripts/table_captions.py"):
+                self.build()
+
     def test_mathematical_title_in_article_and_citation(self):
         self.sample_with_structures()
         manuscript = self.repo / "works/sample-work/manuscript.md"

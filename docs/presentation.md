@@ -51,10 +51,11 @@ than a full grid, especially on narrow screens where columns scroll. Captions
 are visually secondary and must supply any actual numbering in the source,
 not through generated CSS counters.
 
-The compiler currently reads GFM tables. Keep table labels in ordinary source
-paragraphs; `: caption` lines remain paragraphs. The illustrative HTML preview
-also exercises semantic `<caption>` styling. Native caption syntax requires
-a separate source-format decision, tracked in [#39](https://github.com/nashspence/press/issues/39).
+The compiler keeps the existing GFM reader and normalizes the narrow
+[caption directive](table-captions.md) into a native table caption before
+accessible scroll wrapping. The starter exercises this actual compile/build
+path. A prose label without the directive remains ordinary prose; caption
+wording and numbering always belong to the author.
 
 This is an intentional *partial* adoption of LaTeX conventions. Press keeps
 formal statements as explicit source headings, so an adjacent paragraph might

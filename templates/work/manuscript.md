@@ -75,6 +75,8 @@ This sentence includes a footnote.[^note] It also links to the
 | $S$ | Underlying set | 1 |
 | $R$ | Relation on the set | 2 |
 
+: Table 1 — Notation
+
 A fenced code block preserves literal code and indentation:
 
 ```python
