@@ -7,6 +7,7 @@ import sys
 
 from asset_policy import AssetError
 from identifier_schema import EDITION_IDS, TAG, VERSION, check_identifier_map, version_key
+from bibliography import ordered_authors
 
 
 EDITION_ID_LABELS = {"version_doi": "Edition DOI", "arxiv_version": "arXiv version",
@@ -34,6 +35,11 @@ def edition_fields(manifest):
     for key, label in (("author", "Author"), ("language", "Language"), ("author_orcid", "Author ORCID")):
         if key in manifest:
             fields[label] = manifest[key]
+    if "authors" in manifest:
+        for number, author in enumerate(ordered_authors(manifest), 1):
+            fields[f"Author {number}"] = author["name"]
+            if "orcid" in author:
+                fields[f"Author {number} ORCID"] = author["orcid"]
     for key, value in sorted(manifest.get("work_identifiers", {}).items()):
         fields[WORK_ID_LABELS[key]] = value
     if "rights_statement" in manifest:

@@ -18,11 +18,12 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from editorial_notices import check_initial_notes, check_rights_statement
-from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
+from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
 from supporting_records import append_supporting_records, load_record, record_path
 from table_captions import normalize_table_captions
+from bibliography import check_optional_bibliography, ordered_authors
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -31,8 +32,8 @@ ATX = re.compile(r"^#{1,6}[ \t]+\S")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
-META_REQUIRED = {"schema", "slug", "title", "author", "language", "rights", "status"}
-META_OPTIONAL = {"author_orcid", "identifiers"}
+META_REQUIRED = {"schema", "slug", "title", "language", "rights", "status"}
+META_OPTIONAL = {"author", "author_orcid", "authors", "identifiers", "abstract", "schema_type"}
 
 
 def issue(path: Path, message: str, line: int | None = None) -> str:
@@ -320,12 +321,7 @@ def render_html(ast: dict, relative: Path, expected_math: int, manuscript: bool)
 
 
 def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str, int, list[str]]:
-    """Parse a restricted front matter schema: text fields plus one identifiers map.
-
-    The sole allowed nested mapping has a fixed namespace, two-space indent,
-    string values, no aliases/merge keys/custom tags/flow syntax. Pandoc parity
-    is independently verified after parsing.
-    """
+    """Parse scalar fields, the identifiers map and an ordered authors list only."""
     errors: list[str] = []
     if not source.startswith("---\n"):
         return None, source, 1, [issue(relative, "manuscript requires YAML front matter beginning with --- on line 1")]
@@ -345,24 +341,27 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
     if not body.strip():
         errors.append(issue(relative, "manuscript body cannot be empty"))
 
-    in_ids = False
+    nested = None
     for number, line in enumerate(lines[1:close], start=2):
         raw_line = line.removesuffix("\n")
         if not raw_line.strip() or raw_line.lstrip().startswith("#"):
             continue
         if raw_line == "identifiers:":
-            in_ids = True
+            nested = "identifiers"
+        elif raw_line == "authors:":
+            nested = "authors"
         elif re.fullmatch(r"[a-z][a-z0-9_]*:[ \t]+.+", raw_line):
-            in_ids = False
-        elif in_ids and re.fullmatch(r"  [a-z][a-z0-9_]*:[ \t]+.+", raw_line):
+            nested = None
+        elif nested == "identifiers" and re.fullmatch(r"  [a-z][a-z0-9_]*:[ \t]+.+", raw_line):
+            continue
+        elif nested == "authors" and re.fullmatch(r"(?:  - name|    [a-z][a-z0-9_]*):[ \t]+.+", raw_line):
             continue
         else:
-            errors.append(issue(relative, "front matter uses only top-level scalars and two-space identifiers entries", number))
+            errors.append(issue(relative, "front matter permits scalars, two-space identifiers entries and two/four-space authors entries only", number))
 
     forbidden = (yaml.tokens.AnchorToken, yaml.tokens.AliasToken,
                  yaml.tokens.TagToken, yaml.tokens.DirectiveToken,
-                 yaml.tokens.FlowMappingStartToken, yaml.tokens.FlowSequenceStartToken,
-                 yaml.tokens.BlockSequenceStartToken)
+                 yaml.tokens.FlowMappingStartToken, yaml.tokens.FlowSequenceStartToken)
     try:
         tokens = list(yaml.scan(metadata_source))
         for token in tokens:
@@ -393,7 +392,28 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
             continue
         if key in data:
             errors.append(issue(relative, f"duplicate YAML key: {key}"))
-        if key == "identifiers":
+        if key == "authors":
+            if not isinstance(value_node, yaml.nodes.SequenceNode):
+                errors.append(issue(relative, "authors must be an ordered YAML list of name/orcid mappings"))
+                continue
+            authors = []
+            for entry in value_node.value:
+                if not isinstance(entry, yaml.nodes.MappingNode):
+                    errors.append(issue(relative, "each authors entry must be a name/orcid mapping"))
+                    continue
+                author = {}
+                for child_key_node, child_value_node in entry.value:
+                    child_key = scalar(child_key_node, "author key")
+                    if child_key is None:
+                        continue
+                    if child_key in author:
+                        errors.append(issue(relative, f"duplicate YAML author key: {child_key}"))
+                    value = scalar(child_value_node, f"authors.{child_key}")
+                    if value is not None:
+                        author[child_key] = value
+                authors.append(author)
+            data[key] = authors
+        elif key == "identifiers":
             if not isinstance(value_node, yaml.nodes.MappingNode):
                 errors.append(issue(relative, "identifiers must be a nested YAML mapping"))
                 continue
@@ -421,6 +441,11 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
     missing = META_REQUIRED - set(data)
     if unknown or missing:
         errors.append(issue(relative, f"schema keys mismatch: missing {sorted(missing)}, unknown {sorted(unknown)}"))
+    try:
+        ordered_authors(data)
+        check_optional_bibliography(data)
+    except AssetError as exc:
+        errors.append(issue(relative, str(exc)))
     for name in (META_REQUIRED | {"author_orcid"}) & set(data):
         if not isinstance(data[name], str) or not data[name].strip():
             errors.append(issue(relative, f"{name} must be a nonempty string"))
@@ -441,10 +466,6 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
     if data["status"] != "draft":
         errors.append(issue(relative, "source status must remain draft; publication status belongs to releases"))
-    if "author_orcid" in data:
-        message = identifier_error("orcid", data["author_orcid"])
-        if message:
-            errors.append(issue(relative, f"author_orcid {message}"))
     if "identifiers" in data:
         errors.extend(issue(relative, message) for message in check_identifier_map(data["identifiers"], WORK_IDS, str(relative)))
     return errors
@@ -458,7 +479,11 @@ def validate_pandoc_front_matter(relative: Path, data: dict, ast: dict) -> list[
         errors.append(issue(relative, "Pandoc YAML metadata keys differ from source front matter"))
     for key in set(meta) & set(data):
         node = meta[key]
-        if key == "identifiers":
+        if key in {"authors", "abstract"}:
+            # These new fields are literal YAML text, not Markdown. The builder
+            # consumes the validated source values and supplies MetaStrings.
+            continue
+        elif key == "identifiers":
             if node.get("t") != "MetaMap" or not isinstance(data[key], dict):
                 errors.append(issue(relative, "Pandoc interpreted identifiers differently from the YAML mapping"))
                 continue

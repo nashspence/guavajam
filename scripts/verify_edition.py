@@ -14,9 +14,10 @@ from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
 from editorial_notices import check_initial_notes, check_rights_statement, reviewed_initial_body
-from identifier_schema import WORK_IDS, check_identifier_map, identifier_error, valid_record_url, valid_utc
+from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
+from bibliography import author_text, check_optional_bibliography, ordered_authors
 
 
 class EditionHTML(html.parser.HTMLParser):
@@ -39,6 +40,12 @@ class EditionHTML(html.parser.HTMLParser):
         self.read_links = []
         self.status_links = []
         self.authors = []
+        self.descriptions = []
+        self.authorship = None
+        self.citation = None
+        self.in_citation = False
+        self.in_authorship = False
+        self.orcid_links = []
         self.permalinks = []
         self.current_heading = None
         self.in_footer = False
@@ -55,6 +62,18 @@ class EditionHTML(html.parser.HTMLParser):
             self.errors.append("edition rights must contain only plain text")
         if tag == "footer":
             self.in_footer = True
+        if attributes.get("data-press-field") == "citation":
+            if self.citation is not None or tag != "p" or not self.in_footer:
+                self.errors.append("edition citation requires one paragraph in the footer")
+            self.in_citation = True
+            self.citation = []
+        if attributes.get("data-press-field") == "authors":
+            if self.authorship is not None or tag != "p" or not self.in_footer:
+                self.errors.append("edition authorship requires one paragraph in the footer")
+            self.in_authorship = True
+            self.authorship = []
+        if tag == "a" and self.in_authorship:
+            self.orcid_links.append(attributes.get("href"))
         if attributes.get("data-press-field") == "rights":
             if self.rights_text is not None:
                 self.errors.append("duplicate edition rights statement")
@@ -123,6 +142,8 @@ class EditionHTML(html.parser.HTMLParser):
         if tag == "meta":
             if attributes.get("name") == "author":
                 self.authors.append(attributes.get("content"))
+            if attributes.get("name") == "description":
+                self.descriptions.append(attributes.get("content"))
             if attributes.get("name") == "press-presentation-profile":
                 self.profile_meta = attributes.get("content") == self.profile
             if attributes.get("name") == "viewport":
@@ -155,12 +176,19 @@ class EditionHTML(html.parser.HTMLParser):
             self.style = False
         if tag == "footer":
             self.in_footer = False
+        if tag == "p":
+            self.in_authorship = False
+            self.in_citation = False
         if self.in_rights:
             if tag != "span":
                 self.errors.append("edition rights span is not properly closed")
             self.in_rights = False
 
     def handle_data(self, data):
+        if self.in_citation:
+            self.citation.append(data)
+        if self.in_authorship:
+            self.authorship.append(data)
         if self.in_rights:
             self.rights_text.append(data)
         if self.style and re.search(r"url\s*\(|@import|\\", data, re.I):
@@ -174,6 +202,9 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "press.edition.v1":
         raise AssetError("unsupported edition provenance schema")
+    check_optional_bibliography(manifest)
+    if "authors" in manifest:
+        ordered_authors(manifest)
     if "record_url" in manifest or "initial_release_body" in manifest:
         reviewed_initial_body(manifest)
     if "rights_statement" in manifest:
@@ -228,11 +259,21 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
             raise AssetError("edition status link differs from its permanent record")
         if parser.permalinks != [(key, record_url + "/read#" + key) for key in parser.heading_ids]:
             parser.errors.append("every section requires its own canonical permalink")
-        if (not manifest.get("author") or parser.authors != [manifest["author"]]
+        authors = ordered_authors(manifest)
+        if (parser.authors != [author["name"] for author in authors]
                 or parser.html_lang != manifest.get("language")):
             raise AssetError("edition attribution or language differs from provenance")
-        if "author_orcid" in manifest and identifier_error("orcid", manifest["author_orcid"]):
-            raise AssetError("invalid edition author ORCID")
+        if "authors" in manifest or parser.authorship is not None:
+            text = "Authors: " + author_text(authors, identifiers=True)
+            collapse = lambda value: re.sub(r"[ \t\r\n\f]+", " ", value).strip()
+            if (parser.authorship is None or collapse("".join(parser.authorship)) != collapse(text)
+                    or parser.orcid_links != ["https://orcid.org/" + a["orcid"] for a in authors if "orcid" in a]):
+                raise AssetError("edition author–ORCID associations differ from provenance")
+            if "authors" in manifest and (parser.citation is None or not collapse("".join(parser.citation)).startswith(
+                    collapse("Cite this edition as " + author_text(authors) + ".") + " ")):
+                raise AssetError("edition citation attribution differs from provenance")
+        if parser.descriptions != ([manifest["abstract"]] if "abstract" in manifest else []):
+            raise AssetError("edition abstract differs from provenance")
         if "work_identifiers" in manifest:
             errors = check_identifier_map(manifest["work_identifiers"], WORK_IDS, edition_tag)
             if errors:

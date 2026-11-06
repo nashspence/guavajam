@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 $for(author-meta)$<meta name="author" content="$author-meta$">
 $endfor$
+$if(description-meta)$<meta name="description" content="$description-meta$">
+$endif$
 <meta name="press-presentation-profile" content="press.html.v1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>$pagetitle$ — $edition$</title>
@@ -17,7 +19,9 @@ $endfor$
 $body$
 </article></main>
 <footer lang="en">
-<p>Cite this edition as $author$. <cite lang="$lang$">$pagetitle$</cite>. Press, edition $edition$. <a id="press-edition-read" href="$record_url$/read">Read this edition online</a>.</p>
+<p data-press-field="citation">Cite this edition as $for(author)$$author$$sep$; $endfor$. <cite lang="$lang$">$pagetitle$</cite>. Press, edition $edition$. <a id="press-edition-read" href="$record_url$/read">Read this edition online</a>.</p>
+$if(press_authors)$<p data-press-field="authors">Authors: $for(press_authors)$$press_authors.name$$if(press_authors.orcid)$ (ORCID: <a href="https://orcid.org/$press_authors.orcid$">$press_authors.orcid$</a>)$endif$$sep$; $endfor$</p>
+$endif$
 <p>Official edition record and notices: <a id="press-edition-record" href="$record_url$">$record_url$</a><br>
 Rights: $rights$<br>
 $if(rights_statement)$Edition rights: <span data-press-field="rights">$rights_statement$</span><br>

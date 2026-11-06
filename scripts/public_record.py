@@ -10,9 +10,10 @@ from urllib.parse import quote
 from asset_policy import AssetError, bounded_record
 from build_edition import git
 from editorial_notices import EDITION_ID_LABELS, edition_fields, edition_notices, edition_status
-from identifier_schema import LANGUAGE, TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key
+from identifier_schema import LANGUAGE, TAG, doi_history, edition_origin, valid_record_url, valid_utc, version_key, work_citation_version
 from issuance import check_authorization, read_registration
 from verify_edition import verify_edition
+from bibliography import author_text, check_optional_bibliography, ordered_authors
 
 
 EDITION_RECORDS = Path("records/editions")
@@ -99,7 +100,57 @@ def authored_title(manifest):
     return title if language == "en" else f'<span lang="{escape(language)}">{title}</span>'
 
 
+def dublin_core(manifest, published_at, identifiers, *, description=False):
+    """Describe the identified resource, using its receipt rather than build time."""
+    fields = [("DC.title", manifest["title"])]
+    fields += [("DC.creator", a["name"]) for a in ordered_authors(manifest, allow_missing=True)]
+    fields += [("DC.publisher", "Press"), ("DCTERMS.issued", published_at)]
+    fields += [("DC.identifier", value) for value in identifiers]
+    if "language" in manifest:
+        fields.append(("DC.language", manifest["language"]))
+    if description and "abstract" in manifest:
+        fields.append(("DC.description", manifest["abstract"]))
+    return ['<link rel="schema.DC" href="http://purl.org/dc/elements/1.1/">',
+            '<link rel="schema.DCTERMS" href="http://purl.org/dc/terms/">'] + [
+        f'<meta name="{name}" content="{escape(value)}">' for name, value in fields]
+
+
+def edition_citation(manifest, published_at, doi):
+    """One visible citation, optionally annotated as static schema.org microdata."""
+    schema_type = manifest.get("schema_type")
+    scope = f' itemscope itemtype="https://schema.org/{schema_type}"' if schema_type else ""
+    def prop(name):
+        return f' itemprop="{name}"' if schema_type else ""
+    authors = []
+    for author in ordered_authors(manifest, allow_missing=True):
+        name = escape(author["name"])
+        if schema_type:
+            name = '<span itemprop="author" itemscope itemtype="https://schema.org/Person">' + \
+                   '<span itemprop="name">' + name + '</span>'
+            if "orcid" in author:
+                orcid = author["orcid"]
+                name += f' (<a itemprop="sameAs" href="https://orcid.org/{orcid}">ORCID: {orcid}</a>)'
+            name += '</span>'
+        authors.append(name)
+    attribution = "; ".join(authors)
+    publisher = ('<span itemprop="publisher" itemscope itemtype="https://schema.org/Organization">'
+                 '<span itemprop="name">Press</span></span>') if schema_type else "Press"
+    issued = (f'<time itemprop="datePublished" datetime="{published_at}">{published_at[:10]}</time>'
+              if schema_type else published_at[:10])
+    doi_html = ("DOI: " + doi_link(doi).replace('<a ', '<a' + prop("identifier") + ' ', 1) + ". ") if doi else ""
+    url = escape(manifest["record_url"])
+    result = (f'<p{scope}>' + (attribution + ". " if attribution else "") +
+              f'<cite{prop("name")}>{authored_title(manifest)}</cite>. {manifest["tag"].rsplit("/", 1)[1]}. '
+              f'{publisher}, {issued}. {doi_html}<a{prop("url")} href="{url}">{url}</a>')
+    if schema_type:
+        for field, name in (("language", "inLanguage"), ("abstract", "description")):
+            if field in manifest:
+                result += f'<meta itemprop="{name}" content="{escape(manifest[field])}">'
+    return result + '</p>'
+
+
 def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
+    check_optional_bibliography(manifest)
     tag = manifest["tag"]
     match = TAG.fullmatch(tag)
     if not match or not valid_record_url(manifest["record_url"], tag) or not valid_utc(published_at):
@@ -113,11 +164,14 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     visible_title = authored_title(manifest)
     permanent = escape(manifest["record_url"])
     status, successor = edition_status(notices, version)
+    version_doi = (identifiers or {}).get("version_doi")
+    metadata_ids = [manifest["record_url"]] + (["https://doi.org/" + version_doi] if version_doi else [])
     page = [
         "<!doctype html>", '<html lang="en">', "<head>", '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         f'<link rel="canonical" href="{permanent}">',
         f"<title>{title} — {version} · Press</title>",
+        *dublin_core(manifest, published_at, metadata_ids, description=True),
         PAGE_STYLE, "</head>", "<body><main>", "<p>Press · Edition record</p>",
         f"<h1>{visible_title}</h1>", f"<p>Edition {version} · <strong>{status}</strong></p>",
     ]
@@ -126,6 +180,9 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
                     f'<a href="{successor}">Check the status of {successor}</a> or '
                     f'<a href="../{slug}">view all editions of this work</a>.</p>')
     page.append(f'<p>First published <time datetime="{published_at}">{published_at}</time></p>')
+    if "abstract" in manifest:
+        language = f' lang="{escape(manifest["language"])}"' if "language" in manifest else ""
+        page.extend(["<h2>Abstract</h2>", f'<p{language}>{escape(manifest["abstract"])}</p>'])
     if notices:
         page.append("<h2>Editorial notices</h2><ul>")
         page.extend(f"<li>{escape(item.removeprefix('- '))}</li>" for item in notices)
@@ -135,12 +192,8 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     page.append(f'<p><a id="press-record-read" href="{version}/read">{read_label}</a>{size}</p>')
     if not successor:
         page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
-    author = escape(manifest.get("author", ""))
-    version_doi = (identifiers or {}).get("version_doi")
-    citation_doi = f"DOI: {doi_link(version_doi)}. " if version_doi else ""
     page.append("<h2>Cite this edition</h2>")
-    page.append(f'<p>{author + ". " if author else ""}<cite>{visible_title}</cite>. {version}. Press, {published_at[:10]}. '
-                f'{citation_doi}<a href="{permanent}">{permanent}</a></p>')
+    page.append(edition_citation(manifest, published_at, version_doi))
     page.append("<h2>Edition details</h2><dl>")
     attachments = {"Canonical artifact", "Provenance", "Checksums"}
     for label, value in edition_fields(manifest).items():
@@ -231,11 +284,20 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
     # The extensionless URL is a file to the browser. Include the slug in each
     # relative link so it also resolves at a recovery host below a path prefix.
     work_url = f"{origin}/works/{slug}"
+    if not receipts or any(not valid_utc(r.get("published_at")) for r in receipts.values()):
+        raise AssetError("work citation requires published edition receipts")
+    first = min(receipts, key=lambda v: (receipts[v]["published_at"], version_key(v)))
+    selected = work_citation_version(work, receipts) or first
+    basis = manifests[selected]
+    published_at = receipts[first]["published_at"]
+    doi = work.get("identifiers", {}).get("concept_doi")
+    identifier = "https://doi.org/" + doi if doi else work_url
     page = [
         "<!doctype html>", '<html lang="en"><head><meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
         f'<link rel="canonical" href="{work_url}">',
-        f"<title>{slug} — Editions · Press</title>", PAGE_STYLE, "</head><body><main>",
+        f'<title>{escape(basis["title"])} — Editions · Press</title>',
+        *dublin_core(basis, published_at, [identifier]), PAGE_STYLE, "</head><body><main>",
         "<p>Press · Work record</p>", f"<h1>Editions of {slug}</h1>",
         "<p>This address identifies the work across editions. To cite a passage, choose its edition below. "
         "Each edition record includes its current status, reading copy and editorial notices.</p>",
@@ -258,7 +320,6 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
     elif "Published" not in states:
         page.append("<p><strong>This work has no current edition.</strong></p>")
     history = doi_history(work, "concept_doi")
-    doi = work.get("identifiers", {}).get("concept_doi")
     assigned = {change["from"] for change in history} | {doi}
     if doi:
         page.append(f"<p>Current concept DOI: {doi_link(doi)}</p>")
@@ -274,6 +335,10 @@ def work_html(origin, slug, receipts, manifests, notices, work) -> bytes:
                 decision = f"Corrected {old} to {new}."
             page.append(f'<li>{escape(change["date"])} · {escape(decision)}</li>')
         page.append("</ul>")
+    attribution = escape(author_text(ordered_authors(basis, allow_missing=True)))
+    citation_id = doi_link(doi) if doi else f'<a href="{work_url}">{work_url}</a>'
+    page.extend(["<h2>Cite this work</h2>", '<p>' + (attribution + ". " if attribution else "") +
+                 f'<cite>{authored_title(basis)}</cite>. Press, {published_at[:4]}. {citation_id}</p>'])
     page.append("<ol>")
     for version in sorted(receipts, key=version_key, reverse=True):
         receipt = receipts[version]
