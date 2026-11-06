@@ -103,6 +103,7 @@ class PreviewTests(EditionTests):
                     self.assertEqual((200, b"", str(len(raw))), (status, empty, head["Content-Length"]))
                     if route.endswith((".html", ".json", "SHA256SUMS")):
                         self.assertTrue(headers["Content-Disposition"].startswith("attachment;"))
+                        self.assertEqual("application/octet-stream", headers["Content-Type"])
                 for route in ("/preview.json", "/package/provenance.json", "/.git/config", "/private.env",
                               "/works/sample-work/", "/" + self.tag + "/../provenance.json",
                               "/%2e%2e/private.env", "/" + self.tag + "?download=1"):

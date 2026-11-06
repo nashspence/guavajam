@@ -110,8 +110,9 @@ def assemble_preview(repo, commit, tag, output, *, fetcher=fetch_asset, simulate
             work_html(origin, slug, published, manifests, notices, work)))
         for name in (manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"):
             routes["/" + tag + "/" + name] = {"file": "package/" + name,
-                "type": ("text/html; charset=utf-8" if name.endswith(".html") else
-                         "application/json" if name.endswith(".json") else "text/plain; charset=utf-8"),
+                # These are downloads, including on browsers that display known
+                # media types despite an attachment disposition.
+                "type": "application/octet-stream",
                 "disposition": f'attachment; filename="{name}"'}
         routes["/" + tag + "/read"] = {"file": "package/" + manifest["canonical_artifact"],
             "type": "text/html; charset=utf-8", "disposition": "inline"}
