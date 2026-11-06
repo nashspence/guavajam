@@ -15,6 +15,7 @@ from preview_site import assemble_preview
 from public_record import check_records, record_html, work_html, write_records
 from test_assets import EditionTests
 from test_public_record import PublicRecordTests
+from test_editorial_history import EditorialHistoryTests
 from test_render_contract import RenderContractTests
 from test_validate_sources import MANUSCRIPT, METADATA, StrictSourceTests
 from verify_edition import EditionHTML, verify_edition
@@ -96,6 +97,22 @@ class SourceBibliographyTests(StrictSourceTests):
         for source in cases:
             with self.subTest(source=source):
                 self.assertTrue(self.check(front_matter=source))
+
+    def test_work_citation_selector_requires_a_same_work_publication_receipt(self):
+        work = {"schema": "press.work-registration.v1", "work": "sample", "identifiers": {},
+                "citation_edition": "v1.0.0"}
+        edition = self.edition()
+        def check(work, edition, path="registrations/editions/sample/v1.0.0.json"):
+            return self.check(other={"registrations/works/sample.json": self.canonical_json(work),
+                                     path: self.canonical_json(edition)})
+        self.assertEqual([], check(work, edition))
+        for version in (None, [], "v99.0.0", "works/other/v1.0.0", "v01.0.0"):
+            with self.subTest(version=version):
+                self.assertTrue(any("citation_edition" in e for e in check(dict(work, citation_edition=version), edition)))
+        pending = dict(edition); pending.pop("published_at")
+        self.assertTrue(any("receipted edition" in e for e in check(work, pending)))
+        self.assertTrue(any("receipted edition" in e for e in check(work, edition,
+            "registrations/editions/other/v1.0.0.json")))
 
     def test_optional_values_have_narrow_types_and_explicit_bounds(self):
         for field, values in (("abstract", ("", " ", "two\nlines", "x" * (MAX_ABSTRACT_BYTES + 1),
@@ -329,7 +346,25 @@ class RecordBibliographyTests(PublicRecordTests):
         self.assertEqual([self.manifest["title"]], Metadata(page).meta["DC.title"])
 
 
+
+class WorkCitationHistoryTests(EditorialHistoryTests):
+    def test_existing_history_gate_allows_valid_explicit_work_citation_review(self):
+        self.issue()
+        base = self.baseline()
+        path = self.root / "registrations/works/essay.json"
+        path.parent.mkdir()
+        work = {"schema": "press.work-registration.v1", "work": "essay", "identifiers": {},
+                "citation_edition": "v1.0.0"}
+        path.write_text(json.dumps(work, sort_keys=True, indent=2) + "\n")
+        self.check(base)
+        base = self.baseline()
+        work["citation_edition"] = "v9.0.0"
+        path.write_text(json.dumps(work, sort_keys=True, indent=2) + "\n")
+        with self.assertRaisesRegex(AssetError, "citation_edition.*receipted edition"):
+            self.check(base)
+
+
 def load_tests(loader, tests, pattern):
     return unittest.TestSuite(case(name) for case in (SourceBibliographyTests, EditionBibliographyTests,
-                                                     RecordBibliographyTests)
+                                                     RecordBibliographyTests, WorkCitationHistoryTests)
                               for name in case.__dict__ if name.startswith("test_"))

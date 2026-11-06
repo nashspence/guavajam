@@ -8,6 +8,9 @@ The [presentation design rationale and release review](docs/presentation.md) des
 
 Start with the [manuscript template](templates/work/manuscript.md) at `works/<slug>/manuscript.md`. Run `make help` for commands. Retain section IDs when headings change. To cite an equation, give its heading a stable ID and put the visible number in the heading, as in the template. For a mathematical H1, review the plain-text title in the citation alongside the typeset heading. This public workflow requires the manuscript in public main history before staging and keeps downloadable review artifacts for 90 days. Keep embargoed material private until that disclosure is authorized. Inspect original images before staging, including embedded location, notes and credit metadata. The edition preserves their bytes.
 
+For ordered coauthors, optional author-written abstracts, descriptive classification and
+reviewed work citations, see [bibliographic metadata](docs/bibliography.md).
+
 For semantic table captions, follow the [caption source grammar](docs/table-captions.md)
 and the table in the starter. The author supplies the visible label and numbering.
 
@@ -38,7 +41,7 @@ Read every passage before copying the JSON into the work. Keep passage IDs when 
 
 The permanent address for a work as a whole is `https://press.nash.spence.0819870.xyz/works/<slug>`, without a trailing slash. Keep the slug for the life of the work, including after a title change. Use this address to refer to the work across editions. To cite a particular text, choose its numbered edition and use the reading copy or its section permalink.
 
-The work page first appears when the issuer merges a publication receipt. Each subsequent receipt adds an edition with its reviewed title and publication date, ordered by numeric version, highest first. Each entry links to its edition record and displays its current publication, withdrawal or supersession status. The work page identifies an all-withdrawn work and retains every edition citation.
+The work page first appears when the issuer merges a publication receipt. Each subsequent receipt adds an edition with its reviewed title and publication date, ordered by numeric version, highest first. Each entry links to its edition record and displays its current publication, withdrawal or supersession status. The “Cite this work” section initially derives its bibliographic identity from the first issued edition; later changes require an explicit reviewed work-registration choice. The original publication year is retained, and the current concept DOI is used when assigned. The work page identifies an all-withdrawn work and retains every edition citation.
 
 If the issuer later registers a concept DOI, use this permanent work address as its landing URL. First verify the work page and its edition links on the publisher origin and on the recovery host. Record an assigned concept DOI in `registrations/works/<slug>.json`. If the staged proof cites it, commit that assignment by the time you reserve the edition. Regenerate the work page from any receipted edition whenever the assignment changes. To correct or retire a DOI, append one dated entry to `concept_doi_history` with `date`, `from` and `to`, and update `identifiers.concept_doi` in the same change. On retirement, set `to` to `null` and remove the current DOI, keeping an empty `identifiers` object if needed. A later assignment starts with `from` set to `null`. Previously assigned DOIs stay associated with this work. A DOI for an individual edition belongs to that edition and points to its versioned record.
 
