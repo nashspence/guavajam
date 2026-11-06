@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Press reader design study — The shape of an argument (not an edition)</title>
+<style id="press-edition-css">
+/* Press's versioned reading surface: system fonts, no runtime or remote assets.
+   Light/dark tokens are intentionally mirrored in public_record.PAGE_STYLE. */
+:root {
+  color-scheme: light dark;
+  --press-paper: #faf9f6;
+  --press-ink: #222;
+  --press-muted: #555d63;
+  --press-link: #235b9d;
+  --press-visited: #654d84;
+  --press-border: #888;
+  --press-tint: #f0eee9;
+  --press-focus: #235b9d;
+  font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--press-paper); }
+body {
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+  background: var(--press-paper);
+  color: var(--press-ink);
+  overflow-wrap: break-word;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  text-wrap: balance;
+  break-after: avoid;
+}
+h1 { font-size: clamp(1.65rem, 4vw, 2.2rem); margin: 1.5rem 0 1rem; }
+h2 { font-size: 1.45rem; margin: 2.2rem 0 .8rem; }
+h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
+h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
+p { margin: 0 0 1.1em; }
+
+/* Preserve link affordances even when color or a color scheme is unavailable. */
+a { color: var(--press-link); text-underline-offset: .12em; }
+a:visited { color: var(--press-visited); }
+a:hover { text-decoration-thickness: .13em; }
+/* Pandoc puts the numeral in <sup> inside an <a class="footnote-ref">.
+   Underlining the outer link draws a detached stroke at the prose baseline. */
+.footnote-ref { text-decoration: none; white-space: nowrap; }
+.footnote-ref > sup {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .08em;
+}
+.footnote-ref:hover > sup { text-decoration-thickness: .12em; }
+a:focus-visible, .press-scroll:focus-visible {
+  outline: 3px solid var(--press-focus);
+  outline-offset: 3px;
+}
+[id]:target, :focus-visible { scroll-margin-top: 4rem; }
+
+.press-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: .5rem 0;
+  margin-bottom: 1.3rem;
+  background: var(--press-paper);
+  border-bottom: 1px solid var(--press-border);
+  font: .85rem/1.5 system-ui, sans-serif;
+}
+.press-status a { display: inline-block; padding: .25rem 0; }
+.press-permalink, .press-permalink:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -.35rem 0 -.35rem .1rem;
+  color: var(--press-muted);
+  font: normal .85rem/1 system-ui, sans-serif;
+  text-decoration: none;
+  vertical-align: middle;
+}
+.press-permalink:hover, .press-permalink:focus-visible {
+  background: var(--press-tint);
+  border-radius: .2rem;
+}
+
+blockquote {
+  margin: 1.6rem 0;
+  padding: .2rem 0 .2rem 1rem;
+  border-left: .2rem solid var(--press-border);
+}
+blockquote > :last-child { margin-bottom: 0; }
+code, pre, kbd, samp {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: .92em;
+}
+code { overflow-wrap: anywhere; }
+:not(pre) > code {
+  padding: .08em .2em;
+  border-radius: .15em;
+  background: var(--press-tint);
+}
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: .8rem 1rem;
+  border: 1px solid var(--press-border);
+  background: var(--press-tint);
+  border-radius: .15rem;
+  line-height: 1.45;
+}
+pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
+
+/* Keep real table semantics; the focusable wrapper scrolls on narrow screens. */
+.press-scroll { max-width: 100%; overflow-x: auto; }
+.press-table-scroll { margin: 1.5rem 0; }
+/* Book-style horizontal rules provide structure without a boxed spreadsheet grid. */
+.press-table-scroll table {
+  border-collapse: collapse;
+  margin: 0;
+  width: max-content;
+  border-top: 2px solid var(--press-border);
+  border-bottom: 2px solid var(--press-border);
+}
+caption {
+  caption-side: top;
+  padding: 0 0 .4rem;
+  color: var(--press-muted);
+  text-align: start;
+  font-size: .9em;
+}
+th, td {
+  padding: .43rem .72rem;
+  border: 0;
+  border-bottom: 1px solid var(--press-border);
+  text-align: start;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+th { font-weight: 700; }
+thead th { border-bottom-width: 2px; }
+.press-math-scroll { margin: 1.2rem 0; }
+.press-math-scroll p { margin: 0; }
+.press-math-scroll math[display='block'] { width: max-content; min-width: 100%; }
+math[display='block'] { max-width: none; }
+
+img, svg { max-width: 100%; height: auto; }
+figure { margin: 1.8rem 0; }
+figure img { display: block; margin: 0 auto; }
+figcaption { margin-top: .45rem; color: var(--press-muted); font-size: .88em; }
+.footnotes {
+  margin-top: 2.5rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--press-border);
+  font-size: .88em;
+}
+.footnotes hr { display: none; }
+.footnotes li { padding-left: .15rem; }
+.footnote-back { margin-left: .3em; text-decoration: none; }
+.footnote-back:hover { text-decoration: underline; text-underline-offset: .12em; }
+li { margin: .25em 0; }
+li > p { margin-bottom: .5em; }
+input[type='checkbox'] { accent-color: var(--press-link); }
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font-size: .85rem;
+}
+
+/* Keep explicit, citable formal headings but give them a compact paper rhythm.
+   The heading level still conveys structure; never infer theorem-body italics or
+   numbering from the next paragraph, which need not be a complete statement. */
+.press-formal-heading {
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.2rem 0 .35rem;
+}
+h2.press-formal-heading { font-size: 1.2rem; }
+h3.press-formal-heading { font-size: 1.08rem; }
+h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
+  font-size: 1.02rem;
+}
+.press-formal-heading[data-press-kind='proof'] {
+  font-style: italic;
+  margin-top: .9rem;
+}
+/* Supporting evidence: restrained archival entries, not chat bubbles or an app UI. */
+.press-record-heading { margin-top: 3rem; }
+.press-record-intro { margin: .6rem 0 1.55rem; }
+.press-record-scope { margin-bottom: .8rem; }
+.press-record-provenance {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: .22rem .8rem;
+  margin: 0;
+  padding: .65rem 0;
+  border-top: 1px solid var(--press-border);
+  border-bottom: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+}
+.press-record-provenance dt { font-weight: 600; }
+.press-record-provenance dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.press-record-provenance code {
+  padding: 0;
+  background: transparent;
+  font-size: .96em;
+  overflow-wrap: anywhere;
+}
+.press-passage-heading {
+  margin: 1.25rem 0 .35rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--press-border);
+  font: 600 .94rem/1.4 system-ui, sans-serif;
+}
+.press-record-intro + .press-passage-heading {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: .8rem;
+}
+.press-passage-heading .press-permalink { font-size: .8rem; }
+.press-passage-datetime {
+  margin: -.3rem 0 .4rem;
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.press-supporting-passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .96em;
+  line-height: 1.55;
+}
+@media (max-width: 36rem) {
+  .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-record-provenance dd { margin-bottom: .35rem; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --press-paper: #181a1c;
+    --press-ink: #e4e4df;
+    --press-muted: #b5b9b9;
+    --press-link: #96c7ff;
+    --press-visited: #d5b6ed;
+    --press-border: #868b8e;
+    --press-tint: #25292c;
+    --press-focus: #a8d2ff;
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --press-paper: #fff;
+    --press-ink: #000;
+    --press-muted: #333;
+    --press-link: #164a7c;
+    --press-visited: #164a7c;
+    --press-border: #666;
+    --press-tint: #f5f5f5;
+  }
+  body { max-width: none; padding: 0; }
+  .press-status { position: static; }
+  .press-permalink { display: none; }
+  .press-scroll, pre { overflow: visible; }
+  .press-table-scroll table { width: 100%; }
+  th, td { white-space: normal; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  figure, blockquote, pre { break-inside: avoid; }
+  footer { break-before: auto; }
+}
+</style>
+<style id="preview-only-controls">
+/* Preview-only rules: the published reading profile above is unchanged. */
+.preview-controls { margin: .25rem 0 1.5rem; padding: .6rem .75rem; border: 1px solid var(--press-border); font: .88rem/1.5 system-ui,sans-serif; }
+.preview-controls legend { padding: 0 .35rem; font-weight: 600; }
+.preview-controls label { display: inline-flex; align-items: center; gap: .25rem; margin: .2rem .8rem .2rem 0; cursor: pointer; }
+.preview-controls input { accent-color: var(--press-link); }
+.preview-note { color: var(--press-muted); font: .86rem/1.5 system-ui,sans-serif; }
+@media screen {
+:root:has(#preview-light:checked) {
+  color-scheme: light;
+  --press-paper: #faf9f6; --press-ink: #222; --press-muted: #555d63;
+  --press-link: #235b9d; --press-visited: #654d84; --press-border: #888;
+  --press-tint: #f0eee9; --press-focus: #235b9d;
+}
+:root:has(#preview-dark:checked) {
+  color-scheme: dark;
+  --press-paper: #181a1c; --press-ink: #e4e4df; --press-muted: #b5b9b9;
+  --press-link: #96c7ff; --press-visited: #d5b6ed; --press-border: #868b8e;
+  --press-tint: #25292c; --press-focus: #a8d2ff;
+}
+}
+@media print { .preview-controls, .preview-note { display:none; } }
+</style>
+</head>
+<body>
+<header class="press-status">Press · Reader design demonstration</header>
+<fieldset class="preview-controls" aria-label="Preview color theme">
+<legend>Preview theme</legend>
+<label><input type="radio" name="preview-theme" id="preview-system" checked> System</label>
+<label><input type="radio" name="preview-theme" id="preview-light"> Light</label>
+<label><input type="radio" name="preview-theme" id="preview-dark"> Dark</label>
+</fieldset>
+<p class="preview-note">Illustrative HTML for visual review only. Not a published edition, record, or citable proof. Theme controls are demonstration-only and do not ship in the edition template.</p>
+<main><article class="press-edition">
+<h1>The shape of an argument</h1>
+<p><em>A short demonstration of scholarly reading, not a published edition.</em></p>
+<p>Some ideas become clearer when the page grows quieter. A well-set document gives the argument room to unfold: each paragraph has a comfortable measure, quotations are easy to distinguish, and the mathematics remains legible without asking the reader to zoom out.</p>
+<p>This sample illustrates the typography proposed for <strong>Press</strong>—a restrained reading surface built around semantic HTML, durable section links, and the conventions of mathematical writing.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<h2 id="sec-1">§ 1 — A small invariant <a href="#sec-1" class="press-permalink" aria-label="Permalink to section sec-1">¶</a></h2>
+<p>Let <em>S</em> be a nonempty set and let <em>f: S → S</em> be a map. A point that stays where it is under <em>f</em> offers a simple illustration of an <em>invariant</em>.</p>
+<h3 id="def-1" class="press-formal-heading" data-press-kind="definition">Definition 1 — Fixed point <a href="#def-1" class="press-permalink" aria-label="Permalink to definition">¶</a></h3>
+<p>We call <em>x ∈ S</em> a <strong>fixed point</strong> of <em>f</em> when <em>f(x) = x</em>. The definition does not depend on how we choose to describe the elements of <em>S</em>.</p>
+<h3 id="theorem-1" class="press-formal-heading" data-press-kind="theorem">Theorem 1 — Identity preserves every point <a href="#theorem-1" class="press-permalink" aria-label="Permalink to theorem">¶</a></h3>
+<p>For the identity map, every point is fixed:</p>
+<div class="press-scroll press-math-scroll" tabindex="0" role="region" aria-label="Displayed identity equation, horizontally scrollable">
+<math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><mrow><mo>∀</mo><mi>x</mi><mo>∈</mo><mi>S</mi><mo>,</mo><mspace width="0.8em"/><msub><mi>id</mi><mi>S</mi></msub><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mi>x</mi><mo>.</mo></mrow></math>
+</div>
+<h4 id="proof-1" class="press-formal-heading" data-press-kind="proof">Proof <a href="#proof-1" class="press-permalink" aria-label="Permalink to proof">¶</a></h4>
+<p>By definition, the identity map sends each element to itself. Therefore the fixed-point condition holds for every <em>x ∈ S</em>. □</p>
+<h2 id="sec-2">§ 2 — Quotations, tables, and code <a href="#sec-2" class="press-permalink" aria-label="Permalink to section sec-2">¶</a></h2>
+<blockquote><p>The purpose of careful typesetting is not decoration. It is to help the reader follow the argument without distraction.</p></blockquote>
+<p>On a narrow screen, this deliberately wide table scrolls horizontally while preserving ordinary table semantics:</p>
+<div class="press-scroll press-table-scroll" tabindex="0" role="region" aria-label="Wide example table, horizontally scrollable">
+<table><caption>Identity and fixed-point properties</caption><thead><tr><th scope="col">Property</th><th scope="col">Identity map</th><th scope="col">General map</th><th scope="col">Reader's interpretation</th></tr></thead>
+<tbody><tr><td>Fixed points</td><td>Every element</td><td>May have none</td><td>Preserved under application</td></tr>
+<tr><td>Composition</td><td>Idempotent</td><td>Depends on map</td><td>Compare structure across steps</td></tr></tbody></table></div>
+<p>An identifier such as <code>fixed_points</code> stays distinct in running text without an intrusive badge. A code block gets its own differentiated surface:</p>
+<pre><code>def fixed_points(items, function):
+    return [x for x in items if function(x) == x]</code></pre>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>This is sample prose and notation, not a publication or an editorial claim. <a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</article></main>
+<footer>Press · Non-authoritative design study · Uses the CSS proposed in PR #38, with preview-only theme controls.</footer>
+</body>
+</html>

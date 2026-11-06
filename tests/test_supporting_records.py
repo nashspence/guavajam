@@ -12,7 +12,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from render_profile import prepare_presentation_ast
-from supporting_records import append_supporting_records, load_record, record_path, validate_record
+from supporting_records import (append_supporting_records, load_record, record_path,
+                                timestamp_label, valid_timestamp, validate_record)
 
 RECORD = {"title": "A <note>", "scope": "Selected notebook pages.",
           "passages": [{"id": "first", "label": "Entry 1", "text": "\n  α <script>\t&\r\n"}]}
@@ -80,7 +81,9 @@ class SupportingRecordTests(unittest.TestCase):
         ids = [block["c"][1][0] for block in ast["blocks"] if block["t"] == "Header"]
         self.assertEqual(ids, ["record-field", links[0][1:], links[1][1:], links[2][1:]])
         literal = RECORD["passages"][0]["text"]
-        rendered = [block["c"][1] for block in ast["blocks"] if block["t"] == "RawBlock"]
+        rendered = [block["c"][1] for block in ast["blocks"]
+                    if block["t"] == "RawBlock"
+                    and block["c"][1].startswith('<div class="press-supporting-passage">')]
         self.assertEqual(len(rendered), 2)
         for body in rendered:
             self.assertNotIn("<script>", body)
@@ -102,6 +105,73 @@ class SupportingRecordTests(unittest.TestCase):
         self.assertEqual([(attr[0], text[0]["c"]) for _, attr, text in headings],
                          [("passage-10-field-note-one", "Passage 1 — User"),
                           ("passage-10-field-note-two", "Passage 2 — User")])
+
+    def test_optional_dates_are_validated_without_guessing_precision_or_zone(self):
+        valid = {
+            "2026-11-05": "5 Nov 2026",
+            "2026-11-05T14:37:00Z": "5 Nov 2026 · 14:37 UTC",
+            "2026-11-05T14:37:03.125Z": "5 Nov 2026 · 14:37:03.125 UTC",
+            "2026-11-05T14:37:03-08:00": "5 Nov 2026 · 14:37:03 UTC-08:00",
+            "2026-11-05T14:37:03.123456789+05:30": "5 Nov 2026 · 14:37:03.123456789 UTC+05:30",
+            "2026-11-05T00:00:00+14:00": "5 Nov 2026 · 00:00 UTC+14:00",
+            "2026-11-05T00:00:00-12:00": "5 Nov 2026 · 00:00 UTC-12:00",
+            "2024-02-29": "29 Feb 2024",
+        }
+        for value, label in valid.items():
+            with self.subTest(value=value):
+                self.assertTrue(valid_timestamp(value))
+                self.assertEqual(timestamp_label(value), label)
+                validate_record({**RECORD, "passages": [
+                    {**RECORD["passages"][0], "timestamp": value}]})
+        invalid = [None, "", 1793941631, True, "2026-02-29", "2026-11-05T14:37:00",
+                   "2026-11-05T14:37:00+15:00", "2026-11-05T14:37:00-13:00",
+                   "2026-11-05T14:37:00-00:00", "2026-11-05T25:37:00Z",
+                   "2026-11-05T14:37:00+05:99", "2026-11-05T14:37:00+00:60",
+                   "2026-11-05T14:37:00-00:60", "2026-11-05T14:37:00+14:01",
+                   "2026-11-05T14:37:00-12:01",
+                   "2026-11-05T14:37:00Z<img>", "2026-11-05T14:37Z",
+                   "2026-11-05T14:37:00.1234567890Z"]
+        for value in invalid:
+            with self.subTest(value=value):
+                self.assertFalse(valid_timestamp(value))
+                with self.assertRaisesRegex(AssetError, "timestamp"):
+                    validate_record({**RECORD, "passages": [
+                        {**RECORD["passages"][0], "timestamp": value}]})
+
+    def test_dates_render_with_semantic_time_and_without_dangling_markup(self):
+        record = copy.deepcopy(RECORD)
+        record["passages"] = [
+            {"id": "dated", "label": "Notebook", "text": "Notes <tag>",
+             "timestamp": "2026-11-05"},
+            {"id": "instant", "label": "Assistant", "text": "Original **literal**.",
+             "timestamp": "2026-11-05T14:37:05+02:00"},
+            {"id": "undated", "label": "User", "text": "Undated."},
+        ]
+        self.absolute.write_text(json.dumps(record), encoding="utf-8")
+        ast = manuscript("supporting/field-note.json#instant")
+        append_supporting_records(ast, self.root, MANUSCRIPT, {self.path})
+        prepare_presentation_ast(ast, "https://press.example.org/works/example/v1.0.0")
+        html_blocks = [block["c"][1] for block in ast["blocks"] if block["t"] == "RawBlock"]
+        result = "\n".join(html_blocks)
+        self.assertIn('<div class="press-record-intro">', result)
+        self.assertIn('<dl class="press-record-provenance">', result)
+        self.assertIn('<time datetime="2026-11-05">5 Nov 2026</time>', result)
+        self.assertIn('<time datetime="2026-11-05T14:37:05+02:00">'
+                      '5 Nov 2026 · 14:37:05 UTC+02:00</time>', result)
+        self.assertEqual(result.count("<time "), 2)
+        self.assertIn("Original **literal**.", result)
+        self.assertNotIn("<tag>", result)
+        self.assertIn("Notes &lt;tag&gt;", result)
+        heads = [b for b in ast["blocks"] if b["t"] == "Header"]
+        self.assertEqual([h["c"][1][0] for h in heads],
+                         ["record-field-note", "passage-10-field-note-dated",
+                          "passage-10-field-note-instant", "passage-10-field-note-undated"])
+        self.assertEqual([h["c"][1][1] for h in heads],
+                         [["press-record-heading"], ["press-passage-heading"],
+                          ["press-passage-heading"], ["press-passage-heading"]])
+        self.assertTrue(all(any(item["t"] == "Link" and
+                                "press-permalink" in item["c"][0][1]
+                                for item in h["c"][2]) for h in heads))
 
     def test_broken_references_fail_before_publication(self):
         for url in ("supporting/field-note.json?raw=1", "supporting/field-note.json#",

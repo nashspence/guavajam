@@ -10,7 +10,7 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
-from extract_chatgpt import transcript
+from extract_chatgpt import export_timestamp, transcript
 
 
 class ExtractTests(unittest.TestCase):
@@ -45,6 +45,24 @@ class ExtractTests(unittest.TestCase):
                               "internal reasoning", "system context", "private metadata")))
         self.assertEqual(first, transcript(self.record, "other")["passages"][0])
         self.assertNotEqual(second["id"], transcript(self.record, "other")["passages"][1]["id"])
+
+    def test_create_time_is_optional_source_faithful_and_utc(self):
+        user = self.record["mapping"]["user"]["message"]
+        assistant = self.record["mapping"]["tip"]["message"]
+        user["create_time"] = 1793941631.125
+        assistant["create_time"] = 1793941632
+        first, second = transcript(self.record, "tip")["passages"]
+        self.assertEqual(first["timestamp"], "2026-11-06T05:07:11.125Z")
+        self.assertEqual(second["timestamp"], "2026-11-06T05:07:12Z")
+        self.assertEqual(export_timestamp(0), "1970-01-01T00:00:00Z")
+        del user["create_time"]
+        assistant["create_time"] = None
+        self.assertTrue(all("timestamp" not in passage
+                            for passage in transcript(self.record, "tip")["passages"]))
+        for bad in (True, "2026-11-05", float("nan"), float("inf"), -1,
+                    10.1234567891, 10**1000):
+            with self.subTest(bad=str(bad)[:36]), self.assertRaises(ValueError):
+                export_timestamp(bad)
 
     def test_parts_and_unknown_content(self):
         content = self.record["mapping"]["tip"]["message"]["content"]

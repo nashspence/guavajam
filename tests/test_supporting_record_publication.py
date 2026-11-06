@@ -28,7 +28,8 @@ class SupportingRecordPublicationTests(fixtures.EditionTests):
         def reply(text):
             return {"parent": "root", "message": {
                 "author": {"role": "assistant"},
-                "content": {"content_type": "text", "parts": [text]}}}
+                "content": {"content_type": "text", "parts": [text]},
+                "create_time": 1793941631.125}}
 
         archive = self.base / "private-export.zip"
         with zipfile.ZipFile(archive, "w") as bundle:
@@ -72,6 +73,9 @@ class SupportingRecordPublicationTests(fixtures.EditionTests):
             self.assertIn((fragment, manifest["record_url"] + "/read#" + fragment), parsed.permalinks)
         self.assertIn(digest, page)
         self.assertIn(literal, html.unescape(page))
+        self.assertIn('<time datetime="2026-11-06T05:07:11.125Z">', page)
+        self.assertIn('class="press-record-provenance"', page)
+        self.assertIn('class="press-passage-heading"', page)
         self.assertIn(note_data["passages"][-1]["text"], html.unescape(page))
         self.assertNotIn("<script>bad()</script>", page)
         for omitted in ("Uncited note", "Discarded answer", "Unrelated account chat"):

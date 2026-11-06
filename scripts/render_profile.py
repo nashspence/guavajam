@@ -166,5 +166,25 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
                     ]}])
         new.append(block)
         i += 1
-    ast["blocks"] = new
+    # Give wide tables and display mathematics an actual scroll container.
+    # Pandoc Div blocks preserve table semantics, and the explicit tab stop lets
+    # keyboard users pan overflow without relying on browser-specific defaults.
+    wrapped = []
+    for block in new:
+        kind = block.get("t")
+        display_math = (kind in {"Para", "Plain"} and any(
+            node.get("t") == "Math" and isinstance(node.get("c"), list)
+            and node["c"][:1] == [{"t": "DisplayMath"}]
+            for node in walk(block)
+        ))
+        if kind == "Table" or display_math:
+            label = "Scrollable table" if kind == "Table" else "Scrollable equation"
+            cls = "press-table-scroll" if kind == "Table" else "press-math-scroll"
+            wrapped.append({"t": "Div", "c": [
+                ["", ["press-scroll", cls], [["role", "region"],
+                    ["aria-label", label], ["tabindex", "0"]]], [block],
+            ]})
+        else:
+            wrapped.append(block)
+    ast["blocks"] = wrapped
     return ast

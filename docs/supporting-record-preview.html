@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Press · Supporting evidence design preview (not an edition)</title>
+<style id="press-edition-css">
+/* Press's versioned reading surface: system fonts, no runtime or remote assets.
+   Light/dark tokens are intentionally mirrored in public_record.PAGE_STYLE. */
+:root {
+  color-scheme: light dark;
+  --press-paper: #faf9f6;
+  --press-ink: #222;
+  --press-muted: #555d63;
+  --press-link: #235b9d;
+  --press-visited: #654d84;
+  --press-border: #888;
+  --press-tint: #f0eee9;
+  --press-focus: #235b9d;
+  font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--press-paper); }
+body {
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+  background: var(--press-paper);
+  color: var(--press-ink);
+  overflow-wrap: break-word;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  text-wrap: balance;
+  break-after: avoid;
+}
+h1 { font-size: clamp(1.65rem, 4vw, 2.2rem); margin: 1.5rem 0 1rem; }
+h2 { font-size: 1.45rem; margin: 2.2rem 0 .8rem; }
+h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
+h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
+p { margin: 0 0 1.1em; }
+
+/* Preserve link affordances even when color or a color scheme is unavailable. */
+a { color: var(--press-link); text-underline-offset: .12em; }
+a:visited { color: var(--press-visited); }
+a:hover { text-decoration-thickness: .13em; }
+/* Pandoc puts the numeral in <sup> inside an <a class="footnote-ref">.
+   Underlining the outer link draws a detached stroke at the prose baseline. */
+.footnote-ref { text-decoration: none; white-space: nowrap; }
+.footnote-ref > sup {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .08em;
+}
+.footnote-ref:hover > sup { text-decoration-thickness: .12em; }
+a:focus-visible, .press-scroll:focus-visible {
+  outline: 3px solid var(--press-focus);
+  outline-offset: 3px;
+}
+[id]:target, :focus-visible { scroll-margin-top: 4rem; }
+
+.press-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: .5rem 0;
+  margin-bottom: 1.3rem;
+  background: var(--press-paper);
+  border-bottom: 1px solid var(--press-border);
+  font: .85rem/1.5 system-ui, sans-serif;
+}
+.press-status a { display: inline-block; padding: .25rem 0; }
+.press-permalink, .press-permalink:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -.35rem 0 -.35rem .1rem;
+  color: var(--press-muted);
+  font: normal .85rem/1 system-ui, sans-serif;
+  text-decoration: none;
+  vertical-align: middle;
+}
+.press-permalink:hover, .press-permalink:focus-visible {
+  background: var(--press-tint);
+  border-radius: .2rem;
+}
+
+blockquote {
+  margin: 1.6rem 0;
+  padding: .2rem 0 .2rem 1rem;
+  border-left: .2rem solid var(--press-border);
+}
+blockquote > :last-child { margin-bottom: 0; }
+code, pre, kbd, samp {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: .92em;
+}
+code { overflow-wrap: anywhere; }
+:not(pre) > code {
+  padding: .08em .2em;
+  border-radius: .15em;
+  background: var(--press-tint);
+}
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: .8rem 1rem;
+  border: 1px solid var(--press-border);
+  background: var(--press-tint);
+  border-radius: .15rem;
+  line-height: 1.45;
+}
+pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
+
+/* Keep real table semantics; the focusable wrapper scrolls on narrow screens. */
+.press-scroll { max-width: 100%; overflow-x: auto; }
+.press-table-scroll { margin: 1.5rem 0; }
+/* Book-style horizontal rules provide structure without a boxed spreadsheet grid. */
+.press-table-scroll table {
+  border-collapse: collapse;
+  margin: 0;
+  width: max-content;
+  border-top: 2px solid var(--press-border);
+  border-bottom: 2px solid var(--press-border);
+}
+caption {
+  caption-side: top;
+  padding: 0 0 .4rem;
+  color: var(--press-muted);
+  text-align: start;
+  font-size: .9em;
+}
+th, td {
+  padding: .43rem .72rem;
+  border: 0;
+  border-bottom: 1px solid var(--press-border);
+  text-align: start;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+th { font-weight: 700; }
+thead th { border-bottom-width: 2px; }
+.press-math-scroll { margin: 1.2rem 0; }
+.press-math-scroll p { margin: 0; }
+.press-math-scroll math[display='block'] { width: max-content; min-width: 100%; }
+math[display='block'] { max-width: none; }
+
+img, svg { max-width: 100%; height: auto; }
+figure { margin: 1.8rem 0; }
+figure img { display: block; margin: 0 auto; }
+figcaption { margin-top: .45rem; color: var(--press-muted); font-size: .88em; }
+.footnotes {
+  margin-top: 2.5rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--press-border);
+  font-size: .88em;
+}
+.footnotes hr { display: none; }
+.footnotes li { padding-left: .15rem; }
+.footnote-back { margin-left: .3em; text-decoration: none; }
+.footnote-back:hover { text-decoration: underline; text-underline-offset: .12em; }
+li { margin: .25em 0; }
+li > p { margin-bottom: .5em; }
+input[type='checkbox'] { accent-color: var(--press-link); }
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font-size: .85rem;
+}
+
+/* Keep explicit, citable formal headings but give them a compact paper rhythm.
+   The heading level still conveys structure; never infer theorem-body italics or
+   numbering from the next paragraph, which need not be a complete statement. */
+.press-formal-heading {
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.2rem 0 .35rem;
+}
+h2.press-formal-heading { font-size: 1.2rem; }
+h3.press-formal-heading { font-size: 1.08rem; }
+h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
+  font-size: 1.02rem;
+}
+.press-formal-heading[data-press-kind='proof'] {
+  font-style: italic;
+  margin-top: .9rem;
+}
+/* Supporting evidence: restrained archival entries, not chat bubbles or an app UI. */
+.press-record-heading { margin-top: 3rem; }
+.press-record-intro { margin: .6rem 0 1.55rem; }
+.press-record-scope { margin-bottom: .8rem; }
+.press-record-provenance {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: .22rem .8rem;
+  margin: 0;
+  padding: .65rem 0;
+  border-top: 1px solid var(--press-border);
+  border-bottom: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+}
+.press-record-provenance dt { font-weight: 600; }
+.press-record-provenance dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.press-record-provenance code {
+  padding: 0;
+  background: transparent;
+  font-size: .96em;
+  overflow-wrap: anywhere;
+}
+.press-passage-heading {
+  margin: 1.25rem 0 .35rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--press-border);
+  font: 600 .94rem/1.4 system-ui, sans-serif;
+}
+.press-record-intro + .press-passage-heading {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: .8rem;
+}
+.press-passage-heading .press-permalink { font-size: .8rem; }
+.press-passage-datetime {
+  margin: -.3rem 0 .4rem;
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.press-supporting-passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .96em;
+  line-height: 1.55;
+}
+@media (max-width: 36rem) {
+  .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-record-provenance dd { margin-bottom: .35rem; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --press-paper: #181a1c;
+    --press-ink: #e4e4df;
+    --press-muted: #b5b9b9;
+    --press-link: #96c7ff;
+    --press-visited: #d5b6ed;
+    --press-border: #868b8e;
+    --press-tint: #25292c;
+    --press-focus: #a8d2ff;
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --press-paper: #fff;
+    --press-ink: #000;
+    --press-muted: #333;
+    --press-link: #164a7c;
+    --press-visited: #164a7c;
+    --press-border: #666;
+    --press-tint: #f5f5f5;
+  }
+  body { max-width: none; padding: 0; }
+  .press-status { position: static; }
+  .press-permalink { display: none; }
+  .press-scroll, pre { overflow: visible; }
+  .press-table-scroll table { width: 100%; }
+  th, td { white-space: normal; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  figure, blockquote, pre { break-inside: avoid; }
+  footer { break-before: auto; }
+}
+</style>
+<style>
+.preview-note { font: .85rem/1.5 system-ui,sans-serif; color: var(--press-muted); margin: .5rem 0; }
+</style></head><body>
+<header class="press-status">Press · Supporting evidence design study</header>
+<main><article class="press-edition"><h1>Supporting evidence</h1>
+<p class="preview-note">Illustrative record rendering only: not a publication, proof, or actual conversation. Timestamp values are synthetic; absent timestamps are omitted.</p>
+<p>Supporting record layout preview. The notebook and conversation below are synthetic examples.</p>
+<p><a href="#record-notebook">Jump to notebook</a></p>
+<p><a href="#record-exchange">Jump to exchange</a></p>
+<h2 class="press-record-heading" id="record-notebook">Supporting record — Notebook on the boundary case <a href="https://press.example.org/works/preview/v1.0.0/read#record-notebook" class="press-permalink" lang="en" aria-label="Permalink to section record-notebook">¶</a></h2>
+<div class="press-record-intro"><p class="press-record-scope">Selected notebook entries; an unrelated calculation was omitted between the two passages.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/notebook.json</code></dd><dt>SHA-256</dt><dd><code>ec91696f044bf8b0e18fabee1c7c854945949ac359804b549351f3e3d136f4cf</code></dd></dl></div>
+<h3 class="press-passage-heading" id="passage-8-notebook-conjecture">Passage 1 — Initial conjecture <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-conjecture" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-conjecture">¶</a></h3>
+<p class="press-passage-datetime"><time datetime="2026-11-04">4 Nov 2026</time></p>
+<div class="press-supporting-passage">I expected the inequality to be strict throughout the interval.
+
+The estimates looked uniform on the interior.</div>
+<h3 class="press-passage-heading" id="passage-8-notebook-endpoint">Passage 2 — Checking the endpoint <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-endpoint" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-endpoint">¶</a></h3>
+<p class="press-passage-datetime"><time datetime="2026-11-05T16:20:00-08:00">5 Nov 2026 · 16:20 UTC-08:00</time></p>
+<div class="press-supporting-passage">At x = 0 both sides vanish. I revised the statement to allow equality at the endpoint.
+
+This should be checked again after revising Lemma 2.</div>
+<h3 class="press-passage-heading" id="passage-8-notebook-undated">Passage 3 — Additional note <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-undated" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-undated">¶</a></h3>
+<div class="press-supporting-passage">A related observation survives in the margin, without a reliable date.</div>
+<h2 class="press-record-heading" id="record-exchange">Supporting record — Discussion of the endpoint <a href="https://press.example.org/works/preview/v1.0.0/read#record-exchange" class="press-permalink" lang="en" aria-label="Permalink to section record-exchange">¶</a></h2>
+<div class="press-record-intro"><p class="press-record-scope">Illustrative reviewed User and Assistant text along one selected branch. Omitted messages and attachments are not included. This synthetic sample is not evidence of a real conversation.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/exchange.json</code></dd><dt>SHA-256</dt><dd><code>93078cba73c1d75bcc41ac1e5495e20b0d8557bbf4efce53baa1f574ac09e117</code></dd></dl></div>
+<h3 class="press-passage-heading" id="passage-8-exchange-user-one">Passage 1 — User <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-user-one" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-user-one">¶</a></h3>
+<p class="press-passage-datetime"><time datetime="2026-11-05T14:37:00Z">5 Nov 2026 · 14:37 UTC</time></p>
+<div class="press-supporting-passage">Could the estimate be strict at every point of the interval?
+I am worried about the boundary case at x = 0.
+
+Here is the claim as currently drafted:
+**For all x in [0,1], the lower bound is strict.**</div>
+<h3 class="press-passage-heading" id="passage-8-exchange-assistant-one">Passage 2 — Assistant <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-assistant-one" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-assistant-one">¶</a></h3>
+<p class="press-passage-datetime"><time datetime="2026-11-05T14:37:09.125Z">5 Nov 2026 · 14:37:09.125 UTC</time></p>
+<div class="press-supporting-passage">At x = 0, both sides of the stated bound evaluate to zero. That means strict inequality fails at the endpoint.
+
+A safer formulation is:
+- strict inequality for 0 &lt; x &lt;= 1;
+- equality allowed at x = 0.
+
+These Markdown characters remain literal rather than rendered as HTML.</div>
+<h3 class="press-passage-heading" id="passage-8-exchange-user-two">Passage 3 — User <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-user-two" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-user-two">¶</a></h3>
+<div class="press-supporting-passage">Agreed. I will revise the proposition and retain this exchange as a supporting record. This last contribution has no timestamp.</div>
+</article></main>
+<footer>Press · Non-authoritative design study.</footer>
+</body></html>

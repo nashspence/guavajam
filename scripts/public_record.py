@@ -18,11 +18,68 @@ from verify_edition import verify_edition
 EDITION_RECORDS = Path("records/editions")
 WORK_RECORDS = Path("records/works")
 REGISTRATIONS = Path("registrations/editions")
-PAGE_STYLE = (
-    "<style>body{max-width:48rem;margin:2rem auto;padding:0 1rem;color:#222;background:white;"
-    "font:1.125rem/1.5 Georgia,serif;overflow-wrap:anywhere}dt{font-weight:bold}dd{margin:0 0 .6rem}"
-    "a{color:#12436b}</style>"
-)
+# This standalone stylesheet mirrors edition-v1's reading palette deliberately.
+# Work/edition records are regenerated from approved source and reviewed as
+# exact bytes; they must not fetch CSS or inherit deployment styling.
+PAGE_STYLE = """<style>
+:root {
+  color-scheme: light dark;
+  --press-paper: #faf9f6;
+  --press-ink: #222;
+  --press-muted: #555d63;
+  --press-link: #235b9d;
+  --press-visited: #654d84;
+  --press-border: #888;
+  --press-tint: #f0eee9;
+  --press-focus: #235b9d;
+  font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--press-paper); }
+body {
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+  background: var(--press-paper);
+  color: var(--press-ink);
+  overflow-wrap: break-word;
+}
+h1, h2 { line-height: 1.25; text-wrap: balance; }
+h1 { font-size: clamp(1.65rem, 4vw, 2.2rem); margin: 1.5rem 0 1rem; }
+h2 { font-size: 1.35rem; margin: 2rem 0 .7rem; }
+p { margin: 0 0 1.1em; }
+a { color: var(--press-link); text-underline-offset: .12em; }
+a:visited { color: var(--press-visited); }
+a:focus-visible { outline: 3px solid var(--press-focus); outline-offset: 3px; }
+li { margin: .4em 0; }
+dt { font-weight: bold; margin-top: .7rem; }
+dd { margin: 0 0 .6rem; overflow-wrap: anywhere; }
+code { font: .92em/1.45 ui-monospace, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --press-paper: #181a1c;
+    --press-ink: #e4e4df;
+    --press-muted: #b5b9b9;
+    --press-link: #96c7ff;
+    --press-visited: #d5b6ed;
+    --press-border: #868b8e;
+    --press-tint: #25292c;
+    --press-focus: #a8d2ff;
+  }
+}
+@media print {
+  :root {
+    color-scheme: light;
+    --press-paper: #fff;
+    --press-ink: #000;
+    --press-muted: #333;
+    --press-link: #164a7c;
+    --press-visited: #164a7c;
+  }
+  body { max-width: none; padding: 0; }
+}
+</style>"""
 
 
 def doi_link(doi):

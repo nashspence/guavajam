@@ -3,9 +3,12 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import zipfile
+from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 
 from supporting_records import MAX_RECORD_BYTES, validate_record
@@ -51,6 +54,31 @@ def branch_messages(conversation, tip):
     return reversed(messages)
 
 
+def export_timestamp(value):
+    """Copy an export's numeric message creation time to canonical UTC.
+
+    Preserve the source's fractional seconds (up to nanoseconds), rather than
+    inventing precision or mistaking update_time for message creation time.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("invalid message create_time")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("invalid message create_time")
+    source = Decimal(str(value))
+    if source < 0 or source.as_tuple().exponent < -9:
+        raise ValueError("invalid message create_time precision")
+    whole = int(source)
+    try:
+        utc = datetime.fromtimestamp(whole, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ValueError("message create_time out of range") from exc
+    text = utc.strftime("%Y-%m-%dT%H:%M:%S")
+    frac = source - whole
+    if frac:
+        text += format(frac, "f")[1:].rstrip("0")
+    return text + "Z"
+
+
 def transcript(conversation, tip):
     title = conversation.get("title") or "Untitled conversation"
     if not isinstance(title, str):
@@ -83,7 +111,10 @@ def transcript(conversation, tip):
             anchor = "m-" + key
         else:
             anchor = "m-" + hashlib.sha256(key.encode()).hexdigest()
-        passages.append({"id": anchor, "label": role.title(), "text": text})
+        passage = {"id": anchor, "label": role.title(), "text": text}
+        if msg.get("create_time") is not None:
+            passage["timestamp"] = export_timestamp(msg["create_time"])
+        passages.append(passage)
     if not passages:
         raise ValueError("no eligible messages on the selected branch")
     return {
