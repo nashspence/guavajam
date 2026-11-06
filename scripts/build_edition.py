@@ -24,7 +24,8 @@ from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_a
 from editorial_notices import render_initial_body
 from identifier_schema import TAG, edition_record_url
 from supporting_records import append_supporting_records
-from validate_sources import parse_document, plain_text, validate_repository, walk
+from validate_sources import parse_document, plain_text, validate_front_matter, validate_repository, walk
+from bibliography import ordered_authors
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -148,9 +149,10 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
                 check_html_size(embedded_size)
                 raw = local.read_bytes()
                 node["c"][2][0] = "data:" + MIME[extension] + ";base64," + base64.b64encode(raw).decode("ascii")
-        citation = {key: plain_text(ast["meta"][key]) for key in ("title", "author", "language")}
-        if "author_orcid" in ast["meta"]:
-            citation["author_orcid"] = plain_text(ast["meta"]["author_orcid"])
+        facts, _, _, _ = validate_front_matter(manuscript, (root / manuscript).read_text(encoding="utf-8"))
+        citation = {key: facts[key] for key in ("title", "author", "author_orcid", "authors", "language",
+                                               "abstract", "schema_type") if key in facts}
+        authors = ordered_authors(citation)
         work_ids = {key: plain_text(node) for key, node in
                     ast["meta"].get("identifiers", {}).get("c", {}).items()}
         registration = Path("registrations/works") / (slug + ".json")
@@ -159,8 +161,17 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             work_ids.update(json.loads((root / registration).read_bytes())["identifiers"])
         if work_ids:
             citation["work_identifiers"] = work_ids
-        for key in ("author", "title", "language"):
+        for key in ("title", "language"):
             embedded["meta"][key] = {"t": "MetaString", "c": citation[key]}
+        embedded["meta"]["author"] = ({"t": "MetaList", "c": [
+            {"t": "MetaString", "c": author["name"]} for author in authors]} if "authors" in citation
+            else {"t": "MetaString", "c": citation["author"]})
+        if "authors" in citation or "author_orcid" in citation:
+            embedded["meta"]["press_authors"] = {"t": "MetaList", "c": [
+                {"t": "MetaMap", "c": {key: {"t": "MetaString", "c": value} for key, value in author.items()}}
+                for author in authors]}
+        if "abstract" in citation:
+            embedded["meta"]["abstract"] = {"t": "MetaString", "c": citation["abstract"]}
         embedded["meta"]["pagetitle"] = embedded["meta"]["title"]
         embedded["meta"]["lang"] = embedded["meta"]["language"]
         embedded["meta"]["edition"] = {"t": "MetaString", "c": version}
@@ -180,7 +191,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
                      "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/table_captions.py",
-                     "scripts/validate_sources.py", "scripts/verify_edition.py"]:
+                     "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
                 raise AssetError("publisher builder files must match the recorded builder commit: " + path)
