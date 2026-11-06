@@ -18,9 +18,9 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from editorial_notices import check_initial_notes, check_rights_statement
-from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
+from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
-from render_profile import TEMPLATE_PATH, plain_text, prepare_presentation_ast, walk
+from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
 from supporting_records import append_supporting_records, load_record, record_path
 from table_captions import normalize_table_captions
 
@@ -33,7 +33,6 @@ FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
 META_REQUIRED = {"schema", "slug", "title", "author", "language", "rights", "status"}
 META_OPTIONAL = {"author_orcid", "identifiers"}
-LANGUAGE = re.compile(r"[a-z]{2,3}(?:-[A-Z]{2})?\Z")
 
 
 def issue(path: Path, message: str, line: int | None = None) -> str:
@@ -302,7 +301,7 @@ def render_html(ast: dict, relative: Path, expected_math: int, manuscript: bool)
     if result.returncode:
         return set(), [issue(relative, "Pandoc HTML5/MathML render failed or warned: " + result.stderr.strip())]
     parser = HtmlCheck()
-    parser.feed(result.stdout)
+    parser.feed(prepare_code_focus(result.stdout) if manuscript else result.stdout)
     errors = []
     if manuscript and parser.h1 != 1:
         errors.append(issue(relative, f"rendered HTML must contain exactly one H1, found {parser.h1}"))

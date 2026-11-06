@@ -29,7 +29,7 @@ from validate_sources import parse_document, plain_text, validate_repository, wa
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
 from render_profile import (PROFILE, STYLESHEET_PATH, TEMPLATE_PATH,
-                            canonical_template, prepare_presentation_ast)
+                            canonical_template, prepare_code_focus, prepare_presentation_ast)
 
 
 
@@ -192,7 +192,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         ], input=json.dumps(embedded), text=True, capture_output=True, cwd=build)
         if result.returncode:
             raise AssetError("edition HTML rendering failed: " + result.stderr.strip())
-        raw_html = result.stdout.encode("utf-8")
+        raw_html = prepare_code_focus(result.stdout).encode("utf-8")
         check_html_size(len(raw_html))
         filename = slug + "-" + version + ".html"
         manifest = {

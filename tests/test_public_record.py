@@ -59,10 +59,11 @@ class PublicRecordTests(unittest.TestCase):
             write_records(self.root, self.tag, package=self.package)
             verify.assert_called_once_with(self.package, tag=self.tag, commit="a" * 40)
 
-    def issue_version(self, version):
+    def issue_version(self, version, **fields):
         tag = "works/essay/" + version
         manifest = dict(self.manifest, tag=tag, title="Revised essay", canonical_artifact=f"essay-{version}.html",
                         record_url="https://press.example.org/" + tag)
+        manifest.update(fields)
         manifest["initial_release_body"] = render_initial_body(manifest)
         (self.package / "provenance.json").write_text(json.dumps(manifest))
         receipt = {**authorization(self.package, manifest), "issuing": True, "published_at": self.timestamp}
@@ -88,6 +89,45 @@ class PublicRecordTests(unittest.TestCase):
             self.assertIn(f'href="{href}"', html)
             for base in (self.url, "https://backup.example.org/archive/" + self.tag):
                 self.assertEqual(urljoin(base, href), base + "/" + name)
+
+    def test_reviewed_title_language_is_local_to_visible_title_parts(self):
+        title = 'Échelle < 2 & changements "révisés"'
+        escaped = 'Échelle &lt; 2 &amp; changements &quot;révisés&quot;'
+        manifest = dict(self.manifest, title=title, language="fr-CA")
+        page = record_html(manifest, published_at=self.timestamp, identifiers={}, notices=[]).decode()
+        authored = '<span lang="fr-CA">' + escaped + '</span>'
+        self.assertIn('<html lang="en">', page)
+        self.assertIn('<h1>' + authored + '</h1>', page)
+        self.assertIn('<cite>' + authored + '</cite>. v1.0.0. Press, 2026-11-04.', page)
+        self.assertIn('<dt>Work</dt><dd>' + authored + '</dd>', page)
+        self.assertIn('<p>Press · Edition record</p>', page)
+        self.assertIn('<a href="' + self.url + '">' + self.url + '</a>', page)
+        self.assertEqual(page.count('lang="fr-CA"'), 3)
+        english = record_html(self.manifest, published_at=self.timestamp, identifiers={}, notices=[]).decode()
+        self.assertIn('<h1>Scale &lt; 2 &amp; change</h1>', english)
+        self.assertNotIn('<span lang=', english)
+        legacy = dict(self.manifest); del legacy["language"]
+        self.assertNotIn('<span lang=', record_html(legacy, published_at=self.timestamp, identifiers={}, notices=[]).decode())
+
+    def test_public_title_language_rejects_invalid_attributes(self):
+        for language in ('fr-CA" onclick="bad', '<script>', '', 'fr_CA', None, 1, []):
+            with self.subTest(language=language), self.assertRaisesRegex(AssetError, 'reviewed manuscript language'):
+                record_html(dict(self.manifest, language=language), published_at=self.timestamp, identifiers={}, notices=[])
+
+    def test_work_listing_uses_each_editions_own_title_language(self):
+        self.generate()
+        self.issue_version('v2.0.0', title='Méthode < 2 & suite', language='fr-CA')
+        self.git('add', 'records'); check_records(self.root)
+        landing = (self.root / 'records/works/essay/index.html').read_text()
+        self.assertIn('<html lang="en">', landing)
+        self.assertIn('<a href="essay/v2.0.0"><span lang="fr-CA">Méthode &lt; 2 &amp; suite</span> — v2.0.0</a>', landing)
+        self.assertIn('<a href="essay/v1.0.0">Scale &lt; 2 &amp; change — v1.0.0</a>', landing)
+        self.assertEqual(landing.count('lang="fr-CA"'), 1)
+        french = (self.root / 'records/editions/essay/v2.0.0/index.html').read_text()
+        self.assertIn('<h1><span lang="fr-CA">Méthode &lt; 2 &amp; suite</span></h1>', french)
+        self.assertIn('<html lang="en">', french)
+        self.assertIn('href="v2.0.0/read"', french)
+        self.assertIn('<h1>Scale &lt; 2 &amp; change</h1>', self.page.read_text())
 
     def test_citation_follows_the_current_edition_doi_and_keeps_its_address(self):
         for identifiers in ({"version_doi": "10.1234/essay.v1"}, {}):

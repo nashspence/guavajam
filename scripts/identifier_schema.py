@@ -27,6 +27,7 @@ REGISTRY_SCHEMAS = {
     "series": "press.series.v1",
 }
 RIGHTS = frozenset({"all-rights-reserved", "CC-BY-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-4.0", "CC0-1.0"})
+LANGUAGE = re.compile(r"[a-z]{2,3}(?:-[A-Z]{2})?\Z")
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 VERSION = re.compile(r"v(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}")
 TAG = re.compile(rf"works/({SLUG.pattern})/({VERSION.pattern})")

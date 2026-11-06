@@ -178,13 +178,25 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
             for node in walk(block)
         ))
         if kind == "Table" or display_math:
-            label = "Scrollable table" if kind == "Table" else "Scrollable equation"
             cls = "press-table-scroll" if kind == "Table" else "press-math-scroll"
             wrapped.append({"t": "Div", "c": [
-                ["", ["press-scroll", cls], [["role", "region"],
-                    ["aria-label", label], ["tabindex", "0"]]], [block],
+                ["", ["press-scroll", cls], [["tabindex", "0"]]], [block],
             ]})
         else:
             wrapped.append(block)
     ast["blocks"] = wrapped
     return ast
+
+
+def prepare_code_focus(rendered: str) -> str:
+    """Attach focus to native pre tags after pinned Pandoc syntax highlighting.
+
+    Pandoc puts CodeBlock attributes on a surrounding div when highlighting,
+    so an AST tabindex would focus the wrong box. Source HTML remains forbidden.
+    """
+    def focus(match):
+        tag = match[0]
+        if re.search(r"\btabindex\s*=", tag):
+            raise AssetError("unexpected native pre focus attribute from the pinned writer")
+        return tag[:-1] + ' tabindex="0">'
+    return re.sub(r"<pre(?:\s[^<>]*?)?>", focus, rendered)
