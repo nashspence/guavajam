@@ -14,7 +14,7 @@ from urllib.parse import unquote
 
 from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
 from editorial_notices import check_initial_notes, check_rights_statement, reviewed_initial_body
-from identifier_schema import WORK_IDS, check_identifier_map, identifier_error, valid_record_url, valid_utc
+from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 from bibliography import author_text, check_optional_bibliography, ordered_authors
@@ -42,6 +42,8 @@ class EditionHTML(html.parser.HTMLParser):
         self.authors = []
         self.descriptions = []
         self.authorship = None
+        self.citation = None
+        self.in_citation = False
         self.in_authorship = False
         self.orcid_links = []
         self.permalinks = []
@@ -60,6 +62,11 @@ class EditionHTML(html.parser.HTMLParser):
             self.errors.append("edition rights must contain only plain text")
         if tag == "footer":
             self.in_footer = True
+        if attributes.get("data-press-field") == "citation":
+            if self.citation is not None or tag != "p" or not self.in_footer:
+                self.errors.append("edition citation requires one paragraph in the footer")
+            self.in_citation = True
+            self.citation = []
         if attributes.get("data-press-field") == "authors":
             if self.authorship is not None or tag != "p" or not self.in_footer:
                 self.errors.append("edition authorship requires one paragraph in the footer")
@@ -171,12 +178,15 @@ class EditionHTML(html.parser.HTMLParser):
             self.in_footer = False
         if tag == "p":
             self.in_authorship = False
+            self.in_citation = False
         if self.in_rights:
             if tag != "span":
                 self.errors.append("edition rights span is not properly closed")
             self.in_rights = False
 
     def handle_data(self, data):
+        if self.in_citation:
+            self.citation.append(data)
         if self.in_authorship:
             self.authorship.append(data)
         if self.in_rights:
@@ -259,6 +269,9 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
             if (parser.authorship is None or collapse("".join(parser.authorship)) != collapse(text)
                     or parser.orcid_links != ["https://orcid.org/" + a["orcid"] for a in authors if "orcid" in a]):
                 raise AssetError("edition author–ORCID associations differ from provenance")
+            if "authors" in manifest and (parser.citation is None or not collapse("".join(parser.citation)).startswith(
+                    collapse("Cite this edition as " + author_text(authors) + ".") + " ")):
+                raise AssetError("edition citation attribution differs from provenance")
         if parser.descriptions != ([manifest["abstract"]] if "abstract" in manifest else []):
             raise AssetError("edition abstract differs from provenance")
         if "work_identifiers" in manifest:

@@ -11,9 +11,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import AssetError
 from bibliography import MAX_ABSTRACT_BYTES, MAX_AUTHORS
-from build_edition import build_edition
 from preview_site import assemble_preview
-from public_record import check_records, record_html, work_html, write_records
+from public_record import record_html, work_html, write_records
 from test_assets import EditionTests
 from test_public_record import PublicRecordTests
 from test_render_contract import RenderContractTests
@@ -126,7 +125,7 @@ class EditionBibliographyTests(RenderContractTests):
         return facts
 
     def test_copied_starter_builds_reviewed_ordered_authorship_and_literal_abstract(self):
-        facts = self.reviewed_facts()
+        self.reviewed_facts()
         # The preview and edition must use the committed facts, including literal markup.
         (self.repo / "works/sample-work/manuscript.md").write_text("Unreviewed replacement")
         manifest = self.build()
@@ -138,7 +137,7 @@ class EditionBibliographyTests(RenderContractTests):
         self.assertEqual([a["name"] for a in AUTHORS], parser.authors)
         self.assertEqual([ABSTRACT], parser.descriptions)
         self.assertIn("Zoë <Z>", "".join(parser.authorship))
-        self.assertIn("李 *literal*", "".join(parser.authorship))
+        self.assertIn("李 *literal*", " ".join("".join(parser.authorship).split()))
         self.assertEqual(["https://orcid.org/" + a["orcid"] for a in AUTHORS if "orcid" in a], parser.orcid_links)
         self.assertEqual(0, Metadata(self.page().read_bytes()).scripts)
         self.assertNotIn("DCTERMS.issued", self.page().read_text())
@@ -164,6 +163,7 @@ class EditionBibliographyTests(RenderContractTests):
         self.reviewed_facts(); manifest = self.build(); raw = self.page().read_bytes()
         for html in (raw.replace(b'content="Ada"', b'content="Other"', 1),
                      raw.replace(b'Authors: Zo', b'Authors: No', 1),
+                     raw.replace(b'Cite this edition as Zo', b'Cite this edition as No', 1),
                      raw.replace(b'https://orcid.org/0000-0002-1825-0097', b'https://orcid.org/0000-0001-5109-3700', 1),
                      raw.replace(b'A literal *claim*', b'A changed *claim*', 1)):
             with self.subTest(html=html[:20]):

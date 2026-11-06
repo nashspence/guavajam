@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from editorial_notices import check_initial_notes, check_rights_statement
-from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, identifier_error, validate_registrations
+from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
 from supporting_records import append_supporting_records, load_record, record_path
