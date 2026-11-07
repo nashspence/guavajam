@@ -150,7 +150,7 @@ class SourceBudgetTests(unittest.TestCase):
         (root / path).write_text(f"![Local](assets/figure.svg)\n![Remote]({URL})\n![Local again](assets/figure.svg)\n")
         fetcher = Mock(return_value=(SVG, "image/svg+xml"))
         with patch("verify_source_assets.git_sources", return_value=[path, local]):
-        with patch("verify_source_assets.MAX_ASSETS", 1), self.assertRaisesRegex(AssetError, "distinct asset"):
+            with patch("verify_source_assets.MAX_ASSETS", 1), self.assertRaisesRegex(AssetError, "distinct asset"):
                 verify_source_assets(root, fetcher=fetcher)
             with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG)), self.assertRaisesRegex(AssetError, "total image bytes?"):
                 verify_source_assets(root, fetcher=fetcher)
