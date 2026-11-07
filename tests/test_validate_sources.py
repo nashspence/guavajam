@@ -62,7 +62,10 @@ class StrictSourceTests(unittest.TestCase):
         (self.root / source.parent).mkdir(parents=True)
         (self.root / source).write_bytes((repository / "templates/work/manuscript.md").read_bytes())
         (self.root / "asset-policy.json").write_bytes((repository / "asset-policy.json").read_bytes())
-        self.assertEqual([], validate_repository(self.root, [source]))
+        import shutil
+        shutil.copytree(repository/'templates/work/supporting',self.root/source.parent/'supporting')
+        supporting = [p.relative_to(self.root) for p in (self.root/source.parent/'supporting').iterdir()]
+        self.assertEqual([], validate_repository(self.root, [source,*supporting]))
 
         ast, errors = parse_document(self.root / source, source)
         self.assertEqual([], errors)

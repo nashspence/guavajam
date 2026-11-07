@@ -107,7 +107,7 @@ def audit(root, repo, *, archive_base=None):
             if errors:
                 raise AssetError("\n".join(errors))
             for node in walk(ast["blocks"]):
-                if node.get("t") == "Image" and node["c"][2][0].startswith(policy.origin + "/"):
+                if node.get("t") in {'Image','Link'} and policy.manages(node['c'][2][0]):
                     url = node["c"][2][0]
                     policy.parse(url)
                     urls.add(url)

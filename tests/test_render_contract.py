@@ -209,7 +209,7 @@ class RenderContractTests(EditionTests):
             def handle_data(self, text):
                 if self.in_pre: self.text.append(text)
         parser = NativeCode(); parser.feed(self.page().read_text())
-        self.assertEqual(len(parser.pres), 2)
+        self.assertEqual(len(parser.pres), 3)
         self.assertTrue(all(p.get("tabindex") == "0" and p.get("role") == "group" and p.get("aria-label") == "Code block" for p in parser.pres))
         self.assertTrue(parser.wrappers)
         self.assertTrue(all("tabindex" not in d for d in parser.wrappers))

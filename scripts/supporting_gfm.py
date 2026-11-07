@@ -25,10 +25,12 @@ def anchor_block(block):
     return match[1] if match else None
 
 
-def load_gfm_record(path: Path):
+def load_gfm_record(path: Path, *, root=None):
     # Lazy imports keep the shared source validator and appendix builder acyclic.
     from supporting_records import MAX_RECORD_BYTES
     from validate_sources import read_text, parse_pandoc, valid_edition_link
+    from asset_policy import load_policy
+    policy = load_policy(root) if root is not None else None
     if not path.is_file() or path.resolve() != path.absolute() or path.stat().st_size > MAX_RECORD_BYTES:
         raise AssetError('supporting GFM requires a regular file of at most 8 MiB')
     source, errors = read_text(path, Path(path.name))
@@ -64,6 +66,12 @@ def load_gfm_record(path: Path):
     if set(anchors) & {h['c'][1][0] for h in headers}:
         raise AssetError('explicit supporting anchors collide with automatic heading IDs')
     for node in walk(blocks):
+        if node.get('t') in {'Link','Image'}:
+            target = node['c'][2][0]
+            if policy and policy.manages(target):
+                (policy.parse_image if node['t']=='Image' else policy.parse)(target)
+            if node['t']=='Image' and (policy is None or not policy.manages(target)):
+                raise AssetError('supporting images require the approved HTTPS asset origin')
         if node.get('t') == 'Link':
             target = node['c'][2][0]
             if target.startswith('#'):
@@ -80,7 +88,7 @@ def load_gfm_record(path: Path):
 
 def append_gfm(root, relative, slug):
     from supporting_records import _heading, _provenance
-    ast, positions, digest, size = load_gfm_record(root / relative)
+    ast, positions, digest, size = load_gfm_record(root / relative, root=root)
     record_id = f'record-md-{len(slug)}-{slug}'
     anchors = {key: record_id if index == 0 else f'support-md-{len(slug)}-{slug}-{key}'
                for key, index in positions.items()}

@@ -609,7 +609,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             try:
                 if rel.suffix == '.md':
                     from supporting_gfm import load_gfm_record
-                    load_gfm_record(root / rel)
+                    load_gfm_record(root / rel, root=root)
                 else:
                     load_record(root / rel)
             except (OSError, ValueError) as exc:
@@ -739,11 +739,17 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             target = data[2][0]
             if kind == "Image" and not plain_text(data[1]).strip():
                 errors.append(issue(rel, "image alt text required"))
+            if asset_policy and asset_policy.manages(target):
+                try:
+                    (asset_policy.parse_image if kind == 'Image' else asset_policy.parse)(target)
+                except AssetError as exc:
+                    errors.append(issue(rel,str(exc)))
+                continue
             if kind == "Image" and manuscript and (":" in target or target.startswith("//")):
                 try:
                     if asset_policy is None:
                         raise AssetError("unsupported/external URI: no approved asset origin configured")
-                    asset_policy.parse(target)
+                    asset_policy.parse_image(target)
                 except AssetError as exc:
                     errors.append(issue(rel, str(exc)))
                 continue

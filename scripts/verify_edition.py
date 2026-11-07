@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
-from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
+from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_BYTES, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
 from editorial_notices import check_initial_notes, check_rights_statement, reviewed_initial_body
 from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
@@ -48,6 +48,7 @@ class EditionHTML(html.parser.HTMLParser):
         self.orcid_links = []
         self.permalinks = []
         self.passage_permalinks = []
+        self.external_links = []
         self.supporting_sources = []
         self.current_heading = None
         self.in_footer = False
@@ -126,6 +127,7 @@ class EditionHTML(html.parser.HTMLParser):
             self.ids.add(identifier)
         if tag == "a" and "href" in attributes:
             target = attributes["href"] or ""
+            self.external_links.append(target)
             if identifier == "press-edition-record":
                 self.record_links.append(target)
             if identifier == "press-edition-read":
@@ -334,8 +336,24 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         raise AssetError("invalid edition asset inventory")
     total = 0
     digests = set()
+    downloads = set()
     policy = AssetPolicy(manifest["asset_origin"]) if manifest.get("asset_origin") else None
     for record in records:
+        if record.get('role') == 'download':
+            if policy is None or record.get('source_kind') != 'https':
+                raise AssetError('download requires an approved HTTPS asset source')
+            url = record['source_url']
+            digest, extension = policy.parse(url)
+            if (record.get('destination') != url or record.get('sha256') != digest
+                    or record.get('media_type') != MIME.get(extension,'application/octet-stream')
+                    or type(record.get('byte_count')) is not int or not 0 <= record['byte_count'] <= MAX_BYTES
+                    or url not in parser.external_links or url in downloads):
+                raise AssetError('external download destination or identity differs from provenance')
+            downloads.add(url)
+            total += record['byte_count']
+            continue
+        if 'role' in record:
+            raise AssetError('unsupported asset role')
         destination = record["destination"]
         match = re.fullmatch(r"verified/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg)", destination)
         if not match or record["sha256"] != match[1]:
@@ -360,6 +378,9 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         total += len(data)
     if total > MAX_TOTAL_BYTES or set(parser.images) != digests:
         raise AssetError("HTML asset inventory differs from provenance or exceeds size limit")
+    managed_links = {url for url in parser.external_links if policy and policy.manages(url)}
+    if managed_links != downloads:
+        raise AssetError('HTML download inventory differs from provenance')
     return manifest
 
 

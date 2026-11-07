@@ -16,8 +16,10 @@ def prepare_image(image):
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
             raise AssetError("image must be a regular file, not a symlink or device")
         raw = stream.read(MAX_BYTES + 1)
-    extension = image.suffix[1:]
-    media_type = verify_bytes(raw, extension, MIME.get(extension, ""))
+    extension = image.suffix[1:].lower()
+    # A claimed inline-image extension must validate; never fall back on failure.
+    extension = extension if extension in MIME else 'bin'
+    media_type = verify_bytes(raw, extension, MIME.get(extension, 'application/octet-stream'))
     key = f"sha256/{hashlib.sha256(raw).hexdigest()}.{extension}"
     return raw, key, media_type
 

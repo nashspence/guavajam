@@ -52,3 +52,28 @@ test('redirects, missing objects and upstream errors fail closed without caching
     assert.equal((await worker.fetch(new Request('https://assets.publisher.test' + path), env)).status, 502);
   } finally { globalThis.fetch = original; }
 });
+
+test('opaque content is always a bounded attachment regardless of upstream MIME', async () => {
+  const original = globalThis.fetch;
+  const bin = path.replace('.svg','.bin');
+  try {
+    for (const type of ['text/html','application/pdf','application/x-unfamiliar','image/svg+xml']) {
+      globalThis.fetch = async () => new Response('<script>active()</script>', {headers:{'Content-Type':type}});
+      const response = await worker.fetch(new Request('https://assets.publisher.test'+bin),env);
+      assert.equal(response.headers.get('Content-Type'),'application/octet-stream');
+      assert.equal(response.headers.get('Content-Disposition'),'attachment; filename="'+'a'.repeat(64)+'.bin"');
+      assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
+      assert.match(response.headers.get('Content-Security-Policy'),/sandbox/);
+      assert.equal(await response.text(),'<script>active()</script>');
+    }
+    globalThis.fetch = async () => new Response('x',{headers:{'Content-Length':String(10*1024*1024+1)}});
+    assert.equal((await worker.fetch(new Request('https://assets.publisher.test'+bin),env)).status,502);
+    globalThis.fetch = async () => new Response(new Uint8Array(10*1024*1024+1));
+    const tooLarge = await worker.fetch(new Request('https://assets.publisher.test'+bin),env);
+    await assert.rejects(tooLarge.arrayBuffer());
+    globalThis.fetch = async () => new Response('active',{headers:{'Content-Type':'text/html'}});
+    assert.equal((await worker.fetch(new Request('https://assets.publisher.test'+path),env)).status,502);
+    const head = await worker.fetch(new Request('https://assets.publisher.test'+bin,{method:'HEAD'}),env);
+    assert.equal(head.status,200);assert.equal(await head.text(),'');
+  } finally { globalThis.fetch = original; }
+});
