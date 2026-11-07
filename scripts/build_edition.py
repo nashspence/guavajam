@@ -26,7 +26,7 @@ from identifier_schema import TAG, edition_record_url
 from supporting_records import append_supporting_records
 from validate_sources import parse_document, plain_text, validate_front_matter, validate_repository, walk
 from bibliography import ordered_authors
-from edition_package import create_bundle, package_names
+from edition_package import stage_supplements, checksums, write_bundle
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -256,15 +256,15 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         packaged = temp / "packaged"
         packaged.mkdir()
         (packaged / filename).write_bytes(raw_html)
-        bundle=create_bundle(packaged,raw_html,manifest,build/'supplements')
-        if bundle:
-            manifest['supplementary_package']=bundle
+        supplements=stage_supplements(raw_html,manifest,build/'supplements')
+        if supplements:
             manifest['initial_release_body']=render_initial_body(manifest,prose)
         (packaged / "provenance.json").write_text(
             json.dumps(manifest, sort_keys=True, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        sums = "".join(hashlib.sha256((packaged / name).read_bytes()).hexdigest() + "  " + name + "\n"
-                       for name in package_names(manifest) if name!='SHA256SUMS')
-        (packaged / "SHA256SUMS").write_text(sums, encoding="ascii")
+        content={filename:raw_html,'provenance.json':(packaged/'provenance.json').read_bytes(),**supplements}
+        content['SHA256SUMS']=checksums(manifest,content)
+        (packaged/'SHA256SUMS').write_bytes(content['SHA256SUMS'])
+        if supplements:write_bundle(packaged,manifest,content)
         from verify_edition import verify_edition
         verify_edition(packaged, commit=commit, tag=tag)
         output.parent.mkdir(parents=True, exist_ok=True)

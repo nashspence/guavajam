@@ -147,8 +147,8 @@ def release_inventory(release, tag, manifest, names, *, draft, notices=(), ident
     bundle=manifest.get('supplementary_package')
     if bundle and bundle['filename'] in uploaded:
         asset=next(a for a in release['assets'] if a['name']==bundle['filename'])
-        if asset.get('size')!=bundle['byte_count']:
-            raise AssetError('supplementary release attachment size differs from reviewed package')
+        from edition_package import check_bundle_size
+        check_bundle_size(manifest,asset.get('size'))
     return uploaded
 
 

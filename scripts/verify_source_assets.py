@@ -14,6 +14,7 @@ from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, base64_size, 
                           load_policy, verify_bytes)
 from validate_sources import git_sources, local_asset_size, parse_document, walk
 from identifier_schema import SLUG, VERSION, valid_utc
+from edition_package import download_attribute_size
 
 
 def notice_base(root, event_base):
@@ -81,14 +82,14 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
             from supporting_records import append_supporting_records
             append_supporting_records(ast, root, path, tracked)
         images = Counter(node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Image')
-        downloads = {node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Link'
-                     and policy and policy.manages(node['c'][2][0])}
+        downloads = Counter(node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Link'
+                            and policy and policy.manages(node['c'][2][0]))
         if not manuscript:
             images = {url:count for url,count in images.items() if policy and policy.manages(url)}
         if len(images) + len(downloads) > MAX_ASSETS:
             raise AssetError(f"{path} exceeds the distinct asset limit")
         total = embedded = 0
-        for target in images.keys() | downloads:
+        for target in images.keys() | downloads.keys():
             if ":" in target or target.startswith("//"):
                 if policy is None:
                     raise AssetError("no approved asset origin configured")
@@ -111,9 +112,14 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
             total += size * ((1 if target in images else 0) + (1 if target in downloads else 0))
             if total > MAX_TOTAL_BYTES:
                 raise AssetError(f"{path} exceeds the total image byte limit")
-            if manuscript and target in images:
-                embedded += images[target] * base64_size(size)
-                check_html_size(embedded)
+            if manuscript:
+                if target in images:embedded+=images[target]*base64_size(size)
+                if target in downloads:
+                    digest,extension=policy.parse(target)
+                    embedded+=downloads[target]*download_attribute_size(size,'sha256/'+digest+'.'+extension)
+                try:check_html_size(embedded)
+                except AssetError as exc:
+                    raise AssetError(f'{path}: offline HTML asset references exceed the rendered-output byte limit') from exc
     return len(remote_sizes)
 
 
