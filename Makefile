@@ -27,7 +27,7 @@ test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test*worker.mjs
 
-test-browser: ## Check exact, inert offline downloads in Chromium, Firefox and WebKit. First run npm ci --ignore-scripts and npx playwright install --with-deps chromium firefox webkit.
+test-browser: ## Check exact, inert offline downloads in Chromium, Firefox and WebKit. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
 	@$(PYTHON) tests/run_offline_browser.py
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.

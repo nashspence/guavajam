@@ -99,7 +99,7 @@ class OfflinePackageTests(DownloadPublicationTests):
 
 class OfflineHistoryTests(unittest.TestCase):
     def test_archived_three_file_and_supplemental_v1_fixtures_keep_verifying(self):
-        for name in ('archived-v1','supplemental-v1'):
+        for name in ('archived-v1','supplemental-v1','supplemental-v2'):
             with self.subTest(name=name),patch('socket.create_connection',side_effect=AssertionError('offline')):
                 manifest=verify_edition(ROOT/'tests/fixtures'/name)
                 with patch('edition_package.CURRENT_FORMAT','press.offline.v3'):
