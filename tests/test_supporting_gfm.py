@@ -68,7 +68,7 @@ class GFMImportTests(ExtractTests):
             p=Path(tmp)/'review.md';p.write_bytes(draft)
             _,anchors,_,_=load_gfm_record(p)
             changed=copy.deepcopy(record)
-            changed['passages'][-1]['text']='An inserted paragraph.\n\n'+text
+            changed['passages'][-1]['text']='An inserted paragraph.\n\n'+record['passages'][-1]['text']
             p.write_bytes(review_gfm(changed)[0])
             _,later,_,_=load_gfm_record(p)
             self.assertLessEqual(set(anchors),set(later))
