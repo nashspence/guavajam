@@ -52,7 +52,7 @@ def review_gfm(record):
             return {'t':'Str','c':text}
         return {key:clean(item) for key,item in value.items()}
     def anchor(identifier):
-        return {'t':'RawBlock','c':['html',f'<a name="{identifier}"></a>']}
+        return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"></a>\n']}
     def header(level,text):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
@@ -83,7 +83,7 @@ def review_gfm(record):
             identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
             blocks.extend([anchor(identifier),block])
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
-        '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
+        '--to=gfm+tex_math_dollars-tex_math_gfm','--wrap=none'],input=json.dumps({
             'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')

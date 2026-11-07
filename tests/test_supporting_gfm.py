@@ -112,12 +112,12 @@ class GFMPublicationTests(EditionTests):
         self.assertEqual({'document-note','claim','calculation','code'},set(entry['anchors']))
         page=(self.output/manifest['canonical_artifact']).read_text()
         parser=EditionHTML(manifest['presentation_profile']);parser.feed(page)
-        self.assertEqual(1,page.count('Supporting record — Reviewed supporting note'))
+        self.assertEqual(1,' '.join(page.split()).count('Supporting record — Reviewed supporting note'))
         for key in ('claim','calculation','code'):
             anchor=entry['anchors'][key]
             self.assertIn(anchor,parser.fragment_links)
             self.assertIn((anchor,manifest['record_url']+'/read#'+anchor),parser.passage_permalinks)
-        self.assertIn('<math',page);self.assertIn('def identity',page)
+        self.assertIn('<math',page);self.assertIn('<pre',page);self.assertIn('identity',page)
         self.assertNotIn('Unreviewed replacement',page)
         other=self.base/'repeat'
         build_edition(self.repo,self.commit,self.tag,other,fetcher=lambda *_:(SVG,'image/svg+xml'))
