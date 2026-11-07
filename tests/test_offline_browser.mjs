@@ -54,6 +54,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
 
             await page.goto(url + '#sec-2');
             assert.equal(await clearOfHeader(), true, `${name} ${width} ${colorScheme}: direct fragment obscured`);
+            const targetCue = await page.locator('#sec-2').evaluate(element => {
+              const style = getComputedStyle(element);
+              return {shadow: style.boxShadow, background: style.backgroundColor};
+            });
+            assert.notEqual(targetCue.shadow, 'none', `${name}: deep-link rule missing`);
+            assert.notEqual(targetCue.background, 'rgba(0, 0, 0, 0)', `${name}: target tint missing`);
             assert.equal(await page.locator('#sec-2 a.press-permalink').getAttribute('href'),
               manifest.record_url + '/read#sec-2');
             {
@@ -61,7 +67,13 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               await page.evaluate(() => {
                 const root = document.documentElement;
                 root.style.fontSize = parseFloat(getComputedStyle(root).fontSize) * 2 + 'px';
+                // WCAG 1.4.12 stress values plus enlarged text: reflow without
+                // clipping or hiding the linked heading under the status bar.
                 root.style.letterSpacing = '0.12em';
+                root.style.wordSpacing = '0.16em';
+                for (const paragraph of document.querySelectorAll('p')) {
+                  paragraph.style.marginBottom = '2em';
+                }
                 document.querySelector('#sec-2').scrollIntoView();
               });
               assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
@@ -82,6 +94,18 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               return [style.backgroundColor, style.color];
             }), ['rgb(255, 255, 255)', 'rgb(0, 0, 0)']);
             assert.equal(await page.locator('footer').isVisible(), true);
+            const printRules = await page.evaluate(() => {
+              const target = getComputedStyle(document.querySelector('#sec-2'));
+              const paragraph = getComputedStyle(document.querySelector('.press-edition p'));
+              return {shadow: target.boxShadow, background: target.backgroundColor,
+                supportsWidows: CSS.supports('widows', '3') && CSS.supports('orphans', '3'),
+                orphans: paragraph.orphans, widows: paragraph.widows};
+            });
+            assert.equal(printRules.shadow, 'none', `${name}: print should not mark fragment targets`);
+            if (printRules.supportsWidows) {
+              assert.equal(printRules.orphans, '3');
+              assert.equal(printRules.widows, '3');
+            }
             assert.deepEqual(network, []);
           } finally { await context.close(); }
         }
@@ -113,3 +137,34 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
     } finally { await browser.close(); }
   });
 }
+
+// Chromium's high-contrast emulation is a focused system-colors regression.
+// This is not a substitute for an actual Windows high-contrast review.
+test('chromium: forced colors preserve a discoverable fragment and permalink', {timeout: 45000}, async () => {
+  const browser = await chromium.launch({headless: true});
+  try {
+    const context = await browser.newContext({offline: true, forcedColors: 'active',
+      viewport: {width: 375, height: 900}});
+    try {
+      const page = await context.newPage();
+      await page.goto(pathToFileURL(path.join(root, 'index.html')).href + '#sec-2');
+      assert.equal(await page.evaluate(() => matchMedia('(forced-colors: active)').matches), true);
+      const target = await page.locator('#sec-2').evaluate(element => {
+        const style = getComputedStyle(element);
+        return {outline: style.outlineStyle, width: parseFloat(style.outlineWidth),
+          shadow: style.boxShadow};
+      });
+      assert.equal(target.outline, 'solid');
+      assert.ok(target.width >= 2, `forced-colors fragment outline missing: ${JSON.stringify(target)}`);
+      assert.equal(target.shadow, 'none');
+      const permalink = page.locator('#sec-2 a.press-permalink');
+      await permalink.hover();
+      assert.equal(await permalink.evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
+      await permalink.focus();
+      assert.ok(await permalink.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth)) >= 2);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+      await page.emulateMedia({media: 'print'});
+      assert.equal(await page.locator('#sec-2').evaluate(el => getComputedStyle(el).outlineStyle), 'none');
+    } finally { await context.close(); }
+  } finally { await browser.close(); }
+});

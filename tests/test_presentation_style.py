@@ -23,6 +23,20 @@ def tokens(source, section):
     return dict(re.findall(r"--press-([a-z]+):\s*(#[0-9a-f]+);", content))
 
 
+def contrast_ratio(foreground, background):
+    """WCAG relative luminance for the publisher's exact hex color tokens."""
+    def luminance(color):
+        assert re.fullmatch(r"#[0-9a-f]{3}(?:[0-9a-f]{3})?", color)
+        if len(color) == 4:
+            color = "#" + "".join(ch * 2 for ch in color[1:])
+        channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        linear = [value / 12.92 if value <= .04045 else ((value + .055) / 1.055) ** 2.4
+                  for value in channels]
+        return sum(weight * value for weight, value in zip((.2126, .7152, .0722), linear))
+    lo, hi = sorted((luminance(foreground), luminance(background)))
+    return (hi + .05) / (lo + .05)
+
+
 class PresentationStyleTests(unittest.TestCase):
     def test_both_document_families_share_the_palette(self):
         edition = (ROOT / "styles/edition-v1.css").read_text()
@@ -35,6 +49,31 @@ class PresentationStyleTests(unittest.TestCase):
         # Printing with a dark OS preference must still use a dark link on paper.
         self.assertEqual(tokens(edition, "print")["link"], "#164a7c")
         self.assertEqual(tokens(edition, "print")["visited"], "#164a7c")
+
+    def test_reading_palette_has_text_and_boundary_contrast(self):
+        edition = (ROOT / "styles/edition-v1.css").read_text()
+        for theme in ("light", "dark"):
+            palette = tokens(edition, theme)
+            for surface in ("paper", "tint"):
+                for role in ("ink", "muted", "link", "visited"):
+                    with self.subTest(theme=theme, surface=surface, role=role):
+                        self.assertGreaterEqual(contrast_ratio(palette[role], palette[surface]), 4.5)
+                for role in ("border", "focus"):
+                    with self.subTest(theme=theme, surface=surface, role=role):
+                        self.assertGreaterEqual(contrast_ratio(palette[role], palette[surface]), 3)
+
+    def test_fragment_target_forced_colors_and_print_pagination_have_fallbacks(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        self.assertIn("[id]:target {", css)
+        self.assertIn("box-shadow: -.22rem 0 0 var(--press-link)", css)
+        forced = css.split("@media (forced-colors: active)", 1)[1].split("@media print", 1)[0]
+        self.assertIn("outline: 2px solid Highlight", forced)
+        self.assertNotIn("forced-color-adjust: none", forced)
+        printed = css.split("@media print", 1)[1]
+        for rule in ("orphans: 3", "widows: 3", "break-after: avoid-page", "tr { break-inside: avoid; }"):
+            self.assertIn(rule, printed)
+        self.assertIn("box-shadow: none", printed)
+        self.assertIn("background: transparent", printed)
 
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()

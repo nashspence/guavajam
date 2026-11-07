@@ -66,6 +66,12 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
 }
 /* Clear wrapped status links when readers enlarge text or increase spacing. */
 [id]:target, :focus-visible { scroll-margin-top: 7rem; }
+/* A deep citation should reveal its destination without altering document text.
+   Background and a small margin rule are more restrained than a full callout. */
+.press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+  background: var(--press-tint);
+  box-shadow: -.22rem 0 0 var(--press-link);
+}
 
 /* Keyboard-first bypass. The main landmark includes the optional contents. */
 .press-skip {
@@ -300,6 +306,19 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   }
 }
 
+/* Forced colors suppress box shadows: retain a discernible fragment target and
+   hover/focus cues using system colors, not hard-coded palette overrides. */
+@media (forced-colors: active) {
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+    background: Canvas;
+    box-shadow: none;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  .press-permalink:hover { outline: 1px solid Highlight; }
+  .press-permalink:focus-visible { outline-color: Highlight; }
+}
+
 @media print {
   :root {
     color-scheme: light;
@@ -312,6 +331,17 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
     --press-tint: #f5f5f5;
   }
   body { max-width: none; padding: 0; }
+  /* Keep prose and labels readable across page breaks without forcing whole
+     tables or long supporting passages onto one sheet. */
+  p { orphans: 3; widows: 3; }
+  h1, h2, h3, h4, h5, h6, .press-passage-heading, .press-passage-datetime,
+  caption { break-after: avoid-page; }
+  tr { break-inside: avoid; }
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+  }
   .press-status { position: static; }
   .press-skip, .press-status .press-contents-link, .press-contents { display: none; }
   .press-permalink { display: none; }
