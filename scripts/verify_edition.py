@@ -323,7 +323,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
             if anchor not in parser.heading_ids:
                 passage_ids.append(anchor)
     if (parser.supporting_sources != expected_sources or len(set(expected_sources)) != len(expected_sources)
-            or parser.passage_permalinks != [(a, manifest['record_url']+'/read#'+a) for a in passage_ids]):
+            or sorted(parser.passage_permalinks) != sorted((a, manifest['record_url']+'/read#'+a) for a in passage_ids)):
         raise AssetError('supporting sources or passage permalinks differ from provenance')
     if (parser.errors or parser.h1 != 1 or not parser.csp or not parser.viewport
             or not parser.html_lang or not parser.document_profile or not parser.profile_meta

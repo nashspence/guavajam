@@ -9,7 +9,7 @@ from render_profile import plain_text
 
 
 def review_gfm(record):
-    diagnostics = {'selection-omissions': 1}
+    diagnostics = {'selection-omissions': 1, 'markdown-normalized-to-gfm': 1}
     def report(kind):
         diagnostics[kind] = diagnostics.get(kind, 0) + 1
     def clean(value):
@@ -30,6 +30,12 @@ def review_gfm(record):
         if kind == 'Note':
             report('footnote-flattened')
             return {'t':'Str','c':'[Footnote: '+plain_text(value['c'])+']'}
+        if kind in {'Span','SmallCaps','Underline','Superscript','Subscript','Cite'}:
+            report('unsupported-inline-format-as-text')
+            return {'t':'Str','c':plain_text(value)}
+        if kind in {'Div','DefinitionList','LineBlock'}:
+            report('unsupported-block-format-as-literal-code')
+            return {'t':'CodeBlock','c':[['',[],[]],plain_text(value)]}
         if kind == 'Link':
             from validate_sources import valid_edition_link
             if not valid_edition_link(value['c'][2][0]) or value['c'][2][0].startswith('#'):
@@ -58,7 +64,7 @@ def review_gfm(record):
         if '[Non-text part omitted]' in text or '[Unsupported message content omitted]' in text:
             report('unsupported-message-content-omitted')
         result = subprocess.run(['pandoc','--fail-if-warnings','--from',
-            'gfm+raw_html+tex_math_dollars+tex_math_single_backslash','--to','json'],
+            'markdown+raw_html+tex_math_dollars+tex_math_single_backslash-smart-yaml_metadata_block-implicit_header_references','--to','json'],
             input=text,capture_output=True,text=True)
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
