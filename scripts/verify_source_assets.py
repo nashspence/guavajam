@@ -119,7 +119,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
                     embedded+=downloads[target]*download_attribute_size(size,'sha256/'+digest+'.'+extension)
                 try:check_html_size(embedded)
                 except AssetError as exc:
-                    raise AssetError(f'{path}: offline HTML asset references exceed the rendered-output byte limit') from exc
+                    raise AssetError(f'{path}: offline HTML asset references exceed the rendered-output byte limit ({exc})') from exc
     return len(remote_sizes)
 
 

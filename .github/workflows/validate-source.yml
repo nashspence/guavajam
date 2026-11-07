@@ -15,7 +15,7 @@ jobs:
       contents: read
       actions: read
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -55,6 +55,14 @@ jobs:
 
       - name: Run executable tests
         run: make test
+
+      - name: Install pinned browser regression tools
+        run: |
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install --with-deps chromium firefox webkit
+
+      - name: Verify inert downloads from the complete offline ZIP
+        run: make test-browser
 
       - name: Enforce source format and registrations on the tracked tree
         run: make check-source
