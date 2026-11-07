@@ -152,7 +152,7 @@ class SourceBudgetTests(unittest.TestCase):
         with patch("verify_source_assets.git_sources", return_value=[path, local]):
             with patch("verify_source_assets.MAX_ASSETS", 1), self.assertRaisesRegex(AssetError, "distinct asset"):
                 verify_source_assets(root, fetcher=fetcher)
-            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG)), self.assertRaisesRegex(AssetError, "total image bytes?"):
+            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG)), self.assertRaisesRegex(AssetError, "total unique asset bytes?"):
                 verify_source_assets(root, fetcher=fetcher)
             with patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG)) * 2), \
                  self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):

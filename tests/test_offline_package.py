@@ -124,6 +124,8 @@ class OfflineBudgetTests(unittest.TestCase):
         bound=base64_size(len(SVG))+3*package.download_attribute_size(len(RAW),KEY)
         def fetch(policy,url):return (RAW,'application/octet-stream') if url==DOWNLOAD else (SVG,'image/svg+xml')
         with patch('verify_source_assets.git_sources',return_value=[manuscript,note]):
+            with patch('verify_source_assets.MAX_TOTAL_BYTES',len(RAW)),self.assertRaisesRegex(AssetError,'unique asset byte limit'):
+                verify_source_assets(root,fetcher=fetch)
             with patch('asset_policy.MAX_HTML_BYTES',bound):self.assertEqual(2,verify_source_assets(root,fetcher=fetch))
             with patch('asset_policy.MAX_HTML_BYTES',bound-1),self.assertRaisesRegex(AssetError,'offline HTML asset references'):
                 verify_source_assets(root,fetcher=fetch)

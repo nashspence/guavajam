@@ -111,7 +111,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
                 size = local_asset_size(local)
             total += size * ((1 if target in images else 0) + (1 if target in downloads else 0))
             if total > MAX_TOTAL_BYTES:
-                raise AssetError(f"{path} exceeds the total image byte limit")
+                raise AssetError(f"{path} exceeds the total unique asset byte limit")
             if manuscript:
                 if target in images:embedded+=images[target]*base64_size(size)
                 if target in downloads:
