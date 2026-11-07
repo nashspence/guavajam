@@ -6,6 +6,7 @@ anchors to heading IDs and adds publisher-owned semantics to formal headings.
 from __future__ import annotations
 
 import hashlib
+import html
 from html.parser import HTMLParser
 import re
 from pathlib import Path
@@ -115,6 +116,56 @@ def _anchor_from_block(block: dict) -> str | None:
     return match.group(1) if match else None
 
 
+
+
+# The outline is a reading aid, not an alternative authoring or citation scheme.
+# Include only major manuscript sections. Supporting documents share one entry,
+# regardless of their number of citable passages or internal headings.
+CONTENTS_ID = "press-contents"
+CONTENTS_LABEL_ID = "press-contents-label"
+RESERVED_READER_IDS = frozenset({"press-main", CONTENTS_ID, CONTENTS_LABEL_ID})
+
+
+def _contents_blocks(blocks: list[dict]) -> list[dict]:
+    sections = []
+    first_record = None
+    record_count = 0
+    for block in blocks:
+        if block.get("t") != "Header" or block["c"][0] != 2:
+            continue
+        _level, attrs, inlines = block["c"]
+        if "press-record-heading" in attrs[1]:
+            record_count += 1
+            if first_record is None:
+                first_record = attrs[0]
+        else:
+            # The canonical permalink was appended to the heading earlier;
+            # it must not become a stray paragraph mark in the outline.
+            title_inlines = inlines[:-2] if (len(inlines) >= 2 and
+                inlines[-1].get("t") == "Link" and
+                "press-permalink" in inlines[-1]["c"][0][1]) else inlines
+            sections.append((attrs[0], plain_text(title_inlines), False))
+
+    # A two-section note needs no navigation. A manuscript with three major
+    # sections, two plus evidence, or a large evidence appendix benefits.
+    if len(sections) < 3 and not (len(sections) >= 2 and first_record) \
+            and not (len(sections) >= 1 and record_count >= 3):
+        return []
+    if first_record:
+        sections.append((first_record, "Supporting records", True))
+
+    items = []
+    for anchor, title, english in sections:
+        link_attributes = ["", [], [["lang", "en"]] if english else []]
+        link = {"t": "Link", "c": [link_attributes, [{"t": "Str", "c": title}], ["#" + anchor, ""]]}
+        items.append([{"t": "Plain", "c": [link]}])
+    return [
+        {"t": "RawBlock", "c": ["html", '<nav id="press-contents" class="press-contents" aria-labelledby="press-contents-label">'
+                                     '<p id="press-contents-label" class="press-contents-label" lang="en">Contents</p>']},
+        {"t": "BulletList", "c": items},
+        {"t": "RawBlock", "c": ["html", "</nav>"]},
+    ]
+
 def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.
 
@@ -150,6 +201,8 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
                 raise AssetError("published section requires an explicit stable anchor")
             if attr[0] in ids:
                 raise AssetError("duplicate published heading IDs")
+            if attr[0] in RESERVED_READER_IDS:
+                raise AssetError("heading ID is reserved for reader navigation: " + attr[0])
             ids.add(attr[0])
             if level > 1:
                 label = FORMAL_LABEL.fullmatch(plain_text(title))
@@ -171,6 +224,17 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
                     ]}])
         new.append(block)
         i += 1
+
+    contents = _contents_blocks(new)
+    if contents:
+        # Keep the title first. H2-only navigation never duplicates theorem,
+        # footnote, MathML or supporting-passage output.
+        title_index = next((j for j, block in enumerate(new) if block.get("t") == "Header"
+                            and block["c"][0] == 1), None)
+        if title_index is None:
+            raise AssetError("reader contents require a manuscript title")
+        new[title_index + 1:title_index + 1] = contents
+        ast.setdefault("meta", {})["press_has_contents"] = {"t": "MetaBool", "c": True}
     # Give wide tables and display mathematics an actual scroll container.
     # Pandoc Div blocks preserve table semantics, and the explicit tab stop lets
     # keyboard users pan overflow without relying on browser-specific defaults.

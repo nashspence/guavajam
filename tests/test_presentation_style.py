@@ -52,6 +52,16 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('role="doc-noteref"><sup>1</sup></a>', preview)
         self.assertIn('class="footnote-back" role="doc-backlink"', preview)
 
+    def test_navigation_preview_uses_exact_css_and_semantic_anchors(self):
+        css = (ROOT / "styles/edition-v1.css").read_text()
+        preview = (ROOT / "tests/fixtures/presentation/navigation-preview.html").read_text()
+        embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split('</style>', 1)[0]
+        self.assertEqual(css, embedded)
+        self.assertIn('<nav id="press-contents"', preview)
+        self.assertIn('aria-labelledby="press-contents-label"', preview)
+        self.assertIn('class="press-skip" href="#press-main"', preview)
+        self.assertIn('class="press-contents-link" href="#press-contents"', preview)
+
     def test_supporting_preview_uses_exact_css_and_literal_passages(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         preview = (ROOT / "tests/fixtures/presentation/supporting-record-preview.html").read_text()
