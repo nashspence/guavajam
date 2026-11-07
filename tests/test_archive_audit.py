@@ -1,4 +1,5 @@
 """Public release inventory and notices checked by the scheduled archive audit."""
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -26,12 +27,35 @@ class ArchiveAuditTests(unittest.TestCase):
                                    for i, name in enumerate(names, 1)]}
         self.work_check = self.enterContext(patch("audit_assets.verify_published_work"))
         self.reader_check = self.enterContext(patch("audit_assets.verify_reader_routes"))
-        for name, result in (("release_records", [self.release]), ("gh", ""),
+        for name, result in (("release_records", [self.release]),
                              ("verify_edition", manifest), ("tag_commit", manifest["source_commit"]),
                              ("edition_notices", []),
                              ("git_sources", [self.record_path]), ("check_issuance", {}),
                              ("read_registration", {"published_at": self.release["published_at"]})):
             self.enterContext(patch("audit_assets." + name, return_value=result))
+
+        self.download=self.enterContext(patch('audit_assets.gh',side_effect=self.download_attachment))
+
+    def download_attachment(self,*args):
+        tag=args[2];name=args[args.index('--pattern')+1]
+        manifest=dict(self.manifest,tag=tag,canonical_artifact=tag.split('/')[1]+'-'+tag.split('/')[2]+'.html')
+        (Path(args[args.index('--dir')+1])/name).write_text(json.dumps(manifest) if name=='provenance.json' else name)
+        return ''
+
+    def test_supplementary_release_inventory_is_downloaded_and_required(self):
+        name='sample-v1.0.0-offline.zip'
+        self.manifest['supplementary_package']={'filename':name,'sha256':'a'*64,'byte_count':64}
+        self.manifest['initial_release_body']=render_initial_body(self.manifest)
+        self.release['body']=self.manifest['initial_release_body']
+        self.release['assets'].append({'id':4,'name':name,'size':64,'state':'uploaded'})
+        verify_public_release('owner/press',self.release,root=self.root)
+        self.assertEqual(name,self.download.call_args.args[6])
+        self.release['assets'][-1]['size']=65
+        with self.assertRaisesRegex(AssetError,'supplementary release attachment'):
+            verify_public_release('owner/press',self.release,root=self.root)
+        self.release['assets'].pop()
+        with self.assertRaisesRegex(AssetError,'supplementary release attachment'):
+            verify_public_release('owner/press',self.release,root=self.root)
 
     def test_extra_public_attachment(self):
         self.release["assets"].append({"name": "draft.pdf", "id": 4, "state": "uploaded"})

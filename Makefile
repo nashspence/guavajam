@@ -15,12 +15,12 @@ setup: ## Install the pinned tools and Python dependencies. Requires mise (https
 	mise install
 	mise exec -- uv sync --locked
 
-check: check-source check-assets ## Validate tracked sources and verify their images online. Stage new files first.
+check: check-source check-assets ## Validate tracked sources and verify their assets online. Stage new files first.
 
 check-source: ## Validate tracked manuscripts and registrations offline.
 	@$(PYTHON) scripts/validate_sources.py
 
-check-assets: ## Download and verify referenced images.
+check-assets: ## Download and verify referenced assets.
 	@$(PYTHON) scripts/verify_source_assets.py
 
 test: ## Run the Python and asset gateway test suites.
