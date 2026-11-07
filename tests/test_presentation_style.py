@@ -74,6 +74,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertNotIn("box-shadow", css.split(target_rule + " {", 1)[1].split("}", 1)[0])
         forced = css.split("@media (forced-colors: active)", 1)[1].split("@media print", 1)[0]
         self.assertIn("outline: 2px solid Highlight", forced)
+        self.assertIn(".press-permalink:focus-visible { outline: 3px solid Highlight; }", forced)
         self.assertIn(target_rule + "::before { content: none; }", forced)
         self.assertNotIn("forced-color-adjust: none", forced)
         printed = css.split("@media print", 1)[1]

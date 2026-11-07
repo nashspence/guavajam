@@ -314,7 +314,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   /* Use the native system-color outline, never an extra margin stripe. */
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
-  .press-permalink:focus-visible { outline-color: Highlight; }
+  .press-permalink:focus-visible { outline: 3px solid Highlight; }
 }
 
 @media print {

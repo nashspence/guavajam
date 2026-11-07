@@ -176,6 +176,10 @@ test('chromium: forced colors preserve a discoverable fragment and permalink', {
       await permalink.hover();
       assert.equal(await permalink.evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
       await permalink.focus();
+      // Keyboard navigation must retain a strong focus ring even after hover.
+      await page.keyboard.press('Shift+Tab');
+      await page.keyboard.press('Tab');
+      assert.equal(await permalink.evaluate(el => el.matches(':focus-visible')), true);
       assert.ok(await permalink.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth)) >= 2);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
       await page.emulateMedia({media: 'print'});
