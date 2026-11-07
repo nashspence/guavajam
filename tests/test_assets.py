@@ -27,12 +27,12 @@ URL = ORIGIN + "/sha256/" + DIGEST + ".svg"
 
 
 class AssetURLTests(unittest.TestCase):
-    def test_prepared_preview_url_is_embedded_in_markdown(self):
+    def test_prepared_preview_url_is_embedded_in_authoring_starter(self):
         root = Path(__file__).resolve().parents[1]
         output = subprocess.check_output(
             [sys.executable, "scripts/prepare_asset.py", "storage/preview.svg"], cwd=root, text=True)
         fields = dict(line.split(": ", 1) for line in output.splitlines())
-        preview = Path("storage/README.md")
+        preview = Path("templates/work/manuscript.md")
         ast, errors = parse_document(root / preview, preview)
         self.assertEqual([], errors)
         targets = [node["c"][2][0] for node in walk(ast["blocks"]) if node["t"] == "Image"]

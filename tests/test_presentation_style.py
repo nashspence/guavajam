@@ -45,7 +45,7 @@ class PresentationStyleTests(unittest.TestCase):
 
     def test_reader_preview_uses_exact_css_and_pandoc_note_structure(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
-        preview = (ROOT / "docs/reader-preview.html").read_text()
+        preview = (ROOT / "tests/fixtures/presentation/reader-preview.html").read_text()
         embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
         self.assertEqual(css, embedded)
         self.assertIn('class="footnote-ref"', preview)
@@ -54,7 +54,7 @@ class PresentationStyleTests(unittest.TestCase):
 
     def test_supporting_preview_uses_exact_css_and_literal_passages(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
-        preview = (ROOT / "docs/supporting-record-preview.html").read_text()
+        preview = (ROOT / "tests/fixtures/presentation/supporting-record-preview.html").read_text()
         embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
         self.assertEqual(css, embedded)
         self.assertIn('class="press-record-provenance"', preview)
@@ -63,7 +63,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('datetime="2026-11-04"', preview)
         self.assertNotIn('datetime=""', preview)
         self.assertIn('**For all x in [0,1]', preview)
-        self.assertIn('role="doc-', (ROOT / 'docs/reader-preview.html').read_text())
+        self.assertIn('role="doc-', (ROOT / 'tests/fixtures/presentation/reader-preview.html').read_text())
 
     def test_mathematical_sections_and_tables_use_scholarly_rhythm(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
@@ -77,7 +77,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIsNotNone(header)
         self.assertNotIn("background", header.group(1))
         self.assertIn("<caption>Identity and fixed-point properties</caption>",
-                      (ROOT / "docs/reader-preview.html").read_text())
+                      (ROOT / "tests/fixtures/presentation/reader-preview.html").read_text())
 
     def test_embedded_stylesheet_keeps_its_no_network_contract(self):
         template, template_sha, css_sha = canonical_template(ROOT)

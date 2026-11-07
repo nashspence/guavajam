@@ -292,8 +292,6 @@ def validate_registrations(root: Path, paths: set[Path], work_frontmatter: dict[
     for path in sorted(paths):
         if not path.parts or path.parts[0] != "registrations":
             continue
-        if path == Path("registrations/README.md"):
-            continue
         if path.suffix != ".json" or len(path.parts) not in (3, 4):
             errors.append(f"{path}: unsupported registration file location")
             continue

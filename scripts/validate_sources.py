@@ -594,12 +594,10 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         edition_rights = (in_editions and rel.name.endswith(".rights.txt")
                           and VERSION.fullmatch(rel.name.removesuffix(".rights.txt")))
         if rel.parts and rel.parts[0] == "works":
-            if len(rel.parts) == 2 and rel.name == "README.md":
-                pass
-            elif len(rel.parts) >= 3:
+            if len(rel.parts) >= 3:
                 if not SLUG.fullmatch(rel.parts[1]):
                     errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
-                allowed_root = len(rel.parts) == 3 and rel.parts[2] in {"README.md", "manuscript.md"}
+                allowed_root = len(rel.parts) == 3 and rel.parts[2] == "manuscript.md"
                 allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
                 if not (allowed_root or allowed_asset or edition_notes or edition_rights or supporting):
                     errors.append(issue(rel, "unsupported file path under works/ (requires policy change)"))

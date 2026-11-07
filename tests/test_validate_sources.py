@@ -386,9 +386,20 @@ class StrictSourceTests(unittest.TestCase):
         self.assert_bad("unsupported file path", other={"works/sample/metadata.json": "{}\n"})
 
     def test_work_directory_requires_manuscript(self):
-        (self.root / self.source.parent / "README.md").write_text("# Notes\n", encoding="utf-8")
-        errors = validate_repository(self.root, [Path("works/sample/README.md")])
+        asset = Path("works/sample/assets/figure.svg")
+        (self.root / asset.parent).mkdir()
+        (self.root / asset).write_text('<svg xmlns="http://www.w3.org/2000/svg"/>\n', encoding="utf-8")
+        errors = validate_repository(self.root, [asset])
         self.assertTrue(any("requires manuscript.md" in e for e in errors))
+
+    def test_work_and_registration_directories_reject_readme_manuals(self):
+        for path, diagnostic in (
+            ("works/README.md", "unexpected source directly beneath works/"),
+            ("works/sample/README.md", "unsupported file path under works/"),
+            ("registrations/README.md", "unsupported registration file location"),
+        ):
+            with self.subTest(path=path):
+                self.assert_bad(diagnostic, other={path: "# Notes\n"})
 
     def test_identifiers_mapping_and_orcid(self):
         metadata = {**METADATA,

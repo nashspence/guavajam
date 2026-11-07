@@ -33,10 +33,10 @@ test-browser: ## Check exact, inert offline downloads in Chromium, Firefox and W
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
 
-asset-upload: ## FILE=asset [B2_ENV=.env.assets]  Upload bounded original bytes to B2 and verify storage and public delivery. Non-images are opaque downloads. Uses a local bucket/prefix-scoped key.
+asset-upload: ## FILE=asset [B2_ENV=.env.assets]  Upload bounded original bytes to B2 and verify storage and public delivery. Non-images are opaque downloads. Use an owner-only credential file from storage/credentials.env.example with a bucket/prefix-scoped key.
 	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the asset path}"
 
-assets-gc: ## [APPLY=1]  Dispatch a cleanup preview on main; APPLY=1 requests a sweep during a coordinated pause.
+assets-gc: ## [APPLY=1]  Dispatch a cleanup preview on main. For APPLY=1, pause uploads, lease renewals, and branch/PR changes until the queued job finishes.
 	@$(PYTHON) scripts/asset_workflow.py request-gc
 
 asset-retire: ## BRANCH=feature/name HEAD_SHA=40-character-sha  Dispatch exact-tip branch retirement on main.
