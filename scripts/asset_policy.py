@@ -30,7 +30,7 @@ MAX_RECORD_BYTES = 4 * 1024 * 1024
 TIMEOUT = 30
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "webp": "image/webp", "svg": "image/svg+xml"}
-ASSET_PATH = re.compile(r"/sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg)\Z")
+ASSET_PATH = re.compile(r"/sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin)\Z")
 HOST = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\Z")
 
 
@@ -67,11 +67,23 @@ class AssetPolicy:
         # Thus empty ?, #, percent escapes, backslashes and authority tricks all fail.
         prefix = self.origin + "/"
         if not target.startswith(prefix):
-            raise AssetError("unsupported/external URI: image must use the approved asset origin")
+            raise AssetError("unsupported/external URI: asset must use the approved asset origin")
         match = ASSET_PATH.fullmatch(target[len(self.origin):])
         if not match:
-            raise AssetError("asset URL requires exact /sha256/<64 lowercase hex>.<supported image extension>")
+            raise AssetError("asset URL requires exact /sha256/<64 lowercase hex>.<approved image extension or bin>")
         return match[1], match[2]
+
+    def manages(self, target: str) -> bool:
+        try:
+            return urlsplit(target).hostname == self.origin[8:]
+        except ValueError:
+            return target.startswith(self.origin)
+
+    def parse_image(self, target: str) -> tuple[str, str]:
+        digest, extension = self.parse(target)
+        if extension not in MIME:
+            raise AssetError('only validated image types may be rendered inline')
+        return digest, extension
 
 
 def load_policy(root: Path) -> AssetPolicy | None:
@@ -125,6 +137,10 @@ def svg_errors(raw: bytes) -> list[str]:
 
 
 def verify_bytes(raw: bytes, extension: str, content_type: str) -> str:
+    if extension == 'bin':
+        if len(raw) > MAX_BYTES:
+            raise AssetError('asset exceeds 10 MiB limit')
+        return 'application/octet-stream'
     if not raw or len(raw) > MAX_BYTES:
         raise AssetError("asset is empty or exceeds 10 MiB limit")
     expected = MIME.get(extension)
@@ -261,13 +277,39 @@ def response_chunks(response, limit):
         raise AssetError("response is truncated")
 
 
-def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
+def fetch_asset(policy: AssetPolicy, url: str, *, base=None) -> tuple[bytes, str]:
     digest, extension = policy.parse(url)
-    with public_response(url, MIME[extension]) as response:
+    if base is not None:
+        from deploy_record_gateway import target_base
+        url = target_base(base) + '/sha256/' + digest + '.' + extension
+    with public_response(url, MIME.get(extension, 'application/octet-stream')) as response:
         if response.status != 200:
             raise AssetError(f"asset fetch requires HTTP 200 (received {response.status}); redirects prohibited")
         raw = b"".join(response_chunks(response, MAX_BYTES))
         if hashlib.sha256(raw).hexdigest() != digest:
             raise AssetError("asset SHA-256 does not match URL")
         media_type = verify_bytes(raw, extension, response.getheader("Content-Type", ""))
+        if extension == 'bin' and (
+                response.getheader('Content-Type','').partition(';')[0].strip().lower() != media_type
+                or response.getheader('Content-Disposition','').partition(';')[0].strip().lower() != 'attachment'
+                or response.getheader('X-Content-Type-Options','').lower() != 'nosniff'):
+            raise AssetError('opaque asset requires octet-stream, attachment and nosniff headers')
         return raw, media_type
+
+
+def download_bytes(manifest, *, base=None, fetcher=None):
+    """Verify external objects against trusted provenance, optionally on standby."""
+    policy = AssetPolicy(manifest['asset_origin']) if manifest.get('asset_origin') else None
+    for record in manifest.get('assets', []):
+        if record.get('role') != 'download':
+            continue
+        if policy is None:
+            raise AssetError('download requires its approved asset origin')
+        url = record['source_url']
+        digest, extension = policy.parse(url)
+        raw, content_type = fetcher(policy,url) if fetcher else fetch_asset(policy,url,base=base)
+        media_type = verify_bytes(raw, extension, content_type)
+        if (hashlib.sha256(raw).hexdigest() != digest or len(raw) != record['byte_count']
+                or media_type != record['media_type']):
+            raise AssetError('external asset differs from the trusted edition inventory')
+        yield url, raw, media_type

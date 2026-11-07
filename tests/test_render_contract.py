@@ -68,6 +68,8 @@ class RenderContractTests(EditionTests):
         manuscript = self.repo / "works/sample-work/manuscript.md"
         manuscript.parent.mkdir(parents=True)
         manuscript.write_bytes((root / "templates/work/manuscript.md").read_bytes())
+        import shutil
+        shutil.copytree(root / 'templates/work/supporting', manuscript.parent / 'supporting')
         (self.repo / "asset-policy.json").write_bytes((root / "asset-policy.json").read_bytes())
         self.preview_asset = (root / "storage/preview.svg").read_bytes()
         self.tag = "works/sample-work/v1.0.0"
@@ -133,7 +135,7 @@ class RenderContractTests(EditionTests):
         self.assertNotIn('aria-label="Scrollable equation"', html)
         self.assertIn('<code', html)
         # Inline LaTeX is deliberate; the published edition must render it.
-        self.assertEqual(9, html.count('<math'))
+        self.assertEqual(10, html.count('<math'))
         self.assertIn('<mi>S</mi>', html)
         self.assertIn('<mi>R</mi>', html)
         self.assertIn('data:image/svg+xml;base64,', html)
@@ -207,7 +209,7 @@ class RenderContractTests(EditionTests):
             def handle_data(self, text):
                 if self.in_pre: self.text.append(text)
         parser = NativeCode(); parser.feed(self.page().read_text())
-        self.assertEqual(len(parser.pres), 2)
+        self.assertEqual(len(parser.pres), 3)
         self.assertTrue(all(p.get("tabindex") == "0" and p.get("role") == "group" and p.get("aria-label") == "Code block" for p in parser.pres))
         self.assertTrue(parser.wrappers)
         self.assertTrue(all("tabindex" not in d for d in parser.wrappers))

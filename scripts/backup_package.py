@@ -3,7 +3,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 
-from asset_policy import AssetError, MAX_HTML_BYTES, public_response, response_chunks
+from asset_policy import AssetError, MAX_HTML_BYTES, public_response, response_chunks, download_bytes
 from deploy_record_gateway import target_base
 from identifier_schema import TAG
 from issuance import check_authorization
@@ -37,4 +37,7 @@ def verify_backup_package(base, tag, receipt):
                 raise AssetError(f"{url}: backup file differs from the trusted receipt")
         manifest = verify_edition(directory, tag=tag)
         check_authorization(receipt, directory, manifest)
+        # External downloads are independent objects, not bytes embedded in HTML.
+        for _ in download_bytes(manifest, base=base):
+            pass
         return manifest

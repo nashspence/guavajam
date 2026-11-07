@@ -57,12 +57,18 @@ def deploy(root, *, apply=False):
     if policy is None:
         raise AssetError("approved asset origin required")
     values = {}
-    for name in ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID", "B2_PUBLIC_BASE"]:
+    required = ['CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','CLOUDFLARE_ZONE_ID']
+    if not os.environ.get('ASSET_TARGET'):
+        required.append('B2_PUBLIC_BASE')
+    for name in required:
         if not os.environ.get(name):
             raise AssetError("missing operator variable: " + name)
         values[name] = os.environ[name]
-    parsed = urlsplit(values["B2_PUBLIC_BASE"])
-    if (parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".backblazeb2.com")
+    parsed = urlsplit(values.get('B2_PUBLIC_BASE',''))
+    if os.environ.get('ASSET_TARGET'):
+        from deploy_record_gateway import target_base
+        values['B2_PUBLIC_BASE'] = target_base(os.environ['ASSET_TARGET'])
+    elif (parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".backblazeb2.com")
             or parsed.netloc != parsed.hostname or parsed.query or parsed.fragment
             or not re.fullmatch(r"/file/[A-Za-z0-9][A-Za-z0-9.-]*", parsed.path)):
         raise AssetError("B2_PUBLIC_BASE must be a public B2 HTTPS download origin plus /file/<bucket>")

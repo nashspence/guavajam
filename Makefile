@@ -1,10 +1,11 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract chat-gfm build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
 export CONVERSATION TIP OUTPUT PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
+export ASSET_ROOT ASSET_TARGET
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -26,11 +27,11 @@ test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test*worker.mjs
 
-image: ## FILE=figure.svg  Print the upload key, headers, and manuscript URL.
-	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the image path}"
+image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
+	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
 
-asset-upload: ## FILE=figure.svg [B2_ENV=.env.assets]  Upload original bytes to B2 and verify the public URL. Uses a local bucket/prefix-scoped key.
-	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the image path}"
+asset-upload: ## FILE=asset [B2_ENV=.env.assets]  Upload bounded original bytes to B2 and verify storage and public delivery. Non-images are opaque downloads. Uses a local bucket/prefix-scoped key.
+	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the asset path}"
 
 assets-gc: ## [APPLY=1]  Dispatch a cleanup preview on main; APPLY=1 requests a sweep during a coordinated pause.
 	@$(PYTHON) scripts/asset_workflow.py request-gc
@@ -49,6 +50,10 @@ chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also
 
 chat-extract: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.json [TIP=node-id]  Extract one branch for local review. OUTPUT must be new and outside the checkout.
 	@$(PYTHON) scripts/extract_chatgpt.py --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
+		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
+
+chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id]  Convert one branch to anchored GFM for review, reporting losses. OUTPUT must be new and outside the checkout; no commit is made.
+	@$(PYTHON) scripts/extract_chatgpt.py --gfm --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
 		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
 
 build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag>/.
@@ -86,10 +91,10 @@ check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCH
 		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}" \
 		$${WORK_SHA256:+"--work-sha256=$$WORK_SHA256"}
 
-archive-export: ## ARCHIVE_COMMIT=sha PACKAGE_ROOT=../packages OUTPUT=../standby  Export every issued package (saved by tag), approved pages and full Git history to a new external directory.
+archive-export: ## ARCHIVE_COMMIT=sha PACKAGE_ROOT=../packages OUTPUT=../standby [ASSET_ROOT=../assets]  Export packages, approved pages, full Git history and external downloads under public/sha256. Fetch downloads unless supplied as saved sha256 objects.
 	@$(PYTHON) scripts/export_archive.py --commit="$${ARCHIVE_COMMIT:?Set ARCHIVE_COMMIT to the independently retained current commit SHA}" \
 		--package-root="$${PACKAGE_ROOT:?Set PACKAGE_ROOT to the directory containing saved packages by tag}" \
-		--output="$${OUTPUT:?Set OUTPUT to a new external directory}"
+		--output="$${OUTPUT:?Set OUTPUT to a new external directory}" $${ASSET_ROOT:+"--asset-root=$$ASSET_ROOT"}
 
 check-backup-archive: ## BACKUP_BASE=https://archive/base ARCHIVE_COMMIT=sha  Verify every issued edition, reading copy and work page against an independently retained current commit.
 	@$(PYTHON) scripts/check_backup_archive.py --backup-base "$${BACKUP_BASE:?Set BACKUP_BASE to the recovery host base}" \
@@ -105,10 +110,10 @@ record: ## TAG=works/essay/v1.0.0 [DIR=edition]  Generate the edition and work r
 release-notes: ## DIR=path/to/edition  Print the public body with registered identifiers and editorial notices.
 	@$(PYTHON) scripts/editorial_notices.py -- "$${DIR:?Set DIR to the edition directory}"
 
-gateway-plan: ## Preview the asset gateway deployment.
+gateway-plan: ## [ASSET_TARGET=https://archive/base]  Preview asset routing; optionally serve independently exported sha256 objects from standby instead of B2.
 	@$(PYTHON) scripts/deploy_asset_gateway.py
 
-gateway-deploy: ## Apply the asset gateway deployment to Cloudflare.
+gateway-deploy: ## Apply the asset gateway plan to Cloudflare. Same arguments as gateway-plan.
 	@$(PYTHON) scripts/deploy_asset_gateway.py --apply
 
 records-plan: ## [RECORD_TARGET=https://archive/base] [RECORD_WORKER=press-records] [READING_BUCKET=name]  Preview edition-record routing and optional private R2 replica.

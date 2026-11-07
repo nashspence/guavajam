@@ -77,16 +77,22 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
         if errors:
             raise AssetError("\n".join(errors))
         manuscript = len(path.parts) == 3 and path.parts[0] == "works" and path.name == "manuscript.md"
-        counts = Counter(node["c"][2][0] for node in walk(ast["blocks"]) if node.get("t") == "Image")
+        if manuscript:
+            from supporting_records import append_supporting_records
+            append_supporting_records(ast, root, path, tracked)
+        images = Counter(node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Image')
+        downloads = {node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Link'
+                     and policy and policy.manages(node['c'][2][0])}
         if not manuscript:
-            counts = {url: count for url, count in counts.items() if policy and url.startswith(policy.origin + "/")}
-        if len(counts) > MAX_ASSETS:
-            raise AssetError(f"{path} exceeds the distinct image limit")
+            images = {url:count for url,count in images.items() if policy and policy.manages(url)}
+        if len(images) + len(downloads) > MAX_ASSETS:
+            raise AssetError(f"{path} exceeds the distinct asset limit")
         total = embedded = 0
-        for target, count in counts.items():
+        for target in images.keys() | downloads:
             if ":" in target or target.startswith("//"):
                 if policy is None:
                     raise AssetError("no approved asset origin configured")
+                (policy.parse_image if target in images else policy.parse)(target)
                 if target not in remote_sizes:
                     digest, extension = policy.parse(target)
                     raw, media_type = fetcher(policy, target)
@@ -102,11 +108,11 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
                         or local.relative_to(root) not in tracked):
                     raise AssetError(f"{path}: invalid local edition image: {target}")
                 size = local_asset_size(local)
-            total += size
+            total += size * ((1 if target in images else 0) + (1 if target in downloads else 0))
             if total > MAX_TOTAL_BYTES:
                 raise AssetError(f"{path} exceeds the total image byte limit")
-            if manuscript:
-                embedded += count * base64_size(size)
+            if manuscript and target in images:
+                embedded += images[target] * base64_size(size)
                 check_html_size(embedded)
     return len(remote_sizes)
 

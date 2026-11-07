@@ -40,12 +40,12 @@ def issue(path: Path, message: str, line: int | None = None) -> str:
     return f"{path}:{line}: {message}" if line else f"{path}: {message}"
 
 
-def read_text(path: Path, relative: Path) -> tuple[str | None, list[str]]:
+def read_text(path: Path, relative: Path, *, raw: bytes | None = None) -> tuple[str | None, list[str]]:
     errors: list[str] = []
     if path.is_symlink():
         return None, [issue(relative, "symlinks are prohibited")]
     try:
-        text = path.read_bytes().decode("utf-8", "strict")
+        text = (path.read_bytes() if raw is None else raw).decode("utf-8", "strict")
     except (UnicodeDecodeError, OSError) as exc:
         return None, [issue(relative, f"not readable strict UTF-8: {exc}")]
     if text.startswith("\ufeff"):
@@ -607,7 +607,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
         if supporting:
             try:
-                load_record(root / rel)
+                if rel.suffix == '.md':
+                    from supporting_gfm import load_gfm_record
+                    load_gfm_record(root / rel, root=root)
+                else:
+                    load_record(root / rel)
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
             continue
@@ -665,8 +669,9 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             # Templates and ordinary Markdown can use the same explicit anchors.
             # Ignore anchor-shaped text inside code or display math blocks.
             visible, _ = visible_lines(source)
+            from supporting_gfm import ANCHOR as SUPPORT_ANCHOR
             anchor_names = [match.group(1) for _, line in visible
-                            if (match := ANCHOR.fullmatch(line))]
+                            if (match := SUPPORT_ANCHOR.fullmatch(line))]
             if len(anchor_names) != len(set(anchor_names)):
                 errors.append(issue(rel, "duplicate stable anchors"))
             explicit = set(anchor_names)
@@ -713,6 +718,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             expected_math = len(maths)
             try:
                 append_supporting_records(ast, root, rel, tracked)
+                expected_math = sum(1 for n in walk(ast['blocks']) if n.get('t') == 'Math')
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
                 continue
@@ -733,11 +739,17 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             target = data[2][0]
             if kind == "Image" and not plain_text(data[1]).strip():
                 errors.append(issue(rel, "image alt text required"))
+            if asset_policy and asset_policy.manages(target):
+                try:
+                    (asset_policy.parse_image if kind == 'Image' else asset_policy.parse)(target)
+                except AssetError as exc:
+                    errors.append(issue(rel,str(exc)))
+                continue
             if kind == "Image" and manuscript and (":" in target or target.startswith("//")):
                 try:
                     if asset_policy is None:
                         raise AssetError("unsupported/external URI: no approved asset origin configured")
-                    asset_policy.parse(target)
+                    asset_policy.parse_image(target)
                 except AssetError as exc:
                     errors.append(issue(rel, str(exc)))
                 continue

@@ -67,7 +67,7 @@ def materialize_images(ast: dict, root: Path, manuscript: Path, commit: str,
             if ":" in target or target.startswith("//"):
                 if policy is None:
                     raise AssetError("no approved asset origin configured")
-                digest, extension = policy.parse(target)
+                digest, extension = policy.parse_image(target)
                 raw, media_type = fetcher(policy, target)
                 # Verify again at the trust boundary, including injected fetchers.
                 if hashlib.sha256(raw).hexdigest() != digest:
@@ -106,6 +106,26 @@ def materialize_images(ast: dict, root: Path, manuscript: Path, commit: str,
     return sorted(records.values(), key=lambda record: record["source_url"])
 
 
+def materialize_downloads(ast, root, *, fetcher=fetch_asset):
+    policy = load_policy(root)
+    records = {}
+    for node in walk(ast['blocks']):
+        if node.get('t') != 'Link' or policy is None or not policy.manages(node['c'][2][0]):
+            continue
+        url = node['c'][2][0]
+        digest, extension = policy.parse(url)
+        if url not in records:
+            raw, media_type = fetcher(policy, url)
+            media_type = verify_bytes(raw, extension, media_type)
+            if hashlib.sha256(raw).hexdigest() != digest:
+                raise AssetError('download SHA-256 does not match URL')
+            records[url] = {'source_url':url, 'source_kind':'https', 'sha256':digest,
+                'byte_count':len(raw), 'media_type':media_type, 'destination':url, 'role':'download'}
+        if len(records) > MAX_ASSETS:
+            raise AssetError('edition exceeds 128 distinct assets')
+    return sorted(records.values(), key=lambda record:record['source_url'])
+
+
 def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fetch_asset):
     match = TAG.fullmatch(tag)
     if match is None:
@@ -130,10 +150,13 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         ast, errors = parse_document(root / manuscript, manuscript)
         if errors:
             raise AssetError("\n".join(errors))
-        append_supporting_records(ast, root, manuscript, set(paths))
+        supporting = append_supporting_records(ast, root, manuscript, set(paths))
         build = temp / "build"
         build.mkdir()
         records = materialize_images(ast, root, manuscript, commit, load_policy(root), build, fetcher)
+        records += materialize_downloads(ast, root, fetcher=fetcher)
+        if len(records) > MAX_ASSETS or sum(r['byte_count'] for r in records) > MAX_TOTAL_BYTES:
+            raise AssetError('edition exceeds the combined asset inventory limit')
         # Keep a local-reference build tree for inspection; only verified files are
         # read for embedding. Pandoc gets data URIs, so it has no resource to fetch.
         (build / "document.json").write_text(json.dumps(ast), encoding="utf-8")
@@ -190,7 +213,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
-                     "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/table_captions.py",
+                     "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/supporting_gfm.py", "scripts/table_captions.py",
                      "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
@@ -219,6 +242,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         }
         if rights_statement:
             manifest["rights_statement"] = rights_statement
+        if supporting:
+            manifest['supporting_documents'] = supporting
         notes = manuscript.parent / "editions" / (version + ".md")
         prose = (root / notes).read_text(encoding="utf-8") if notes in paths else None
         if prose is not None:

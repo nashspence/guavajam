@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
-from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
+from asset_policy import AssetError, AssetPolicy, MAX_ASSETS, MAX_BYTES, MAX_TOTAL_BYTES, MIME, check_html_size, verify_bytes
 from editorial_notices import check_initial_notes, check_rights_statement, reviewed_initial_body
 from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
@@ -47,6 +47,9 @@ class EditionHTML(html.parser.HTMLParser):
         self.in_authorship = False
         self.orcid_links = []
         self.permalinks = []
+        self.passage_permalinks = []
+        self.external_links = []
+        self.supporting_sources = []
         self.current_heading = None
         self.in_footer = False
         self.in_rights = False
@@ -58,6 +61,8 @@ class EditionHTML(html.parser.HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        if 'data-press-source' in attributes:
+            self.supporting_sources.append((attributes['data-press-source'], attributes.get('data-press-sha256')))
         if self.in_rights:
             self.errors.append("edition rights must contain only plain text")
         if tag == "footer":
@@ -122,6 +127,7 @@ class EditionHTML(html.parser.HTMLParser):
             self.ids.add(identifier)
         if tag == "a" and "href" in attributes:
             target = attributes["href"] or ""
+            self.external_links.append(target)
             if identifier == "press-edition-record":
                 self.record_links.append(target)
             if identifier == "press-edition-read":
@@ -131,7 +137,10 @@ class EditionHTML(html.parser.HTMLParser):
                 if self.article_count:
                     self.errors.append("edition status must precede the manuscript")
             if "press-permalink" in attributes.get("class", "").split():
-                self.permalinks.append((self.current_heading, target))
+                if 'data-press-passage' in attributes:
+                    self.passage_permalinks.append((attributes['data-press-passage'], target))
+                else:
+                    self.permalinks.append((self.current_heading, target))
                 if not attributes.get("aria-label", "").strip() or "tabindex" in attributes:
                     self.errors.append("section permalink requires an accessible, keyboard-focusable link")
             if target.startswith("#"):
@@ -293,6 +302,31 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     unresolved = set(parser.fragment_links) - parser.ids
     if unresolved:
         parser.errors.append("unresolved HTML fragment links: " + repr(sorted(unresolved)))
+    supporting = manifest.get('supporting_documents', [])
+    if not isinstance(supporting, list) or len(supporting) > 128:
+        raise AssetError('invalid supporting document provenance')
+    expected_sources, passage_ids, all_anchors = [], [], set()
+    for entry in supporting:
+        from supporting_records import MAX_RECORD_BYTES, record_path
+        from identifier_schema import SLUG
+        path = Path(entry['source_path'])
+        if (not record_path(path) or path.suffix != '.md' or path.parts[1] != tag_match[1]
+                or not re.fullmatch('[0-9a-f]{64}', entry.get('sha256', ''))
+                or type(entry.get('byte_count')) is not int or not 0 < entry['byte_count'] <= MAX_RECORD_BYTES
+                or not isinstance(entry.get('anchors'), dict) or not entry['anchors']):
+            raise AssetError('invalid supporting document identity')
+        expected_sources.append((str(path), entry['sha256']))
+        for key, anchor in entry['anchors'].items():
+            expected = f'support-md-{len(path.stem)}-{path.stem}-{key}'
+            if (not SLUG.fullmatch(key) or anchor not in {expected, f'record-md-{len(path.stem)}-{path.stem}'}
+                    or anchor in all_anchors or anchor not in parser.ids):
+                raise AssetError('invalid or missing supporting passage anchor')
+            all_anchors.add(anchor)
+            if anchor not in parser.heading_ids:
+                passage_ids.append(anchor)
+    if (parser.supporting_sources != expected_sources or len(set(expected_sources)) != len(expected_sources)
+            or sorted(parser.passage_permalinks) != sorted((a, manifest['record_url']+'/read#'+a) for a in passage_ids)):
+        raise AssetError('supporting sources or passage permalinks differ from provenance')
     if (parser.errors or parser.h1 != 1 or not parser.csp or not parser.viewport
             or not parser.html_lang or not parser.document_profile or not parser.profile_meta
             or parser.main_count != 1 or parser.article_count != 1 or parser.style_count != 1):
@@ -302,8 +336,24 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         raise AssetError("invalid edition asset inventory")
     total = 0
     digests = set()
+    downloads = set()
     policy = AssetPolicy(manifest["asset_origin"]) if manifest.get("asset_origin") else None
     for record in records:
+        if record.get('role') == 'download':
+            if policy is None or record.get('source_kind') != 'https':
+                raise AssetError('download requires an approved HTTPS asset source')
+            url = record['source_url']
+            digest, extension = policy.parse(url)
+            if (record.get('destination') != url or record.get('sha256') != digest
+                    or record.get('media_type') != MIME.get(extension,'application/octet-stream')
+                    or type(record.get('byte_count')) is not int or not 0 <= record['byte_count'] <= MAX_BYTES
+                    or url not in parser.external_links or url in downloads):
+                raise AssetError('external download destination or identity differs from provenance')
+            downloads.add(url)
+            total += record['byte_count']
+            continue
+        if 'role' in record:
+            raise AssetError('unsupported asset role')
         destination = record["destination"]
         match = re.fullmatch(r"verified/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg)", destination)
         if not match or record["sha256"] != match[1]:
@@ -328,6 +378,9 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         total += len(data)
     if total > MAX_TOTAL_BYTES or set(parser.images) != digests:
         raise AssetError("HTML asset inventory differs from provenance or exceeds size limit")
+    managed_links = {url for url in parser.external_links if policy and policy.manages(url)}
+    if managed_links != downloads:
+        raise AssetError('HTML download inventory differs from provenance')
     return manifest
 
 
