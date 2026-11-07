@@ -5,7 +5,7 @@ PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
 export CONVERSATION TIP OUTPUT PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
-export ASSET_ROOT ASSET_TARGET
+export ASSET_TARGET
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -15,12 +15,12 @@ setup: ## Install the pinned tools and Python dependencies. Requires mise (https
 	mise install
 	mise exec -- uv sync --locked
 
-check: check-source check-assets ## Validate tracked sources and verify their images online. Stage new files first.
+check: check-source check-assets ## Validate tracked sources and verify their assets online. Stage new files first.
 
 check-source: ## Validate tracked manuscripts and registrations offline.
 	@$(PYTHON) scripts/validate_sources.py
 
-check-assets: ## Download and verify referenced images.
+check-assets: ## Download and verify referenced assets.
 	@$(PYTHON) scripts/verify_source_assets.py
 
 test: ## Run the Python and asset gateway test suites.
@@ -56,7 +56,7 @@ chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id
 	@$(PYTHON) scripts/extract_chatgpt.py --gfm --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
 		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
 
-build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag>/.
+build: ## TAG=works/essay/v1.0.0  Build from HEAD into dist/<tag>/. Downloads add a verified offline ZIP; extract it and open index.html for local access to every supplement.
 	@$(PYTHON) scripts/build_edition.py --commit "$$(git rev-parse HEAD)" \
 		--tag "$${TAG:?Set TAG to the intended edition tag}" --output "dist/$$TAG"
 
@@ -91,10 +91,10 @@ check-backup: ## BACKUP_BASE=https://archive/base REGISTRATION=receipt.json ARCH
 		--editorial-sha256 "$${EDITORIAL_SHA256:?Set EDITORIAL_SHA256 to the independently retained current checkpoint}" \
 		$${WORK_SHA256:+"--work-sha256=$$WORK_SHA256"}
 
-archive-export: ## ARCHIVE_COMMIT=sha PACKAGE_ROOT=../packages OUTPUT=../standby [ASSET_ROOT=../assets]  Export packages, approved pages, full Git history and external downloads under public/sha256. Fetch downloads unless supplied as saved sha256 objects.
+archive-export: ## ARCHIVE_COMMIT=sha PACKAGE_ROOT=../packages OUTPUT=../standby  Export verified saved packages, approved pages, full Git history and packaged downloads under public/sha256, without the asset origin.
 	@$(PYTHON) scripts/export_archive.py --commit="$${ARCHIVE_COMMIT:?Set ARCHIVE_COMMIT to the independently retained current commit SHA}" \
 		--package-root="$${PACKAGE_ROOT:?Set PACKAGE_ROOT to the directory containing saved packages by tag}" \
-		--output="$${OUTPUT:?Set OUTPUT to a new external directory}" $${ASSET_ROOT:+"--asset-root=$$ASSET_ROOT"}
+		--output="$${OUTPUT:?Set OUTPUT to a new external directory}"
 
 check-backup-archive: ## BACKUP_BASE=https://archive/base ARCHIVE_COMMIT=sha  Verify every issued edition, reading copy and work page against an independently retained current commit.
 	@$(PYTHON) scripts/check_backup_archive.py --backup-base "$${BACKUP_BASE:?Set BACKUP_BASE to the recovery host base}" \

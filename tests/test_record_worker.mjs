@@ -59,14 +59,14 @@ test('receipted records serve the reviewed main page, even when the release mirr
     assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(await response.text(), method === 'HEAD' ? '' : page);
   }
-  for (const file of ['SHA256SUMS', 'provenance.json', 'sample-work-v1.0.0.html']) {
+  for (const file of ['SHA256SUMS', 'provenance.json', 'sample-work-v1.0.0.html', 'sample-work-v1.0.0-offline.zip']) {
     const response = await worker.fetch(new Request(address + '/' + file), env);
     assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(response.headers.get('Location'), 'https://github.com/owner/press/releases/download/' +
                  encodeURIComponent('works/sample-work/v1.0.0') + '/' + file);
   }
   const backup = {...env, RECORD_TARGET_BASE: 'https://recovered.publisher.test'};
-  for (const suffix of ['', '/read', '/provenance.json']) {
+  for (const suffix of ['', '/read', '/provenance.json', '/sample-work-v1.0.0-offline.zip']) {
     const recovered = await worker.fetch(new Request(address + suffix), backup);
     assert.equal(recovered.headers.get('Cache-Control'), 'no-store, no-transform');
     assert.equal(recovered.headers.get('Location'), backup.RECORD_TARGET_BASE + '/works/sample-work/v1.0.0' + suffix);
@@ -79,7 +79,8 @@ test('requests cannot choose another host, path, query destination, or write met
   for (const url of ['https://other.test/works/sample-work/v1.0.0',
                      address + '?target=https://evil.test', address + '/',
                      address.replace('/works/', '/%77orks/'), address.replace('/works/', '//works/'),
-                     address.replace('sample-work', 'elsewhere'), address.replace('v1.0.0', 'v01.0.0')]) {
+                     address.replace('sample-work', 'elsewhere'), address.replace('v1.0.0', 'v01.0.0'),
+                     address + '/sample-work-v2.0.0-offline.zip', address + '/stray.zip']) {
     const response = await worker.fetch(new Request(url), env);
     assert.equal(response.status, 404, url);
     assert.equal(response.headers.get('Location'), null);

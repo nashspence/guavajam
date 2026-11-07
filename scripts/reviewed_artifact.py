@@ -13,6 +13,7 @@ from issuance import check_authorization, read_registration
 from public_record import EDITION_RECORDS, REGISTRATIONS, saved_manifest
 from publish_edition import api, gh
 from verify_edition import verify_edition
+from edition_package import package_names
 
 
 def staging_builder(repo, run_id, digest):
@@ -68,13 +69,16 @@ def restore_claimed(root, repo, tag, run_id, digest, directory):
     filename = slug + "-" + version + ".html"
     provenance_size = (root / EDITION_RECORDS / slug / version / "provenance.json").stat().st_size
     limits = {filename: manifest["html_byte_count"], "provenance.json": provenance_size, "SHA256SUMS": 4096}
+    if 'supplementary_package' in manifest:
+        bundle=manifest['supplementary_package'];package_names(manifest)
+        limits[bundle['filename']]=bundle['byte_count']
     assets = draft["assets"]
     if (len(assets) != len(limits) or {a["name"] for a in assets} != limits.keys()
             or any(a["state"] != "uploaded" or not 0 < a["size"] <= limits[a["name"]] for a in assets)):
-        raise AssetError("saved proof draft requires exactly the three bounded, uploaded attachments")
+        raise AssetError("saved proof draft requires exactly the bounded, reviewed attachments")
     directory.mkdir(parents=True, exist_ok=False)
-    gh("release", "download", transport, "--repo", repo, "--dir", str(directory),
-       "--pattern", filename, "--pattern", "provenance.json", "--pattern", "SHA256SUMS")
+    patterns=[item for name in limits for item in ('--pattern',name)]
+    gh("release", "download", transport, "--repo", repo, "--dir", str(directory), *patterns)
     if any((directory / name).stat().st_size > limit for name, limit in limits.items()):
         raise AssetError("saved proof exceeds the claimed file size")
     verify_reviewed(directory, digest, manifest["builder_commit"])

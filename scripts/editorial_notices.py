@@ -32,6 +32,8 @@ def edition_fields(manifest):
               "Canonical artifact": manifest["canonical_artifact"], "Rights": manifest["rights"],
               "Source commit": manifest["source_commit"], "Provenance": "provenance.json",
               "Checksums": "SHA256SUMS"}
+    if manifest.get('supplementary_package'):
+        fields['Complete offline package']=manifest['supplementary_package']['filename']
     for key, label in (("author", "Author"), ("language", "Language"), ("author_orcid", "Author ORCID")):
         if key in manifest:
             fields[label] = manifest[key]

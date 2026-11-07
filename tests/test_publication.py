@@ -1,4 +1,5 @@
 """Pre-publication gate and per-push asset verification tests; never publish."""
+import hashlib
 import json
 import os
 import subprocess
@@ -87,7 +88,7 @@ class PublicationLifecycleTests(unittest.TestCase):
         elif args[:2] == ("release", "upload"):
             for path in map(Path, args[3:args.index("--repo")]):
                 self.remote[path.name] = path.read_bytes()
-                self.release["assets"].append({"id": len(self.remote), "name": path.name, "state": "uploaded"})
+                self.release["assets"].append({"id": len(self.remote), "name": path.name, "state": "uploaded", "size": path.stat().st_size})
         elif args[:2] == ("release", "download"):
             name = args[args.index("--pattern") + 1]
             (Path(args[args.index("--dir") + 1]) / name).write_bytes(self.remote[name])
@@ -107,8 +108,43 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.release = {"id": 123, "tag_name": self.tag, "draft": True, "prerelease": False,
                         "target_commitish": self.commit, "body": release_notes(manifest),
                         "name": "Test — v1.0.0", "assets": [
-                            {"id": idx, "name": name, "state": "uploaded"}
+                            {"id": idx, "name": name, "state": "uploaded", "size": len(self.remote[name])}
                             for idx, name in enumerate(self.remote, 1)]}
+
+    def supplement(self):
+        manifest=self.verify_edition.return_value
+        name="sample-v1.0.0-offline.zip";raw=b"reviewed supplementary ZIP"
+        (self.output/name).write_bytes(raw)
+        manifest['supplementary_package']={'filename':name,'sha256':hashlib.sha256(raw).hexdigest(),'byte_count':len(raw)}
+        manifest['initial_release_body']=render_initial_body(manifest)
+        return name
+
+    def test_all_supplementary_bytes_are_read_back_before_and_after_promotion(self):
+        name=self.supplement();self.publish()
+        promotion=next(i for i,args in enumerate(self.operations) if "PATCH" in args)
+        for operations in (self.operations[:promotion],self.operations[promotion+1:]):
+            reads=[args[args.index('--pattern')+1] for args in operations if args[:2]==('release','download')]
+            self.assertEqual({p.name for p in self.output.iterdir()},set(reads))
+            self.assertIn(name,reads)
+
+    def test_changed_or_wrong_size_supplement_never_promotes_an_existing_draft(self):
+        name=self.supplement();self.existing_draft()
+        original=self.remote[name];self.remote[name]=b'changed'
+        with self.assertRaises(AssetError):self.publish()
+        self.assertTrue(self.release['draft'])
+        self.remote[name]=original
+        asset=next(a for a in self.release['assets'] if a['name']==name);asset['size']+=1
+        with self.assertRaises(AssetError):self.publish()
+        self.assertTrue(self.release['draft'])
+        self.assertFalse(any('PATCH' in args for args in self.operations))
+
+    def test_missing_supplement_is_resumed_and_verified_while_still_draft(self):
+        name=self.supplement();self.existing_draft()
+        self.release['assets']=[a for a in self.release['assets'] if a['name']!=name]
+        del self.remote[name];self.publish()
+        promotion=next(i for i,args in enumerate(self.operations) if 'PATCH' in args)
+        uploads=[args for args in self.operations[:promotion] if args[:2]==('release','upload')]
+        self.assertEqual(1,len(uploads));self.assertIn(str(self.output/name),uploads[0])
 
     def test_fresh_publication_reads_back_draft_and_public_bytes(self):
         self.publish()

@@ -26,6 +26,7 @@ from identifier_schema import TAG, edition_record_url
 from supporting_records import append_supporting_records
 from validate_sources import parse_document, plain_text, validate_front_matter, validate_repository, walk
 from bibliography import ordered_authors
+from edition_package import create_bundle, package_names
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
 
@@ -106,7 +107,7 @@ def materialize_images(ast: dict, root: Path, manuscript: Path, commit: str,
     return sorted(records.values(), key=lambda record: record["source_url"])
 
 
-def materialize_downloads(ast, root, *, fetcher=fetch_asset):
+def materialize_downloads(ast, root, *, fetcher=fetch_asset, output=None):
     policy = load_policy(root)
     records = {}
     for node in walk(ast['blocks']):
@@ -119,6 +120,9 @@ def materialize_downloads(ast, root, *, fetcher=fetch_asset):
             media_type = verify_bytes(raw, extension, media_type)
             if hashlib.sha256(raw).hexdigest() != digest:
                 raise AssetError('download SHA-256 does not match URL')
+            if output is not None:
+                path=output/'sha256'/(digest+'.'+extension)
+                path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
             records[url] = {'source_url':url, 'source_kind':'https', 'sha256':digest,
                 'byte_count':len(raw), 'media_type':media_type, 'destination':url, 'role':'download'}
         if len(records) > MAX_ASSETS:
@@ -154,7 +158,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         build = temp / "build"
         build.mkdir()
         records = materialize_images(ast, root, manuscript, commit, load_policy(root), build, fetcher)
-        records += materialize_downloads(ast, root, fetcher=fetcher)
+        records += materialize_downloads(ast, root, fetcher=fetcher, output=build/'supplements')
         if len(records) > MAX_ASSETS or sum(r['byte_count'] for r in records) > MAX_TOTAL_BYTES:
             raise AssetError('edition exceeds the combined asset inventory limit')
         # Keep a local-reference build tree for inspection; only verified files are
@@ -214,7 +218,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
                      "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/supporting_gfm.py", "scripts/table_captions.py",
-                     "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py"]:
+                     "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py", "scripts/edition_package.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
                 raise AssetError("publisher builder files must match the recorded builder commit: " + path)
@@ -252,10 +256,14 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         packaged = temp / "packaged"
         packaged.mkdir()
         (packaged / filename).write_bytes(raw_html)
+        bundle=create_bundle(packaged,raw_html,manifest,build/'supplements')
+        if bundle:
+            manifest['supplementary_package']=bundle
+            manifest['initial_release_body']=render_initial_body(manifest,prose)
         (packaged / "provenance.json").write_text(
             json.dumps(manifest, sort_keys=True, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         sums = "".join(hashlib.sha256((packaged / name).read_bytes()).hexdigest() + "  " + name + "\n"
-                       for name in [filename, "provenance.json"])
+                       for name in package_names(manifest) if name!='SHA256SUMS')
         (packaged / "SHA256SUMS").write_text(sums, encoding="ascii")
         from verify_edition import verify_edition
         verify_edition(packaged, commit=commit, tag=tag)
