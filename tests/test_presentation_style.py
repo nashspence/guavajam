@@ -65,14 +65,21 @@ class PresentationStyleTests(unittest.TestCase):
     def test_fragment_target_forced_colors_and_print_pagination_have_fallbacks(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         self.assertIn("[id]:target {", css)
-        self.assertIn("box-shadow: -.22rem 0 0 var(--press-link)", css)
+        target_rule = ".press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target"
+        self.assertIn(target_rule + "::before {", css)
+        decoration = css.split(target_rule + "::before {", 1)[1].split("}", 1)[0]
+        for rule in ('content: ""', "position: absolute", "inset-inline-start: -.6rem",
+                     "inline-size: .2rem", "pointer-events: none"):
+            self.assertIn(rule, decoration)
+        self.assertNotIn("box-shadow", css.split(target_rule + " {", 1)[1].split("}", 1)[0])
         forced = css.split("@media (forced-colors: active)", 1)[1].split("@media print", 1)[0]
         self.assertIn("outline: 2px solid Highlight", forced)
+        self.assertIn(target_rule + "::before { content: none; }", forced)
         self.assertNotIn("forced-color-adjust: none", forced)
         printed = css.split("@media print", 1)[1]
         for rule in ("orphans: 3", "widows: 3", "break-after: avoid-page", "tr { break-inside: avoid; }"):
             self.assertIn(rule, printed)
-        self.assertIn("box-shadow: none", printed)
+        self.assertIn(target_rule + "::before { content: none; }", printed)
         self.assertIn("background: transparent", printed)
 
     def test_footnote_links_decorate_the_raised_numeral(self):

@@ -56,9 +56,21 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.equal(await clearOfHeader(), true, `${name} ${width} ${colorScheme}: direct fragment obscured`);
             const targetCue = await page.locator('#sec-2').evaluate(element => {
               const style = getComputedStyle(element);
-              return {shadow: style.boxShadow, background: style.backgroundColor};
+              const rule = getComputedStyle(element, '::before');
+              const rect = element.getBoundingClientRect();
+              const offset = -parseFloat(rule.insetInlineStart);
+              const thickness = parseFloat(rule.inlineSize);
+              return {shadow: style.boxShadow, background: style.backgroundColor,
+                position: style.position, ruleContent: rule.content, offset, thickness,
+                marginFromText: offset - thickness, ruleLeft: rect.left - offset,
+                rect: {left: rect.left, width: rect.width, height: rect.height}};
             });
-            assert.notEqual(targetCue.shadow, 'none', `${name}: deep-link rule missing`);
+            assert.equal(targetCue.shadow, 'none');
+            assert.equal(targetCue.position, 'relative');
+            assert.equal(targetCue.ruleContent, '""', `${name}: citation margin rule missing`);
+            assert.ok(targetCue.marginFromText >= 5 && targetCue.marginFromText <= 9,
+              `${name}: citation rule is too close or too far from heading: ${JSON.stringify(targetCue)}`);
+            assert.ok(targetCue.ruleLeft >= 0, `${name}: citation rule clipped by the viewport`);
             assert.notEqual(targetCue.background, 'rgba(0, 0, 0, 0)', `${name}: target tint missing`);
             assert.equal(await page.locator('#sec-2 a.press-permalink').getAttribute('href'),
               manifest.record_url + '/read#sec-2');
@@ -98,10 +110,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               const target = getComputedStyle(document.querySelector('#sec-2'));
               const paragraph = getComputedStyle(document.querySelector('.press-edition p'));
               return {shadow: target.boxShadow, background: target.backgroundColor,
+                cue: getComputedStyle(document.querySelector('#sec-2'), '::before').content,
                 supportsWidows: CSS.supports('widows', '3') && CSS.supports('orphans', '3'),
                 orphans: paragraph.orphans, widows: paragraph.widows};
             });
             assert.equal(printRules.shadow, 'none', `${name}: print should not mark fragment targets`);
+            assert.equal(printRules.cue, 'none', `${name}: print should hide the margin rule`);
             if (printRules.supportsWidows) {
               assert.equal(printRules.orphans, '3');
               assert.equal(printRules.widows, '3');
@@ -152,11 +166,12 @@ test('chromium: forced colors preserve a discoverable fragment and permalink', {
       const target = await page.locator('#sec-2').evaluate(element => {
         const style = getComputedStyle(element);
         return {outline: style.outlineStyle, width: parseFloat(style.outlineWidth),
-          shadow: style.boxShadow};
+          shadow: style.boxShadow, cue: getComputedStyle(element, '::before').content};
       });
       assert.equal(target.outline, 'solid');
       assert.ok(target.width >= 2, `forced-colors fragment outline missing: ${JSON.stringify(target)}`);
       assert.equal(target.shadow, 'none');
+      assert.equal(target.cue, 'none', 'forced colors should use only the system outline');
       const permalink = page.locator('#sec-2 a.press-permalink');
       await permalink.hover();
       assert.equal(await permalink.evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
