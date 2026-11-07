@@ -68,7 +68,7 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
 
             await page.emulateMedia({media: 'print', colorScheme: 'dark'});
             for (const selector of ['.press-skip', '.press-contents-link', '.press-contents']) {
-              assert.equal(await page.locator(selector).isVisible(), false);
+              assert.equal(await page.locator(selector).isVisible(), false, `${selector} remains visible in print`);
             }
             assert.deepEqual(await page.evaluate(() => {
               const style = getComputedStyle(document.body);
