@@ -1,6 +1,7 @@
 """Opaque objects are verified files; only the approved image profile renders inline."""
 from contextlib import contextmanager
 import copy
+import base64
 import hashlib
 import io
 import json
@@ -140,7 +141,7 @@ class DownloadPublicationTests(EditionTests):
             self.assertEqual({'index.html',KEY},set(archive.namelist()))
             self.assertEqual(RAW,archive.read(KEY))
             offline=archive.read('index.html').decode()
-            self.assertEqual(2,offline.count('href="'+KEY+'" download="'))
+            self.assertEqual(2,offline.count('href="data:application/octet-stream;base64,'+base64.b64encode(RAW).decode()+'" download="'))
             self.assertNotIn('href="'+DOWNLOAD+'"',offline)
             self.assertIn('Offline copy',offline)
         with patch('socket.create_connection',side_effect=AssertionError('offline')):
@@ -158,7 +159,7 @@ class DownloadPublicationTests(EditionTests):
         self.commit=self.git('rev-parse','HEAD');manifest=self.build_downloads()
         with zipfile.ZipFile(self.output/manifest['supplementary_package']['filename']) as archive:
             self.assertEqual({'index.html',KEY},set(archive.namelist()))
-            self.assertEqual(202,archive.read('index.html').count(('href="'+KEY+'"').encode()))
+            self.assertEqual(202,archive.read('index.html').count(b'href="data:application/octet-stream;base64,'))
         verify_edition(self.output)
 
     def repack(self,manifest):
