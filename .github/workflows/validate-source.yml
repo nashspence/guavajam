@@ -61,7 +61,7 @@ jobs:
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
 
-      - name: Verify inert downloads from the complete offline ZIP
+      - name: Verify offline navigation and inert downloads from the complete ZIP
         run: make test-browser
 
       - name: Enforce source format and registrations on the tracked tree

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="Nash Spence">
+
+
+<meta name="press-presentation-profile" content="press.html.v1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Navigation design preview — not an edition</title>
+<style id="press-edition-css">
+/* Press's versioned reading surface: system fonts, no runtime or remote assets.
+   Light/dark tokens are intentionally mirrored in public_record.PAGE_STYLE. */
+:root {
+  color-scheme: light dark;
+  --press-paper: #faf9f6;
+  --press-ink: #222;
+  --press-muted: #555d63;
+  --press-link: #235b9d;
+  --press-visited: #654d84;
+  --press-border: #888;
+  --press-tint: #f0eee9;
+  --press-focus: #235b9d;
+  font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--press-paper); }
+body {
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 3rem;
+  background: var(--press-paper);
+  color: var(--press-ink);
+  overflow-wrap: break-word;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.25;
+  text-wrap: balance;
+  break-after: avoid;
+}
+h1 { font-size: clamp(1.65rem, 4vw, 2.2rem); margin: 1.5rem 0 1rem; }
+h2 { font-size: 1.45rem; margin: 2.2rem 0 .8rem; }
+h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
+h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
+p { margin: 0 0 1.1em; }
+
+/* Preserve link affordances even when color or a color scheme is unavailable. */
+a { color: var(--press-link); text-underline-offset: .12em; }
+a:visited { color: var(--press-visited); }
+a:hover { text-decoration-thickness: .13em; }
+/* Pandoc puts the numeral in <sup> inside an <a class="footnote-ref">.
+   Underlining the outer link draws a detached stroke at the prose baseline. */
+.footnote-ref { text-decoration: none; white-space: nowrap; }
+.footnote-ref > sup {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .08em;
+}
+.footnote-ref:hover > sup { text-decoration-thickness: .12em; }
+a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
+  outline: 3px solid var(--press-focus);
+  outline-offset: 3px;
+}
+/* Clear wrapped status links when readers enlarge text or increase spacing. */
+[id]:target, :focus-visible { scroll-margin-top: 7rem; }
+
+/* Keyboard-first bypass. The main landmark includes the optional contents. */
+.press-skip {
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  z-index: 3;
+  transform: translateY(-150%);
+  padding: .5rem .8rem;
+  background: var(--press-paper);
+  border: 1px solid var(--press-border);
+  font: .9rem/1.4 system-ui, sans-serif;
+}
+.press-skip:focus-visible { position: fixed; transform: none; top: .35rem; }
+
+/* A brief document outline, not a secondary application navigation shell. */
+.press-contents {
+  margin: 1.6rem 0 2.1rem;
+  padding: .9rem 0 1rem;
+  border-top: 1px solid var(--press-border);
+  border-bottom: 1px solid var(--press-border);
+}
+.press-contents-label {
+  margin: 0 0 .45rem;
+  color: var(--press-muted);
+  font: 600 .88rem/1.4 system-ui, sans-serif;
+}
+.press-contents ul { list-style: none; margin: 0; padding: 0; }
+.press-contents li { margin: .2rem 0; }
+.press-contents a { display: inline-block; padding: .12rem 0; overflow-wrap: anywhere; }
+.press-contents-link { margin-left: auto; font-weight: 600; }
+
+.press-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: .5rem 0;
+  margin-bottom: 1.3rem;
+  background: var(--press-paper);
+  border-bottom: 1px solid var(--press-border);
+  font: .85rem/1.5 system-ui, sans-serif;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: .25rem 1.1rem;
+}
+.press-status a { display: inline-block; padding: .25rem 0; }
+.press-permalink, .press-permalink:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  margin: -.35rem 0 -.35rem .1rem;
+  color: var(--press-muted);
+  font: normal .85rem/1 system-ui, sans-serif;
+  text-decoration: none;
+  vertical-align: middle;
+}
+.press-permalink:hover, .press-permalink:focus-visible {
+  background: var(--press-tint);
+  border-radius: .2rem;
+}
+
+blockquote {
+  margin: 1.6rem 0;
+  padding: .2rem 0 .2rem 1rem;
+  border-left: .2rem solid var(--press-border);
+}
+blockquote > :last-child { margin-bottom: 0; }
+code, pre, kbd, samp {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: .92em;
+}
+code { overflow-wrap: anywhere; }
+:not(pre) > code {
+  padding: .08em .2em;
+  border-radius: .15em;
+  background: var(--press-tint);
+}
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: .8rem 1rem;
+  border: 1px solid var(--press-border);
+  background: var(--press-tint);
+  border-radius: .15rem;
+  line-height: 1.45;
+}
+pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
+
+/* Keep real table semantics; the focusable wrapper scrolls on narrow screens. */
+.press-scroll { max-width: 100%; overflow-x: auto; }
+.press-table-scroll { margin: 1.5rem 0; }
+/* Book-style horizontal rules provide structure without a boxed spreadsheet grid. */
+.press-table-scroll table {
+  border-collapse: collapse;
+  margin: 0;
+  width: auto;
+  max-width: 100%;
+  border-top: 2px solid var(--press-border);
+  border-bottom: 2px solid var(--press-border);
+}
+caption {
+  caption-side: top;
+  padding: 0 0 .4rem;
+  color: var(--press-muted);
+  text-align: start;
+  font-size: .9em;
+}
+th, td {
+  padding: .43rem .72rem;
+  border: 0;
+  border-bottom: 1px solid var(--press-border);
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: normal;
+}
+th { font-weight: 700; }
+thead th { border-bottom-width: 2px; }
+.press-math-scroll { margin: 1.2rem 0; }
+.press-math-scroll p { margin: 0; }
+.press-math-scroll math[display='block'] { width: max-content; min-width: 100%; }
+math[display='block'] { max-width: none; }
+
+img, svg { max-width: 100%; height: auto; }
+figure { margin: 1.8rem 0; }
+figure img { display: block; margin: 0 auto; }
+figcaption { margin-top: .45rem; color: var(--press-muted); font-size: .88em; }
+.footnotes {
+  margin-top: 2.5rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--press-border);
+  font-size: .88em;
+}
+.footnotes hr { display: none; }
+.footnotes li { padding-left: .15rem; }
+.footnote-back { margin-left: .3em; text-decoration: none; }
+.footnote-back:hover { text-decoration: underline; text-underline-offset: .12em; }
+li { margin: .25em 0; }
+li > p { margin-bottom: .5em; }
+input[type='checkbox'] { accent-color: var(--press-link); }
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font-size: .85rem;
+}
+
+/* Keep explicit, citable formal headings but give them a compact paper rhythm.
+   The heading level still conveys structure; never infer theorem-body italics or
+   numbering from the next paragraph, which need not be a complete statement. */
+.press-formal-heading {
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.2rem 0 .35rem;
+}
+h2.press-formal-heading { font-size: 1.2rem; }
+h3.press-formal-heading { font-size: 1.08rem; }
+h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
+  font-size: 1.02rem;
+}
+.press-formal-heading[data-press-kind='proof'] {
+  font-style: italic;
+  margin-top: .9rem;
+}
+/* Supporting evidence: restrained archival entries, not chat bubbles or an app UI. */
+.press-record-heading { margin-top: 3rem; }
+.press-record-intro { margin: .6rem 0 1.55rem; }
+.press-record-scope { margin-bottom: .8rem; }
+.press-record-provenance {
+  display: grid;
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+  gap: .22rem .8rem;
+  margin: 0;
+  padding: .65rem 0;
+  border-top: 1px solid var(--press-border);
+  border-bottom: 1px solid var(--press-border);
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+}
+.press-record-provenance dt { font-weight: 600; }
+.press-record-provenance dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.press-record-provenance code {
+  padding: 0;
+  background: transparent;
+  font-size: .96em;
+  overflow-wrap: anywhere;
+}
+.press-passage-heading {
+  margin: 1.25rem 0 .35rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--press-border);
+  font: 600 .94rem/1.4 system-ui, sans-serif;
+}
+.press-record-intro + .press-passage-heading {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: .8rem;
+}
+.press-passage-heading .press-permalink { font-size: .8rem; }
+.press-passage-datetime {
+  margin: -.3rem 0 .4rem;
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.press-supporting-passage {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .96em;
+  line-height: 1.55;
+}
+@media (max-width: 36rem) {
+  [id]:target, :focus-visible { scroll-margin-top: 9rem; }
+  .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-record-provenance dd { margin-bottom: .35rem; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --press-paper: #181a1c;
+    --press-ink: #e4e4df;
+    --press-muted: #b5b9b9;
+    --press-link: #96c7ff;
+    --press-visited: #d5b6ed;
+    --press-border: #868b8e;
+    --press-tint: #25292c;
+    --press-focus: #a8d2ff;
+  }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --press-paper: #fff;
+    --press-ink: #000;
+    --press-muted: #333;
+    --press-link: #164a7c;
+    --press-visited: #164a7c;
+    --press-border: #666;
+    --press-tint: #f5f5f5;
+  }
+  body { max-width: none; padding: 0; }
+  .press-status { position: static; }
+  .press-skip, .press-status .press-contents-link, .press-contents { display: none; }
+  .press-permalink { display: none; }
+  .press-scroll, pre { overflow: visible; }
+  .press-table-scroll table { width: 100%; }
+  th, td { white-space: normal; overflow-wrap: anywhere; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  figure, blockquote, pre { break-inside: avoid; }
+  footer { break-before: auto; }
+}
+</style>
+</head>
+<body>
+<a class="press-skip" href="#press-main" lang="en">Skip to main content</a>
+<header class="press-status" lang="en"><a id="press-edition-status" href="https://press.example.org/works/sample-work/v1.0.0">Corrections and withdrawal status</a><a class="press-contents-link" href="#press-contents">Contents</a></header>
+<main id="press-main" tabindex="-1"><article class="press-edition" data-press-profile="press.html.v1">
+<h1 id="sample-work">Sample Work</h1>
+<p><em>Illustrative navigation fixture — not an issued edition.</em></p>
+<nav id="press-contents" class="press-contents" aria-labelledby="press-contents-label"><p id="press-contents-label" class="press-contents-label" lang="en">Contents</p>
+<ul>
+<li><a href="#sec-1">§ 1 — Definitions and mathematics</a></li>
+<li><a href="#sec-2">§ 2 — Lists, quotations, and notes</a></li>
+<li><a href="#sec-3">§ 3 — Tables, code, and images</a></li>
+<li><a href="#record-notes" lang="en">Supporting records</a></li>
+</ul>
+</nav>
+<h2 id="sec-1">§ 1 — Definitions and mathematics <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#sec-1"
+class="press-permalink" lang="en"
+aria-label="Permalink to section sec-1">¶</a></h2>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>
+be a set. <a href="#eq-1">Equation 1</a> states that every element
+equals itself.</p>
+<h3 id="eq-1">Equation 1 — Identity <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#eq-1"
+class="press-permalink" lang="en"
+aria-label="Permalink to section eq-1">¶</a></h3>
+<p>In symbols, for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>∈</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">x \in S</annotation></semantics></math>:</p>
+<div class="press-scroll press-math-scroll" role="group"
+aria-label="Displayed mathematics" tabindex="0">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>∀</mo><mi>x</mi><mo>∈</mo><mi>S</mi><mo>,</mo><mspace width="1.0em"></mspace><mi>x</mi><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">
+\forall x \in S,\quad x=x
+</annotation></semantics></math></p>
+</div>
+<p>The surrounding prose remains readable independently of mathematical
+typesetting. A <strong>strong assertion</strong>, <em>emphasis</em>,
+<del>a discarded claim</del>, and <code>inline code</code> illustrate
+ordinary Markdown. See <a href="#def-1">the definition</a> and <a
+href="#proof-1">the proof</a>.</p>
+<h3 class="press-formal-heading press-definition"
+data-press-kind="definition" id="def-1">Definition 1.1 — Reflexivity <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#def-1"
+class="press-permalink" lang="en"
+aria-label="Permalink to section def-1">¶</a></h3>
+<p>A relation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math>
+on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>
+is <em>reflexive</em> if each element is related to itself.</p>
+<h3 class="press-formal-heading press-theorem" data-press-kind="theorem"
+id="theorem-1">Theorem 1.1 — Equality is reflexive <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#theorem-1"
+class="press-permalink" lang="en"
+aria-label="Permalink to section theorem-1">¶</a></h3>
+<p>Equality satisfies <a href="#def-1">Definition 1.1</a> because every
+element equals itself.</p>
+<h4 class="press-formal-heading press-proof" data-press-kind="proof"
+id="proof-1">Proof <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#proof-1"
+class="press-permalink" lang="en"
+aria-label="Permalink to section proof-1">¶</a></h4>
+<p>The identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">x=x</annotation></semantics></math>
+holds for each element of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>.
+Thus the relation is reflexive.</p>
+<h2 id="sec-2">§ 2 — Lists, quotations, and notes <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#sec-2"
+class="press-permalink" lang="en"
+aria-label="Permalink to section sec-2">¶</a></h2>
+<p>A bulleted list can contain nested items:</p>
+<ul>
+<li>The underlying set
+<ul>
+<li>Its elements</li>
+</ul></li>
+<li>The relation defined on the set</li>
+</ul>
+<p>An ordered list expresses a sequence:</p>
+<ol type="1">
+<li>State the property.</li>
+<li>Check the property.</li>
+</ol>
+<p>A task list distinguishes completed and open checks:</p>
+<ul class="task-list">
+<li><label><input type="checkbox" checked="" />State the
+definition.</label></li>
+<li><label><input type="checkbox" />Explore an extension.</label></li>
+</ul>
+<blockquote>
+<p>A quotation can contain <strong>emphasis</strong> without changing
+the source format.</p>
+</blockquote>
+<p>This sentence includes a footnote.<a href="#fn1" class="footnote-ref"
+id="fnref1" role="doc-noteref"><sup>1</sup></a> It also links to the <a
+href="#sec-1">notation</a> and to the <a
+href="https://github.com/nashspence/press">source repository</a>.</p>
+<h2 id="sec-3">§ 3 — Tables, code, and images <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#sec-3"
+class="press-permalink" lang="en"
+aria-label="Permalink to section sec-3">¶</a></h2>
+<div class="press-scroll press-table-scroll" role="group"
+aria-label="Table" tabindex="0">
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Symbol</th>
+<th style="text-align: left;">Meaning</th>
+<th style="text-align: right;">Example count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td
+style="text-align: left;"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math></td>
+<td style="text-align: left;">Underlying set</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr class="even">
+<td
+style="text-align: left;"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>R</mi><annotation encoding="application/x-tex">R</annotation></semantics></math></td>
+<td style="text-align: left;">Relation on the set</td>
+<td style="text-align: right;">2</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>: Table 1 — Notation</p>
+<p>A fenced code block preserves literal code and indentation:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode python" tabindex="0" role="group" aria-label="Code block"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> identity(value):</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> value</span></code></pre></div>
+<p>The following is a reference-style image with a stable,
+content-addressed HTTPS URL:</p>
+<p><img
+src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSIyMCI+PC9zdmc+"
+alt="Press asset preview: white text on a blue rectangle" /></p>
+<p>Supporting sources include a <a
+href="#record-notes">reviewed claim</a> and its <a
+href="#record-notes">code</a>.</p>
+<h2 class="press-record-heading" id="record-notes">Supporting record —
+Sketch notebook <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#record-notes"
+class="press-permalink" lang="en"
+aria-label="Permalink to section record-notes">¶</a></h2>
+<p>Reviewed source material accompanies this edition.</p>
+<h3 class="press-passage-heading" id="passage-note">Passage 1 — Initial
+observation <a
+href="https://press.example.org/works/sample-work/v1.0.0/read#passage-note"
+class="press-permalink" lang="en"
+aria-label="Permalink to section passage-note">¶</a></h3>
+<section id="footnotes" class="footnotes footnotes-end-of-document"
+role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1"><p>Footnote content can use <em>emphasis</em> and link back
+to <a href="#theorem-1">theorem</a>.<a href="#fnref1"
+class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</article></main>
+<footer lang="en">
+<p data-press-field="citation">Cite this edition as Nash
+Spence. <cite lang="en">Sample
+Work</cite>. Press, edition v1.0.0. <a id="press-edition-read" href="https://press.example.org/works/sample-work/v1.0.0/read">Read this edition online</a>.</p>
+
+<p>Official edition record and notices: <a id="press-edition-record" href="https://press.example.org/works/sample-work/v1.0.0">https://press.example.org/works/sample-work/v1.0.0</a><br>
+Rights: all-rights-reserved<br>
+Source commit: <code>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</code></p>
+</footer>
+</body>
+</html>

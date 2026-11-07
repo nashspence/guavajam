@@ -145,6 +145,25 @@ class RenderContractTests(EditionTests):
         self.assertEqual(PROFILE, manifest['presentation_profile'])
         self.assertEqual(manifest, verify_edition(self.output))
 
+    def test_starter_contents_are_local_and_canonical_permalinks_are_unchanged(self):
+        self.sample_with_structures()
+        self.build()
+        raw = self.page().read_text(encoding="utf-8")
+        self.assertIn('<a class="press-skip" href="#press-main" lang="en">', raw)
+        self.assertIn('<main id="press-main" tabindex="-1">', raw)
+        self.assertIn('<a class="press-contents-link" href="#press-contents">Contents</a>', raw)
+        toc = re.search(r'<nav id="press-contents".*?</nav>', raw, flags=re.S)
+        self.assertIsNotNone(toc)
+        self.assertEqual(["#sec-1", "#sec-2", "#sec-3", "#record-md-4-note"],
+                         re.findall(r'href="(#[^"]+)"', toc.group()))
+        self.assertNotIn("#theorem-1", toc.group())
+        self.assertNotIn("#support-md-", toc.group())
+        parser = EditionHTML(PROFILE); parser.feed(raw); parser.close()
+        self.assertEqual([], parser.errors)
+        self.assertIn(("sec-1", "https://press.example.org/works/sample-work/v1.0.0/read#sec-1"),
+                      parser.permalinks)
+        self.assertEqual([], [frag for frag in parser.fragment_links if frag not in parser.ids])
+
     def test_starter_caption_survives_validation_build_and_offline_verification(self):
         from validate_sources import parse_document, plain_text, validate_repository
         self.sample_with_structures()

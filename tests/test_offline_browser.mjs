@@ -15,6 +15,80 @@ const expected = await readFile(path.join(root, key));
 assert.match(expected.toString(), /<script>.*alert/);
 
 for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
+  test(`${name}: offline contents, keyboard focus, section targets and print remain usable`, {timeout: 120000}, async () => {
+    const browser = await engine.launch({headless: true});
+    try {
+      // 640/320px also exercise reflow equivalent to a 1280px desktop at 2x/4x zoom.
+      for (const width of [320, 375, 640, 768, 1280]) {
+        for (const colorScheme of ['light', 'dark']) {
+          const context = await browser.newContext({offline: true,
+            viewport: {width, height: 900}, colorScheme});
+          try {
+            const page = await context.newPage();
+            const network = [];
+            page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
+            const url = pathToFileURL(path.join(root, 'index.html')).href;
+            await page.goto(url);
+            const contents = page.getByRole('navigation', {name: 'Contents', exact: true});
+            assert.equal(await contents.count(), 1);
+            assert.deepEqual(await contents.locator('a').evaluateAll(links => links.map(a => a.getAttribute('href'))),
+              ['#sec-1', '#sec-2', '#sec-3', '#record-md-4-note']);
+            assert.equal(await contents.locator('math').count(), 0);
+            assert.equal(await contents.locator('a').nth(1).textContent(), 'Comparison of x=x');
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+
+            await page.keyboard.press('Tab');
+            assert.equal(await page.evaluate(() => document.activeElement.className), 'press-skip');
+            assert.ok((await page.locator('.press-skip').boundingBox()).y >= 0);
+            await page.keyboard.press('Enter');
+            assert.equal(await page.evaluate(() => document.activeElement.id), 'press-main');
+            await page.locator('.press-contents-link').click();
+            await contents.locator('a[href="#sec-3"]').click();
+            await page.waitForFunction(() => location.hash === '#sec-3');
+            const clearOfHeader = () => page.evaluate(() =>
+              document.querySelector(location.hash).getBoundingClientRect().top >=
+              document.querySelector('.press-status').getBoundingClientRect().bottom - 1);
+            assert.equal(await clearOfHeader(), true, `${name} ${width} ${colorScheme}: target obscured`);
+            await page.goBack();
+            await page.waitForFunction(() => location.hash === '#press-contents');
+
+            await page.goto(url + '#sec-2');
+            assert.equal(await clearOfHeader(), true, `${name} ${width} ${colorScheme}: direct fragment obscured`);
+            assert.equal(await page.locator('#sec-2 a.press-permalink').getAttribute('href'),
+              manifest.record_url + '/read#sec-2');
+            {
+              // Enlarged text and wider letter spacing stress status-bar wrapping.
+              await page.evaluate(() => {
+                const root = document.documentElement;
+                root.style.fontSize = parseFloat(getComputedStyle(root).fontSize) * 2 + 'px';
+                root.style.letterSpacing = '0.12em';
+                document.querySelector('#sec-2').scrollIntoView();
+              });
+              assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+              const geometry = await page.evaluate(() => ({
+                target: document.querySelector('#sec-2').getBoundingClientRect().top,
+                header: document.querySelector('.press-status').getBoundingClientRect().bottom,
+              }));
+              assert.ok(geometry.target >= geometry.header - 1,
+                `${name} ${width}: enlarged-text target obscured: ${JSON.stringify(geometry)}`);
+            }
+
+            await page.emulateMedia({media: 'print', colorScheme: 'dark'});
+            for (const selector of ['.press-skip', '.press-contents-link', '.press-contents']) {
+              assert.equal(await page.locator(selector).isVisible(), false, `${selector} remains visible in print`);
+            }
+            assert.deepEqual(await page.evaluate(() => {
+              const style = getComputedStyle(document.body);
+              return [style.backgroundColor, style.color];
+            }), ['rgb(255, 255, 255)', 'rgb(0, 0, 0)']);
+            assert.equal(await page.locator('footer').isVisible(), true);
+            assert.deepEqual(network, []);
+          } finally { await context.close(); }
+        }
+      }
+    } finally { await browser.close(); }
+  });
+
   test(`${name}: opaque downloads from the complete ZIP remain exact and inert offline`, {timeout: 45000}, async () => {
     const browser = await engine.launch({headless: true});
     try {
