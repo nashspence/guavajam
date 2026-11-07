@@ -18,6 +18,7 @@ from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, 
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 from bibliography import author_text, check_optional_bibliography, ordered_authors
+from edition_package import package_names, verify_bundle
 
 
 class EditionHTML(html.parser.HTMLParser):
@@ -230,14 +231,18 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     filename = tag_match[1] + "-" + tag_match[2] + ".html"
     if manifest.get("canonical_artifact") != filename:
         raise AssetError("canonical filename does not match edition tag")
-    names = {filename, "provenance.json", "SHA256SUMS"}
+    names = set(package_names(manifest))
     if {path.name for path in directory.iterdir()} != names:
-        raise AssetError("edition must contain exactly HTML, provenance.json and SHA256SUMS")
+        raise AssetError("edition must contain exactly HTML, provenance.json, SHA256SUMS and any declared supplementary package")
     if any((directory / name).is_symlink() or not (directory / name).is_file() for name in names):
         raise AssetError("edition files must be regular files")
     check_html_size((directory / filename).stat().st_size)
+    if "supplementary_package" in manifest:
+        bundle=manifest["supplementary_package"]
+        if (directory/bundle["filename"]).stat().st_size!=bundle["byte_count"]:
+            raise AssetError("supplementary package size differs from provenance")
     checksums = "".join(hashlib.sha256((directory / name).read_bytes()).hexdigest() + "  " + name + "\n"
-                        for name in [filename, "provenance.json"])
+                        for name in package_names(manifest) if name!='SHA256SUMS')
     if (directory / "SHA256SUMS").read_bytes() != checksums.encode("ascii"):
         raise AssetError("edition checksums do not match")
     raw = (directory / filename).read_bytes()
@@ -381,6 +386,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     managed_links = {url for url in parser.external_links if policy and policy.manages(url)}
     if managed_links != downloads:
         raise AssetError('HTML download inventory differs from provenance')
+    verify_bundle(directory,raw,manifest)
     return manifest
 
 

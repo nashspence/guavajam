@@ -8,6 +8,7 @@ from deploy_record_gateway import target_base
 from identifier_schema import TAG
 from issuance import check_authorization
 from verify_edition import verify_edition
+from edition_package import package_names, MAX_BUNDLE_BYTES
 
 
 def verify_backup_package(base, tag, receipt):
@@ -32,12 +33,19 @@ def verify_backup_package(base, tag, receipt):
                     for chunk in response_chunks(response, limit):
                         output.write(chunk)
                         digest.update(chunk)
-            # verify_edition checks the exact two checksum lines.
+            # verify_edition checks the complete checksum inventory.
             if expected is not None and digest.hexdigest() != expected:
                 raise AssetError(f"{url}: backup file differs from the trusted receipt")
+        import json
+        saved=json.loads((directory/'provenance.json').read_bytes())
+        for name in package_names(saved)[3:]:
+            with public_response(base+'/'+tag+'/'+name,'application/octet-stream',timeout=120) as response:
+                if response.status!=200:raise AssetError('missing supplementary backup package')
+                raw=b''.join(response_chunks(response,MAX_BUNDLE_BYTES))
+            (directory/name).write_bytes(raw)
         manifest = verify_edition(directory, tag=tag)
         check_authorization(receipt, directory, manifest)
-        # External downloads are independent objects, not bytes embedded in HTML.
+        # Check the standby objects used by the permanent asset gateway as well.
         for _ in download_bytes(manifest, base=base):
             pass
         return manifest

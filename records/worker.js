@@ -127,7 +127,8 @@ export default {
       const match = new RegExp('^(?:' + env.RECORD_TAG_PATTERN + ')$', 'u').exec(tag);
       if (!match) return error(404);
       const filename = match[1] + '-' + match[2] + '.html';
-      if (resource !== null && !['read', filename, 'provenance.json', 'SHA256SUMS'].includes(resource)) return error(404);
+      const offline = match[1] + '-' + match[2] + '-offline.zip';
+      if (resource !== null && !['read', filename, 'provenance.json', 'SHA256SUMS', offline].includes(resource)) return error(404);
       if (!github) return redirect(prefix + url.pathname);
       if (resource !== 'read') {
         // Both the source inputs and the checked, generated record are merged on protected main.

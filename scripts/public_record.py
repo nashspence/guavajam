@@ -240,6 +240,11 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     if not successor:
         page.append(f'<p><a href="../{slug}">All editions of this work</a></p>')
     page.append("</div>")
+    if manifest.get('supplementary_package'):
+        from edition_package import package_names
+        package_names(manifest)
+        filename=manifest['supplementary_package']['filename']
+        page.append(f'<p><a href="{version}/{filename}">Complete offline package (ZIP)</a></p>')
     if "abstract" in manifest:
         language = f' lang="{escape(manifest["language"])}"' if "language" in manifest else ""
         page.extend(["<h2>Abstract</h2>", f'<p{language}>{escape(manifest["abstract"])}</p>'])
@@ -248,7 +253,7 @@ def record_html(manifest, *, published_at, notices, identifiers) -> bytes:
     page.append(edition_citation(manifest, published_at, version_doi))
     page.append('</div>')
     page.append('<h2>Edition details</h2><dl class="press-record-details">')
-    attachments = {"Canonical artifact", "Provenance", "Checksums"}
+    attachments = {"Canonical artifact", "Provenance", "Checksums", 'Complete offline package'}
     for label, value in edition_fields(manifest).items():
         value = authored_title(manifest) if label == "Work" else escape(value)
         # Resolve next to the extensionless record URL, including on the recovery host.

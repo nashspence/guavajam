@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
@@ -22,6 +23,8 @@ from public_record import write_records
 from validate_sources import git_sources,validate_repository
 from verify_edition import verify_edition
 from verify_source_assets import verify_source_assets
+from edition_package import package_names, verify_bundle, offline_html
+from editorial_notices import render_initial_body
 from deploy_asset_gateway import deploy
 from test_assets import EditionTests,SVG,URL,ORIGIN
 from test_asset_storage import MemoryB2,version,LEASE_PREFIX,OLD,NOW
@@ -132,6 +135,14 @@ class DownloadPublicationTests(EditionTests):
         self.assertEqual(2,page.count('href="'+DOWNLOAD+'"'))
         self.assertIn('data:image/svg+xml;base64,',page)
         self.assertNotIn('download only',page)
+        self.assertEqual(4,len(list(self.output.iterdir())))
+        with zipfile.ZipFile(self.output/manifest['supplementary_package']['filename']) as archive:
+            self.assertEqual({'index.html',KEY},set(archive.namelist()))
+            self.assertEqual(RAW,archive.read(KEY))
+            offline=archive.read('index.html').decode()
+            self.assertEqual(2,offline.count('href="'+KEY+'" download="'))
+            self.assertNotIn('href="'+DOWNLOAD+'"',offline)
+            self.assertIn('Offline copy',offline)
         with patch('socket.create_connection',side_effect=AssertionError('offline')):
             self.assertEqual(manifest,verify_edition(self.output))
         with self.assertRaises(AssetError):
@@ -139,6 +150,69 @@ class DownloadPublicationTests(EditionTests):
         other=self.base/'repeat'
         build_edition(self.repo,self.commit,self.tag,other,fetcher=self.fetch)
         self.assertEqual({p.name:p.read_bytes() for p in self.output.iterdir()},{p.name:p.read_bytes() for p in other.iterdir()})
+
+    def repack(self,manifest):
+        (self.output/'provenance.json').write_text(json.dumps(manifest))
+        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n'
+            for f in package_names(manifest) if f!='SHA256SUMS'))
+
+    def test_missing_changed_or_unbound_supplements_fail_offline(self):
+        self.source();manifest=self.build_downloads();bundle=self.output/manifest['supplementary_package']['filename']
+        raw=bundle.read_bytes();bundle.unlink()
+        with self.assertRaises(AssetError):verify_edition(self.output)
+        bundle.write_bytes(raw[:-1]+bytes([raw[-1]^1]));self.repack(manifest)
+        with self.assertRaisesRegex(AssetError,'supplementary package digest'):verify_edition(self.output)
+        bundle.unlink();manifest.pop('supplementary_package')
+        manifest['initial_release_body']=render_initial_body(manifest);self.repack(manifest)
+        with self.assertRaisesRegex(AssetError,'every download requires'):verify_edition(self.output)
+
+    def test_even_rehashed_zip_cannot_substitute_files_index_or_add_paths(self):
+        self.source();manifest=self.build_downloads();path=self.output/manifest['supplementary_package']['filename']
+        original=path.read_bytes()
+        for change in ('bytes','index','extra','missing','duplicate','symlink','compressed'):
+            with self.subTest(change=change):
+                with zipfile.ZipFile(io.BytesIO(original)) as saved:
+                    members={name:saved.read(name) for name in saved.namelist()}
+                if change=='bytes':members[KEY]=b'x'*len(RAW)
+                if change=='index':members['index.html']+=b'changed'
+                if change=='extra':members['../escape']=b'unsafe'
+                if change=='missing':members.pop(KEY)
+                with zipfile.ZipFile(path,'w') as archive:
+                    for name,data in members.items():
+                        info=zipfile.ZipInfo(name);info.create_system=3
+                        info.external_attr=(0o120777 if change=='symlink' and name==KEY else 0o100644)<<16
+                        if change=='compressed':info.compress_type=zipfile.ZIP_DEFLATED
+                        archive.writestr(info,data)
+                    if change=='duplicate':
+                        import warnings
+                        with warnings.catch_warnings():
+                            warnings.simplefilter('ignore');archive.writestr(KEY,RAW)
+                raw=path.read_bytes();manifest['supplementary_package'].update(sha256=hashlib.sha256(raw).hexdigest(),byte_count=len(raw))
+                self.repack(manifest)
+                with self.assertRaises(AssetError):verify_edition(self.output)
+
+    def test_saved_proof_restores_all_four_attachments_without_actions_or_origin(self):
+        self.source();manifest=self.build_downloads()
+        receipt={**authorization(self.output,manifest),'issuing':True,'staged_run_id':'73'}
+        registration=self.repo/'registrations/editions/sample/v1.0.0.json';registration.parent.mkdir(parents=True)
+        registration.write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+        directory=self.repo/'records/editions/sample/v1.0.0';directory.mkdir(parents=True)
+        (directory/'provenance.json').write_bytes((self.output/'provenance.json').read_bytes())
+        files={p.name:p.read_bytes() for p in self.output.iterdir()}
+        assets=[{'name':name,'size':len(raw),'state':'uploaded'} for name,raw in files.items()]
+        def transport(*args):
+            if args[:2]==('release','view'):return json.dumps({'isDraft':True,'assets':assets})
+            self.assertEqual(('release','download'),args[:2])
+            self.assertEqual(set(files),set(args[8::2]))
+            for name,raw in files.items():(Path(args[6])/name).write_bytes(raw)
+        from reviewed_artifact import restore_claimed
+        result=self.base/'restored'
+        with patch('reviewed_artifact.gh',side_effect=transport),patch('socket.create_connection',side_effect=AssertionError('offline')):
+            restore_claimed(self.repo,'owner/press',self.tag,'73',receipt['provenance_sha256'],result)
+            self.assertEqual(files,{p.name:p.read_bytes() for p in result.iterdir()})
+            assets.pop()
+            with self.assertRaisesRegex(AssetError,'bounded'):
+                restore_claimed(self.repo,'owner/press',self.tag,'73',receipt['provenance_sha256'],self.base/'missing')
 
     def test_managed_link_syntax_and_inline_bin_reject_before_issuance(self):
         self.source();path=self.repo/'works/sample/manuscript.md';text=path.read_text()
@@ -158,7 +232,7 @@ class DownloadPublicationTests(EditionTests):
         raw=(self.output/name).read_bytes().replace(DOWNLOAD.encode(),DOWNLOAD.replace(DIGEST,'0'*64).encode())
         manifest.update(html_sha256=hashlib.sha256(raw).hexdigest(),html_byte_count=len(raw))
         (self.output/name).write_bytes(raw);(self.output/'provenance.json').write_text(json.dumps(manifest))
-        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n' for f in (name,'provenance.json')))
+        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n' for f in package_names(manifest) if f!='SHA256SUMS'))
         with self.assertRaises(AssetError):verify_edition(self.output)
 
     def test_archive_carries_download_bytes_and_can_recover_from_saved_objects_without_origin(self):
@@ -176,11 +250,12 @@ class DownloadPublicationTests(EditionTests):
         write_records(self.repo,self.tag)
         self.git('add','records');self.git('commit','-qm','Keep reviewed receipt and pages')
         sha=self.git('rev-parse','HEAD');output=self.base/'export'
-        self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',output,fetcher=self.fetch))
+        with patch('socket.create_connection',side_effect=AssertionError('offline')):
+            self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',output))
         self.assertEqual(RAW,(output/'public'/KEY).read_bytes())
         self.assertEqual((package/manifest['canonical_artifact']).read_bytes(),(output/'public'/self.tag/'read.html').read_bytes())
         with patch('socket.create_connection',side_effect=AssertionError('offline')):
-            self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',self.base/'offline-export',asset_root=output/'public'))
+            self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',self.base/'offline-export'))
         from check_backup_archive import check_backup_archive
         base='https://backup.example.org/press'
         @contextmanager
@@ -198,8 +273,9 @@ class DownloadPublicationTests(EditionTests):
             self.assertEqual((1,1),check_backup_archive(self.repo,sha,base,'owner/press'))
             (output/'public'/KEY).write_bytes(RAW+b'changed')
             with self.assertRaises(AssetError):check_backup_archive(self.repo,sha,base,'owner/press')
-        (output/'public'/KEY).write_bytes(RAW+b'changed')
-        with self.assertRaises(AssetError):export_archive(self.repo,sha,self.base/'packages',self.base/'bad-export',asset_root=output/'public')
+        bundle=package/manifest['supplementary_package']['filename']
+        bundle.write_bytes(bundle.read_bytes()[:-1])
+        with self.assertRaises(AssetError):export_archive(self.repo,sha,self.base/'packages',self.base/'bad-export')
 
 
 def load_tests(loader,tests,pattern):

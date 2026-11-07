@@ -144,6 +144,11 @@ def release_inventory(release, tag, manifest, names, *, draft, notices=(), ident
                 if asset["state"] == "uploaded"}
     if len(uploaded) != len(release["assets"]) or set(uploaded) - set(names):
         raise AssetError("unexpected or incomplete release attachment")
+    bundle=manifest.get('supplementary_package')
+    if bundle and bundle['filename'] in uploaded:
+        asset=next(a for a in release['assets'] if a['name']==bundle['filename'])
+        if asset.get('size')!=bundle['byte_count']:
+            raise AssetError('supplementary release attachment size differs from reviewed package')
     return uploaded
 
 
@@ -197,7 +202,8 @@ def publish_edition(repo, directory, commit, tag, *, issuer_commit, policy_token
     matches = [release for release in release_records(repo) if release["tag_name"] == tag]
     if len(matches) > 1:
         raise AssetError("multiple releases use the edition tag")
-    names = [manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"]
+    from edition_package import package_names
+    names = package_names(manifest)
     release = matches[0] if matches else None
     record = check_issuance(root, directory, manifest, pending=release is None or release["draft"],
                             published_at=release.get("published_at") if release else None)

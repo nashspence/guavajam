@@ -22,6 +22,7 @@ from issuance import read_registration
 from public_record import (EDITION_RECORDS, REGISTRATIONS, WORK_RECORDS, claimed_registrations,
                            edition_projection, record_html, saved_manifest, work_html)
 from verify_edition import verify_edition
+from edition_package import package_names
 
 PREVIEW_SCHEMA = "press.local-preview.v1"
 NOTICE = ("Local preview — simulated publication. This is not an issued edition or publication authorization. "
@@ -88,7 +89,7 @@ def assemble_preview(repo, commit, tag, output, *, fetcher=fetch_asset, simulate
             route = f"/works/{slug}/{old_version}"
             page(route, f"site/works/{slug}/{old_version}/index.html",
                  (source / EDITION_RECORDS / slug / old_version / "index.html").read_bytes())
-            for resource in ("read", manifests[old_version]["canonical_artifact"], "provenance.json", "SHA256SUMS"):
+            for resource in ('read',*package_names(manifests[old_version])):
                 routes[route + "/" + resource] = {"redirect": receipt["record_url"] + "/" + resource}
         work_registration = Path("registrations/works") / (slug + ".json")
         work = read_registration(source, work_registration) if work_registration in paths else {}
@@ -108,7 +109,7 @@ def assemble_preview(repo, commit, tag, output, *, fetcher=fetch_asset, simulate
             manifest, published_at=simulated_at, notices=notices[version], identifiers=None)))
         page(f"/works/{slug}", f"site/works/{slug}/index.html", simulated_page(
             work_html(origin, slug, published, manifests, notices, work)))
-        for name in (manifest["canonical_artifact"], "provenance.json", "SHA256SUMS"):
+        for name in package_names(manifest):
             routes["/" + tag + "/" + name] = {"file": "package/" + name,
                 # These are downloads, including on browsers that display known
                 # media types despite an attachment disposition.
