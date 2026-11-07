@@ -19,7 +19,7 @@ from public_record import EDITION_RECORDS, WORK_RECORDS, regular_record, saved_m
 from reader_routes import verify_reader_routes, verify_work_route
 from validate_sources import git_sources, parse_document, walk
 from verify_edition import verify_edition
-from edition_package import package_names
+from edition_package import package_names, check_bundle_size
 
 
 @contextmanager
@@ -51,8 +51,9 @@ def verify_public_release(repo, release, *, root=None, require_receipt=False, er
         names=package_names(draft_manifest)
         for name in names[3:]:
             matches=[a for a in release['assets'] if a.get('name')==name]
-            if len(matches)!=1 or matches[0].get('size')!=draft_manifest['supplementary_package']['byte_count']:
+            if len(matches)!=1:
                 raise AssetError('missing or oversized supplementary release attachment')
+            check_bundle_size(draft_manifest,matches[0].get('size'))
             gh('release','download',tag,'--repo',repo,'--pattern',name,'--dir',temp)
         manifest = verify_edition(Path(temp), tag=tag)
         record = check_issuance(root, Path(temp), manifest, published_at=release["published_at"],

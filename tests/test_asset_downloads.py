@@ -24,7 +24,7 @@ from public_record import write_records
 from validate_sources import git_sources,validate_repository
 from verify_edition import verify_edition
 from verify_source_assets import verify_source_assets
-from edition_package import package_names, required_payloads, verify_bundle, offline_html
+from edition_package import package_names, package_contents, checksums, required_payloads, verify_bundle, offline_html
 from editorial_notices import render_initial_body
 from deploy_asset_gateway import deploy
 from test_assets import EditionTests,SVG,URL,ORIGIN
@@ -156,7 +156,7 @@ class DownloadPublicationTests(EditionTests):
         self.assertNotIn('download only',page)
         self.assertEqual(4,len(list(self.output.iterdir())))
         with zipfile.ZipFile(self.output/manifest['supplementary_package']['filename']) as archive:
-            self.assertEqual({'index.html',KEY},set(archive.namelist()))
+            self.assertEqual({'index.html',KEY,manifest['canonical_artifact'],'provenance.json','SHA256SUMS'},set(archive.namelist()))
             self.assertEqual(RAW,archive.read(KEY))
             offline=archive.read('index.html').decode()
             self.assertEqual(2,offline.count('href="data:application/octet-stream;base64,'+base64.b64encode(RAW).decode()+'" download="'))
@@ -176,21 +176,34 @@ class DownloadPublicationTests(EditionTests):
         self.git('add','works');self.git('commit','-qm','Review repeated download references')
         self.commit=self.git('rev-parse','HEAD');manifest=self.build_downloads()
         with zipfile.ZipFile(self.output/manifest['supplementary_package']['filename']) as archive:
-            self.assertEqual({'index.html',KEY},set(archive.namelist()))
+            self.assertEqual({'index.html',KEY,manifest['canonical_artifact'],'provenance.json','SHA256SUMS'},set(archive.namelist()))
             self.assertEqual(202,archive.read('index.html').count(b'href="data:application/octet-stream;base64,'))
         verify_edition(self.output)
 
     def repack(self,manifest):
         (self.output/'provenance.json').write_text(json.dumps(manifest))
-        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n'
-            for f in package_names(manifest) if f!='SHA256SUMS'))
+        content={p.name:p.read_bytes() for p in self.output.iterdir() if p.suffix!='.zip'}
+        bundle=self.output/manifest.get('supplementary_package',{}).get('filename','missing.zip')
+        if bundle.exists():
+            with zipfile.ZipFile(bundle) as archive:
+                content.update({name:archive.read(name) for name in archive.namelist() if name not in content})
+        (self.output/'SHA256SUMS').write_bytes(checksums(manifest,content))
+        if bundle.exists():
+            content['SHA256SUMS']=(self.output/'SHA256SUMS').read_bytes()
+            from edition_package import write_bundle
+            write_bundle(self.output,manifest,content)
 
     def test_missing_changed_or_unbound_supplements_fail_offline(self):
         self.source();manifest=self.build_downloads();bundle=self.output/manifest['supplementary_package']['filename']
         raw=bundle.read_bytes();bundle.unlink()
         with self.assertRaises(AssetError):verify_edition(self.output)
-        bundle.write_bytes(raw[:-1]+bytes([raw[-1]^1]));self.repack(manifest)
-        with self.assertRaisesRegex(AssetError,'supplementary package digest'):verify_edition(self.output)
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:members={name:archive.read(name) for name in archive.namelist()}
+        members[KEY]=b'x'*len(RAW)
+        with zipfile.ZipFile(bundle,'w') as archive:
+            for name,data in members.items():
+                info=zipfile.ZipInfo(name);info.create_system=3;info.external_attr=0o100644<<16;archive.writestr(info,data)
+        self.repack(manifest)
+        with self.assertRaisesRegex(AssetError,'supplementary bytes'):verify_edition(self.output)
         bundle.unlink();manifest.pop('supplementary_package')
         manifest['initial_release_body']=render_initial_body(manifest);self.repack(manifest)
         with self.assertRaisesRegex(AssetError,'every download requires'):verify_edition(self.output)
@@ -216,8 +229,6 @@ class DownloadPublicationTests(EditionTests):
                         import warnings
                         with warnings.catch_warnings():
                             warnings.simplefilter('ignore');archive.writestr(KEY,RAW)
-                raw=path.read_bytes();manifest['supplementary_package'].update(sha256=hashlib.sha256(raw).hexdigest(),byte_count=len(raw))
-                self.repack(manifest)
                 with self.assertRaises(AssetError):verify_edition(self.output)
 
     def test_saved_proof_restores_all_four_attachments_without_actions_or_origin(self):
@@ -260,8 +271,7 @@ class DownloadPublicationTests(EditionTests):
         self.source();manifest=self.build_downloads();name=manifest['canonical_artifact']
         raw=(self.output/name).read_bytes().replace(DOWNLOAD.encode(),DOWNLOAD.replace(DIGEST,'0'*64).encode())
         manifest.update(html_sha256=hashlib.sha256(raw).hexdigest(),html_byte_count=len(raw))
-        (self.output/name).write_bytes(raw);(self.output/'provenance.json').write_text(json.dumps(manifest))
-        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n' for f in package_names(manifest) if f!='SHA256SUMS'))
+        (self.output/name).write_bytes(raw);self.repack(manifest)
         with self.assertRaises(AssetError):verify_edition(self.output)
 
     def test_archive_carries_download_bytes_and_can_recover_from_saved_objects_without_origin(self):

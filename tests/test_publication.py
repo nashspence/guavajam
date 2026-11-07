@@ -138,6 +138,16 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.assertTrue(self.release['draft'])
         self.assertFalse(any('PATCH' in args for args in self.operations))
 
+    def test_v2_draft_also_requires_exact_reviewed_zip_transport_bytes(self):
+        name=self.supplement();manifest=self.verify_edition.return_value
+        manifest['supplementary_package']={'filename':name,'format':'press.offline.v2',
+            'reading_copy_sha256':'b'*64,'reading_copy_byte_count':100}
+        self.existing_draft();self.remote[name]+=b'transport metadata changed'
+        next(a for a in self.release['assets'] if a['name']==name)['size']=len(self.remote[name])
+        with self.assertRaisesRegex(AssetError,'attachments differ'):self.publish()
+        self.assertTrue(self.release['draft'])
+        self.assertFalse(any('PATCH' in args for args in self.operations))
+
     def test_missing_supplement_is_resumed_and_verified_while_still_draft(self):
         name=self.supplement();self.existing_draft()
         self.release['assets']=[a for a in self.release['assets'] if a['name']!=name]

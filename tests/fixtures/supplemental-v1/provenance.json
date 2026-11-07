@@ -1,0 +1,59 @@
+{
+  "asset_origin": "https://assets.publisher.test",
+  "assets": [
+    {
+      "byte_count": 99,
+      "destination": "verified/c298108a7aa6cbd325bdf04db2f3ad02b1b44fb1867041f62d9c2c94e1586e09.svg",
+      "media_type": "image/svg+xml",
+      "sha256": "c298108a7aa6cbd325bdf04db2f3ad02b1b44fb1867041f62d9c2c94e1586e09",
+      "source_kind": "https",
+      "source_url": "https://assets.publisher.test/sha256/c298108a7aa6cbd325bdf04db2f3ad02b1b44fb1867041f62d9c2c94e1586e09.svg"
+    },
+    {
+      "byte_count": 56,
+      "destination": "https://assets.publisher.test/sha256/330b8456321d3f91c82b2d060862705f229eaeeeb08abf8b87c71cc4a7588730.bin",
+      "media_type": "application/octet-stream",
+      "role": "download",
+      "sha256": "330b8456321d3f91c82b2d060862705f229eaeeeb08abf8b87c71cc4a7588730",
+      "source_kind": "https",
+      "source_url": "https://assets.publisher.test/sha256/330b8456321d3f91c82b2d060862705f229eaeeeb08abf8b87c71cc4a7588730.bin"
+    }
+  ],
+  "author": "nashspence",
+  "builder_commit": "2281282f39dbec43512f0fc74a80d9e2db04defb",
+  "canonical_artifact": "sample-v1.0.0.html",
+  "html_byte_count": 13945,
+  "html_sha256": "b32e372cc473064d06f7d598cc89d0dde79ddb0eec2e2ca46f39a0ae1705ed5c",
+  "initial_release_body": "Work: On Structure and Identity\nEdition: v1.0.0\nCanonical artifact: sample-v1.0.0.html\nRights: all-rights-reserved\nSource commit: a4485d3bffc22c50b6a68ed3432c0d47a3659430\nProvenance: provenance.json\nChecksums: SHA256SUMS\nComplete offline package: sample-v1.0.0-offline.zip\nAuthor: nashspence\nLanguage: en\n\n[Read this edition online](https://press.example.org/works/sample/v1.0.0/read)",
+  "language": "en",
+  "pandoc": "3.12.1",
+  "presentation_profile": "press.html.v1",
+  "record_url": "https://press.example.org/works/sample/v1.0.0",
+  "rights": "all-rights-reserved",
+  "schema": "press.edition.v1",
+  "source_commit": "a4485d3bffc22c50b6a68ed3432c0d47a3659430",
+  "stylesheet_path": "styles/edition-v1.css",
+  "stylesheet_sha256": "ecd0458aaf47494386c028e05d6d3dae3896187711323388fb815eb953cf2dc4",
+  "supplementary_package": {
+    "byte_count": 14603,
+    "filename": "sample-v1.0.0-offline.zip",
+    "sha256": "fda4f1407597ed71d542e0b54a3fe9ead0d8c78252e182044a687065e168771b"
+  },
+  "supporting_documents": [
+    {
+      "anchors": {
+        "calculation": "support-md-4-note-calculation",
+        "claim": "support-md-4-note-claim",
+        "code": "support-md-4-note-code",
+        "document-note": "record-md-4-note"
+      },
+      "byte_count": 510,
+      "sha256": "4f87cacbe461c630886e40e43c0ec3c5c3ad496f6c6815a8fc44128ed38c8b5e",
+      "source_path": "works/sample/supporting/note.md"
+    }
+  ],
+  "tag": "works/sample/v1.0.0",
+  "template_path": "templates/edition-v1.html",
+  "template_sha256": "99f660b2a48ba8c9b1e3aa836ba86f3738c6d9792864de92f7d55b6e3e846ca4",
+  "title": "On Structure and Identity"
+}

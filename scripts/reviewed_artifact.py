@@ -13,7 +13,7 @@ from issuance import check_authorization, read_registration
 from public_record import EDITION_RECORDS, REGISTRATIONS, saved_manifest
 from publish_edition import api, gh
 from verify_edition import verify_edition
-from edition_package import package_names
+from edition_package import package_names, bundle_limit, MAX_SUMS_BYTES
 
 
 def staging_builder(repo, run_id, digest):
@@ -68,10 +68,10 @@ def restore_claimed(root, repo, tag, run_id, digest, directory):
         raise AssetError("saved proof transport must be an unpublished draft")
     filename = slug + "-" + version + ".html"
     provenance_size = (root / EDITION_RECORDS / slug / version / "provenance.json").stat().st_size
-    limits = {filename: manifest["html_byte_count"], "provenance.json": provenance_size, "SHA256SUMS": 4096}
+    limits = {filename: manifest["html_byte_count"], "provenance.json": provenance_size, "SHA256SUMS": MAX_SUMS_BYTES}
     if 'supplementary_package' in manifest:
         bundle=manifest['supplementary_package'];package_names(manifest)
-        limits[bundle['filename']]=bundle['byte_count']
+        limits[bundle['filename']]=bundle_limit(manifest)
     assets = draft["assets"]
     if (len(assets) != len(limits) or {a["name"] for a in assets} != limits.keys()
             or any(a["state"] != "uploaded" or not 0 < a["size"] <= limits[a["name"]] for a in assets)):

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract chat-gfm build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test test-browser image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract chat-gfm build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
@@ -26,6 +26,9 @@ check-assets: ## Download and verify referenced assets.
 test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test*worker.mjs
+
+test-browser: ## Check exact, inert offline downloads in Chromium, Firefox and WebKit. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
+	@$(PYTHON) tests/run_offline_browser.py
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
@@ -56,7 +59,7 @@ chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id
 	@$(PYTHON) scripts/extract_chatgpt.py --gfm --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
 		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
 
-build: ## TAG=works/essay/v1.0.0  Build from HEAD into dist/<tag>/. Downloads add a verified offline ZIP; extract it and open index.html for local access to every supplement.
+build: ## TAG=works/essay/v1.0.0  Build from HEAD into dist/<tag>/. Downloads add a complete offline ZIP containing canonical HTML, provenance, checksums, reading copy and original files. Extract and open index.html; make verify DIR=the.zip verifies it.
 	@$(PYTHON) scripts/build_edition.py --commit "$$(git rev-parse HEAD)" \
 		--tag "$${TAG:?Set TAG to the intended edition tag}" --output "dist/$$TAG"
 
@@ -66,7 +69,7 @@ preview: ## TAG=works/essay/v1.0.0 [PORT=8000]  Preview committed HEAD on loopba
 preview-build: ## TAG=works/essay/v1.0.0 OUTPUT=../preview  Build a simulated site in a new external directory without serving it.
 	@$(PYTHON) scripts/preview_site.py --tag "$${TAG:?Set TAG to the proposed edition tag}" --output "$${OUTPUT:?Set OUTPUT to a new external directory}"
 
-verify: ## DIR=path/to/edition [REGISTRATION=trusted.json]  Verify the package and optionally its authorization offline.
+verify: ## DIR=edition-directory-or-complete.zip [REGISTRATION=trusted.json]  Verify all issued bytes offline; a complete ZIP includes its canonical HTML and verification files. A trusted registration also checks authorization.
 	@set --; if [ -n "$$REGISTRATION" ]; then set -- "--registration=$$REGISTRATION"; fi; \
 		$(PYTHON) scripts/verify_edition.py "$$@" -- "$${DIR:?Set DIR to the edition directory}"
 

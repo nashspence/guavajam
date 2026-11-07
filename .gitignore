@@ -13,3 +13,4 @@ dist/
 .venv/
 .env
 .env.*
+node_modules/

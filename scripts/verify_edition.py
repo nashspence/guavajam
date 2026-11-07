@@ -18,7 +18,7 @@ from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, 
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
 from bibliography import author_text, check_optional_bibliography, ordered_authors
-from edition_package import package_names, verify_bundle
+from edition_package import package_contents, checksums, edition_directory, verify_bundle
 
 
 class EditionHTML(html.parser.HTMLParser):
@@ -208,6 +208,9 @@ class EditionHTML(html.parser.HTMLParser):
 
 
 def verify_edition(directory: Path, *, commit: str | None = None, tag: str | None = None) -> dict:
+    if not directory.is_dir():
+        with edition_directory(directory) as expanded:
+            return verify_edition(expanded,commit=commit,tag=tag)
     from build_edition import COMMIT, TAG
     manifest = json.loads((directory / "provenance.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != "press.edition.v1":
@@ -231,21 +234,11 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     filename = tag_match[1] + "-" + tag_match[2] + ".html"
     if manifest.get("canonical_artifact") != filename:
         raise AssetError("canonical filename does not match edition tag")
-    names = set(package_names(manifest))
-    if {path.name for path in directory.iterdir()} != names:
-        raise AssetError("edition must contain exactly HTML, provenance.json, SHA256SUMS and any declared supplementary package")
-    if any((directory / name).is_symlink() or not (directory / name).is_file() for name in names):
-        raise AssetError("edition files must be regular files")
-    check_html_size((directory / filename).stat().st_size)
-    if "supplementary_package" in manifest:
-        bundle=manifest["supplementary_package"]
-        if (directory/bundle["filename"]).stat().st_size!=bundle["byte_count"]:
-            raise AssetError("supplementary package size differs from provenance")
-    checksums = "".join(hashlib.sha256((directory / name).read_bytes()).hexdigest() + "  " + name + "\n"
-                        for name in package_names(manifest) if name!='SHA256SUMS')
-    if (directory / "SHA256SUMS").read_bytes() != checksums.encode("ascii"):
+    content=package_contents(directory,manifest)
+    if content['SHA256SUMS']!=checksums(manifest,content):
         raise AssetError("edition checksums do not match")
-    raw = (directory / filename).read_bytes()
+    raw=content[filename]
+    check_html_size(len(raw))
     if hashlib.sha256(raw).hexdigest() != manifest["html_sha256"] or len(raw) != manifest["html_byte_count"]:
         raise AssetError("canonical HTML digest or byte count does not match provenance")
     profile = manifest.get("presentation_profile")
@@ -386,7 +379,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     managed_links = {url for url in parser.external_links if policy and policy.manages(url)}
     if managed_links != downloads:
         raise AssetError('HTML download inventory differs from provenance')
-    verify_bundle(directory,raw,manifest)
+    verify_bundle(directory,raw,manifest,content=content)
     return manifest
 
 
@@ -398,21 +391,22 @@ def main():
     parser.add_argument("--registration", type=Path, help="also compare with an independently obtained authorization")
     args = parser.parse_args()
     try:
-        manifest = verify_edition(args.directory, commit=args.commit, tag=args.tag)
-        result = "Package verified offline"
-        if args.registration is not None:
-            from issuance import check_authorization, read_registration
-            record = read_registration(Path.cwd(), args.registration)
-            check_authorization(record, args.directory, manifest)
-            result = "Package matches the pending authorization"
-            if "published_at" in record:
-                if not valid_utc(record["published_at"]):
-                    raise AssetError("invalid publication timestamp in trusted registration")
-                result = "Package matches the publication receipt of " + record["published_at"]
-            elif "abandoned_run_id" in record:
-                result = "Package matches the abandoned claim"
-            elif "stop_reason" in record:
-                result = "Package matches the stopped claim"
+        with edition_directory(args.directory) as directory:
+            manifest = verify_edition(directory, commit=args.commit, tag=args.tag)
+            result = "Package verified offline"
+            if args.registration is not None:
+                from issuance import check_authorization, read_registration
+                record = read_registration(Path.cwd(), args.registration)
+                check_authorization(record, directory, manifest)
+                result = "Package matches the pending authorization"
+                if "published_at" in record:
+                    if not valid_utc(record["published_at"]):
+                        raise AssetError("invalid publication timestamp in trusted registration")
+                    result = "Package matches the publication receipt of " + record["published_at"]
+                elif "abandoned_run_id" in record:
+                    result = "Package matches the abandoned claim"
+                elif "stop_reason" in record:
+                    result = "Package matches the stopped claim"
     except (AssetError, OSError, ValueError, KeyError, TypeError) as exc:
         print("ERROR:", exc, file=sys.stderr)
         return 1

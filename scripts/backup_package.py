@@ -8,7 +8,7 @@ from deploy_record_gateway import target_base
 from identifier_schema import TAG
 from issuance import check_authorization
 from verify_edition import verify_edition
-from edition_package import package_names, MAX_BUNDLE_BYTES
+from edition_package import package_names, bundle_limit, MAX_SUMS_BYTES
 
 
 def verify_backup_package(base, tag, receipt):
@@ -20,7 +20,7 @@ def verify_backup_package(base, tag, receipt):
     filename = match[1] + "-" + match[2] + ".html"
     files = [(filename, receipt["artifact_sha256"], MAX_HTML_BYTES),
              ("provenance.json", receipt["provenance_sha256"], MAX_HTML_BYTES),
-             ("SHA256SUMS", None, 4096)]
+             ("SHA256SUMS", None, MAX_SUMS_BYTES)]
     with tempfile.TemporaryDirectory(prefix="press-backup-") as temp:
         directory = Path(temp)
         for name, expected, limit in files:
@@ -41,7 +41,7 @@ def verify_backup_package(base, tag, receipt):
         for name in package_names(saved)[3:]:
             with public_response(base+'/'+tag+'/'+name,'application/octet-stream',timeout=120) as response:
                 if response.status!=200:raise AssetError('missing supplementary backup package')
-                raw=b''.join(response_chunks(response,MAX_BUNDLE_BYTES))
+                raw=b''.join(response_chunks(response,bundle_limit(saved)))
             (directory/name).write_bytes(raw)
         manifest = verify_edition(directory, tag=tag)
         check_authorization(receipt, directory, manifest)
