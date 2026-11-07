@@ -170,6 +170,10 @@ class DownloadPublicationTests(EditionTests):
         path=self.repo/'registrations/editions/sample/v1.0.0.json';path.parent.mkdir(parents=True)
         path.write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n');self.git('add','registrations')
         write_records(self.repo,self.tag,package=package)
+        notice=self.repo/'notices/sample/v1.0.0/0001.md';notice.parent.mkdir(parents=True)
+        notice.write_text('2026-11-06 Withdrawal: Synthetic editorial review.\n')
+        self.git('add','notices')
+        write_records(self.repo,self.tag)
         self.git('add','records');self.git('commit','-qm','Keep reviewed receipt and pages')
         sha=self.git('rev-parse','HEAD');output=self.base/'export'
         self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',output,fetcher=self.fetch))
@@ -177,6 +181,23 @@ class DownloadPublicationTests(EditionTests):
         self.assertEqual((package/manifest['canonical_artifact']).read_bytes(),(output/'public'/self.tag/'read.html').read_bytes())
         with patch('socket.create_connection',side_effect=AssertionError('offline')):
             self.assertEqual(1,export_archive(self.repo,sha,self.base/'packages',self.base/'offline-export',asset_root=output/'public'))
+        from check_backup_archive import check_backup_archive
+        base='https://backup.example.org/press'
+        @contextmanager
+        def response(url,accept,**kwargs):
+            self.assertTrue(url.startswith(base+'/'))
+            path=output/'public'/url.removeprefix(base+'/')
+            if path.is_dir():path=path/'index.html'
+            if path.name=='read':path=path.with_name('read.html')
+            stream=io.BytesIO(path.read_bytes());stream.status=200
+            stream.getheader={'Content-Type':'application/octet-stream' if path.suffix=='.bin' else 'text/html',
+                'Content-Disposition':'attachment' if path.suffix=='.bin' else 'inline',
+                'X-Content-Type-Options':'nosniff','Cache-Control':'no-transform'}.get
+            yield stream
+        with patch('backup_package.public_response',response),patch('asset_policy.public_response',response),patch('reader_routes.public_response',response):
+            self.assertEqual((1,1),check_backup_archive(self.repo,sha,base,'owner/press'))
+            (output/'public'/KEY).write_bytes(RAW+b'changed')
+            with self.assertRaises(AssetError):check_backup_archive(self.repo,sha,base,'owner/press')
         (output/'public'/KEY).write_bytes(RAW+b'changed')
         with self.assertRaises(AssetError):export_archive(self.repo,sha,self.base/'packages',self.base/'bad-export',asset_root=output/'public')
 
