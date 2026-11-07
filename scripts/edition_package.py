@@ -76,9 +76,11 @@ def offline_html(raw,manifest,payloads):
 
 def required_payloads(manifest):
     """Object identity is exact bytes, length and media policy; URLs locate reviewed sources."""
+    records=downloads(manifest)
+    if not records:return {}
     policy=AssetPolicy(manifest['asset_origin'])
     entries={}
-    for record in downloads(manifest):
+    for record in records:
         digest,extension=policy.parse(record['source_url'])
         if record['sha256']!=digest or record['byte_count']>MAX_BYTES:
             raise AssetError('invalid supplementary asset identity')

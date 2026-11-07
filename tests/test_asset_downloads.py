@@ -24,7 +24,7 @@ from public_record import write_records
 from validate_sources import git_sources,validate_repository
 from verify_edition import verify_edition
 from verify_source_assets import verify_source_assets
-from edition_package import package_names, verify_bundle, offline_html
+from edition_package import package_names, required_payloads, verify_bundle, offline_html
 from editorial_notices import render_initial_body
 from deploy_asset_gateway import deploy
 from test_assets import EditionTests,SVG,URL,ORIGIN
@@ -85,6 +85,24 @@ class DownloadPolicyTests(unittest.TestCase):
                       response(changes={'Content-Type':'text/html'}),response(changes={'Content-Disposition':'inline'}),
                       response(changes={'X-Content-Type-Options':''})):
             with patch('asset_policy.public_response',fetch),self.assertRaises(AssetError):fetch_asset(policy,DOWNLOAD)
+
+    def test_payload_identity_stays_fixed_when_retrieved_from_a_different_channel(self):
+        record={'role':'download','source_url':DOWNLOAD,'sha256':DIGEST,'byte_count':len(RAW),'media_type':'application/octet-stream'}
+        manifest={'asset_origin':ORIGIN,'assets':[record]};before=copy.deepcopy(manifest)
+        self.assertEqual({KEY:record},required_payloads(manifest))
+        self.assertEqual({},required_payloads({'assets':[],'asset_origin':None}))
+        base='https://independent.example.org/retained'
+        @contextmanager
+        def response(url,*args,**kwargs):
+            self.assertEqual(base+'/'+KEY,url)
+            stream=io.BytesIO(RAW);stream.status=200
+            stream.getheader={'Content-Type':'application/octet-stream','Content-Disposition':'attachment','X-Content-Type-Options':'nosniff'}.get
+            yield stream
+        with patch('asset_policy.public_response',response):
+            self.assertEqual([(DOWNLOAD,RAW,'application/octet-stream')],list(download_bytes(manifest,base=base)))
+        self.assertEqual(before,manifest)
+        self.assertEqual((DIGEST,len(RAW),'application/octet-stream'),
+                         tuple(record[k] for k in ('sha256','byte_count','media_type')))
 
     def test_binary_retention_and_leases_keep_historical_hash_roots(self):
         items=[version(KEY),version(LEASE_PREFIX+KEY.removeprefix('sha256/'),file_id='lease')]
