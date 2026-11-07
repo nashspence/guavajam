@@ -122,6 +122,10 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     Pandoc's automatic header slug algorithm. Bare Markdown previews retain
     the original explicit anchor markup.
     """
+    for node in walk(ast.get('blocks', [])):
+        if node.get('t') == 'Link' and node['c'][2][0].startswith('press-passage:'):
+            anchor = node['c'][2][0].removeprefix('press-passage:')
+            node['c'][2][0] = (record_url + '/read' if record_url else '') + '#' + anchor
     old = ast.get("blocks", [])
     new: list[dict] = []
     ids: set[str] = set()

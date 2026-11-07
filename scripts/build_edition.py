@@ -130,7 +130,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         ast, errors = parse_document(root / manuscript, manuscript)
         if errors:
             raise AssetError("\n".join(errors))
-        append_supporting_records(ast, root, manuscript, set(paths))
+        supporting = append_supporting_records(ast, root, manuscript, set(paths))
         build = temp / "build"
         build.mkdir()
         records = materialize_images(ast, root, manuscript, commit, load_policy(root), build, fetcher)
@@ -190,7 +190,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
-                     "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/table_captions.py",
+                     "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/supporting_gfm.py", "scripts/table_captions.py",
                      "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
@@ -219,6 +219,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         }
         if rights_statement:
             manifest["rights_statement"] = rights_statement
+        if supporting:
+            manifest['supporting_documents'] = supporting
         notes = manuscript.parent / "editions" / (version + ".md")
         prose = (root / notes).read_text(encoding="utf-8") if notes in paths else None
         if prose is not None:

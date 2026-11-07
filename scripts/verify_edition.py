@@ -47,6 +47,8 @@ class EditionHTML(html.parser.HTMLParser):
         self.in_authorship = False
         self.orcid_links = []
         self.permalinks = []
+        self.passage_permalinks = []
+        self.supporting_sources = []
         self.current_heading = None
         self.in_footer = False
         self.in_rights = False
@@ -58,6 +60,8 @@ class EditionHTML(html.parser.HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        if 'data-press-source' in attributes:
+            self.supporting_sources.append((attributes['data-press-source'], attributes.get('data-press-sha256')))
         if self.in_rights:
             self.errors.append("edition rights must contain only plain text")
         if tag == "footer":
@@ -131,7 +135,10 @@ class EditionHTML(html.parser.HTMLParser):
                 if self.article_count:
                     self.errors.append("edition status must precede the manuscript")
             if "press-permalink" in attributes.get("class", "").split():
-                self.permalinks.append((self.current_heading, target))
+                if 'data-press-passage' in attributes:
+                    self.passage_permalinks.append((attributes['data-press-passage'], target))
+                else:
+                    self.permalinks.append((self.current_heading, target))
                 if not attributes.get("aria-label", "").strip() or "tabindex" in attributes:
                     self.errors.append("section permalink requires an accessible, keyboard-focusable link")
             if target.startswith("#"):
@@ -293,6 +300,31 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     unresolved = set(parser.fragment_links) - parser.ids
     if unresolved:
         parser.errors.append("unresolved HTML fragment links: " + repr(sorted(unresolved)))
+    supporting = manifest.get('supporting_documents', [])
+    if not isinstance(supporting, list) or len(supporting) > 128:
+        raise AssetError('invalid supporting document provenance')
+    expected_sources, passage_ids, all_anchors = [], [], set()
+    for entry in supporting:
+        from supporting_records import MAX_RECORD_BYTES, record_path
+        from identifier_schema import SLUG
+        path = Path(entry['source_path'])
+        if (not record_path(path) or path.suffix != '.md' or path.parts[1] != tag_match[1]
+                or not re.fullmatch('[0-9a-f]{64}', entry.get('sha256', ''))
+                or type(entry.get('byte_count')) is not int or not 0 < entry['byte_count'] <= MAX_RECORD_BYTES
+                or not isinstance(entry.get('anchors'), dict) or not entry['anchors']):
+            raise AssetError('invalid supporting document identity')
+        expected_sources.append((str(path), entry['sha256']))
+        for key, anchor in entry['anchors'].items():
+            expected = f'support-md-{len(path.stem)}-{path.stem}-{key}'
+            if (not SLUG.fullmatch(key) or anchor not in {expected, f'record-md-{len(path.stem)}-{path.stem}'}
+                    or anchor in all_anchors or anchor not in parser.ids):
+                raise AssetError('invalid or missing supporting passage anchor')
+            all_anchors.add(anchor)
+            if anchor not in parser.heading_ids:
+                passage_ids.append(anchor)
+    if (parser.supporting_sources != expected_sources or len(set(expected_sources)) != len(expected_sources)
+            or parser.passage_permalinks != [(a, manifest['record_url']+'/read#'+a) for a in passage_ids]):
+        raise AssetError('supporting sources or passage permalinks differ from provenance')
     if (parser.errors or parser.h1 != 1 or not parser.csp or not parser.viewport
             or not parser.html_lang or not parser.document_profile or not parser.profile_meta
             or parser.main_count != 1 or parser.article_count != 1 or parser.style_count != 1):

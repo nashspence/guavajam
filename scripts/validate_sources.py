@@ -607,7 +607,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
         if supporting:
             try:
-                load_record(root / rel)
+                if rel.suffix == '.md':
+                    from supporting_gfm import load_gfm_record
+                    load_gfm_record(root / rel)
+                else:
+                    load_record(root / rel)
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
             continue
@@ -665,8 +669,9 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             # Templates and ordinary Markdown can use the same explicit anchors.
             # Ignore anchor-shaped text inside code or display math blocks.
             visible, _ = visible_lines(source)
+            from supporting_gfm import ANCHOR as SUPPORT_ANCHOR
             anchor_names = [match.group(1) for _, line in visible
-                            if (match := ANCHOR.fullmatch(line))]
+                            if (match := SUPPORT_ANCHOR.fullmatch(line))]
             if len(anchor_names) != len(set(anchor_names)):
                 errors.append(issue(rel, "duplicate stable anchors"))
             explicit = set(anchor_names)
@@ -713,6 +718,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             expected_math = len(maths)
             try:
                 append_supporting_records(ast, root, rel, tracked)
+                expected_math = sum(1 for n in walk(ast['blocks']) if n.get('t') == 'Math')
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
                 continue

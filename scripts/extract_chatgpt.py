@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import sys
 import zipfile
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -134,8 +135,9 @@ def main():
     select.add_argument("--conversation", help="exact conversation ID")
     parser.add_argument("--tip", help="mapping node to use in place of current_node")
     parser.add_argument("--output", type=Path, help="new review JSON file outside the Press checkout")
+    parser.add_argument('--gfm', action='store_true', help='write explicitly anchored GFM and report review diagnostics')
     args = parser.parse_args()
-    if args.list and (args.tip or args.output) or not args.list and not args.output:
+    if args.list and (args.tip or args.output or args.gfm) or not args.list and not args.output:
         parser.error("use --list alone, or --conversation with --output and an optional --tip")
     try:
         selected = None
@@ -154,6 +156,9 @@ def main():
         record = transcript(selected, args.tip if args.tip is not None else selected.get("current_node"))
         validate_record(record)
         data = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        if args.gfm:
+            from chat_gfm import review_gfm
+            data, diagnostics = review_gfm(record)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name
@@ -161,6 +166,8 @@ def main():
             raise ValueError("private review output must be outside the Press checkout")
         with open(output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
             stream.write(data)
+        if args.gfm:
+            print('Review required; GFM diagnostics: '+json.dumps(diagnostics,sort_keys=True),file=sys.stderr)
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         parser.exit(1, f"{parser.prog}: {exc}\n")
 

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-extract chat-gfm build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
@@ -49,6 +49,10 @@ chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also
 
 chat-extract: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.json [TIP=node-id]  Extract one branch for local review. OUTPUT must be new and outside the checkout.
 	@$(PYTHON) scripts/extract_chatgpt.py --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
+		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
+
+chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id]  Convert one branch to anchored GFM for review, reporting losses. OUTPUT must be new and outside the checkout; no commit is made.
+	@$(PYTHON) scripts/extract_chatgpt.py --gfm --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
 		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
 
 build: ## TAG=works/essay/v1.0.0  Build a local edition from HEAD into dist/<tag>/.

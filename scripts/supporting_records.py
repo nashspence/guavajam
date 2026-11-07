@@ -61,7 +61,7 @@ def valid_timestamp(value) -> bool:
 def record_path(relative: Path) -> bool:
     parts = relative.parts
     return (len(parts) == 4 and parts[0] == "works" and bool(SLUG.fullmatch(parts[1]))
-            and parts[2] == "supporting" and relative.suffix == ".json" and bool(SLUG.fullmatch(relative.stem)))
+            and parts[2] == "supporting" and relative.suffix in {".json", ".md"} and bool(SLUG.fullmatch(relative.stem)))
 
 
 def _unique_keys(pairs):
@@ -151,7 +151,7 @@ def _timestamp(value: str) -> dict:
     )]}
 
 
-def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> None:
+def _append_json_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> None:
     """Rewrite citations and append each complete record once, in first-citation order."""
     passages_by_record = {}
     appendix = []
@@ -195,3 +195,42 @@ def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: 
             raise AssetError(f"unknown passage in supporting record link: {link[0]}")
         link[0] = "#" + (passages_by_record[slug][fragment] if fragment else record_id)
     ast["blocks"].extend(appendix)
+
+
+def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> list[dict]:
+    """Include each selected source once, preserving first-citation order and old JSON bytes."""
+    from supporting_gfm import append_gfm
+    selector = re.compile(rf'supporting/({SLUG.pattern})\.(json|md)(?:#({SLUG.pattern}))?\Z')
+    selected = {}
+    for node in walk(ast['blocks']):
+        if node.get('t') != 'Link' or not node['c'][2][0].startswith('supporting/'):
+            continue
+        match = selector.fullmatch(node['c'][2][0])
+        if not match:
+            raise AssetError('invalid supporting record link: ' + node['c'][2][0])
+        slug, extension, fragment = match.groups()
+        selected.setdefault((slug, extension), []).append((node, fragment))
+    if len(selected) > 128:
+        raise AssetError('too many supporting documents')
+    inventory, total = [], 0
+    for (slug, extension), citations in selected.items():
+        relative = manuscript.parent / 'supporting' / (slug + '.' + extension)
+        if relative not in tracked:
+            raise AssetError('supporting record is missing or untracked: ' + str(relative))
+        total += (root / relative).stat().st_size
+        if total > 100 * 1024 * 1024:
+            raise AssetError('supporting source inventory exceeds 100 MiB')
+        if extension == 'json':
+            # Reuse the established JSON renderer and its exact namespace/escaping.
+            subset = {'blocks':[{'t':'Para','c':[node for node, _ in citations]}]}
+            _append_json_records(subset, root, manuscript, tracked)
+            ast['blocks'].extend(subset['blocks'][1:])
+        else:
+            blocks, anchors, record_id, entry = append_gfm(root, relative, slug)
+            for node, fragment in citations:
+                if fragment and fragment not in anchors:
+                    raise AssetError('unknown explicit supporting anchor: ' + node['c'][2][0])
+                node['c'][2][0] = '#' + (anchors[fragment] if fragment else record_id)
+            ast['blocks'].extend(blocks)
+            inventory.append(entry)
+    return inventory
