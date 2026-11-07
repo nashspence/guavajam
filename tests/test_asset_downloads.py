@@ -151,6 +151,16 @@ class DownloadPublicationTests(EditionTests):
         build_edition(self.repo,self.commit,self.tag,other,fetcher=self.fetch)
         self.assertEqual({p.name:p.read_bytes() for p in self.output.iterdir()},{p.name:p.read_bytes() for p in other.iterdir()})
 
+    def test_repeated_download_links_share_one_verified_offline_object(self):
+        self.source();path=self.repo/'works/sample/manuscript.md'
+        with path.open('a') as stream:stream.write(('\n[Repeated download]('+DOWNLOAD+').\n')*200)
+        self.git('add','works');self.git('commit','-qm','Review repeated download references')
+        self.commit=self.git('rev-parse','HEAD');manifest=self.build_downloads()
+        with zipfile.ZipFile(self.output/manifest['supplementary_package']['filename']) as archive:
+            self.assertEqual({'index.html',KEY},set(archive.namelist()))
+            self.assertEqual(202,archive.read('index.html').count(('href="'+KEY+'"').encode()))
+        verify_edition(self.output)
+
     def repack(self,manifest):
         (self.output/'provenance.json').write_text(json.dumps(manifest))
         (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/f).read_bytes()).hexdigest()+'  '+f+'\n'

@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import zipfile
 
-from asset_policy import AssetError, MAX_BYTES, MAX_HTML_BYTES, MAX_TOTAL_BYTES, AssetPolicy, verify_bytes
+from asset_policy import AssetError, MAX_BYTES, MAX_HTML_BYTES, MAX_TOTAL_BYTES, AssetPolicy, check_html_size, verify_bytes
 
 MAX_BUNDLE_BYTES = MAX_HTML_BYTES + MAX_TOTAL_BYTES + 128 * 512 + 4096
 
@@ -59,7 +59,9 @@ def offline_html(raw,manifest):
     marker='<body>'
     if text.count(marker)!=1:raise AssetError('unexpected canonical body for offline package')
     note='<p lang="en">Offline copy — download links open the files included in this package.</p>'
-    return text.replace(marker,marker+note,1).encode()
+    result=text.replace(marker,marker+note,1).encode()
+    check_html_size(len(result))
+    return result
 
 
 def _members(manifest):
@@ -109,6 +111,7 @@ def verify_bundle(directory,raw_html,manifest):
     raw=path.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=bundle['sha256']:raise AssetError('supplementary package digest differs from provenance')
     result={}
+    index=offline_html(raw_html,manifest)
     try:
         with zipfile.ZipFile(io.BytesIO(raw)) as archive:
             members=archive.infolist()
@@ -116,13 +119,13 @@ def verify_bundle(directory,raw_html,manifest):
             if len(members)!=len(expected) or {m.filename for m in members}!=expected:
                 raise AssetError('supplementary ZIP inventory differs from reviewed assets')
             for member in members:
-                size=len(raw_html)+4096 if member.filename=='index.html' else entries[member.filename]['byte_count']
+                size=len(index) if member.filename=='index.html' else entries[member.filename]['byte_count']
                 if (member.compress_type!=zipfile.ZIP_STORED or member.flag_bits&1
-                        or member.external_attr>>16&0o170000!=0o100000 or member.file_size>size):
+                        or member.external_attr>>16&0o170000!=0o100000 or member.file_size!=size):
                     raise AssetError('supplementary ZIP has unsafe or oversized members')
                 with archive.open(member) as stream:content=stream.read(size+1)
                 if member.filename=='index.html':
-                    if content!=offline_html(raw_html,manifest):raise AssetError('offline reading copy differs from canonical derivation')
+                    if content!=index:raise AssetError('offline reading copy differs from canonical derivation')
                 else:
                     record=entries[member.filename]
                     extension=member.filename.rsplit('.',1)[1]
