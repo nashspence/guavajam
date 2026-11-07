@@ -5,6 +5,7 @@ The [tests](tests/) are authoritative for enforceable behavior. Change tests and
 - Developers: [required CI](.github/workflows/validate-source.yml) and [tests](tests/).
 - Submitters: [manuscript starter](templates/work/manuscript.md) and [source contract](tests/test_validate_sources.py).
 - Publishers: [publication workflow](.github/workflows/prepare-edition.yml), [publication contract](tests/test_publication.py), and [recovery contract](tests/test_backup_package.py).
+- Asset operators: [credential template](storage/credentials.env.example), [storage contract](tests/test_asset_storage.py), and [maintenance workflow](.github/workflows/maintain-assets.yml).
 
 Use `make help` for commands and arguments; maintain that help with its [recipes](Makefile).
 
