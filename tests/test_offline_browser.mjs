@@ -18,7 +18,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
   test(`${name}: offline contents, keyboard focus, section targets and print remain usable`, {timeout: 120000}, async () => {
     const browser = await engine.launch({headless: true});
     try {
-      for (const width of [320, 375, 768, 1280]) {
+      // 640/320px also exercise reflow equivalent to a 1280px desktop at 2x/4x zoom.
+      for (const width of [320, 375, 640, 768, 1280]) {
         for (const colorScheme of ['light', 'dark']) {
           const context = await browser.newContext({offline: true,
             viewport: {width, height: 900}, colorScheme});
