@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate an image and print its upload details and manuscript URL."""
+"""Prepare original bytes for validated image delivery or an opaque download."""
 import argparse
 import hashlib
 import os
@@ -14,7 +14,7 @@ def prepare_image(image):
     descriptor = os.open(image, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(descriptor, "rb") as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise AssetError("image must be a regular file, not a symlink or device")
+            raise AssetError("asset must be a regular file, not a symlink or device")
         raw = stream.read(MAX_BYTES + 1)
     extension = image.suffix[1:].lower()
     # A claimed inline-image extension must validate; never fall back on failure.

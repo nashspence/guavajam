@@ -8,7 +8,11 @@ from asset_policy import AssetError
 from render_profile import plain_text
 
 
-def review_gfm(record):
+def review_gfm(record, *, identity='document'):
+    from supporting_records import MAX_RECORD_BYTES, validate_record
+    validate_record(record)
+    if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
+        raise AssetError('selected message text exceeds 8 MiB')
     diagnostics = {'selection-omissions': 1, 'markdown-normalized-to-gfm': 1}
     def report(kind):
         diagnostics[kind] = diagnostics.get(kind, 0) + 1
@@ -56,7 +60,7 @@ def review_gfm(record):
     def header(level,text):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
-    doc_id = 'doc-'+hashlib.sha256(title.encode()).hexdigest()
+    doc_id = 'doc-'+hashlib.sha256(identity.encode()).hexdigest()
     blocks = [anchor(doc_id),header(1,title),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
     api = None
     for passage in record['passages']:

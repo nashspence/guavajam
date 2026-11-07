@@ -158,7 +158,7 @@ def main():
         data = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
         if args.gfm:
             from chat_gfm import review_gfm
-            data, diagnostics = review_gfm(record)
+            data, diagnostics = review_gfm(record, identity=args.conversation)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name

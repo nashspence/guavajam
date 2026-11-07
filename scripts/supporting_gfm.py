@@ -33,7 +33,11 @@ def load_gfm_record(path: Path, *, root=None):
     policy = load_policy(root) if root is not None else None
     if not path.is_file() or path.resolve() != path.absolute() or path.stat().st_size > MAX_RECORD_BYTES:
         raise AssetError('supporting GFM requires a regular file of at most 8 MiB')
-    source, errors = read_text(path, Path(path.name))
+    with path.open('rb') as stream:
+        raw = stream.read(MAX_RECORD_BYTES + 1)
+    if len(raw) > MAX_RECORD_BYTES:
+        raise AssetError('supporting GFM exceeds 8 MiB')
+    source, errors = read_text(path, Path(path.name), raw=raw)
     if errors:
         raise AssetError('\n'.join(errors))
     ast = parse_pandoc(source)
@@ -82,7 +86,6 @@ def load_gfm_record(path: Path, *, root=None):
         if node.get('t') == 'Image' and not node['c'][2][0].startswith('https://'):
             raise AssetError('supporting images require the approved HTTPS asset origin')
     ast['blocks'] = blocks
-    raw = path.read_bytes()
     return ast, anchors, hashlib.sha256(raw).hexdigest(), len(raw)
 
 

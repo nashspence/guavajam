@@ -40,12 +40,12 @@ def issue(path: Path, message: str, line: int | None = None) -> str:
     return f"{path}:{line}: {message}" if line else f"{path}: {message}"
 
 
-def read_text(path: Path, relative: Path) -> tuple[str | None, list[str]]:
+def read_text(path: Path, relative: Path, *, raw: bytes | None = None) -> tuple[str | None, list[str]]:
     errors: list[str] = []
     if path.is_symlink():
         return None, [issue(relative, "symlinks are prohibited")]
     try:
-        text = path.read_bytes().decode("utf-8", "strict")
+        text = (path.read_bytes() if raw is None else raw).decode("utf-8", "strict")
     except (UnicodeDecodeError, OSError) as exc:
         return None, [issue(relative, f"not readable strict UTF-8: {exc}")]
     if text.startswith("\ufeff"):

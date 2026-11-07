@@ -168,7 +168,7 @@ class DownloadPublicationTests(EditionTests):
         shutil.copytree(self.output,package)
         receipt={**authorization(package,manifest),'issuing':True,'published_at':'2026-11-06T12:00:00Z'}
         path=self.repo/'registrations/editions/sample/v1.0.0.json';path.parent.mkdir(parents=True)
-        path.write_text(json.dumps(receipt));self.git('add','registrations')
+        path.write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n');self.git('add','registrations')
         write_records(self.repo,self.tag,package=package)
         self.git('add','records');self.git('commit','-qm','Keep reviewed receipt and pages')
         sha=self.git('rev-parse','HEAD');output=self.base/'export'

@@ -28,10 +28,10 @@ test: ## Run the Python and asset gateway test suites.
 	@mise exec -- node --test tests/test*worker.mjs
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
-	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the image path}"
+	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
 
 asset-upload: ## FILE=asset [B2_ENV=.env.assets]  Upload bounded original bytes to B2 and verify storage and public delivery. Non-images are opaque downloads. Uses a local bucket/prefix-scoped key.
-	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the image path}"
+	@$(PYTHON) scripts/manage_assets.py upload -- "$${FILE:?Set FILE to the asset path}"
 
 assets-gc: ## [APPLY=1]  Dispatch a cleanup preview on main; APPLY=1 requests a sweep during a coordinated pause.
 	@$(PYTHON) scripts/asset_workflow.py request-gc
@@ -113,7 +113,7 @@ release-notes: ## DIR=path/to/edition  Print the public body with registered ide
 gateway-plan: ## [ASSET_TARGET=https://archive/base]  Preview asset routing; optionally serve independently exported sha256 objects from standby instead of B2.
 	@$(PYTHON) scripts/deploy_asset_gateway.py
 
-gateway-deploy: ## Apply the asset gateway deployment to Cloudflare.
+gateway-deploy: ## Apply the asset gateway plan to Cloudflare. Same arguments as gateway-plan.
 	@$(PYTHON) scripts/deploy_asset_gateway.py --apply
 
 records-plan: ## [RECORD_TARGET=https://archive/base] [RECORD_WORKER=press-records] [READING_BUCKET=name]  Preview edition-record routing and optional private R2 replica.
