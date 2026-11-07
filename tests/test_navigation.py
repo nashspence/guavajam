@@ -165,7 +165,7 @@ class NavigationBuildTests(unittest.TestCase):
                         original = ROOT / ('templates/work/supporting/note' + suffix)
                         (directory / (name + suffix)).write_bytes(original.read_bytes())
                         body += f'See the [record {n}](supporting/{name}{suffix}).\n\n'
-                    source.write_text('---\n' + front + '---\n\n' + body)
+                    source.write_text('---\n' + front + '---\n\n' + body.rstrip() + '\n')
                     fixture.git('add', 'works'); fixture.git('commit', '-qm', 'Review navigation case')
                     fixture.commit = fixture.git('rev-parse', 'HEAD')
                     manifest = fixture.build()
