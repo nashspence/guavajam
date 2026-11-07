@@ -64,7 +64,8 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
   outline: 3px solid var(--press-focus);
   outline-offset: 3px;
 }
-[id]:target, :focus-visible { scroll-margin-top: 5rem; }
+/* Clear wrapped status links when readers enlarge text or increase spacing. */
+[id]:target, :focus-visible { scroll-margin-top: 7rem; }
 
 /* Keyboard-first bypass. The main landmark includes the optional contents. */
 .press-skip {
@@ -280,7 +281,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   line-height: 1.55;
 }
 @media (max-width: 36rem) {
-  [id]:target, :focus-visible { scroll-margin-top: 7rem; }
+  [id]:target, :focus-visible { scroll-margin-top: 9rem; }
   .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
   .press-record-provenance dd { margin-bottom: .35rem; }
 }

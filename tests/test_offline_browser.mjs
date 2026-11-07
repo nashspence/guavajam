@@ -56,15 +56,21 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.equal(await clearOfHeader(), true, `${name} ${width} ${colorScheme}: direct fragment obscured`);
             assert.equal(await page.locator('#sec-2 a.press-permalink').getAttribute('href'),
               manifest.record_url + '/read#sec-2');
-            if (width === 320) {
-              // Narrow-screen reflow plus enlarged text protects zoomed reading.
+            {
+              // Enlarged text and wider letter spacing stress status-bar wrapping.
               await page.evaluate(() => {
                 const root = document.documentElement;
                 root.style.fontSize = parseFloat(getComputedStyle(root).fontSize) * 2 + 'px';
+                root.style.letterSpacing = '0.12em';
                 document.querySelector('#sec-2').scrollIntoView();
               });
               assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
-              assert.equal(await clearOfHeader(), true, `${name}: enlarged-text target obscured`);
+              const geometry = await page.evaluate(() => ({
+                target: document.querySelector('#sec-2').getBoundingClientRect().top,
+                header: document.querySelector('.press-status').getBoundingClientRect().bottom,
+              }));
+              assert.ok(geometry.target >= geometry.header - 1,
+                `${name} ${width}: enlarged-text target obscured: ${JSON.stringify(geometry)}`);
             }
 
             await page.emulateMedia({media: 'print', colorScheme: 'dark'});
