@@ -6,7 +6,6 @@ anchors to heading IDs and adds publisher-owned semantics to formal headings.
 from __future__ import annotations
 
 import hashlib
-import html
 from html.parser import HTMLParser
 import re
 from pathlib import Path
@@ -116,8 +115,6 @@ def _anchor_from_block(block: dict) -> str | None:
     return match.group(1) if match else None
 
 
-
-
 # The outline is a reading aid, not an alternative authoring or citation scheme.
 # Include only major manuscript sections. Supporting documents share one entry,
 # regardless of their number of citable passages or internal headings.
@@ -165,6 +162,7 @@ def _contents_blocks(blocks: list[dict]) -> list[dict]:
         {"t": "BulletList", "c": items},
         {"t": "RawBlock", "c": ["html", "</nav>"]},
     ]
+
 
 def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.

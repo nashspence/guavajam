@@ -17,7 +17,18 @@ from test_asset_downloads import DownloadPublicationTests
 def browser_fixture():
     fixture=DownloadPublicationTests('test_mixed_inline_external_and_supporting_references_build_and_verify_offline')
     try:
-        fixture.setUp();fixture.source();manifest=fixture.build_downloads()
+        fixture.setUp();fixture.source()
+        manuscript=fixture.repo/'works/sample/manuscript.md'
+        with manuscript.open('a') as stream:
+            stream.write('\n<a id="sec-2"></a>\n## Comparison of $x=x$\n\n'
+                         'The navigation reuses the reviewed section title and anchor.\n\n'
+                         '<a id="detail-2"></a>\n### Theorem 2 — Detail\n\n'
+                         'This deeper heading stays outside the major-section outline.\n\n'
+                         '<a id="sec-3"></a>\n## Reading the evidence\n\n'
+                         'The supporting records follow the manuscript.\n')
+        fixture.git('add','works');fixture.git('commit','-qm','Review navigable offline edition')
+        fixture.commit=fixture.git('rev-parse','HEAD')
+        manifest=fixture.build_downloads()
         saved=fixture.base/'complete.zip'
         shutil.copyfile(fixture.output/manifest['supplementary_package']['filename'],saved)
         shutil.rmtree(fixture.output)

@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from asset_policy import AssetError
 from render_profile import prepare_presentation_ast, canonical_template
 from validate_sources import parse_document
+import test_assets as edition_fixtures
+from verify_edition import verify_edition
 
 
 def heading(level, ident, label, classes=()):
@@ -77,6 +79,14 @@ class NavigationTests(unittest.TestCase):
         self.assertEqual(["#sec-1", "#record-0"], [
             item[0]["c"][0]["c"][2][0] for item in self._contents(ast)[0]["c"]])
 
+    def test_short_appendices_do_not_force_contents(self):
+        for count, records in ((0, 3), (1, 1), (1, 2)):
+            with self.subTest(sections=count, records=records):
+                ast = sample(count=count, records=records)
+                prepare_presentation_ast(ast)
+                self.assertEqual([], self._contents(ast))
+                self.assertNotIn("press_has_contents", ast["meta"])
+
     def test_reserved_ids_rejected_even_for_short_documents(self):
         for reserved in ("press-main", "press-contents", "press-contents-label"):
             ast = {"blocks": [heading(1, "title", "Sample"), anchor(reserved), heading(2, "", "Chapter")]}
@@ -99,7 +109,6 @@ class NavigationTests(unittest.TestCase):
         self.assertEqual(3, sum(b.get("t") == "Header" and b["c"][0] == 2 for b in ast["blocks"]))
 
     def test_actual_pandoc_renders_labeled_nav_and_local_fragments(self):
-        # Pandoc version differs locally; pinned CI also runs this on 3.12.1.
         source = ROOT / "templates/work/manuscript.md"
         ast, errors = parse_document(source, Path("templates/work/manuscript.md"))
         self.assertEqual([], errors)
@@ -129,6 +138,51 @@ class NavigationTests(unittest.TestCase):
                          re.findall(r'href="(#[^"]+)"', nav))
         self.assertNotIn('href="#theorem-1"', re.search(r'<nav id="press-contents".*?</nav>', raw, re.S)[0])
         self.assertEqual(9, raw.count("<math"))  # TOC does not duplicate manuscript MathML.
+
+
+class NavigationBuildTests(unittest.TestCase):
+    def test_real_editions_select_sections_and_group_mixed_evidence(self):
+        for count, records, expected in ((1, 0, False), (2, 0, False), (3, 0, True),
+                                         (5, 0, True), (24, 0, True), (2, 1, True),
+                                         (1, 2, False), (1, 3, True)):
+            with self.subTest(sections=count, records=records):
+                fixture = edition_fixtures.EditionTests()
+                try:
+                    fixture.setUp()
+                    source = fixture.repo / 'works/sample/manuscript.md'
+                    front = source.read_text().split('---\n', 2)[1]
+                    body = '# On Structure and Identity\n\n'
+                    for n in range(1, count + 1):
+                        body += (f'<a id="sec-{n}"></a>\n## Section {n} — Analysis of $x=x$\n\n'
+                                 'Reviewed section text.\n\n'
+                                 f'<a id="detail-{n}"></a>\n### Lemma {n} — Detail\n\n'
+                                 'The detail is citable without entering the contents.\n\n')
+                    directory = source.parent / 'supporting'
+                    directory.mkdir()
+                    for n in range(records):
+                        name = f'note-{n}'
+                        suffix = '.json' if n == 0 else '.md'
+                        original = ROOT / ('templates/work/supporting/note' + suffix)
+                        (directory / (name + suffix)).write_bytes(original.read_bytes())
+                        body += f'See the [record {n}](supporting/{name}{suffix}).\n\n'
+                    source.write_text('---\n' + front + '---\n\n' + body)
+                    fixture.git('add', 'works'); fixture.git('commit', '-qm', 'Review navigation case')
+                    fixture.commit = fixture.git('rev-parse', 'HEAD')
+                    manifest = fixture.build()
+                    self.assertEqual(manifest, verify_edition(fixture.output))
+                    raw = (fixture.output / manifest['canonical_artifact']).read_text()
+                    toc = re.search(r'<nav id="press-contents".*?</nav>', raw, re.S)
+                    self.assertEqual(expected, toc is not None)
+                    self.assertEqual(expected, 'class="press-contents-link"' in raw)
+                    if toc:
+                        targets = [f'#sec-{n}' for n in range(1, count + 1)]
+                        if records:
+                            targets.append('#record-note-0')
+                        self.assertEqual(targets, re.findall(r'href="(#[^"]+)"', toc.group()))
+                        self.assertEqual(int(records > 0), toc.group().count('Supporting records'))
+                        self.assertNotIn('<math', toc.group())
+                finally:
+                    fixture.doCleanups()
 
 
 if __name__ == "__main__":
