@@ -26,6 +26,7 @@ check-assets: ## Download and verify referenced assets.
 test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test*worker.mjs
+	@mise exec -- node --test tests/test_chatgpt_capture.mjs
 
 test-browser: ## Check offline downloads, publisher journeys, keyboard scrolling and accessibility in Chromium, Firefox and WebKit. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
 	@$(PYTHON) tests/run_offline_browser.py
