@@ -27,6 +27,7 @@ from test_assets import EditionTests
 
 FIXTURE = ROOT / 'tests/fixtures/chatgpt/lantern.json'
 TIPS = ('node-126', 'node-137')
+GFM_FIXTURES = dict(zip(TIPS, ('lantern-current.gfm.md', 'lantern-alternate.gfm.md')))
 
 
 @lru_cache(maxsize=2)
@@ -104,6 +105,8 @@ class LanternConversionTests(unittest.TestCase):
             for tip, count in zip(TIPS, (45, 61)):
                 with self.subTest(tip=tip):
                     record, data, diagnostics = converted(tip)
+                    self.assertEqual(FIXTURE.with_name(GFM_FIXTURES[tip]).read_bytes(), data,
+                                     'committed GitHub review fixtures must match the converter output')
                     self.assertEqual((data, diagnostics), review_gfm(record, identity='lantern-qualification'))
                     path = Path(scratch) / (tip + '.md'); path.write_bytes(data)
                     parsed, anchors, _, _ = load_gfm_record(path)
