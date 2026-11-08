@@ -249,6 +249,14 @@ class RecordBibliographyTests(PublicRecordTests):
         return work_html("https://press.example.org", "essay", receipts, manifests, notices,
                          work or {"identifiers": {"concept_doi": "10.1234/essay"}})
 
+    def test_work_record_requires_reviewed_attribution_and_language(self):
+        for field in ('author', 'language'):
+            with self.subTest(field=field):
+                manifest = dict(self.manifest)
+                del manifest[field]
+                with self.assertRaises(AssetError):
+                    self.landing({'v1.0.0': self.receipt}, {'v1.0.0': manifest})
+
     def test_initial_work_citation_does_not_change_implicitly_with_editions_or_doi_changes(self):
         later = dict(self.manifest, title="Later title", author="Later author", tag="works/essay/v2.0.0")
         first = dict(self.manifest, authors=AUTHORS, title="Original title", abstract=ABSTRACT, schema_type="ScholarlyArticle")

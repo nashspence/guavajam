@@ -77,6 +77,20 @@ class SavedEditionTests(unittest.TestCase):
                 fixture._repack(manifest=changed)
                 with self.assertRaises(AssetError):
                     verify_edition(fixture.output)
+        # Stripping the marker as well must not turn required checks off.
+        page = fixture.page().read_bytes().replace(b' id="press-edition-record"', b'')
+        fixture._repack(html=page, manifest=changed)
+        with self.assertRaises(AssetError):
+            verify_edition(fixture.output)
+
+    def test_rehashed_single_author_citation_must_match_reviewed_attribution(self):
+        fixture = self.fixture
+        page = fixture.page().read_bytes().replace(b'Cite this edition as Nash Spence.',
+                                                 b'Cite this edition as Someone else.')
+        self.assertNotEqual(page, fixture.page().read_bytes())
+        fixture._repack(html=page)
+        with self.assertRaisesRegex(AssetError, 'citation attribution'):
+            verify_edition(fixture.output)
 
     def test_edition_link_targets(self):
         for href in ("#section", "https://example.org/work", "mailto:press@example.org"):
