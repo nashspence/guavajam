@@ -25,7 +25,8 @@ def browser_fixture():
                          '<a id="detail-2"></a>\n### Theorem 2 — Detail\n\n'
                          'This deeper heading stays outside the major-section outline.\n\n'
                          '<a id="sec-3"></a>\n## Reading the evidence\n\n'
-                         'The supporting records follow the manuscript.\n')
+                         'The supporting records follow the manuscript.[^reader-note]\n\n'
+                         '[^reader-note]: A footnote keeps its own fragment and backlink.\n')
         fixture.git('add','works');fixture.git('commit','-qm','Review navigable offline edition')
         fixture.commit=fixture.git('rev-parse','HEAD')
         manifest=fixture.build_downloads()

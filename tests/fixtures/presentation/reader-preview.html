@@ -63,6 +63,29 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
 }
 /* Clear wrapped status links when readers enlarge text or increase spacing. */
 [id]:target, :focus-visible { scroll-margin-top: 7rem; }
+/* Fill the margin strip behind the cue so the line and heading tint connect.
+   A positioned pseudo-element keeps the heading's box and text unmoved. */
+.press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+  position: relative;
+  background: var(--press-tint);
+}
+.press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -.6rem;
+  inline-size: .6rem;
+  border-inline-start: .2rem solid var(--press-link);
+  background: var(--press-tint);
+  pointer-events: none;
+}
+/* Include the native footnote counter in the tint without painting over it. */
+.press-edition .footnotes li[id]:target { isolation: isolate; }
+.press-edition .footnotes li[id]:target::before {
+  inset-inline-start: -1.9rem;
+  inline-size: 1.9rem;
+  z-index: -1;
+}
 
 /* Keyboard-first bypass. The main landmark includes the optional contents. */
 .press-skip {
@@ -297,6 +320,20 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   }
 }
 
+/* Forced colors suppress box shadows: retain a discernible fragment target and
+   hover/focus cues using system colors, not hard-coded palette overrides. */
+@media (forced-colors: active) {
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+    background: Canvas;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  /* Use the native system-color outline, never an extra margin stripe. */
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  .press-permalink:hover { outline: 1px solid Highlight; }
+  .press-permalink:focus-visible { outline: 3px solid Highlight; }
+}
+
 @media print {
   :root {
     color-scheme: light;
@@ -309,6 +346,17 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
     --press-tint: #f5f5f5;
   }
   body { max-width: none; padding: 0; }
+  /* Keep prose and labels readable across page breaks without forcing whole
+     tables or long supporting passages onto one sheet. */
+  p { orphans: 3; widows: 3; }
+  h1, h2, h3, h4, h5, h6, .press-passage-heading, .press-passage-datetime,
+  caption { break-after: avoid-page; }
+  tr { break-inside: avoid; }
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
+    background: transparent;
+    outline: none;
+  }
+  .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-status { position: static; }
   .press-skip, .press-status .press-contents-link, .press-contents { display: none; }
   .press-permalink { display: none; }
