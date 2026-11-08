@@ -265,6 +265,9 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
           const network = [];
           page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
           await page.goto(pathToFileURL(path.join(root, 'index.html')).href);
+          const notice = page.getByRole('complementary', {name: 'Offline copy', exact: true});
+          assert.equal(await notice.count(), 1);
+          assert.match(await notice.textContent(), /file downloads use verified bytes included here/);
           const incomplete = await assertAccessible(page);
           if (incomplete.length) console.info(`${name} offline ${colorScheme}: axe findings needing review: ${JSON.stringify(reviewSummary(incomplete))}`);
           assert.deepEqual(network, []);

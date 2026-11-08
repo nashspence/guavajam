@@ -1,5 +1,6 @@
 """Complete archival downloads, frozen formats and pre-staging expansion budgets."""
 import copy
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -102,7 +103,7 @@ class OfflineHistoryTests(unittest.TestCase):
         for name in ('archived-v1','supplemental-v1','supplemental-v2'):
             with self.subTest(name=name),patch('socket.create_connection',side_effect=AssertionError('offline')):
                 manifest=verify_edition(ROOT/'tests/fixtures'/name)
-                with patch('edition_package.CURRENT_FORMAT','press.offline.v3'):
+                with patch('edition_package.CURRENT_FORMAT','press.offline.future'):
                     self.assertEqual(manifest,verify_edition(ROOT/'tests/fixtures'/name))
         with self.assertRaisesRegex(AssetError,'requires its provenance'):
             verify_edition(ROOT/'tests/fixtures/supplemental-v1/sample-v1.0.0-offline.zip')
@@ -111,6 +112,20 @@ class OfflineHistoryTests(unittest.TestCase):
         manifest=json.loads((ROOT/'tests/fixtures/supplemental-v1/provenance.json').read_text())
         manifest['supplementary_package']['format']='press.offline.unknown'
         with self.assertRaisesRegex(AssetError,'unsupported offline package format'):package.package_names(manifest)
+
+    def test_v3_notice_landmark_and_download_derivation_are_fixed(self):
+        manifest={'asset_origin':ORIGIN,'assets':[{'role':'download','source_url':DOWNLOAD}],
+                  'supplementary_package':{'format':'press.offline.v3'}}
+        original=('<body><a href="'+DOWNLOAD+'">file</a></body>').encode()
+        expected=('<body><aside aria-label="Offline copy"><p lang="en">'
+                  'Offline copy — file downloads use verified bytes included here.</p></aside>'
+                  '<a href="data:application/octet-stream;base64,'+base64.b64encode(RAW).decode()+
+                  '" download="'+Path(KEY).name+'">file</a></body>').encode()
+        self.assertEqual(expected,package.offline_html(original,manifest,{KEY:RAW}))
+        with patch('asset_policy.MAX_HTML_BYTES',len(expected)):
+            self.assertEqual(expected,package.offline_html(original,manifest,{KEY:RAW}))
+        with patch('asset_policy.MAX_HTML_BYTES',len(expected)-1),self.assertRaises(AssetError):
+            package.offline_html(original,manifest,{KEY:RAW})
 
 
 class OfflineBudgetTests(unittest.TestCase):
