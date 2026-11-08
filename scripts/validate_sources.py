@@ -18,12 +18,12 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from editorial_notices import check_initial_notes, check_rights_statement
-from identifier_schema import LANGUAGE, RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
+from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
 from supporting_records import append_supporting_records, load_record, record_path
 from table_captions import normalize_table_captions
-from bibliography import check_optional_bibliography, ordered_authors
+from bibliography import check_optional_bibliography, ordered_authors, reviewed_language
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -443,6 +443,7 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
         errors.append(issue(relative, f"schema keys mismatch: missing {sorted(missing)}, unknown {sorted(unknown)}"))
     try:
         ordered_authors(data)
+        reviewed_language(data)
         check_optional_bibliography(data)
     except AssetError as exc:
         errors.append(issue(relative, str(exc)))
@@ -460,8 +461,6 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
             errors.append(issue(relative, "use words or Unicode in the bibliographic title for a mathematical H1"))
     elif data["title"] != plain_text(title_inlines):
         errors.append(issue(relative, "title must exactly match the manuscript H1 plain text"))
-    if not LANGUAGE.fullmatch(data["language"]):
-        errors.append(issue(relative, "language must be lowercase ISO code optionally followed by region (e.g. en-CA)"))
     if data["rights"] not in RIGHTS:
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
     if data["status"] != "draft":

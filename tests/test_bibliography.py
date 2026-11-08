@@ -169,7 +169,7 @@ class EditionBibliographyTests(RenderContractTests):
         self.assertIn(b"Local preview", record)
         self.assertEqual(self.page().read_bytes(), (self.base / "preview/package" / self.page().name).read_bytes())
 
-    def test_omitted_optional_fields_do_not_appear_in_legacy_starter(self):
+    def test_omitted_optional_fields_do_not_appear_in_single_author_starter(self):
         manifest = self.build()
         for field in ("authors", "abstract", "schema_type"):
             self.assertNotIn(field, manifest)
@@ -221,9 +221,6 @@ class RecordBibliographyTests(PublicRecordTests):
         page = record_html(self.manifest, published_at=self.timestamp,
                            identifiers={"version_doi": "10.1234/edition"}, notices=[])
         self.assertEqual([self.url, "https://doi.org/10.1234/edition"], Metadata(page).meta["DC.identifier"])
-        legacy = dict(self.manifest); del legacy["language"]
-        self.assertNotIn("DC.language", Metadata(record_html(legacy, published_at=self.timestamp,
-                                                            identifiers=None, notices=[])).meta)
 
     def test_opt_in_schema_and_abstract_agree_with_visible_ordered_attribution(self):
         manifest = dict(self.manifest, authors=AUTHORS, abstract=ABSTRACT)
@@ -251,6 +248,14 @@ class RecordBibliographyTests(PublicRecordTests):
         notices = notices or {v: [] for v in receipts}
         return work_html("https://press.example.org", "essay", receipts, manifests, notices,
                          work or {"identifiers": {"concept_doi": "10.1234/essay"}})
+
+    def test_work_record_requires_reviewed_attribution_and_language(self):
+        for field in ('author', 'language'):
+            with self.subTest(field=field):
+                manifest = dict(self.manifest)
+                del manifest[field]
+                with self.assertRaises(AssetError):
+                    self.landing({'v1.0.0': self.receipt}, {'v1.0.0': manifest})
 
     def test_initial_work_citation_does_not_change_implicitly_with_editions_or_doi_changes(self):
         later = dict(self.manifest, title="Later title", author="Later author", tag="works/essay/v2.0.0")

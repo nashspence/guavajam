@@ -361,10 +361,17 @@ class EditionTests(unittest.TestCase):
             self.build()
         self.assertFalse(self.output.exists())
 
-    def test_archived_html_size_checked_before_reading(self):
-        fixture = Path(__file__).parent / "fixtures/archived-v1"
-        with patch("asset_policy.MAX_HTML_BYTES", 16), self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
-            verify_edition(fixture)
+    def test_html_size_checked_before_reading(self):
+        manifest = self.build()
+        page = self.output / manifest['canonical_artifact']
+        original = Path.open
+        def bounded_open(path, *args, **kwargs):
+            if path == page:
+                self.fail('oversized HTML was opened')
+            return original(path, *args, **kwargs)
+        with (patch('edition_package.MAX_HTML_BYTES', 16), patch.object(Path, 'open', bounded_open),
+              self.assertRaisesRegex(AssetError, 'bounded size')):
+            verify_edition(self.output)
 
     def test_package_tampering_rejected(self):
         self.build()

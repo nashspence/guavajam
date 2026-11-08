@@ -158,13 +158,19 @@ class PublicRecordTests(unittest.TestCase):
         english = record_html(self.manifest, published_at=self.timestamp, identifiers={}, notices=[]).decode()
         self.assertIn('<h1>Scale &lt; 2 &amp; change</h1>', english)
         self.assertNotIn('<span lang=', english)
-        legacy = dict(self.manifest); del legacy["language"]
-        self.assertNotIn('<span lang=', record_html(legacy, published_at=self.timestamp, identifiers={}, notices=[]).decode())
 
     def test_public_title_language_rejects_invalid_attributes(self):
         for language in ('fr-CA" onclick="bad', '<script>', '', 'fr_CA', None, 1, []):
             with self.subTest(language=language), self.assertRaisesRegex(AssetError, 'reviewed manuscript language'):
                 record_html(dict(self.manifest, language=language), published_at=self.timestamp, identifiers={}, notices=[])
+
+    def test_public_record_requires_reviewed_author_and_language(self):
+        for field in ('author', 'language'):
+            with self.subTest(field=field):
+                manifest = dict(self.manifest)
+                del manifest[field]
+                with self.assertRaises(AssetError):
+                    record_html(manifest, published_at=self.timestamp, identifiers={}, notices=[])
 
     def test_work_listing_uses_each_editions_own_title_language(self):
         self.generate()
