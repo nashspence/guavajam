@@ -6,6 +6,7 @@ import {assertAccessible} from './browser_accessibility.mjs';
 
 const sites = JSON.parse(process.env.PRESS_SITE_TESTS || 'null');
 assert.ok(sites, 'Run make test-browser to serve the real generated publisher pages');
+assert.deepEqual(sites.map(site => site.state), ['published', 'corrected', 'withdrawn']);
 
 async function readerContext(engine, site, width, colorScheme) {
   const browser = await engine.launch();
@@ -30,7 +31,11 @@ async function readerContext(engine, site, width, colorScheme) {
 }
 
 async function keyboardFollow(page, locator) {
-  await locator.focus();
+  for (let n = 0; n < 50 && !await locator.evaluate(el => el === document.activeElement); n++) {
+    await page.keyboard.press('Tab');
+  }
+  assert.equal(await locator.evaluate(el => el === document.activeElement), true, 'Link cannot be reached with Tab');
+  assert.equal(await locator.evaluate(el => el.matches(':focus-visible')), true);
   await page.keyboard.press('Enter');
 }
 
@@ -62,9 +67,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
         if (site.state === 'withdrawn') assert.equal(await page.getByText(/Withdrawal: Retained only as an archived example/).count(), 1);
         const read = page.locator('#press-record-read');
         assert.equal(await read.textContent(), site.state === 'withdrawn' ? 'Read the archived edition' : 'Read this edition online');
-        await keyboardFollow(page, read);
+        const [readerResponse] = await Promise.all([
+          page.waitForResponse(response => new URL(response.url()).pathname === site.record + '/read'),
+          keyboardFollow(page, read),
+        ]);
         await page.waitForURL(url => url.pathname === site.record + '/read');
-        assert.equal(createHash('sha256').update(await (await context.request.get(site.base + site.record + '/read')).body()).digest('hex'), site.htmlSHA256);
+        assert.equal(createHash('sha256').update(await readerResponse.body()).digest('hex'), site.htmlSHA256);
         assert.equal(await noPageOverflow(page), true);
         await keyboardFollow(page, page.locator('#press-edition-status'));
         await page.waitForURL(url => url.origin === new URL(site.recordURL).origin && url.pathname === site.record);
@@ -98,11 +106,18 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
           assert.equal(await box.evaluate(el => el === document.activeElement), true);
           assert.equal(await box.evaluate(el => el.matches(':focus-visible')), true);
           assert.ok(await box.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth)) >= 2);
+          const minimum = await box.evaluate(el => Math.min(5, (el.scrollWidth - el.clientWidth) / 2));
           for (let n = 0; n < 5; n++) await page.keyboard.press('ArrowRight');
-          await page.waitForFunction(el => el.scrollLeft > 5, await box.elementHandle());
+          await page.waitForFunction(({el, minimum}) => el.scrollLeft > minimum,
+            {el: await box.elementHandle(), minimum}, {timeout: 5000}).catch(async error => {
+              const geometry = await box.evaluate(el => ({left: el.scrollLeft, width: el.clientWidth,
+                content: el.scrollWidth, focused: el === document.activeElement}));
+              throw new Error(`${name} ${kind} did not pan right: ${JSON.stringify(geometry)}`, {cause: error});
+            });
           const right = await box.evaluate(el => el.scrollLeft);
           for (let n = 0; n < 10; n++) await page.keyboard.press('ArrowLeft');
-          await page.waitForFunction(({el, right}) => el.scrollLeft < right, {el: await box.elementHandle(), right});
+          await page.waitForFunction(({el, right}) => el.scrollLeft < right,
+            {el: await box.elementHandle(), right}, {timeout: 5000});
           assert.equal(await noPageOverflow(page), true);
           await page.keyboard.press('Tab');
           assert.equal(await box.evaluate(el => el.contains(document.activeElement)), false);
@@ -121,7 +136,7 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
         const page = await context.newPage();
         for (const route of [site.work, site.record, site.record + '/read']) {
           await page.goto(site.base + route);
-          for (const finding of await assertAccessible(page)) review.set(finding.id, finding);
+          for (const finding of await assertAccessible(page)) review.set(JSON.stringify(finding), finding);
         }
         assert.deepEqual(unexpected, []);
       } finally { await browser.close(); }

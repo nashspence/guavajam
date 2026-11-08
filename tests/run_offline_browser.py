@@ -57,7 +57,7 @@ def site_fixture():
                 '| ' + ' | '.join(headers) + ' |\n'
                 '| ' + ' | '.join(['---'] * 8) + ' |\n'
                 '| ' + ' | '.join(['entry'] * 8) + ' |\n\n'
-                ': Keyboard scrolling sample\n\n'
+                ': Table 2 — Keyboard scrolling sample\n\n'
                 '$$\n' + ' + '.join(f'x_{{{n}}}' for n in range(40)) + '\n$$\n\n'
                 '```\nLEFT_' + 'literal_' * 50 + '_RIGHT\n```\n')
         source.write_text(source.read_text() + wide)
@@ -72,7 +72,7 @@ def site_fixture():
         slug, version = fixture.tag.split('/')[1:]
         registration = fixture.repo / 'registrations/editions' / slug / (version + '.json')
         registration.parent.mkdir(parents=True)
-        registration.write_text(json.dumps(receipt) + '\n')
+        registration.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
         fixture.git('add', 'registrations')
         notices = fixture.repo / 'notices' / slug / version
         states = []
@@ -103,8 +103,7 @@ def site_fixture():
                 stack.callback(stop)
                 states.append({'state': state, 'base': f'http://127.0.0.1:{server.server_address[1]}',
                                'work': f'/works/{slug}', 'record': '/' + fixture.tag,
-                               'recordURL': manifest['record_url'], 'htmlSHA256': manifest['html_sha256'],
-                               'package': str(directory / 'package'), 'canonical': manifest['canonical_artifact']})
+                               'recordURL': manifest['record_url'], 'htmlSHA256': manifest['html_sha256']})
             yield states
     finally:
         fixture.doCleanups()

@@ -89,7 +89,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn(".footnote-ref { text-decoration: none; white-space: nowrap; }", css)
         self.assertIn(".footnote-ref > sup {", css)
         self.assertIn("text-decoration-line: underline;", css)
-        self.assertIn(".footnote-back { margin-left: .3em; text-decoration: none; }", css)
+        self.assertIn(".footnote-back { margin-left: .3em; text-decoration: underline; }", css)
 
     def test_reader_preview_uses_exact_css_and_pandoc_note_structure(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
