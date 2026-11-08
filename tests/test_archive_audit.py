@@ -44,13 +44,15 @@ class ArchiveAuditTests(unittest.TestCase):
 
     def test_supplementary_release_inventory_is_downloaded_and_required(self):
         name='sample-v1.0.0-offline.zip'
-        self.manifest['supplementary_package']={'filename':name,'sha256':'a'*64,'byte_count':64}
+        self.manifest['supplementary_package']={'filename':name,'format':'press.offline.v1',
+            'reading_copy_sha256':'a'*64,'reading_copy_byte_count':64}
         self.manifest['initial_release_body']=render_initial_body(self.manifest)
         self.release['body']=self.manifest['initial_release_body']
         self.release['assets'].append({'id':4,'name':name,'size':64,'state':'uploaded'})
         verify_public_release('owner/press',self.release,root=self.root)
         self.assertEqual(name,self.download.call_args.args[6])
-        self.release['assets'][-1]['size']=65
+        from edition_package import MAX_BUNDLE_BYTES
+        self.release['assets'][-1]['size']=MAX_BUNDLE_BYTES+1
         with self.assertRaisesRegex(AssetError,'supplementary release attachment'):
             verify_public_release('owner/press',self.release,root=self.root)
         self.release['assets'].pop()

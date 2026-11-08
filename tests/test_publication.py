@@ -128,13 +128,14 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.assertEqual({p.name for p in self.output.iterdir()},set(reads))
             self.assertIn(name,reads)
 
-    def test_changed_or_wrong_size_supplement_never_promotes_an_existing_draft(self):
+    def test_changed_or_oversized_supplement_never_promotes_an_existing_draft(self):
         name=self.supplement();self.existing_draft()
         original=self.remote[name];self.remote[name]=b'changed'
         with self.assertRaises(AssetError):self.publish()
         self.assertTrue(self.release['draft'])
         self.remote[name]=original
-        asset=next(a for a in self.release['assets'] if a['name']==name);asset['size']+=1
+        from edition_package import MAX_BUNDLE_BYTES
+        asset=next(a for a in self.release['assets'] if a['name']==name);asset['size']=MAX_BUNDLE_BYTES+1
         with self.assertRaises(AssetError):self.publish()
         self.assertTrue(self.release['draft'])
         self.assertFalse(any('PATCH' in args for args in self.operations))
