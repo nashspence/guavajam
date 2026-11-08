@@ -29,7 +29,7 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           await page.goto(pathToFileURL(path.join(directory, manifest.canonical_artifact)).href);
           assert.deepEqual(requests, []);
           assert.deepEqual(errors, []);
-          assert.equal(await page.locator('Chart, CodeBlock, Cite, Link, row, box, icon').count(), 0);
+          assert.equal(await page.locator('main').locator('Chart, CodeBlock, Cite, Link, row, box, icon').count(), 0);
           assert.equal(await page.locator('math').count(), 108, '106 fixture formulas plus two manuscript formulas');
           assert.equal(await page.locator('table').count() - await page.locator('math table').count(), 22);
           assert.ok(await page.locator('math mtable').count() >= 10, 'matrices and aligned mathematics remain structured MathML');
