@@ -59,10 +59,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               const rule = getComputedStyle(element, '::before');
               const rect = element.getBoundingClientRect();
               const offset = -parseFloat(rule.insetInlineStart);
-              const thickness = parseFloat(rule.inlineSize);
+              const bandWidth = parseFloat(rule.inlineSize);
+              const thickness = parseFloat(rule.borderInlineStartWidth);
               return {shadow: style.boxShadow, background: style.backgroundColor,
-                position: style.position, ruleContent: rule.content, offset, thickness,
-                marginFromText: offset - thickness, ruleLeft: rect.left - offset,
+                position: style.position, ruleContent: rule.content, offset, thickness, bandWidth,
+                marginFromText: offset - thickness, tintWidth: bandWidth - thickness,
+                stripTint: rule.backgroundColor, ruleLeft: rect.left - offset,
                 rect: {left: rect.left, width: rect.width, height: rect.height}};
             });
             assert.equal(targetCue.shadow, 'none');
@@ -72,6 +74,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               `${name}: citation rule is too close or too far from heading: ${JSON.stringify(targetCue)}`);
             assert.ok(targetCue.ruleLeft >= 0, `${name}: citation rule clipped by the viewport`);
             assert.notEqual(targetCue.background, 'rgba(0, 0, 0, 0)', `${name}: target tint missing`);
+            assert.ok(Math.abs(targetCue.bandWidth - targetCue.offset) <= 1,
+              `${name}: margin tint must meet the heading tint: ${JSON.stringify(targetCue)}`);
+            assert.equal(targetCue.stripTint, targetCue.background,
+              `${name}: margin gap must use the same background tint as the heading`);
+            assert.ok(targetCue.tintWidth >= 5 && targetCue.tintWidth <= 9,
+              `${name}: tinted space between rule and text should be 5–9px`);
             assert.equal(await page.locator('#sec-2 a.press-permalink').getAttribute('href'),
               manifest.record_url + '/read#sec-2');
             {

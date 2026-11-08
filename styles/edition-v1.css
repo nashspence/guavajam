@@ -54,7 +54,7 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
 }
 /* Clear wrapped status links when readers enlarge text or increase spacing. */
 [id]:target, :focus-visible { scroll-margin-top: 7rem; }
-/* The citation cue belongs in the margin, with breathing room before text.
+/* Fill the margin strip behind the cue so the line and heading tint connect.
    A positioned pseudo-element keeps the heading's box and text unmoved. */
 .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
   position: relative;
@@ -65,8 +65,9 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
   position: absolute;
   inset-block: 0;
   inset-inline-start: -.6rem;
-  inline-size: .2rem;
-  background: var(--press-link);
+  inline-size: .6rem;
+  border-inline-start: .2rem solid var(--press-link);
+  background: var(--press-tint);
   pointer-events: none;
 }
 

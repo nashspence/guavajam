@@ -69,7 +69,8 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn(target_rule + "::before {", css)
         decoration = css.split(target_rule + "::before {", 1)[1].split("}", 1)[0]
         for rule in ('content: ""', "position: absolute", "inset-inline-start: -.6rem",
-                     "inline-size: .2rem", "pointer-events: none"):
+                     "inline-size: .6rem", "border-inline-start: .2rem solid var(--press-link)",
+                     "background: var(--press-tint)", "pointer-events: none"):
             self.assertIn(rule, decoration)
         self.assertNotIn("box-shadow", css.split(target_rule + " {", 1)[1].split("}", 1)[0])
         forced = css.split("@media (forced-colors: active)", 1)[1].split("@media print", 1)[0]
