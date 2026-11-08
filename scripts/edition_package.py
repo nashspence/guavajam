@@ -15,7 +15,9 @@ from asset_policy import (AssetError, MAX_ASSETS, MAX_BYTES, MAX_HTML_BYTES, MAX
 
 V1 = 'press.offline.v1'
 V2 = 'press.offline.v2'
-CURRENT_FORMAT = V2
+V3 = 'press.offline.v3'
+COMPLETE_FORMATS = frozenset({V2, V3})
+CURRENT_FORMAT = V3
 MAX_SUMS_BYTES = 32 * 1024
 MAX_BUNDLE_BYTES = 2 * MAX_HTML_BYTES + MAX_TOTAL_BYTES + MAX_RECORD_BYTES + MAX_SUMS_BYTES + 128 * 512 + 4096
 V1_MAX_BUNDLE_BYTES = MAX_HTML_BYTES + MAX_TOTAL_BYTES + 128 * 512 + 4096
@@ -43,7 +45,7 @@ def package_names(manifest):
             fields={'filename','sha256','byte_count'}
             valid=(re.fullmatch('[0-9a-f]{64}',str(bundle.get('sha256',''))) and
                    type(bundle.get('byte_count')) is int and 0<bundle['byte_count']<=V1_MAX_BUNDLE_BYTES)
-        elif bundle_format(manifest)==V2:
+        elif bundle_format(manifest) in COMPLETE_FORMATS:
             fields={'filename','format','reading_copy_sha256','reading_copy_byte_count'}
             valid=(re.fullmatch('[0-9a-f]{64}',str(bundle.get('reading_copy_sha256',''))) and
                    type(bundle.get('reading_copy_byte_count')) is int and 0<bundle['reading_copy_byte_count']<=MAX_HTML_BYTES)
@@ -105,8 +107,17 @@ def _offline_v1(raw,manifest,payloads):
     return result
 
 
-# These transformations are frozen by archived fixtures; future formats get a new entry.
-OFFLINE_FORMATS = {V1: _offline_v1, V2: _offline_v1}
+def _offline_v3(raw,manifest,payloads):
+    rendered=_offline_v1(raw,manifest,payloads)
+    opening=b'<aside aria-label="Offline copy">';closing=b'</aside>'
+    check_html_size(len(rendered)+len(opening)+len(closing))
+    start=rendered.index(b'<body>')+len(b'<body>')
+    end=rendered.index(b'</p>',start)+len(b'</p>')
+    return rendered[:start]+opening+rendered[start:end]+closing+rendered[end:]
+
+
+# These transformations are frozen by fixtures; future formats get a new entry.
+OFFLINE_FORMATS = {V1: _offline_v1, V2: _offline_v1, V3: _offline_v3}
 
 
 def offline_html(raw,manifest,payloads):
@@ -176,7 +187,7 @@ def _limits(manifest):
     entries=required_payloads(manifest)
     limits={key:record['byte_count'] for key,record in entries.items()}
     limits['index.html']=MAX_HTML_BYTES
-    if bundle_format(manifest)==V2:
+    if bundle_format(manifest) in COMPLETE_FORMATS:
         limits['index.html']=manifest['supplementary_package']['reading_copy_byte_count']
         limits.update({manifest['canonical_artifact']:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES,'SHA256SUMS':MAX_SUMS_BYTES})
     return limits
@@ -215,7 +226,7 @@ def read_bundle(path,manifest):
 
 def package_contents(directory,manifest):
     names=package_names(manifest);actual={p.name for p in directory.iterdir()}
-    core_limits={names[0]:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES if bundle_format(manifest)==V2 else MAX_HTML_BYTES,'SHA256SUMS':MAX_SUMS_BYTES}
+    core_limits={names[0]:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES if bundle_format(manifest) in COMPLETE_FORMATS else MAX_HTML_BYTES,'SHA256SUMS':MAX_SUMS_BYTES}
     if actual==set(names):
         content={name:_read_file(directory/name,limit) for name,limit in core_limits.items()}
         if 'supplementary_package' in manifest:
@@ -226,7 +237,7 @@ def package_contents(directory,manifest):
                 if any(extra[name]!=content[name] for name in core_limits):raise AssetError('ZIP core files differ from release attachments')
                 content.update(extra)
         return content
-    if (bundle_format(manifest)==V2 and 'supplementary_package' in manifest
+    if (bundle_format(manifest) in COMPLETE_FORMATS and 'supplementary_package' in manifest
             and actual==set(core_limits)|{'index.html','sha256'}):
         objects=directory/'sha256'
         if objects.is_symlink() or not objects.is_dir():raise AssetError('offline objects require a regular directory')
@@ -253,7 +264,7 @@ def verify_bundle(directory,raw_html,manifest,*,content=None):
             raise AssetError('supplementary bytes differ from reviewed asset')
         verify_bytes(raw,key.rsplit('.',1)[1],record['media_type']);payloads[key]=raw
     index=content['index.html']
-    if bundle_format(manifest)==V2 and (len(index)!=bundle['reading_copy_byte_count'] or hashlib.sha256(index).hexdigest()!=bundle['reading_copy_sha256']):
+    if bundle_format(manifest) in COMPLETE_FORMATS and (len(index)!=bundle['reading_copy_byte_count'] or hashlib.sha256(index).hexdigest()!=bundle['reading_copy_sha256']):
         raise AssetError('offline reading copy differs from provenance')
     if index!=offline_html(raw_html,manifest,payloads):raise AssetError('offline reading copy differs from canonical derivation')
     return payloads
@@ -275,7 +286,7 @@ def edition_directory(path):
     except (zipfile.BadZipFile,KeyError,RuntimeError) as exc:
         raise AssetError('complete offline ZIP requires its provenance') from exc
     package_names(manifest)
-    if bundle_format(manifest)!=V2:raise AssetError('this offline ZIP requires the separately saved core release files')
+    if bundle_format(manifest) not in COMPLETE_FORMATS:raise AssetError('this offline ZIP requires the separately saved core release files')
     content=read_bundle(path,manifest)
     with tempfile.TemporaryDirectory(prefix='press-offline-') as temp:
         directory=Path(temp)
