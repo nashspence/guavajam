@@ -4,12 +4,35 @@
  * There is NO DOM/flattening fallback for the native branching graph.
  */
 export async function captureCurrentConversation() {
-  const MAX_JSON_CHARACTERS = 64 * 1024 * 1024;
+  const MAX_JSON_BYTES = 64 * 1024 * 1024;
+  const MAX_SESSION_BYTES = 64 * 1024;
+  const MAX_NODES = 50000;
+  const MAX_DURATION_MS = 120000;
   const MAX_ZIP_BYTES = 128 * 1024 * 1024;
   const MAX_PAGES = 500;
   const CURRENT_ORIGIN = "https://chatgpt.com";
 
   function fail(message) { throw new Error(message); }
+  function stop(message) {
+    const error = new Error(message);
+    error.fatal = true;
+    throw error;
+  }
+  const lifetime = new AbortController();
+  let started, capturedId, monitor;
+  let responseBytes = 0;
+  function checkActive() {
+    if (lifetime.signal.aborted) stop("Capture cancelled or timed out. Retry in the conversation tab.");
+    if (performance.now() - started >= MAX_DURATION_MS) {
+      lifetime.abort();
+      stop("Capture exceeded its two-minute deadline.");
+    }
+    if (conversationId() !== capturedId) {
+      lifetime.abort();
+      stop("Conversation tab changed during capture. Retry.");
+    }
+  }
+  const pageHidden = () => lifetime.abort();
   const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
   const idOf = (value) => {
@@ -39,10 +62,12 @@ export async function captureCurrentConversation() {
     const mapping = conversation.mapping;
     const ids = Object.keys(mapping);
     if (!ids.length) fail("Native mapping is empty.");
+    if (ids.length > MAX_NODES) stop("Native mapping exceeds the 50,000-node limit.");
     if (typeof conversation.current_node !== "string" || !own(mapping, conversation.current_node)) {
       fail("Native mapping has no valid current_node.");
     }
     const childCounts = new Map(ids.map((id) => [id, 0]));
+    const childSets = new Map();
     let roots = 0;
     for (const id of ids) {
       const node = mapping[id];
@@ -66,6 +91,7 @@ export async function captureCurrentConversation() {
             fail("Native mapping contains an inconsistent child reference.");
           }
         }
+        childSets.set(id, new Set(node.children));
       }
     }
     if (roots !== 1) fail("Native mapping does not have exactly one root.");
@@ -82,8 +108,8 @@ export async function captureCurrentConversation() {
       for (const id of inPath) completed.add(id);
     }
     for (const [id, node] of Object.entries(mapping)) {
-      if (node.parent !== null && Array.isArray(mapping[node.parent]?.children) &&
-          !mapping[node.parent].children.includes(id)) {
+      if (node.parent !== null && childSets.has(node.parent) &&
+          !childSets.get(node.parent).has(id)) {
         fail("Native mapping parent/child links disagree.");
       }
     }
@@ -106,6 +132,63 @@ export async function captureCurrentConversation() {
     };
   }
 
+  async function readJSON(path, headers, limit, timeout) {
+    checkActive();
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    lifetime.signal.addEventListener("abort", cancel, { once: true });
+    const timer = setTimeout(cancel, timeout);
+    let reader;
+    try {
+      const response = await fetch(path, {
+        method: "GET", credentials: "include", cache: "no-store",
+        redirect: "error", headers, signal: controller.signal
+      });
+      checkActive();
+      if (!response.ok) {
+        await response.body?.cancel();
+        const error = new Error(`ChatGPT API returned HTTP ${response.status}.`);
+        error.status = response.status;
+        throw error;
+      }
+      const budget = Math.min(limit, MAX_JSON_BYTES - responseBytes);
+      const length = Number(response.headers.get("content-length"));
+      if (length > budget) {
+        await response.body?.cancel();
+        stop("Capture JSON exceeds its byte limit.");
+      }
+      if (!response.body) fail("ChatGPT returned an empty response.");
+      reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8", { fatal: true });
+      const pieces = [];
+      let bytes = 0;
+      while (true) {
+        checkActive();
+        const { done, value } = await reader.read();
+        checkActive();
+        if (done) break;
+        bytes += value.byteLength;
+        responseBytes += value.byteLength;
+        if (bytes > limit || responseBytes > MAX_JSON_BYTES) stop("Capture JSON exceeds its byte limit.");
+        pieces.push(decoder.decode(value, { stream: true }));
+      }
+      pieces.push(decoder.decode());
+      checkActive();
+      try { return JSON.parse(pieces.join("")); }
+      catch { fail("ChatGPT returned non-JSON content."); }
+    } catch (error) {
+      if (error?.fatal) throw error;
+      checkActive();
+      if (controller.signal.aborted) fail("ChatGPT request timed out.");
+      if (error instanceof TypeError) fail("ChatGPT request failed or returned invalid UTF-8.");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      lifetime.signal.removeEventListener("abort", cancel);
+      try { await reader?.cancel(); } catch { /* A failed stream may already be closed. */ }
+    }
+  }
+
   async function apiRequest(path, auth, accountId) {
     const target = new URL(path, location.origin);
     if (target.origin !== CURRENT_ORIGIN || !target.pathname.startsWith("/backend-api/conversation")) {
@@ -115,42 +198,24 @@ export async function captureCurrentConversation() {
       const headers = { Accept: "application/json" };
       if (auth) headers.Authorization = `Bearer ${auth}`;
       if (includeAccount && accountId) headers["ChatGPT-Account-ID"] = accountId;
-      const response = await fetch(target.pathname + target.search, {
-        method: "GET", credentials: "include", cache: "no-store",
-        redirect: "error", headers, signal: AbortSignal.timeout(30000)
-      });
-      return response;
+      return readJSON(target.pathname + target.search, headers, MAX_JSON_BYTES, 30000);
     }
-    let response = await attempt(true);
-    if (accountId && (response.status === 403 || response.status === 404)) {
-      response = await attempt(false);
-    }
-    if (!response.ok) {
-      const error = new Error(`ChatGPT API returned HTTP ${response.status}.`);
-      error.status = response.status;
+    try { return await attempt(true); }
+    catch (error) {
+      if (accountId && [403, 404].includes(error.status)) return attempt(false);
       throw error;
     }
-    const length = Number(response.headers?.get("content-length"));
-    if (length > MAX_JSON_CHARACTERS) fail("Conversation JSON is above the size limit.");
-    const raw = await response.text();
-    if (raw.length > MAX_JSON_CHARACTERS) fail("Conversation JSON is above the size limit.");
-    try { return JSON.parse(raw); }
-    catch { fail("ChatGPT returned non-JSON content."); }
   }
 
   async function readSession() {
     try {
-      const response = await fetch("/api/auth/session", {
-        method: "GET", credentials: "include", cache: "no-store",
-        redirect: "error", signal: AbortSignal.timeout(15000)
-      });
-      if (!response.ok) return { token: null, accountId: null };
-      const session = await response.json();
+      const session = await readJSON("/api/auth/session", { Accept: "application/json" }, MAX_SESSION_BYTES, 15000);
       return {
         token: typeof session?.accessToken === "string" ? session.accessToken : null,
         accountId: session?.account?.id || session?.activeAccount?.id || null
       };
-    } catch {
+    } catch (error) {
+      if (error?.fatal) throw error;
       // Cookies may authorize the ChatGPT endpoint even when this endpoint
       // does not expose a bearer token. Never request or persist credentials.
       return { token: null, accountId: null };
@@ -224,11 +289,14 @@ export async function captureCurrentConversation() {
       seenCursors.add(cursor);
       before = cursor;
     }
-    fail("Selected-branch pagination exceeded its safe page limit.");
+    stop("Selected-branch pagination exceeded its safe page limit.");
   }
 
   const encoder = new TextEncoder();
-  function jsonBytes(value) { return encoder.encode(`${JSON.stringify(value, null, 2)}\n`); }
+  function jsonBytes(value) {
+    checkActive();
+    return encoder.encode(`${JSON.stringify(value)}\n`);
+  }
   async function sha256(data) {
     const digest = await crypto.subtle.digest("SHA-256", data);
     return [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, "0")).join("");
@@ -296,6 +364,12 @@ export async function captureCurrentConversation() {
 
   try {
     const id = conversationId();
+    capturedId = id;
+    started = performance.now();
+    globalThis.addEventListener?.("pagehide", pageHidden, { once: true });
+    monitor = setInterval(() => {
+      try { checkActive(); } catch { lifetime.abort(); }
+    }, 100);
     const session = await readSession();
     // Branch-preserving native endpoint is required, never synthesized.
     const raw = await apiRequest(`/backend-api/conversation/${encodeURIComponent(id)}`,
@@ -323,7 +397,7 @@ export async function captureCurrentConversation() {
       audit = { status: "unavailable", reason: String(error?.message || "Selected-branch check failed.") };
     }
 
-    if (conversationId() !== id) fail("Conversation tab changed during capture. Retry.");
+    checkActive();
     const nativeBytes = jsonBytes([native]); // Direct input to Press chat-extract.
     const files = [["conversations.json", nativeBytes]];
     if (evidence) files.push(["selected-branch-pages.json", jsonBytes(evidence.pages)]);
@@ -331,6 +405,11 @@ export async function captureCurrentConversation() {
       schema: "press-chatgpt-capture-reference/v1",
       captured_at_utc: new Date().toISOString(),
       conversation_id: id,
+      capture_limits: {
+        response_bytes: responseBytes, max_response_bytes: MAX_JSON_BYTES,
+        max_duration_ms: MAX_DURATION_MS, max_mapping_nodes: MAX_NODES,
+        max_selected_branch_pages: MAX_PAGES
+      },
       source: {
         native_graph: "/backend-api/conversation/{id}",
         selected_branch: "/backend-api/conversations/{id} and paginated /messages"
@@ -358,6 +437,7 @@ export async function captureCurrentConversation() {
     };
     files.push(["capture-manifest.json", jsonBytes(report)]);
     const blob = buildZip(files);
+    checkActive();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     const filename = `chatgpt-capture-${id}.zip`;
@@ -380,5 +460,8 @@ export async function captureCurrentConversation() {
   } catch (error) {
     // Never return authentication tokens, cookies, or response body text.
     return { ok: false, error: String(error?.message || "Capture failed.") };
+  } finally {
+    clearInterval(monitor);
+    globalThis.removeEventListener?.("pagehide", pageHidden);
   }
 }
