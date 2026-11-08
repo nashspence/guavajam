@@ -77,17 +77,12 @@ class SavedEditionTests(unittest.TestCase):
                 fixture._repack(manifest=changed)
                 with self.assertRaises(AssetError):
                     verify_edition(fixture.output)
-        # Stripping the marker as well must not turn required checks off.
-        page = fixture.page().read_bytes().replace(b' id="press-edition-record"', b'')
-        fixture._repack(html=page, manifest=changed)
-        with self.assertRaises(AssetError):
-            verify_edition(fixture.output)
 
     def test_rehashed_single_author_citation_must_match_reviewed_attribution(self):
         fixture = self.fixture
-        page = fixture.page().read_bytes().replace(b'Cite this edition as Nash Spence.',
-                                                 b'Cite this edition as Someone else.')
-        self.assertNotEqual(page, fixture.page().read_bytes())
+        page, count = re.subn(rb'Cite this edition as Nash\s+Spence\.',
+                             b'Cite this edition as Someone else.', fixture.page().read_bytes())
+        self.assertEqual(count, 1)
         fixture._repack(html=page)
         with self.assertRaisesRegex(AssetError, 'citation attribution'):
             verify_edition(fixture.output)
@@ -151,6 +146,15 @@ class RenderContractTests(EditionTests):
         sums = "".join(hashlib.sha256((self.output / name).read_bytes()).hexdigest()
                        + "  " + name + "\n" for name in [page.name, p.name])
         (self.output / "SHA256SUMS").write_text(sums, encoding="ascii")
+
+    def test_rehashed_package_cannot_disable_checks_by_stripping_publication_metadata(self):
+        manifest = self.build()
+        for field in ('record_url', 'initial_release_body', 'author', 'language'):
+            del manifest[field]
+        page = self.page().read_bytes().replace(b' id="press-edition-record"', b'')
+        self._repack(html=page, manifest=manifest)
+        with self.assertRaises(AssetError):
+            verify_edition(self.output)
 
     def test_stable_heading_ids_and_formal_semantics(self):
         self.sample_with_structures()
