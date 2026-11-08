@@ -82,6 +82,13 @@ a:focus-visible, .press-scroll:focus-visible, pre:focus-visible {
   background: var(--press-tint);
   pointer-events: none;
 }
+/* Include the native footnote counter in the tint without painting over it. */
+.press-edition .footnotes li[id]:target { isolation: isolate; }
+.press-edition .footnotes li[id]:target::before {
+  inset-inline-start: -1.9rem;
+  inline-size: 1.9rem;
+  z-index: -1;
+}
 
 /* Keyboard-first bypass. The main landmark includes the optional contents. */
 .press-skip {

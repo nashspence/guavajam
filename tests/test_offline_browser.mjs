@@ -29,6 +29,9 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
             const url = pathToFileURL(path.join(root, 'index.html')).href;
             await page.goto(url);
+            assert.equal(await page.locator('img').count(), 1);
+            assert.equal(await page.locator('img').evaluateAll(images =>
+              images.every(image => image.complete && image.naturalWidth > 0)), true);
             const contents = page.getByRole('navigation', {name: 'Contents', exact: true});
             assert.equal(await contents.count(), 1);
             assert.deepEqual(await contents.locator('a').evaluateAll(links => links.map(a => a.getAttribute('href'))),
@@ -159,6 +162,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               const cue = getComputedStyle(element, '::before');
               return {box: [rect.left + scrollX, rect.top + scrollY, rect.width, rect.height],
                 background: style.backgroundColor, tint: cue.backgroundColor, content: cue.content,
+                isolation: style.isolation, layer: cue.zIndex, offset: -parseFloat(cue.insetInlineStart),
+                fontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
                 cueLeft: rect.left + parseFloat(cue.insetInlineStart),
                 top: rect.top, header: document.querySelector('.press-status').getBoundingClientRect().bottom};
             });
@@ -169,6 +174,11 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.notEqual(after.background, 'rgba(0, 0, 0, 0)');
             assert.equal(after.tint, after.background);
             assert.ok(after.cueLeft >= 0, `${name} ${id}: cue clipped`);
+            if (id === 'fn1') {
+              assert.equal(after.isolation, 'isolate');
+              assert.equal(after.layer, '-1', 'Footnote cue must paint behind the native counter');
+              assert.ok(after.offset >= after.fontSize * 1.5, 'Footnote rule must clear the counter gutter');
+            }
             assert.ok(after.top >= after.header - 1, `${name} ${id}: target obscured`);
             await page.emulateMedia({media: 'print', colorScheme: 'dark'});
             assert.deepEqual(await target.evaluate(element => [getComputedStyle(element).backgroundColor,
