@@ -75,7 +75,8 @@ async function qualify(scenario) {
       if (url.pathname.startsWith('/c/') || url.origin === 'https://example.org') {
         await route.fulfill({ contentType: 'text/html',
           headers: { 'Content-Security-Policy': "default-src 'none'; connect-src 'self'; base-uri 'none'" },
-          body: '<!doctype html><html lang="en"><title>Fixture</title><main>Synthetic conversation</main></html>' });
+          body: '<!doctype html><html lang="en"><title>Fixture</title><main>Synthetic conversation' +
+            (scenario === 'live-shape' ? '<dialog open>Versions — K7M4Q2ZX</dialog>' : '') + '</main></html>' });
         return;
       }
       let body, status = 200;

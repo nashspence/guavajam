@@ -432,6 +432,7 @@ export async function captureCurrentConversation() {
       ],
       limitations: [
         "This is an undocumented live API snapshot, NOT the official ChatGPT account export.",
+        "current_node and the branch audit follow the server's saved selection. A See Versions preview or local continuation may show a different branch.",
         "Neither endpoint proves that every historical branch or hidden message is present.",
         "The native mapping may omit messages included in the paginated selected branch.",
         "Attachments and generated files are not downloaded; references may be present.",

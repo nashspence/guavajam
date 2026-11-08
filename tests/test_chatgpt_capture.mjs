@@ -127,6 +127,7 @@ test("preserves the complete native fork and separates missing selected-branch e
   assert.equal(report.selected_branch_audit.pagination_reached_oldest_page, true);
   assert.equal(report.selected_branch_audit.selected_branch_messages_absent_from_native_mapping, 1);
   assert.match(report.native_graph.sha256_conversations_json, /^[0-9a-f]{64}$/);
+  assert.ok(report.limitations.some(text => /server's saved selection.*See Versions/.test(text)));
   assert.ok(x.calls.every(c => c.init.method === "GET"));
 });
 test("refuses a synthetic mapping fallback", async () => {

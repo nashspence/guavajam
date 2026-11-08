@@ -10,7 +10,7 @@ function show(message, kind = "info") {
 
 button.addEventListener("click", async () => {
   button.disabled = true;
-  show("Reading native graph and auditing selected branch…");
+  show("Reading saved graph and auditing the server's current branch…");
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab || !tab.id || !/^https:\/\/chatgpt\.com\/(?:c|g|p)\//.test(tab.url || "")) {
