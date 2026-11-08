@@ -59,7 +59,7 @@ class GFMImportTests(ExtractTests):
         draft,diagnostics=review_gfm(record)
         self.assertEqual((draft,diagnostics),review_gfm(record))
         self.assertIn(b'\\(literal\\)',draft)
-        self.assertIn(b'$x=x$',draft)
+        self.assertIn(b'$`x=x`$',draft)
         self.assertIn('unresolved-chatgpt-citation',diagnostics)
         self.assertIn('raw-markup-as-literal-code',diagnostics)
         self.assertIn('unsupported-message-content-omitted',diagnostics)

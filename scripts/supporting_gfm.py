@@ -28,7 +28,7 @@ def anchor_block(block):
 def load_gfm_record(path: Path, *, root=None):
     # Lazy imports keep the shared source validator and appendix builder acyclic.
     from supporting_records import MAX_RECORD_BYTES
-    from validate_sources import read_text, parse_pandoc, valid_edition_link
+    from validate_sources import read_text
     from asset_policy import load_policy
     policy = load_policy(root) if root is not None else None
     if not path.is_file() or path.resolve() != path.absolute() or path.stat().st_size > MAX_RECORD_BYTES:
@@ -40,6 +40,12 @@ def load_gfm_record(path: Path, *, root=None):
     source, errors = read_text(path, Path(path.name), raw=raw)
     if errors:
         raise AssetError('\n'.join(errors))
+    ast, anchors = parse_gfm_record(source, policy=policy)
+    return ast, anchors, hashlib.sha256(raw).hexdigest(), len(raw)
+
+
+def parse_gfm_record(source, *, policy=None):
+    from validate_sources import parse_pandoc, valid_edition_link
     ast = parse_pandoc(source)
     if ast.get('meta'):
         raise AssetError('supporting GFM does not accept YAML metadata')
@@ -86,7 +92,7 @@ def load_gfm_record(path: Path, *, root=None):
         if node.get('t') == 'Image' and not node['c'][2][0].startswith('https://'):
             raise AssetError('supporting images require the approved HTTPS asset origin')
     ast['blocks'] = blocks
-    return ast, anchors, hashlib.sha256(raw).hexdigest(), len(raw)
+    return ast, anchors
 
 
 def append_gfm(root, relative, slug):

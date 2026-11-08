@@ -3,9 +3,59 @@ import hashlib
 import json
 import re
 import subprocess
+from pathlib import Path
 
 from asset_policy import AssetError
-from render_profile import plain_text
+from render_profile import plain_text, walk
+
+
+def _component_blocks(text, report):
+    """Protect standalone rich code before Markdown interprets its contents."""
+    lines = text.splitlines(keepends=True)
+    result = []
+    fence = None
+    index = 0
+
+    def literal(body, language=''):
+        width = max((len(run) for run in re.findall(r'~+', body)), default=2) + 1
+        marker = '~' * max(3, width)
+        return '\n' + marker + language + '\n' + body + ('' if body.endswith('\n') else '\n') + marker + '\n\n'
+
+    while index < len(lines):
+        line = lines[index]
+        if fence:
+            if re.fullmatch(r' {0,3}' + re.escape(fence[0]) + r'{' + str(fence[1]) + r',}[ \t]*\r?\n?', line):
+                fence = None
+            result.append(line); index += 1
+            continue
+        opening = re.fullmatch(r' {0,3}(`{3,}|~{3,})([^\r\n]*)\r?\n?', line)
+        if opening and not (opening[1][0] == '`' and '`' in opening[2]):
+            fence = (opening[1][0], len(opening[1]))
+            result.append(line); index += 1
+            continue
+        boundary = index == 0 or not lines[index - 1].strip(' \t\r\n')
+        component = re.fullmatch(r'<CodeBlock([^>\r\n]*)>[ \t]*\r?\n?', line) if boundary else None
+        if component:
+            end = index + 1
+            while end < len(lines) and not re.fullmatch(r'</CodeBlock>[ \t]*\r?\n?', lines[end]):
+                end += 1
+            if end == len(lines):
+                raise AssetError('unterminated standalone ChatGPT CodeBlock')
+            attributes = re.fullmatch(r'\s*(?:language=([\"\x27])([A-Za-z0-9_+.-]+)\1)?\s*(?:editable)?\s*', component[1])
+            if attributes:
+                report('chatgpt-codeblock-normalized')
+                result.append(literal(''.join(lines[index + 1:end]), attributes[2] or ''))
+            else:
+                report('unsupported-rich-component-as-literal-code')
+                result.append(literal(''.join(lines[index:end + 1])))
+            index = end + 1
+            continue
+        if boundary and re.match(r'<[A-Z][A-Za-z0-9]*\b', line) and line.rstrip('\r\n').endswith('/>'):
+            report('unsupported-rich-component-as-literal-code')
+            result.append(literal(line)); index += 1
+            continue
+        result.append(line); index += 1
+    return ''.join(result)
 
 
 def review_gfm(record, *, identity='document'):
@@ -18,14 +68,29 @@ def review_gfm(record, *, identity='document'):
         diagnostics[kind] = diagnostics.get(kind, 0) + 1
     def clean(value):
         if isinstance(value, list):
-            return [clean(x) for x in value]
+            result = []
+            for item in map(clean, value):
+                if (isinstance(item, dict) and item.get('t') == 'Code' and result and
+                        isinstance(result[-1], dict) and result[-1].get('t') == 'Code' and
+                        result[-1]['c'][0] == item['c'][0]):
+                    report('adjacent-inline-code-merged')
+                    result[-1] = {'t':'Code','c':[item['c'][0],result[-1]['c'][1] + item['c'][1]]}
+                else:
+                    result.append(item)
+            return result
         if not isinstance(value, dict):
             return value
         kind = value.get('t')
         if kind in {'Code', 'CodeBlock', 'Math'}:
             return value  # Never rewrite citations, math delimiters or HTML in code.
         if kind in {'RawBlock', 'RawInline'}:
+            if re.match(r'<CodeBlock\b', value['c'][1]):
+                raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
             report('raw-markup-as-literal-code')
+            if re.match(r'<Cite\b', value['c'][1]):
+                report('unresolved-chatgpt-citation')
+            if re.match(r'<Link\b', value['c'][1]):
+                report('unresolved-chatgpt-link')
             return {'t':'CodeBlock','c':[['',[],[]],value['c'][1]]} if kind == 'RawBlock' else {
                 't':'Code','c':[['',[],[]],value['c'][1]]}
         if kind == 'Image':
@@ -68,8 +133,8 @@ def review_gfm(record, *, identity='document'):
         if '[Non-text part omitted]' in text or '[Unsupported message content omitted]' in text:
             report('unsupported-message-content-omitted')
         result = subprocess.run(['pandoc','--fail-if-warnings','--from',
-            'markdown+raw_html+tex_math_dollars+tex_math_single_backslash-smart-yaml_metadata_block-implicit_header_references','--to','json'],
-            input=text,capture_output=True,text=True)
+            'markdown+raw_html+tex_math_dollars+tex_math_single_backslash-smart-yaml_metadata_block-implicit_header_references-implicit_figures','--to','json'],
+            input=_component_blocks(text, report),capture_output=True,text=True)
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
@@ -87,8 +152,21 @@ def review_gfm(record, *, identity='document'):
             identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
             blocks.extend([anchor(identifier),block])
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
-        '--to=gfm+tex_math_dollars-tex_math_gfm','--wrap=none'],input=json.dumps({
+        '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
             'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    return (result.stdout.rstrip()+'\n').encode(), diagnostics
+    data = (result.stdout.rstrip()+'\n').encode()
+    from supporting_gfm import parse_gfm_record
+    from validate_sources import read_text
+    source, errors = read_text(Path('review.md'), Path('review.md'), raw=data)
+    if errors:
+        raise AssetError('converted GFM is not valid source: ' + '; '.join(errors))
+    parsed, _ = parse_gfm_record(source)
+    def retained(nodes):
+        return [(node['t'], node['c'][0]['t'] if node['t'] == 'Math' else '',
+                 node['c'][1].strip() if node['t'] == 'Math' else node['c'][1])
+                for node in walk(nodes) if node.get('t') in {'Math','Code','CodeBlock'}]
+    if retained(blocks) != retained(parsed['blocks']):
+        raise AssetError('GFM conversion would change mathematics or literal code')
+    return data, diagnostics
