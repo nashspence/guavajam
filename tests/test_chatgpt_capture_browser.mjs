@@ -9,6 +9,7 @@ import axe from 'axe-core';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const fixture = JSON.parse(await fs.readFile(new URL('./fixtures/capture/conversation.json', import.meta.url)));
+const liveShape = JSON.parse(await fs.readFile(new URL('./fixtures/capture/live-shape.json', import.meta.url)));
 const id = fixture.conversation_id;
 const origin = 'https://chatgpt.com';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -93,13 +94,14 @@ async function qualify(scenario) {
           await route.fulfill({ contentType: 'text/html', body: '<html>challenge</html>' }); return;
         }
         if (scenario === 'unauthorized') status = 401;
-        body = fixture;
+        body = scenario === 'live-shape' ? liveShape.native : fixture;
       } else if (url.pathname === '/backend-api/conversations/' + id ||
                  url.pathname === '/backend-api/conversations/' + id + '/messages') {
         const older = url.pathname.endsWith('/messages');
         body = { conversation_id: id, current_node: scenario === 'changed-branch' ? 'a3' : 'a2',
           messages: older ? [fixture.mapping.u.message] : [fixture.mapping.a2.message],
           page_info: { has_previous_page: !older, start_cursor: older ? 'cursor-two' : 'cursor-one' } };
+        if (scenario === 'live-shape') body = liveShape.selected_branch_pages[0];
         if (scenario === 'omission' && older) body.messages.push({ id: 'absent-from-graph' });
         if (scenario === 'audit-unavailable') status = 404;
         if (scenario === 'rate-limit') status = 429;
@@ -115,7 +117,7 @@ async function qualify(scenario) {
     const browser = await context.browser().newBrowserCDPSession();
     const loaded = await browser.send('Extensions.loadUnpacked', { path: path.join(root, 'tools/chatgpt-capture') });
     const page = context.pages()[0];
-    await page.goto(origin + '/c/' + id);
+    await page.goto(origin + '/c/' + (scenario === 'local-url' ? 'local-chatgpt%3A' + id : id));
     page.on('download', download => downloads.push(download));
     if (scenario === 'hostile-page') await page.evaluate(() => {
       globalThis.fetch = () => { throw Error('Main-world fetch must not see credentials'); };
@@ -202,15 +204,18 @@ async function qualify(scenario) {
           status: await popup.evaluate('document.querySelector("#status").textContent') }));
       }
       const status = await popup.evaluate('document.querySelector("#status").textContent');
-      if (['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission'].includes(scenario)) {
+      if (['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission', 'local-url'].includes(scenario)) {
         assert.equal(await popup.evaluate('document.querySelector("#status").dataset.kind'), 'error', status);
+        if (scenario === 'local-url') assert.match(status, /local ChatGPT URL.*Reopen the saved conversation/);
       } else if (['audit-unavailable', 'stalled', 'rate-limit'].includes(scenario)) assert.match(status, /audit unavailable/);
       else if (scenario === 'omission') assert.match(status, /1 selected-branch messages absent/);
+      else if (scenario === 'live-shape') assert.match(status, /3 selected-branch messages absent/);
       else assert.match(status, /no extra IDs/);
     }
-    const mustFail = ['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission', 'navigate'].includes(scenario);
+    const mustFail = ['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission', 'navigate', 'local-url'].includes(scenario);
     assert.equal(downloads.length, mustFail ? 0 : 1, scenario);
     assert.deepEqual(unexpected, []);
+    if (scenario === 'local-url') assert.equal(requests.length, 1, 'local URLs never trigger account requests');
     if (['no-permission', 'revoked-permission'].includes(scenario)) assert.equal(nativeRequested, false);
     if (!mustFail) {
       const download = downloads[0];
@@ -228,7 +233,7 @@ async function qualify(scenario) {
 
 for (const scenario of ['happy', 'cookie-only', 'omission', 'audit-unavailable', 'unauthorized',
   'changed-branch', 'hostile-page', 'multiple-tabs', 'challenge', 'redirect', 'stalled',
-  'rate-limit', 'navigate', 'popup-close', 'no-permission', 'revoked-permission']) {
+  'rate-limit', 'navigate', 'popup-close', 'no-permission', 'revoked-permission', 'local-url', 'live-shape']) {
   test(`real capture extension: ${scenario}`, { timeout: 30000 }, async t => {
     t.diagnostic(JSON.stringify(await qualify(scenario)));
   });

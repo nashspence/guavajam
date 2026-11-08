@@ -177,6 +177,15 @@ test("rejects other origins", async () => {
   assert.equal(x.result.ok, false);
   assert.equal(x.calls.length, 0);
 });
+test("explains local ChatGPT URLs without guessing a server ID or accessing the account", async () => {
+  for (const prefix of ['local-chatgpt%3A', 'local-chatgpt%3a', 'local-chatgpt:']) {
+    const x = await capture(routes(), { pathname: `/c/${prefix}${ID}` });
+    assert.equal(x.result.ok, false);
+    assert.match(x.result.error, /local ChatGPT URL.*Reopen the saved conversation/);
+    assert.equal(x.calls.length, 0);
+    assert.equal(x.blob, null);
+  }
+});
 test("allows cookie authentication when no bearer is exposed", async () => {
   const x = await capture(routes(), { session: {} });
   assert.equal(x.result.ok, true);

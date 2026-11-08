@@ -49,6 +49,9 @@ export async function captureCurrentConversation() {
       fail("Open a specific conversation (/c/{id}) before capturing.");
     }
     const id = segments[index + 1];
+    if (/^local-chatgpt(?::|%3a)/i.test(id)) {
+      fail("This tab has a local ChatGPT URL, not a saved conversation ID. Reopen the saved conversation from ChatGPT history and retry when its URL is /c/{id}. No capture was made.");
+    }
     if (!/^[a-zA-Z0-9_-]{16,128}$/.test(id)) fail("Unexpected conversation ID in URL.");
     return id;
   }
