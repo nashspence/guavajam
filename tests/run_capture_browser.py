@@ -92,7 +92,7 @@ def verify(directory):
                                 'a1': 'Original answer.', 'a2': 'Regenerated answer.', 'a3': 'Edited branch answer.'})[tip]
             assert expected_marker in text
             if live:
-                assert '[Unsupported message content omitted]' in text
+                assert 'Unsupported message content omitted' in text
                 assert 'Synthetic hidden system context.' not in text
                 diagnostics = json.loads(conversion.stderr.split('GFM diagnostics: ', 1)[1])
                 assert diagnostics['unsupported-message-content-omitted'] == 1
