@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 import zipfile
 
@@ -115,7 +116,11 @@ class LanternConversionTests(unittest.TestCase):
                     self.assertGreaterEqual(len(expected_code), 4)
                     for body in expected_code:
                         self.assertIn(body, actual_code)
-                    self.assertEqual(len(expected_code) + 2, len(actual_code), 'two charts are retained as literal source')
+                    self.assertEqual(6 if tip == TIPS[0] else 11, len(actual_code))
+                    original = '\n'.join(passage['text'] for passage in record['passages'])
+                    for body in actual_code:
+                        self.assertTrue(body in original or textwrap.indent(body, '    ') in original,
+                                        'every code block retains exact source text, including literal layout components')
                     self.assertEqual(fixture_tables(record), parsed_tables(parsed))
                     self.assertEqual(11, len(parsed_tables(parsed)))
                     python = next(body for body in expected_code if 'import csv' in body)
