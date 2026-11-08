@@ -115,7 +115,8 @@ class PublicationLifecycleTests(unittest.TestCase):
         manifest=self.verify_edition.return_value
         name="sample-v1.0.0-offline.zip";raw=b"reviewed supplementary ZIP"
         (self.output/name).write_bytes(raw)
-        manifest['supplementary_package']={'filename':name,'sha256':hashlib.sha256(raw).hexdigest(),'byte_count':len(raw)}
+        manifest['supplementary_package']={'filename':name,'format':'press.offline.v1',
+            'reading_copy_sha256':'b'*64,'reading_copy_byte_count':100}
         manifest['initial_release_body']=render_initial_body(manifest)
         return name
 
@@ -138,10 +139,8 @@ class PublicationLifecycleTests(unittest.TestCase):
         self.assertTrue(self.release['draft'])
         self.assertFalse(any('PATCH' in args for args in self.operations))
 
-    def test_v2_draft_also_requires_exact_reviewed_zip_transport_bytes(self):
-        name=self.supplement();manifest=self.verify_edition.return_value
-        manifest['supplementary_package']={'filename':name,'format':'press.offline.v2',
-            'reading_copy_sha256':'b'*64,'reading_copy_byte_count':100}
+    def test_draft_requires_exact_reviewed_zip_transport_bytes(self):
+        name=self.supplement()
         self.existing_draft();self.remote[name]+=b'transport metadata changed'
         next(a for a in self.release['assets'] if a['name']==name)['size']=len(self.remote[name])
         with self.assertRaisesRegex(AssetError,'attachments differ'):self.publish()

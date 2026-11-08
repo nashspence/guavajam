@@ -1,4 +1,4 @@
-"""Complete archival downloads, frozen formats and pre-staging expansion budgets."""
+"""Complete v1 offline downloads and pre-staging expansion budgets."""
 import copy
 import base64
 import hashlib
@@ -35,6 +35,7 @@ def write_zip(path,content):
 class OfflinePackageTests(DownloadPublicationTests):
     def current(self):
         self.source();manifest=self.build_downloads()
+        self.assertEqual('press.offline.v1',manifest['supplementary_package']['format'])
         return manifest,self.output/manifest['supplementary_package']['filename']
 
     def test_single_zip_verifies_and_matches_independently_retained_commitment(self):
@@ -98,24 +99,28 @@ class OfflinePackageTests(DownloadPublicationTests):
         with package.edition_directory(target) as expanded:check_authorization(receipt,expanded,manifest)
 
 
-class OfflineHistoryTests(unittest.TestCase):
-    def test_archived_three_file_and_supplemental_v1_fixtures_keep_verifying(self):
-        for name in ('archived-v1','supplemental-v1','supplemental-v2'):
-            with self.subTest(name=name),patch('socket.create_connection',side_effect=AssertionError('offline')):
-                manifest=verify_edition(ROOT/'tests/fixtures'/name)
-                with patch('edition_package.CURRENT_FORMAT','press.offline.future'):
-                    self.assertEqual(manifest,verify_edition(ROOT/'tests/fixtures'/name))
-        with self.assertRaisesRegex(AssetError,'requires its provenance'):
-            verify_edition(ROOT/'tests/fixtures/supplemental-v1/sample-v1.0.0-offline.zip')
+class OfflineFormatTests(unittest.TestCase):
+    def test_package_requires_explicit_v1_and_exact_payload_identity_fields(self):
+        manifest={'tag':'works/sample/v1.0.0','canonical_artifact':'sample-v1.0.0.html',
+                  'supplementary_package':{'filename':'sample-v1.0.0-offline.zip','format':'press.offline.v1',
+                                           'reading_copy_sha256':'a'*64,'reading_copy_byte_count':100}}
+        self.assertEqual(['sample-v1.0.0.html','provenance.json','SHA256SUMS','sample-v1.0.0-offline.zip'],
+                         package.package_names(manifest))
+        for value in (None,'press.offline.unknown'):
+            with self.subTest(format=value):
+                changed=copy.deepcopy(manifest)
+                if value is None:changed['supplementary_package'].pop('format')
+                else:changed['supplementary_package']['format']=value
+                with self.assertRaisesRegex(AssetError,'unsupported offline package format'):package.package_names(changed)
+        for field,value in (('sha256','b'*64),('byte_count',100),('reading_copy_sha256','invalid'),
+                            ('reading_copy_byte_count',0)):
+            with self.subTest(field=field):
+                changed=copy.deepcopy(manifest);changed['supplementary_package'][field]=value
+                with self.assertRaisesRegex(AssetError,'invalid supplementary package identity'):package.package_names(changed)
 
-    def test_unknown_offline_format_fails_closed(self):
-        manifest=json.loads((ROOT/'tests/fixtures/supplemental-v1/provenance.json').read_text())
-        manifest['supplementary_package']['format']='press.offline.unknown'
-        with self.assertRaisesRegex(AssetError,'unsupported offline package format'):package.package_names(manifest)
-
-    def test_v3_notice_landmark_and_download_derivation_are_fixed(self):
+    def test_v1_notice_landmark_and_download_derivation_are_fixed(self):
         manifest={'asset_origin':ORIGIN,'assets':[{'role':'download','source_url':DOWNLOAD}],
-                  'supplementary_package':{'format':'press.offline.v3'}}
+                  'supplementary_package':{'format':'press.offline.v1'}}
         original=('<body><a href="'+DOWNLOAD+'">file</a></body>').encode()
         expected=('<body><aside aria-label="Offline copy"><p lang="en">'
                   'Offline copy — file downloads use verified bytes included here.</p></aside>'
@@ -156,5 +161,5 @@ class OfflineBudgetTests(unittest.TestCase):
 
 def load_tests(loader,tests,pattern):
     return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in
-        (OfflinePackageTests,OfflineHistoryTests,OfflineBudgetTests)
+        (OfflinePackageTests,OfflineFormatTests,OfflineBudgetTests)
         for name in cls.__dict__ if name.startswith('test_'))
