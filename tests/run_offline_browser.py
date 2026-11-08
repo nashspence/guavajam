@@ -1,16 +1,22 @@
-"""Build with current code, retain only its complete ZIP, then test offline browsers."""
-from contextlib import contextmanager
+"""Exercise verified offline bytes and generated publisher pages in real browsers."""
+from contextlib import ExitStack, contextmanager
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import threading
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'tests')]
 from edition_package import edition_directory
 from verify_edition import verify_edition
 from test_asset_downloads import DownloadPublicationTests
+from test_preview_site import PreviewTests
+from issuance import authorization
+from preview_site import preview_server
+from public_record import EDITION_RECORDS, WORK_RECORDS, write_records
 
 
 @contextmanager
@@ -39,7 +45,73 @@ def browser_fixture():
     finally:fixture.doCleanups()
 
 
+@contextmanager
+def site_fixture():
+    fixture = PreviewTests()
+    try:
+        fixture.setUp()
+        source = fixture.repo / 'works/sample-work/manuscript.md'
+        # Keep the actual starter; add only the wide content needed to prove panning.
+        headers = [f'Column{n}WithAnUnbrokenLabel' for n in range(8)]
+        wide = ('\n<a id="keyboard-overflow"></a>\n## Keyboard overflow\n\n'
+                '| ' + ' | '.join(headers) + ' |\n'
+                '| ' + ' | '.join(['---'] * 8) + ' |\n'
+                '| ' + ' | '.join(['entry'] * 8) + ' |\n\n'
+                ': Keyboard scrolling sample\n\n'
+                '$$\n' + ' + '.join(f'x_{{{n}}}' for n in range(40)) + '\n$$\n\n'
+                '```\nLEFT_' + 'literal_' * 50 + '_RIGHT\n```\n')
+        source.write_text(source.read_text() + wide)
+        fixture.git('add', 'works')
+        fixture.git('commit', '-qm', 'Review keyboard overflow examples')
+        fixture.commit = fixture.git('rev-parse', 'HEAD')
+        metadata = fixture.assemble()
+        package = fixture.preview / 'package'
+        manifest = verify_edition(package)
+        receipt = {**authorization(package, manifest), 'issuing': True,
+                   'published_at': fixture.timestamp}
+        slug, version = fixture.tag.split('/')[1:]
+        registration = fixture.repo / 'registrations/editions' / slug / (version + '.json')
+        registration.parent.mkdir(parents=True)
+        registration.write_text(json.dumps(receipt) + '\n')
+        fixture.git('add', 'registrations')
+        notices = fixture.repo / 'notices' / slug / version
+        states = []
+        with ExitStack() as stack:
+            for state, notice in (
+                ('published', None),
+                ('corrected', '2026-11-07 Correction: The notation example remains illustrative.\n'),
+                ('withdrawn', '2026-11-08 Withdrawal: Retained only as an archived example.\n'),
+            ):
+                if notice:
+                    notices.mkdir(parents=True, exist_ok=True)
+                    (notices / ('0001.md' if state == 'corrected' else '0002.md')).write_text(notice)
+                    fixture.git('add', 'notices')
+                write_records(fixture.repo, fixture.tag, package=package)
+                directory = shutil.copytree(fixture.preview, fixture.base / state)
+                # Serve exact publisher output, without the preview-only banner.
+                for route, generated in (
+                    (f'/works/{slug}', WORK_RECORDS / slug / 'index.html'),
+                    ('/' + fixture.tag, EDITION_RECORDS / slug / version / 'index.html'),
+                ):
+                    shutil.copyfile(fixture.repo / generated, directory / metadata['routes'][route]['file'])
+                server = stack.enter_context(preview_server(directory, metadata, 0))
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                def stop(server=server, thread=thread):
+                    server.shutdown()
+                    thread.join(timeout=5)
+                stack.callback(stop)
+                states.append({'state': state, 'base': f'http://127.0.0.1:{server.server_address[1]}',
+                               'work': f'/works/{slug}', 'record': '/' + fixture.tag,
+                               'recordURL': manifest['record_url'], 'htmlSHA256': manifest['html_sha256'],
+                               'package': str(directory / 'package'), 'canonical': manifest['canonical_artifact']})
+            yield states
+    finally:
+        fixture.doCleanups()
+
+
 if __name__=='__main__':
-    with browser_fixture() as directory:
-        raise SystemExit(subprocess.run(['node','--test','tests/test_offline_browser.mjs'],cwd=ROOT,
-            env={**os.environ,'PRESS_OFFLINE_TEST_DIR':str(directory)}).returncode)
+    with browser_fixture() as directory, site_fixture() as sites:
+        raise SystemExit(subprocess.run(['node','--test','tests/test_offline_browser.mjs',
+            'tests/test_reader_site.mjs'], cwd=ROOT, env={**os.environ,
+            'PRESS_OFFLINE_TEST_DIR':str(directory), 'PRESS_SITE_TESTS':json.dumps(sites)}).returncode)
