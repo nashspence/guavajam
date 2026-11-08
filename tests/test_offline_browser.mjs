@@ -190,6 +190,70 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
     } finally { await browser.close(); }
   });
 
+  test(`${name}: reader landmarks, mathematics and keyboard footnote round trips remain available`, {timeout: 60000}, async () => {
+    const browser = await engine.launch({headless: true});
+    try {
+      for (const width of [320, 1280]) for (const colorScheme of ['light', 'dark']) {
+        const context = await browser.newContext({offline: true, viewport: {width, height: 900}, colorScheme});
+        try {
+          const page = await context.newPage();
+          await page.goto(pathToFileURL(path.join(root, 'index.html')).href);
+          const visibleFragment = () => page.waitForFunction(() => {
+            const target = document.querySelector(':target').getBoundingClientRect();
+            const header = document.querySelector('.press-status').getBoundingClientRect();
+            return target.top >= header.bottom - 1 && target.top < innerHeight;
+          }, null, {timeout: 5000});
+          assert.equal(await page.getByRole('main').count(), 1);
+          assert.equal(await page.getByRole('img', {name: 'Structural diagram', exact: true}).count(), 1);
+          const contents = page.getByRole('navigation', {name: 'Contents', exact: true});
+          await page.locator('.press-contents-link').focus();
+          await page.keyboard.press('Enter');
+          await page.waitForFunction(() => location.hash === '#press-contents');
+          await visibleFragment();
+          await page.keyboard.press('Tab');
+          assert.equal(await page.evaluate(() => document.activeElement.getAttribute('href')), '#sec-1');
+          await contents.locator('a').last().focus();
+          await page.keyboard.press('Enter');
+          await page.waitForFunction(() => location.hash === '#record-md-4-note');
+          await visibleFragment();
+
+          await page.locator('#fnref1').focus();
+          await page.keyboard.press('Enter');
+          await page.waitForFunction(() => location.hash === '#fn1');
+          await visibleFragment();
+          await page.keyboard.press('Tab');
+          assert.equal(await page.evaluate(() => document.activeElement.className), 'footnote-back');
+          await page.keyboard.press('Enter');
+          await page.waitForFunction(() => location.hash === '#fnref1');
+          await visibleFragment();
+          assert.equal(await page.evaluate(() => document.activeElement.id), 'fnref1');
+
+          // Native Chromium AX exposure complements keyboard tests; speech and
+          // screen-reader rotor behavior still require an actual AT review.
+          if (name === 'chromium') {
+            const session = await context.newCDPSession(page);
+            const {nodes} = await session.send('Accessibility.getFullAXTree');
+            const exposed = nodes.filter(node => !node.ignored);
+            for (const role of ['main', 'navigation', 'MathMLMath', 'MathMLIdentifier',
+              'MathMLOperator', 'doc-endnotes', 'doc-noteref', 'doc-backlink']) {
+              assert.ok(exposed.some(node => node.role?.value === role), `Missing AX role ${role}`);
+            }
+            const byID = new Map(nodes.map(node => [node.nodeId, node]));
+            const descendants = node => [node, ...(node.childIds || []).flatMap(id =>
+              byID.has(id) ? descendants(byID.get(id)) : [])];
+            const symbols = exposed.filter(node => node.role?.value === 'MathMLMath')
+              .flatMap(descendants).filter(node => !node.ignored && node.role?.value === 'StaticText')
+              .map(node => node.name.value.normalize('NFKC'));
+            for (const symbol of ['x', '=', '∀', '∈']) assert.ok(symbols.includes(symbol));
+            const notes = exposed.find(node => node.role?.value === 'doc-endnotes');
+            assert.ok(descendants(notes).some(node => !node.ignored && node.role?.value === 'list'));
+            await session.detach();
+          }
+        } finally { await context.close(); }
+      }
+    } finally { await browser.close(); }
+  });
+
   test(`${name}: opaque downloads from the complete ZIP remain exact and inert offline`, {timeout: 45000}, async () => {
     const browser = await engine.launch({headless: true});
     try {
