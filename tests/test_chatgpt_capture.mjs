@@ -233,6 +233,7 @@ test("accepts nested project /c/id routes only at the end", async () => {
 });
 test("manifest has temporary permissions only", async () => {
   const manifest = JSON.parse(fs.readFileSync(new URL("../tools/chatgpt-capture/manifest.json", import.meta.url)));
+  assert.equal(manifest.minimum_chrome_version, "156", "the qualified browser baseline");
   assert.deepEqual([...manifest.permissions].sort(), ["activeTab", "scripting"]);
   for (const key of ["host_permissions", "optional_host_permissions", "background", "content_scripts", "externally_connectable"]) {
     assert.equal(Object.hasOwn(manifest, key), false, key);

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Press ChatGPT Capture (reference)",
   "version": "0.1.0",
-  "minimum_chrome_version": "110",
+  "minimum_chrome_version": "156",
   "description": "Capture a ChatGPT conversation's native branching JSON and audit selected-branch omissions locally.",
   "permissions": [
     "activeTab",
