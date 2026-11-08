@@ -74,7 +74,7 @@ def verify(directory):
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
             for passage in passages:
-                assert f'id="{passage["id"]}"' in text
+                assert f'<a name="{passage["id"]}"></a>' in text
             expected_marker = {'a1': 'Original answer.', 'a2': 'Regenerated answer.', 'a3': 'Edited branch answer.'}[tip]
             assert expected_marker in text
     print(f'Independent ZIP/CRC/SHA checks and all three import commands passed for {len(archives)} real downloads.', flush=True)
