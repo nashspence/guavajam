@@ -1,4 +1,4 @@
-"""Versioned offline packages; content identity is independent of ZIP transport."""
+"""Complete offline packages; content identity is independent of ZIP transport."""
 from __future__ import annotations
 import base64
 from contextlib import contextmanager
@@ -13,22 +13,13 @@ import zipfile
 from asset_policy import (AssetError, MAX_ASSETS, MAX_BYTES, MAX_HTML_BYTES, MAX_RECORD_BYTES,
                           MAX_TOTAL_BYTES, MIME, AssetPolicy, check_html_size, verify_bytes)
 
-V1 = 'press.offline.v1'
-V2 = 'press.offline.v2'
-V3 = 'press.offline.v3'
-COMPLETE_FORMATS = frozenset({V2, V3})
-CURRENT_FORMAT = V3
+FORMAT = 'press.offline.v1'
 MAX_SUMS_BYTES = 32 * 1024
 MAX_BUNDLE_BYTES = 2 * MAX_HTML_BYTES + MAX_TOTAL_BYTES + MAX_RECORD_BYTES + MAX_SUMS_BYTES + 128 * 512 + 4096
-V1_MAX_BUNDLE_BYTES = MAX_HTML_BYTES + MAX_TOTAL_BYTES + 128 * 512 + 4096
 
 
 def bundle_name(manifest):
     return manifest['canonical_artifact'].removesuffix('.html')+'-offline.zip'
-
-
-def bundle_format(manifest):
-    return manifest.get('supplementary_package',{}).get('format',V1)
 
 
 def package_names(manifest):
@@ -41,16 +32,11 @@ def package_names(manifest):
     if bundle is not None:
         if not isinstance(bundle,dict) or bundle.get('filename')!=bundle_name(manifest):
             raise AssetError('invalid supplementary package identity')
-        if bundle_format(manifest)==V1:
-            fields={'filename','sha256','byte_count'}
-            valid=(re.fullmatch('[0-9a-f]{64}',str(bundle.get('sha256',''))) and
-                   type(bundle.get('byte_count')) is int and 0<bundle['byte_count']<=V1_MAX_BUNDLE_BYTES)
-        elif bundle_format(manifest) in COMPLETE_FORMATS:
-            fields={'filename','format','reading_copy_sha256','reading_copy_byte_count'}
-            valid=(re.fullmatch('[0-9a-f]{64}',str(bundle.get('reading_copy_sha256',''))) and
-                   type(bundle.get('reading_copy_byte_count')) is int and 0<bundle['reading_copy_byte_count']<=MAX_HTML_BYTES)
-        else:
+        if bundle.get('format')!=FORMAT:
             raise AssetError('unsupported offline package format')
+        fields={'filename','format','reading_copy_sha256','reading_copy_byte_count'}
+        valid=(re.fullmatch('[0-9a-f]{64}',str(bundle.get('reading_copy_sha256',''))) and
+               type(bundle.get('reading_copy_byte_count')) is int and 0<bundle['reading_copy_byte_count']<=MAX_HTML_BYTES)
         if set(bundle)!=fields or not valid:raise AssetError('invalid supplementary package identity')
         names.append(bundle['filename'])
     return names
@@ -58,28 +44,26 @@ def package_names(manifest):
 
 def bundle_limit(manifest):
     package_names(manifest)
-    return manifest['supplementary_package']['byte_count'] if bundle_format(manifest)==V1 else MAX_BUNDLE_BYTES
+    return MAX_BUNDLE_BYTES
 
 
 def check_bundle_size(manifest,size):
     if type(size) is not int or not 0<size<=bundle_limit(manifest):
         raise AssetError('supplementary release attachment size differs from reviewed package or exceeds its bound')
-    if bundle_format(manifest)==V1 and size!=bundle_limit(manifest):
-        raise AssetError('supplementary package size differs from provenance')
 
 
 def downloads(manifest):
     return [record for record in manifest.get('assets',[]) if record.get('role')=='download']
 
 
-def _offline_v1(raw,manifest,payloads):
+def offline_html(raw,manifest,payloads):
     """Derive bounded, inert offline downloads without changing canonical HTML."""
     policy=AssetPolicy(manifest['asset_origin'])
     targets={record['source_url']:record['source_url'].removeprefix(policy.origin+'/') for record in downloads(manifest)}
     urls={url:'data:application/octet-stream;base64,'+base64.b64encode(payloads[key]).decode('ascii')
           for url,key in targets.items()}
     text=raw.decode('utf-8');offsets=[0]+[m.end() for m in re.finditer('\n',text)];edits=[];seen=set()
-    note='<p lang="en">Offline copy — file downloads use verified bytes included here.</p>'
+    note='<aside aria-label="Offline copy"><p lang="en">Offline copy — file downloads use verified bytes included here.</p></aside>'
     size=len(raw)+len(note.encode())
     class Links(HTMLParser):
         def handle_starttag(self,tag,attrs):
@@ -105,25 +89,6 @@ def _offline_v1(raw,manifest,payloads):
     result=text.replace(marker,marker+note,1).encode()
     check_html_size(len(result))
     return result
-
-
-def _offline_v3(raw,manifest,payloads):
-    rendered=_offline_v1(raw,manifest,payloads)
-    opening=b'<aside aria-label="Offline copy">';closing=b'</aside>'
-    check_html_size(len(rendered)+len(opening)+len(closing))
-    start=rendered.index(b'<body>')+len(b'<body>')
-    end=rendered.index(b'</p>',start)+len(b'</p>')
-    return rendered[:start]+opening+rendered[start:end]+closing+rendered[end:]
-
-
-# These transformations are frozen by fixtures; future formats get a new entry.
-OFFLINE_FORMATS = {V1: _offline_v1, V2: _offline_v1, V3: _offline_v3}
-
-
-def offline_html(raw,manifest,payloads):
-    try:renderer=OFFLINE_FORMATS[bundle_format(manifest)]
-    except KeyError:raise AssetError('unsupported offline package format') from None
-    return renderer(raw,manifest,payloads)
 
 
 def download_attribute_size(byte_count,key):
@@ -160,7 +125,7 @@ def stage_supplements(raw_html,manifest,source):
         if len(raw)!=record['byte_count'] or hashlib.sha256(raw).hexdigest()!=record['sha256']:
             raise AssetError('supplementary source bytes changed after verification')
         content[key]=raw
-    manifest['supplementary_package']={'filename':bundle_name(manifest),'format':CURRENT_FORMAT}
+    manifest['supplementary_package']={'filename':bundle_name(manifest),'format':FORMAT}
     index=offline_html(raw_html,manifest,content)
     manifest['supplementary_package'].update(reading_copy_sha256=hashlib.sha256(index).hexdigest(),reading_copy_byte_count=len(index))
     return {'index.html':index,**content}
@@ -169,8 +134,7 @@ def stage_supplements(raw_html,manifest,source):
 def checksums(manifest,content):
     names=package_names(manifest)[:2]
     if 'supplementary_package' in manifest:
-        if bundle_format(manifest)==V1:names.append(bundle_name(manifest))
-        else:names+=['index.html',*sorted(required_payloads(manifest))]
+        names+=['index.html',*sorted(required_payloads(manifest))]
     return ''.join(hashlib.sha256(content[name]).hexdigest()+'  '+name+'\n' for name in names).encode('ascii')
 
 
@@ -186,10 +150,8 @@ def write_bundle(directory,manifest,content):
 def _limits(manifest):
     entries=required_payloads(manifest)
     limits={key:record['byte_count'] for key,record in entries.items()}
-    limits['index.html']=MAX_HTML_BYTES
-    if bundle_format(manifest) in COMPLETE_FORMATS:
-        limits['index.html']=manifest['supplementary_package']['reading_copy_byte_count']
-        limits.update({manifest['canonical_artifact']:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES,'SHA256SUMS':MAX_SUMS_BYTES})
+    limits['index.html']=manifest['supplementary_package']['reading_copy_byte_count']
+    limits.update({manifest['canonical_artifact']:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES,'SHA256SUMS':MAX_SUMS_BYTES})
     return limits
 
 
@@ -226,18 +188,16 @@ def read_bundle(path,manifest):
 
 def package_contents(directory,manifest):
     names=package_names(manifest);actual={p.name for p in directory.iterdir()}
-    core_limits={names[0]:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES if bundle_format(manifest) in COMPLETE_FORMATS else MAX_HTML_BYTES,'SHA256SUMS':MAX_SUMS_BYTES}
+    core_limits={names[0]:MAX_HTML_BYTES,'provenance.json':MAX_RECORD_BYTES,'SHA256SUMS':MAX_SUMS_BYTES}
     if actual==set(names):
         content={name:_read_file(directory/name,limit) for name,limit in core_limits.items()}
         if 'supplementary_package' in manifest:
             path=directory/bundle_name(manifest)
-            if bundle_format(manifest)==V1:content[path.name]=_read_file(path,bundle_limit(manifest))
-            else:
-                extra=read_bundle(path,manifest)
-                if any(extra[name]!=content[name] for name in core_limits):raise AssetError('ZIP core files differ from release attachments')
-                content.update(extra)
+            extra=read_bundle(path,manifest)
+            if any(extra[name]!=content[name] for name in core_limits):raise AssetError('ZIP core files differ from release attachments')
+            content.update(extra)
         return content
-    if (bundle_format(manifest) in COMPLETE_FORMATS and 'supplementary_package' in manifest
+    if ('supplementary_package' in manifest
             and actual==set(core_limits)|{'index.html','sha256'}):
         objects=directory/'sha256'
         if objects.is_symlink() or not objects.is_dir():raise AssetError('offline objects require a regular directory')
@@ -252,11 +212,6 @@ def verify_bundle(directory,raw_html,manifest,*,content=None):
     if bool(bundle)!=bool(entries):raise AssetError('every download requires an immutable supplementary package')
     if not bundle:return {}
     if content is None:content=package_contents(directory,manifest)
-    if bundle_format(manifest)==V1:
-        raw=content[bundle_name(manifest)]
-        if len(raw)!=bundle['byte_count'] or hashlib.sha256(raw).hexdigest()!=bundle['sha256']:
-            raise AssetError('supplementary package digest or size differs from provenance')
-        content=read_bundle(directory/bundle_name(manifest),manifest)
     payloads={}
     for key,record in entries.items():
         raw=content[key]
@@ -264,7 +219,7 @@ def verify_bundle(directory,raw_html,manifest,*,content=None):
             raise AssetError('supplementary bytes differ from reviewed asset')
         verify_bytes(raw,key.rsplit('.',1)[1],record['media_type']);payloads[key]=raw
     index=content['index.html']
-    if bundle_format(manifest) in COMPLETE_FORMATS and (len(index)!=bundle['reading_copy_byte_count'] or hashlib.sha256(index).hexdigest()!=bundle['reading_copy_sha256']):
+    if len(index)!=bundle['reading_copy_byte_count'] or hashlib.sha256(index).hexdigest()!=bundle['reading_copy_sha256']:
         raise AssetError('offline reading copy differs from provenance')
     if index!=offline_html(raw_html,manifest,payloads):raise AssetError('offline reading copy differs from canonical derivation')
     return payloads
@@ -286,7 +241,7 @@ def edition_directory(path):
     except (zipfile.BadZipFile,KeyError,RuntimeError) as exc:
         raise AssetError('complete offline ZIP requires its provenance') from exc
     package_names(manifest)
-    if bundle_format(manifest) not in COMPLETE_FORMATS:raise AssetError('this offline ZIP requires the separately saved core release files')
+    if 'supplementary_package' not in manifest:raise AssetError('complete offline ZIP requires its supplementary package identity')
     content=read_bundle(path,manifest)
     with tempfile.TemporaryDirectory(prefix='press-offline-') as temp:
         directory=Path(temp)

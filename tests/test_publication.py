@@ -115,7 +115,8 @@ class PublicationLifecycleTests(unittest.TestCase):
         manifest=self.verify_edition.return_value
         name="sample-v1.0.0-offline.zip";raw=b"reviewed supplementary ZIP"
         (self.output/name).write_bytes(raw)
-        manifest['supplementary_package']={'filename':name,'sha256':hashlib.sha256(raw).hexdigest(),'byte_count':len(raw)}
+        manifest['supplementary_package']={'filename':name,'format':'press.offline.v1',
+            'reading_copy_sha256':'b'*64,'reading_copy_byte_count':100}
         manifest['initial_release_body']=render_initial_body(manifest)
         return name
 
@@ -127,21 +128,20 @@ class PublicationLifecycleTests(unittest.TestCase):
             self.assertEqual({p.name for p in self.output.iterdir()},set(reads))
             self.assertIn(name,reads)
 
-    def test_changed_or_wrong_size_supplement_never_promotes_an_existing_draft(self):
+    def test_changed_or_oversized_supplement_never_promotes_an_existing_draft(self):
         name=self.supplement();self.existing_draft()
         original=self.remote[name];self.remote[name]=b'changed'
         with self.assertRaises(AssetError):self.publish()
         self.assertTrue(self.release['draft'])
         self.remote[name]=original
-        asset=next(a for a in self.release['assets'] if a['name']==name);asset['size']+=1
+        from edition_package import MAX_BUNDLE_BYTES
+        asset=next(a for a in self.release['assets'] if a['name']==name);asset['size']=MAX_BUNDLE_BYTES+1
         with self.assertRaises(AssetError):self.publish()
         self.assertTrue(self.release['draft'])
         self.assertFalse(any('PATCH' in args for args in self.operations))
 
-    def test_v2_draft_also_requires_exact_reviewed_zip_transport_bytes(self):
-        name=self.supplement();manifest=self.verify_edition.return_value
-        manifest['supplementary_package']={'filename':name,'format':'press.offline.v2',
-            'reading_copy_sha256':'b'*64,'reading_copy_byte_count':100}
+    def test_draft_requires_exact_reviewed_zip_transport_bytes(self):
+        name=self.supplement()
         self.existing_draft();self.remote[name]+=b'transport metadata changed'
         next(a for a in self.release['assets'] if a['name']==name)['size']=len(self.remote[name])
         with self.assertRaisesRegex(AssetError,'attachments differ'):self.publish()
