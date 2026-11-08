@@ -2,7 +2,7 @@
 import unicodedata
 
 from asset_policy import AssetError
-from identifier_schema import identifier_error
+from identifier_schema import LANGUAGE, identifier_error
 
 MAX_AUTHORS = 32
 MAX_ABSTRACT_BYTES = 4096
@@ -14,8 +14,8 @@ def plain_string(value):
             and value.isprintable() and unicodedata.normalize("NFC", value) == value)
 
 
-def ordered_authors(facts, *, allow_missing=False):
-    """Keep the legacy representation intact; normalize only for consumption."""
+def ordered_authors(facts):
+    """Normalize either supported authorship representation for consumption."""
     if "authors" in facts:
         if "author" in facts or "author_orcid" in facts:
             raise AssetError("use exactly one authorship representation: author or authors")
@@ -32,8 +32,6 @@ def ordered_authors(facts, *, allow_missing=False):
         authors = [{"name": facts["author"]}]
         if "author_orcid" in facts:
             authors[0]["orcid"] = facts["author_orcid"]
-    elif allow_missing and "author_orcid" not in facts:
-        return []  # Historical provenance may not have captured attribution.
     else:
         raise AssetError("schema keys mismatch: require exactly one of author or authors; author_orcid requires author")
     seen = set()
@@ -46,6 +44,13 @@ def ordered_authors(facts, *, allow_missing=False):
                 raise AssetError("an ORCID may belong to only one ordered author")
             seen.add(author["orcid"])
     return authors
+
+
+def reviewed_language(facts):
+    language = facts.get("language")
+    if not isinstance(language, str) or not LANGUAGE.fullmatch(language):
+        raise AssetError("publication requires a valid reviewed manuscript language")
+    return language
 
 
 def check_optional_bibliography(facts):

@@ -17,7 +17,7 @@ from editorial_notices import check_initial_notes, check_rights_statement, revie
 from identifier_schema import WORK_IDS, check_identifier_map, valid_record_url, valid_utc
 from render_profile import FORMAL_KINDS, profile_paths
 from validate_sources import valid_edition_link
-from bibliography import author_text, check_optional_bibliography, ordered_authors
+from bibliography import author_text, check_optional_bibliography, ordered_authors, reviewed_language
 from edition_package import package_contents, checksums, edition_directory, verify_bundle
 
 
@@ -216,10 +216,9 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     if manifest.get("schema") != "press.edition.v1":
         raise AssetError("unsupported edition provenance schema")
     check_optional_bibliography(manifest)
-    if "authors" in manifest:
-        ordered_authors(manifest)
-    if "record_url" in manifest or "initial_release_body" in manifest:
-        reviewed_initial_body(manifest)
+    authors = ordered_authors(manifest)
+    language = reviewed_language(manifest)
+    reviewed_initial_body(manifest)
     if "rights_statement" in manifest:
         check_rights_statement(manifest["rights_statement"])
     if "initial_note" in manifest:
@@ -254,37 +253,33 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         rendered = re.sub(r"[ \t\r\n\f]+", " ", "".join(parser.rights_text)).strip(" ")
         if rendered != re.sub(r" +", " ", statement):
             raise AssetError("edition rights text differs from provenance")
-    if "record_url" in manifest or parser.record_links:
-        if (not valid_record_url(manifest.get("record_url"), edition_tag)
-                or parser.record_links != [manifest["record_url"]]):
-            raise AssetError("edition record link differs from its permanent address in provenance")
-    if "initial_release_body" in manifest:
-        record_url = manifest["record_url"]
-        if parser.read_links != [record_url + "/read"]:
-            raise AssetError("edition reading link differs from its permanent address in provenance")
-        if parser.status_links != [record_url]:
-            raise AssetError("edition status link differs from its permanent record")
-        if parser.permalinks != [(key, record_url + "/read#" + key) for key in parser.heading_ids]:
-            parser.errors.append("every section requires its own canonical permalink")
-        authors = ordered_authors(manifest)
-        if (parser.authors != [author["name"] for author in authors]
-                or parser.html_lang != manifest.get("language")):
-            raise AssetError("edition attribution or language differs from provenance")
-        if "authors" in manifest or parser.authorship is not None:
-            text = "Authors: " + author_text(authors, identifiers=True)
-            collapse = lambda value: re.sub(r"[ \t\r\n\f]+", " ", value).strip()
-            if (parser.authorship is None or collapse("".join(parser.authorship)) != collapse(text)
-                    or parser.orcid_links != ["https://orcid.org/" + a["orcid"] for a in authors if "orcid" in a]):
-                raise AssetError("edition author–ORCID associations differ from provenance")
-            if "authors" in manifest and (parser.citation is None or not collapse("".join(parser.citation)).startswith(
-                    collapse("Cite this edition as " + author_text(authors) + ".") + " ")):
-                raise AssetError("edition citation attribution differs from provenance")
-        if parser.descriptions != ([manifest["abstract"]] if "abstract" in manifest else []):
-            raise AssetError("edition abstract differs from provenance")
-        if "work_identifiers" in manifest:
-            errors = check_identifier_map(manifest["work_identifiers"], WORK_IDS, edition_tag)
-            if errors:
-                raise AssetError("\n".join(errors))
+    if (not valid_record_url(manifest.get("record_url"), edition_tag)
+            or parser.record_links != [manifest["record_url"]]):
+        raise AssetError("edition record link differs from its permanent address in provenance")
+    record_url = manifest["record_url"]
+    if parser.read_links != [record_url + "/read"]:
+        raise AssetError("edition reading link differs from its permanent address in provenance")
+    if parser.status_links != [record_url]:
+        raise AssetError("edition status link differs from its permanent record")
+    if parser.permalinks != [(key, record_url + "/read#" + key) for key in parser.heading_ids]:
+        parser.errors.append("every section requires its own canonical permalink")
+    if parser.authors != [author["name"] for author in authors] or parser.html_lang != language:
+        raise AssetError("edition attribution or language differs from provenance")
+    collapse = lambda value: re.sub(r"[ \t\r\n\f]+", " ", value).strip()
+    if "authors" in manifest or "author_orcid" in manifest or parser.authorship is not None:
+        text = "Authors: " + author_text(authors, identifiers=True)
+        if (parser.authorship is None or collapse("".join(parser.authorship)) != collapse(text)
+                or parser.orcid_links != ["https://orcid.org/" + a["orcid"] for a in authors if "orcid" in a]):
+            raise AssetError("edition author–ORCID associations differ from provenance")
+    if parser.citation is None or not collapse("".join(parser.citation)).startswith(
+            collapse("Cite this edition as " + author_text(authors) + ".") + " "):
+        raise AssetError("edition citation attribution differs from provenance")
+    if parser.descriptions != ([manifest["abstract"]] if "abstract" in manifest else []):
+        raise AssetError("edition abstract differs from provenance")
+    if "work_identifiers" in manifest:
+        errors = check_identifier_map(manifest["work_identifiers"], WORK_IDS, edition_tag)
+        if errors:
+            raise AssetError("\n".join(errors))
     if (not re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("builder_commit", "")))
             or manifest.get("template_path") != template_path
             or manifest.get("stylesheet_path") != stylesheet_path

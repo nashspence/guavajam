@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import hashlib
 import html
+import copy
+from contextlib import contextmanager
 import subprocess
 import sys
 import json
@@ -20,27 +22,61 @@ from test_assets import EditionTests
 from verify_edition import EditionHTML, verify_edition
 
 
-class ArchivedEditionTests(unittest.TestCase):
-    # These bytes are a synthetic v1 package, independent of the current builder.
-    def test_offline_verification_of_archived_profile(self):
-        directory = Path(__file__).parent / "fixtures/archived-v1"
-        # Import the verifier after switching the default to catch import-time coupling.
-        verifier_path = Path(__file__).resolve().parents[1] / "scripts/verify_edition.py"
-        with patch("render_profile.PROFILE", "press.html.v2"):
-            verify_archived = runpy.run_path(str(verifier_path))["verify_edition"]
-            manifest = verify_archived(directory)
-        self.assertEqual(manifest["presentation_profile"], "press.html.v1")
+@contextmanager
+def starter_package():
+    fixture = RenderContractTests()
+    try:
+        fixture.setUp()
+        fixture.sample_with_structures()
+        fixture.build()
+        yield fixture
+    finally:
+        fixture.doCleanups()
 
-    def test_checksums_use_the_exact_archived_bytes(self):
+
+class SavedEditionTests(unittest.TestCase):
+    def setUp(self):
+        self.fixture = self.enterContext(starter_package())
+
+    def test_saved_package_verifies_without_source_checkout_or_builder_inputs(self):
         import shutil
-        import tempfile
-        source = Path(__file__).parent / 'fixtures/archived-v1'
-        with tempfile.TemporaryDirectory() as temp:
-            directory = shutil.copytree(source, Path(temp) / 'edition')
-            sums = directory / 'SHA256SUMS'
-            sums.write_bytes(sums.read_bytes().replace(b'\n', b'\r\n'))
-            with self.assertRaisesRegex(AssetError, 'checksums do not match'):
-                verify_edition(directory)
+        fixture = self.fixture
+        expected = verify_edition(fixture.output)
+        shutil.rmtree(fixture.repo)
+        read = Path.read_bytes
+        root = Path(__file__).resolve().parents[1]
+        def package_only(path):
+            if path.is_relative_to(root):
+                self.fail('verifier read a current builder input: ' + str(path))
+            return read(path)
+        # Re-import after changing the default, to catch import-time coupling.
+        verifier_path = Path(__file__).resolve().parents[1] / "scripts/verify_edition.py"
+        with (patch("render_profile.PROFILE", "press.html.future"),
+              patch.object(Path, 'read_bytes', package_only),
+              patch('build_edition.git', side_effect=AssertionError('Git is unavailable')),
+              patch('build_edition.build_edition', side_effect=AssertionError('builder is unavailable')),
+              patch('socket.create_connection', side_effect=AssertionError('offline'))):
+            verifier = runpy.run_path(str(verifier_path))["verify_edition"]
+            self.assertEqual(expected, verifier(fixture.output))
+
+    def test_checksums_use_the_exact_saved_bytes(self):
+        sums = self.fixture.output / 'SHA256SUMS'
+        sums.write_bytes(sums.read_bytes().replace(b'\n', b'\r\n'))
+        with self.assertRaisesRegex(AssetError, 'checksums do not match'):
+            verify_edition(self.fixture.output)
+
+    def test_rehashed_package_cannot_omit_current_required_metadata(self):
+        fixture = self.fixture
+        original = verify_edition(fixture.output)
+        for fields in (('record_url',), ('initial_release_body',), ('author',), ('language',),
+                       ('record_url', 'initial_release_body', 'author', 'language')):
+            with self.subTest(fields=fields):
+                changed = copy.deepcopy(original)
+                for field in fields:
+                    del changed[field]
+                fixture._repack(manifest=changed)
+                with self.assertRaises(AssetError):
+                    verify_edition(fixture.output)
 
     def test_edition_link_targets(self):
         for href in ("#section", "https://example.org/work", "mailto:press@example.org"):
@@ -433,7 +469,7 @@ class RenderContractTests(EditionTests):
 
 
 def load_tests(loader, tests, pattern):
-    suite = loader.loadTestsFromTestCase(ArchivedEditionTests)
+    suite = loader.loadTestsFromTestCase(SavedEditionTests)
     for name in RenderContractTests.__dict__:
         if name.startswith("test_"):
             suite.addTest(RenderContractTests(name))

@@ -20,37 +20,24 @@ from export_archive import export_archive
 from issuance import authorization, public_receipt
 from public_record import record_html
 from reviewed_artifact import restore_claimed
+from edition_package import package_names
+from test_render_contract import starter_package
 
 
 class BackupPackageTests(unittest.TestCase):
     def setUp(self):
-        fixture = Path(__file__).parent / "fixtures/archived-v1"
+        fixture = self.enterContext(starter_package())
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        manifest = json.loads((fixture / "provenance.json").read_text())
+        manifest = json.loads((fixture.output / "provenance.json").read_text())
         self.manifest = manifest
         self.tag = manifest["tag"]
         self.base = "https://backup.example.org/press"
         self.filename = manifest["canonical_artifact"]
-        url = "https://press.example.org/" + self.tag
-        manifest["record_url"] = url
-        manifest.update(author="Test author", language="en")
-        html = (fixture / self.filename).read_text().replace(
-            "</head>", '<meta name="author" content="Test author"></head>').replace(
-            "<body>", f'<body><a id="press-edition-status" href="{url}">Edition status</a>').replace(
-            "</h2>", f'<a class="press-permalink" aria-label="Link to Section" href="{url}/read#example">#</a></h2>').replace(
-            "</footer>", f'<a id="press-edition-read" href="{url}/read">Read</a>'
-            f'<a id="press-edition-record" href="{url}">Record</a></footer>').encode()
-        manifest["html_byte_count"] = len(html)
-        manifest["html_sha256"] = hashlib.sha256(html).hexdigest()
-        manifest["initial_release_body"] = render_initial_body(manifest)
-        raw = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
-        (self.root / "provenance.json").write_bytes(raw)
-        self.receipt = {**authorization(self.root, manifest), "issuing": True, "published_at": "2026-11-05T14:00:00Z",
+        self.receipt = {**authorization(fixture.output, manifest), "issuing": True, "published_at": "2026-11-05T14:00:00Z",
                         "identifiers": {"oclc": "42"}}
-        (self.root / "provenance.json").unlink()
-        self.files = {self.filename: html, "provenance.json": raw}
-        self.files["SHA256SUMS"] = "".join(hashlib.sha256(data).hexdigest() + "  " + name + "\n"
-                                           for name, data in self.files.items()).encode()
+        self.files = {name: (fixture.output / name).read_bytes() for name in package_names(manifest)}
+        import shutil
+        shutil.rmtree(fixture.repo)
         self.requests = []
         self.enterContext(patch("backup_package.public_response", self.response))
 
@@ -69,7 +56,7 @@ class BackupPackageTests(unittest.TestCase):
         for name, data in self.files.items():
             (self.root / name).write_bytes(data)
         claim = {**authorization(self.root, self.manifest), "issuing": True}
-        registration = self.root / "registrations/editions/archive-fixture/v1.0.0.json"
+        registration = self.root / "registrations/editions/sample-work/v1.0.0.json"
         registration.parent.mkdir(parents=True)
         registration.write_text(json.dumps(claim, indent=2, sort_keys=True) + "\n")
         release = {"tag_name": self.tag, "draft": False, "prerelease": False, "immutable": True,
@@ -97,14 +84,14 @@ class BackupPackageTests(unittest.TestCase):
         registration = self.root / "receipt.json"
         registration.write_text(json.dumps(self.receipt, indent=2, sort_keys=True) + "\n")
         notice = "2026-11-05 Withdrawal: This result has been withdrawn."
-        parent = self.root / "notices/archive-fixture/v1.0.0"
+        parent = self.root / "notices/sample-work/v1.0.0"
         parent.mkdir(parents=True)
         (parent / "0001.md").write_text(notice + "\n")
         record_url = self.base + "/" + self.tag
         approved = record_html(self.manifest, published_at=self.receipt["published_at"],
                                notices=["- " + notice], identifiers=self.receipt["identifiers"])
         pages = {record_url: approved, record_url + "/read": self.files[self.filename]}
-        archived = self.root / "records/editions/archive-fixture/v1.0.0/index.html"
+        archived = self.root / "records/editions/sample-work/v1.0.0/index.html"
         archived.parent.mkdir(parents=True)
         archived.write_bytes(approved)
         checkpoint = editorial_checkpoint(self.receipt, ["- " + notice], approved)
@@ -112,7 +99,7 @@ class BackupPackageTests(unittest.TestCase):
                 "--registration", str(registration), "--editorial-sha256", checkpoint]
 
         work_url = record_url.rsplit("/", 1)[0]
-        pages[work_url] = b'<a href="archive-fixture/v1.0.0">v1.0.0</a>'
+        pages[work_url] = b'<a href="sample-work/v1.0.0">v1.0.0</a>'
         argv.extend(["--work-sha256", hashlib.sha256(pages[work_url]).hexdigest()])
 
         @contextmanager
@@ -154,7 +141,7 @@ class BackupPackageTests(unittest.TestCase):
             path.write_bytes(data)
 
         def receipt_path(version):
-            return f'registrations/editions/archive-fixture/{version}.json'
+            return f'registrations/editions/sample-work/{version}.json'
 
         git('init', '-q')
         save('README.md', b'No issued editions yet.\n')
@@ -164,27 +151,27 @@ class BackupPackageTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'no issued editions'):
             check_backup_archive(self.root, empty, self.base, 'owner/press')
         for version in ('v1.0.0', 'v2.0.0'):
-            manifest = dict(self.manifest, tag='works/archive-fixture/' + version)
+            manifest = dict(self.manifest, tag='works/sample-work/' + version)
             manifest['initial_release_body'] = render_initial_body(manifest)
-            directory = Path('records/editions/archive-fixture') / version
+            directory = Path('records/editions/sample-work') / version
             save(directory / 'provenance.json', (json.dumps(manifest) + '\n').encode())
             receipt = {**self.receipt, **authorization(self.root / directory, manifest)}
             save(receipt_path(version), (json.dumps(receipt, indent=2, sort_keys=True) + '\n').encode())
             save(directory / 'index.html', b'approved edition page')
-        save('records/works/archive-fixture/index.html', b'approved work page')
+        save('records/works/sample-work/index.html', b'approved work page')
         git('add', '.')
         git('-c', 'user.name=Test', '-c', 'user.email=test@example.org', 'commit', '-qm', 'issued editions')
         commit = git('rev-parse', 'HEAD')
         # Standby omissions cannot narrow the inventory, even after the working copy loses an entry.
         (self.root / receipt_path('v2.0.0')).unlink()
-        save('records/works/archive-fixture/index.html', b'stale work page')
+        save('records/works/sample-work/index.html', b'stale work page')
         with (patch('check_backup_archive.verify_backup_package', side_effect=[None, AssetError('missing archive')]) as package,
               patch('check_backup_archive.verify_reader_routes') as reader,
               patch('check_backup_archive.verify_work_route', side_effect=AssetError('stale work')) as work,
               self.assertRaises(AssetError) as raised):
             check_backup_archive(self.root, commit, self.base, 'owner/press')
-        self.assertIn('works/archive-fixture/v2.0.0 standby package: missing archive', str(raised.exception))
-        self.assertIn('works/archive-fixture standby work page: stale work', str(raised.exception))
+        self.assertIn('works/sample-work/v2.0.0 standby package: missing archive', str(raised.exception))
+        self.assertIn('works/sample-work standby work page: stale work', str(raised.exception))
         self.assertEqual(2, package.call_count)
         self.assertEqual(2, reader.call_count)
         work.assert_called_once()
