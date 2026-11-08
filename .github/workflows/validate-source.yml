@@ -61,7 +61,7 @@ jobs:
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
 
-      - name: Verify offline reader, publisher journeys and accessibility
+      - name: Verify readers, accessibility and real capture extension imports
         run: make test-browser
 
       - name: Enforce source format and registrations on the tracked tree

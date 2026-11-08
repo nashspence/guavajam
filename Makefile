@@ -26,9 +26,11 @@ check-assets: ## Download and verify referenced assets.
 test: ## Run the Python and asset gateway test suites.
 	@$(PYTHON) -m unittest discover -s tests
 	@mise exec -- node --test tests/test*worker.mjs
+	@mise exec -- node --test tests/test_chatgpt_capture.mjs
 
-test-browser: ## Check offline downloads, publisher journeys, keyboard scrolling and accessibility in Chromium, Firefox and WebKit. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
+test-browser: ## Check reader journeys and accessibility in three engines, plus the real Chrome capture extension and imports. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
 	@$(PYTHON) tests/run_offline_browser.py
+	@$(PYTHON) tests/run_capture_browser.py
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
