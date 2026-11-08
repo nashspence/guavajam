@@ -131,7 +131,21 @@ async function qualify(scenario) {
     const tab = tabs.find(tab => tab.url === page.url());
     assert.ok(tab);
     let popupTarget;
-    if (scenario === 'no-permission') {
+    if (scenario === 'revoked-permission') {
+      browser.send('Extensions.triggerAction', { id: loaded.id, targetId: tab.targetId }).catch(() => {});
+      const grantedTarget = await until(async () => (await browser.send('Target.getTargets')).targetInfos
+        .find(t => t.url === `chrome-extension://${loaded.id}/popup.html`), 'initial permission grant');
+      const granted = await attach(browser, grantedTarget.targetId);
+      await until(() => granted.evaluate('document.readyState === "complete"'), 'initial popup loaded');
+      assert.equal(await granted.evaluate(`(async()=>{
+        const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
+        return (await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>true}))[0].result;
+      })()`), true, 'the original action grants actual access');
+      await browser.send('Target.closeTarget', { targetId: grantedTarget.targetId });
+      await page.goto('https://example.org/');
+      await page.goto(origin + '/c/' + id);
+    }
+    if (['no-permission', 'revoked-permission'].includes(scenario)) {
       // Opening the popup as a tab does not grant activeTab to a website.
       const popupPage = await context.newPage();
       await popupPage.goto(`chrome-extension://${loaded.id}/popup.html`);
@@ -143,8 +157,8 @@ async function qualify(scenario) {
         .find(t => t.url === `chrome-extension://${loaded.id}/popup.html`), 'real extension popup');
     }
     const popup = await attach(browser, popupTarget.targetId);
-    await until(() => popup.evaluate('Boolean(document.querySelector("#capture"))'), 'popup loaded');
-    if (scenario === 'no-permission') {
+    await until(() => popup.evaluate('document.readyState === "complete" && Boolean(document.querySelector("#capture"))'), 'popup module loaded');
+    if (['no-permission', 'revoked-permission'].includes(scenario)) {
       const denied = await popup.evaluate(`(async()=>{
         const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
         try { await chrome.scripting.executeScript({target:{tabId:tab.id},func:()=>true}); return false; }
@@ -161,7 +175,7 @@ async function qualify(scenario) {
       await popup.command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
       await popup.command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
       assert.equal(await popup.evaluate('document.activeElement.id'), 'capture');
-      await popup.command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      await popup.command('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
       await popup.command('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
     } else {
       const box = await popup.evaluate('(()=>{const b=document.querySelector("#capture").getBoundingClientRect();return {x:b.x+b.width/2,y:b.y+b.height/2}})()');
@@ -181,18 +195,23 @@ async function qualify(scenario) {
       await pause(250); releaseNative();
       await until(() => popup.evaluate('document.querySelector("#status").dataset.kind === "error"'), 'navigation cancellation');
     } else {
-      await until(() => popup.evaluate('!document.querySelector("#capture").disabled && Boolean(document.querySelector("#status").textContent)'), 'capture completed');
+      try {
+        await until(() => popup.evaluate('!document.querySelector("#capture").disabled && Boolean(document.querySelector("#status").textContent)'), 'capture completed');
+      } catch (error) {
+        assert.fail(JSON.stringify({ error: error.message, requests, downloads: downloads.length,
+          status: await popup.evaluate('document.querySelector("#status").textContent') }));
+      }
       const status = await popup.evaluate('document.querySelector("#status").textContent');
-      if (['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission'].includes(scenario)) {
+      if (['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission'].includes(scenario)) {
         assert.equal(await popup.evaluate('document.querySelector("#status").dataset.kind'), 'error', status);
       } else if (['audit-unavailable', 'stalled', 'rate-limit'].includes(scenario)) assert.match(status, /audit unavailable/);
       else if (scenario === 'omission') assert.match(status, /1 selected-branch messages absent/);
       else assert.match(status, /no extra IDs/);
     }
-    const mustFail = ['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'navigate'].includes(scenario);
+    const mustFail = ['unauthorized', 'changed-branch', 'challenge', 'redirect', 'no-permission', 'revoked-permission', 'navigate'].includes(scenario);
     assert.equal(downloads.length, mustFail ? 0 : 1, scenario);
     assert.deepEqual(unexpected, []);
-    if (scenario === 'no-permission') assert.equal(nativeRequested, false);
+    if (['no-permission', 'revoked-permission'].includes(scenario)) assert.equal(nativeRequested, false);
     if (!mustFail) {
       const download = downloads[0];
       assert.equal(await download.failure(), null);
@@ -209,7 +228,7 @@ async function qualify(scenario) {
 
 for (const scenario of ['happy', 'cookie-only', 'omission', 'audit-unavailable', 'unauthorized',
   'changed-branch', 'hostile-page', 'multiple-tabs', 'challenge', 'redirect', 'stalled',
-  'rate-limit', 'navigate', 'popup-close', 'no-permission']) {
+  'rate-limit', 'navigate', 'popup-close', 'no-permission', 'revoked-permission']) {
   test(`real capture extension: ${scenario}`, { timeout: 30000 }, async t => {
     t.diagnostic(JSON.stringify(await qualify(scenario)));
   });

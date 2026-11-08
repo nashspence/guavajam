@@ -353,3 +353,21 @@ test("navigation cancels an in-flight request and never downloads", async () => 
   assert.equal(aborted, true);
   assert.equal(x.blob, null);
 });
+
+test("the request timeout also aborts a stalled response body", async () => {
+  let aborted = false;
+  const r = routes();
+  r[singular] = init => new Response(new ReadableStream({
+    start(controller) {
+      init.signal.addEventListener("abort", () => {
+        aborted = true;
+        controller.error(new DOMException("Aborted", "AbortError"));
+      });
+    }
+  }));
+  const x = await capture(r, { fastTimeout: true });
+  assert.equal(x.result.ok, false);
+  assert.match(x.result.error, /request timed out/);
+  assert.equal(aborted, true);
+  assert.equal(x.blob, null);
+});
