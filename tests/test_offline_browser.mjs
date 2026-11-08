@@ -89,8 +89,11 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
                 root.style.fontSize = parseFloat(getComputedStyle(root).fontSize) * 2 + 'px';
                 // WCAG 1.4.12 stress values plus enlarged text: reflow without
                 // clipping or hiding the linked heading under the status bar.
-                root.style.letterSpacing = '0.12em';
-                root.style.wordSpacing = '0.16em';
+                for (const element of document.querySelectorAll('body, body *')) {
+                  element.style.lineHeight = '1.5';
+                  element.style.letterSpacing = '0.12em';
+                  element.style.wordSpacing = '0.16em';
+                }
                 for (const paragraph of document.querySelectorAll('p')) {
                   paragraph.style.marginBottom = '2em';
                 }
@@ -131,6 +134,48 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.deepEqual(network, []);
           } finally { await context.close(); }
         }
+      }
+    } finally { await browser.close(); }
+  });
+
+  test(`${name}: heading, supporting passage and footnote targets retain geometry and cues`, {timeout: 60000}, async () => {
+    const browser = await engine.launch({headless: true});
+    try {
+      for (const width of [320, 375, 1280]) for (const colorScheme of ['light', 'dark']) {
+        const context = await browser.newContext({offline: true, viewport: {width, height: 900}, colorScheme});
+        try {
+          const page = await context.newPage();
+          const url = pathToFileURL(path.join(root, 'index.html')).href;
+          for (const id of ['sec-2', 'detail-2', 'record-md-4-note', 'support-md-4-note-claim', 'fn1']) {
+            await page.goto(url);
+            const target = page.locator('#' + id);
+            const before = await target.evaluate(element => {
+              const rect = element.getBoundingClientRect();
+              return [rect.left + scrollX, rect.top + scrollY, rect.width, rect.height];
+            });
+            await page.goto(url + '#' + id);
+            const after = await target.evaluate(element => {
+              const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+              const cue = getComputedStyle(element, '::before');
+              return {box: [rect.left + scrollX, rect.top + scrollY, rect.width, rect.height],
+                background: style.backgroundColor, tint: cue.backgroundColor, content: cue.content,
+                cueLeft: rect.left + parseFloat(cue.insetInlineStart),
+                top: rect.top, header: document.querySelector('.press-status').getBoundingClientRect().bottom};
+            });
+            for (let i = 0; i < before.length; i++) {
+              assert.ok(Math.abs(before[i] - after.box[i]) <= 1, `${name} ${id}: fragment changed layout`);
+            }
+            assert.equal(after.content, '""', `${name} ${id}: target cue missing`);
+            assert.notEqual(after.background, 'rgba(0, 0, 0, 0)');
+            assert.equal(after.tint, after.background);
+            assert.ok(after.cueLeft >= 0, `${name} ${id}: cue clipped`);
+            assert.ok(after.top >= after.header - 1, `${name} ${id}: target obscured`);
+            await page.emulateMedia({media: 'print', colorScheme: 'dark'});
+            assert.deepEqual(await target.evaluate(element => [getComputedStyle(element).backgroundColor,
+              getComputedStyle(element, '::before').content]), ['rgba(0, 0, 0, 0)', 'none']);
+            await page.emulateMedia({media: 'screen', colorScheme});
+          }
+        } finally { await context.close(); }
       }
     } finally { await browser.close(); }
   });
