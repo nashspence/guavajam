@@ -5,6 +5,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import test from 'node:test';
 import {chromium, firefox, webkit} from 'playwright';
+import {assertAccessible, reviewSummary} from './browser_accessibility.mjs';
 
 const root = process.env.PRESS_OFFLINE_TEST_DIR;
 assert.ok(root, 'Run make test-browser to build and verify the current complete ZIP');
@@ -249,6 +250,24 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.ok(descendants(notes).some(node => !node.ignored && node.role?.value === 'list'));
             await session.detach();
           }
+        } finally { await context.close(); }
+      }
+    } finally { await browser.close(); }
+  });
+
+  test(`${name}: complete offline ZIP passes local accessibility scans`, {timeout: 45000}, async () => {
+    const browser = await engine.launch({headless: true});
+    try {
+      for (const colorScheme of ['light', 'dark']) {
+        const context = await browser.newContext({offline: true, viewport: {width: 375, height: 900}, colorScheme});
+        try {
+          const page = await context.newPage();
+          const network = [];
+          page.on('request', request => { if (/^https?:/.test(request.url())) network.push(request.url()); });
+          await page.goto(pathToFileURL(path.join(root, 'index.html')).href);
+          const incomplete = await assertAccessible(page);
+          if (incomplete.length) console.info(`${name} offline ${colorScheme}: axe findings needing review: ${JSON.stringify(reviewSummary(incomplete))}`);
+          assert.deepEqual(network, []);
         } finally { await context.close(); }
       }
     } finally { await browser.close(); }

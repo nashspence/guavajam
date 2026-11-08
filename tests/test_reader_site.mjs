@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import test from 'node:test';
 import {chromium, firefox, webkit} from 'playwright';
-import {assertAccessible} from './browser_accessibility.mjs';
+import {assertAccessible, reviewSummary} from './browser_accessibility.mjs';
 
 const sites = JSON.parse(process.env.PRESS_SITE_TESTS || 'null');
 assert.ok(sites, 'Run make test-browser to serve the real generated publisher pages');
@@ -41,6 +41,18 @@ async function keyboardFollow(page, locator) {
 
 function noPageOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1);
+}
+
+async function settledScroll(box) {
+  let previous = NaN, stable = 0;
+  for (let n = 0; n < 40; n++) {
+    const current = await box.evaluate(el => el.scrollLeft);
+    stable = Math.abs(current - previous) < .25 ? stable + 1 : 0;
+    if (stable >= 3) return current;
+    previous = current;
+    await box.page().waitForTimeout(50);
+  }
+  throw new Error('Keyboard scrolling did not settle');
 }
 
 for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
@@ -114,10 +126,15 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
                 content: el.scrollWidth, focused: el === document.activeElement}));
               throw new Error(`${name} ${kind} did not pan right: ${JSON.stringify(geometry)}`, {cause: error});
             });
-          const right = await box.evaluate(el => el.scrollLeft);
+          const right = await settledScroll(box);
           for (let n = 0; n < 10; n++) await page.keyboard.press('ArrowLeft');
           await page.waitForFunction(({el, right}) => el.scrollLeft < right,
-            {el: await box.elementHandle(), right}, {timeout: 5000});
+            {el: await box.elementHandle(), right}, {timeout: 5000}).catch(async error => {
+              const geometry = await box.evaluate(el => ({left: el.scrollLeft, width: el.clientWidth,
+                content: el.scrollWidth, focused: el === document.activeElement}));
+              throw new Error(`${name} ${kind} did not pan left from ${right}: ${JSON.stringify(geometry)}`, {cause: error});
+            });
+          await settledScroll(box);
           assert.equal(await noPageOverflow(page), true);
           await page.keyboard.press('Tab');
           assert.equal(await box.evaluate(el => el.contains(document.activeElement)), false);
@@ -141,6 +158,6 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
         assert.deepEqual(unexpected, []);
       } finally { await browser.close(); }
     }
-    if (review.size) console.info(`${name}: axe findings needing review: ${JSON.stringify([...review.values()])}`);
+    if (review.size) console.info(`${name}: axe findings needing review: ${JSON.stringify(reviewSummary([...review.values()]))}`);
   });
 }

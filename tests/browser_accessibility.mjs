@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import axe from 'axe-core';
 
+export function reviewSummary(findings) {
+  return findings.map(({id, nodes}) => ({id, elements: nodes.length,
+    reasons: [...new Set(nodes.map(node => node.failureSummary))],
+    examples: nodes.slice(0, 3).map(node => node.target)}));
+}
+
 export async function assertAccessible(page) {
   await page.evaluate(() => document.fonts.ready);
   // DevTools injection leaves the document's shipped CSP and runtime unchanged.
