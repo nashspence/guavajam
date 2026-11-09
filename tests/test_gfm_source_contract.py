@@ -220,7 +220,8 @@ class ElementPublicationTests(EditionTests):
         html = (self.output / manifest['canonical_artifact']).read_bytes()
         self.assertIn(b'data-press-speaker="author"', html)
         self.assertIn(b'data-press-speaker="responder"', html)
-        self.assertNotIn(b'data-press-speaker="assistant"', html)
+        # The stylesheet names assistant selectors; search rendered content only.
+        self.assertNotIn(b'data-press-speaker="assistant"', html.split(b'</style>', 1)[1])
         self.assertIn('user-turn', entry['anchors']); self.assertIn('reply', entry['anchors'])
         self.assertEqual(manifest, verify_edition(self.output))
         altered = html.replace(b'data-press-speaker="responder"', b'data-press-speaker="author"')
