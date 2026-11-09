@@ -84,6 +84,22 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn(target_rule + "::before { content: none; }", printed)
         self.assertIn("background: transparent", printed)
 
+    def test_supporting_document_field_readability_does_not_change_provenance_typography(self):
+        css = (ROOT / 'styles/edition-v1.css').read_text()
+        # The original, separately verified GFM/chat provenance treatment is
+        # unchanged. Only document-owned labels and values become larger.
+        source = css.split('.press-record-provenance {', 1)[1].split('}', 1)[0]
+        self.assertIn('font: .76rem/1.5 system-ui, sans-serif;', source)
+        metadata = css.split('.press-document-metadata {', 1)[1].split('}', 1)[0]
+        self.assertIn('font: .76rem/1.5 system-ui, sans-serif;', metadata)
+        self.assertIn('font-size: 1.12em;', css)
+        self.assertIn('.press-document-metadata dt:not(:first-child) + dd {', css)
+        mobile = css.split('@media (max-width: 36rem)', 1)[1].split('@media (prefers-color-scheme: dark)', 1)[0]
+        self.assertIn('border-block-start: 0;', mobile)
+        self.assertNotIn('press-metadata-dense', css)
+        printed = css.split('@media print', 1)[1]
+        self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
+
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         self.assertIn(".footnote-ref { text-decoration: none; white-space: nowrap; }", css)

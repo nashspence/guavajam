@@ -269,8 +269,13 @@ def append_gfm(root, relative, slug):
         block['c'][1].insert(0, {'t':'Para','c':[{'t':'Str','c':'Document metadata'}, {'t':'Space'},
             {'t':'Link','c':[['', ['press-permalink'], [['data-press-passage',anchor], ['aria-label','Permalink to document metadata'], ['lang','en']]],
                            [{'t':'Str','c':'¶'}], ['press-passage:'+anchor,'']]}]})
+        # Keep publisher-generated source provenance first. The following
+        # document-scoped fields are reviewed source content, not publisher
+        # metadata; their original key order and values remain unchanged.
+        result.append(provenance)
         result.append(block)
-    result.append(provenance)
+    else:
+        result.append(provenance)
     first_passage = True
     for index, block in enumerate(ast['blocks'][1:], 1):
         if block['t'] == 'Div' and 'press-document-metadata' in block['c'][0][1]:

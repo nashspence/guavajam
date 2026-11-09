@@ -279,8 +279,16 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   gap: .22rem .8rem;
   margin: 0;
 }
-.press-document-metadata dt { min-width: 0; font-weight: 600; }
-.press-document-metadata dd { min-width: 0; margin: 0; }
+/* Associate dense label/value pairs without boxing them like an app form.
+   The first row is unruled; on phones the separator belongs to its label. */
+/* Values carry more reading weight; the group title stays as quiet as provenance. */
+.press-document-metadata dt { min-width: 0; font-weight: 600; font-size: 1.12em; }
+.press-document-metadata dd { min-width: 0; margin: 0; font-size: 1.12em; }
+.press-document-metadata dt:not(:first-child),
+.press-document-metadata dt:not(:first-child) + dd {
+  border-block-start: 1px solid color-mix(in srgb, var(--press-border) 36%, transparent);
+  padding-block-start: .4rem;
+}
 .press-document-metadata ul { margin: 0; padding-left: 1.2em; }
 .press-metadata-value, .press-document-metadata dt > span { white-space: pre-wrap; }
 .press-passage-heading {
@@ -311,6 +319,11 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   [id]:target, :focus-visible { scroll-margin-top: 9rem; }
   .press-record-provenance, .press-document-metadata dl { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
   .press-record-provenance dd, .press-document-metadata dd { margin-bottom: .35rem; }
+  /* Once stacked, never draw a second rule between a label and its value. */
+  .press-document-metadata dt:not(:first-child) + dd {
+    border-block-start: 0;
+    padding-block-start: 0;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -359,6 +372,9 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   h1, h2, h3, h4, h5, h6, .press-passage-heading, .press-passage-datetime,
   caption { break-after: avoid-page; }
   tr { break-inside: avoid; }
+  /* Keep a metadata label or value intact on paper without forcing a full
+     multi-row record onto one page. */
+  .press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
     background: transparent;
     outline: none;
