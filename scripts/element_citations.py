@@ -39,7 +39,7 @@ def element_fingerprints(raw: bytes, identifiers: set[str]) -> dict:
                 # exact opening tag in the fingerprints of anchored descendants
                 # so removing/relabeling the presentation wrapper is detectable
                 # even after external HTML/checksum values are recomputed.
-                turn_tag = self.get_starttag_text() if tag == 'div' and \
+                turn_tag = self.get_starttag_text() if tag in {'div', 'blockquote'} and \
                     'press-turn' in attrs.get('class', '').split() else ''
                 stack.append((tag, identifier, start, turn_tag))
 

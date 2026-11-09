@@ -196,6 +196,34 @@ def parse_gfm_record(source, *, policy=None):
         metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
+    # Exactly an attributed responder quote is expanded for per-block source
+    # validation. All its explicit child IDs keep their original flat order.
+    # A nested ordinary quotation remains ONE citable BlockQuote element.
+    quoted_speaker_anchors = set()
+    expanded = []
+    for block in ast['blocks']:
+        if block.get('t') == 'BlockQuote' and block['c']:
+            first = anchor_details(block['c'][0])
+            if first and first[1] in {'assistant', 'responder'}:
+                if (len(block['c']) < 2 or block['c'][1].get('t') != 'Header'
+                        or block['c'][1]['c'][0] != 2):
+                    raise AssetError('responder blockquote requires a reviewed H2 message heading')
+                if any(child.get('t') == 'Header' and child['c'][0] <= 2
+                       for child in block['c'][2:]):
+                    raise AssetError('responder blockquote cannot contain a second top-level message heading')
+                if any(anchor_details(child) and anchor_details(child)[1] is not None
+                       for child in block['c'][2:]):
+                    raise AssetError('responder blockquote cannot contain a second speaker annotation')
+                quoted_speaker_anchors.add(first[0])
+                expanded.extend(block['c'])
+                continue
+            # A speaker inside a blockquote cannot silently become a nested
+            # reply; only the outermost explicitly attributed turn is valid.
+            if any(anchor_details(n) and anchor_details(n)[1] is not None
+                   for n in block['c']):
+                raise AssetError('speaker attribution requires an outermost responder blockquote')
+        expanded.append(block)
+    ast['blocks'] = expanded
     if ast.get('meta'):
         raise AssetError('unexpected supporting parser metadata')
     blocks, anchors, pending, speaker = [], {}, None, None
@@ -220,7 +248,11 @@ def parse_gfm_record(source, *, policy=None):
         if speaker is not None:
             if block.get('t') != 'Header' or block['c'][0] != 2:
                 raise AssetError('explicit speaker attribution requires an anchored H2 message heading')
+            if speaker in {'assistant', 'responder'} and pending not in quoted_speaker_anchors:
+                raise AssetError('responder messages require a source GFM blockquote')
             block['c'][1][2].append(['data-press-speaker', speaker])
+            if pending in quoted_speaker_anchors:
+                block['c'][1][1].append('press-source-quoted-turn')
         anchors[pending] = len(blocks)
         pending, speaker = None, None
         blocks.append(block)

@@ -29,22 +29,24 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           assert.equal(await page.locator('article .press-record-heading[data-press-speaker]').count(), 0);
           assert.equal(await page.locator('article [data-press-speaker]:not(h3)').count(), 0);
           assert.equal(await page.locator('article .press-supporting-element[data-press-speaker]').count(), 0);
-          // Every explicit message is a plain, non-landmark div. The H3 still
+          // Explicit source messages use native quoted responder HTML and plain author divs. The H3 still
           // owns its ID, role, and canonical permalink; body blocks remain
           // individually citable within the correct source-backed turn.
           assert.equal(await page.locator('article .press-turn').count(), await attributed.count());
           assert.equal(await page.locator('article .press-turn > h3.press-passage-heading').count(),
             await attributed.count());
+          assert.equal(await page.locator('article blockquote.press-turn').count(), await assistant.count());
+          assert.equal(await page.locator('article div.press-turn').count(), await user.count());
           const styles = await page.evaluate(() => {
             const assistant = document.querySelector('h3[data-press-speaker="assistant"]');
             const user = document.querySelector('h3[data-press-speaker="user"]');
             const turn = assistant.parentElement, userTurn = user.parentElement;
-            const rail = getComputedStyle(turn, '::before');
+            const rail = getComputedStyle(turn);
             const a = getComputedStyle(assistant), u = getComputedStyle(user);
             return {
               headingTint: a.backgroundColor, authorTint: u.backgroundColor,
               headingCue: getComputedStyle(assistant, '::after').content,
-              railContent: rail.content,
+              tag:turn.tagName, authorTag:userTurn.tagName,
               thickness: parseFloat(rail.borderInlineStartWidth),
               railStyle: rail.borderInlineStartStyle,
               ownLabel: assistant.textContent.includes('Assistant'),
@@ -56,15 +58,15 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
               sourceParagraphs: turn.querySelectorAll('.press-supporting-element').length,
               responderPadding: parseFloat(getComputedStyle(turn).paddingInlineStart),
               userPadding: parseFloat(getComputedStyle(userTurn).paddingInlineStart),
-              railLeft: turn.getBoundingClientRect().left + parseFloat(rail.insetInlineStart),
+              railLeft: turn.getBoundingClientRect().left,
               textClearance: turn.querySelector('.press-supporting-element').getBoundingClientRect().left -
-                turn.getBoundingClientRect().left - parseFloat(rail.insetInlineStart) -
-                parseFloat(rail.borderInlineStartWidth),
+                turn.getBoundingClientRect().left - parseFloat(rail.borderInlineStartWidth),
             };
           });
           assert.equal(styles.headingCue, 'none', 'no permanent responder-heading tint');
           assert.equal(styles.headingTint, styles.authorTint, 'speaker headings retain identical paper surfaces');
-          assert.equal(styles.railContent, '""');
+          assert.equal(styles.tag, 'BLOCKQUOTE');
+          assert.equal(styles.authorTag, 'DIV');
           assert.equal(styles.railStyle, 'solid');
           assert.ok(styles.thickness >= 3 && styles.thickness <= 4, 'match the original blue cue thickness');
           assert.ok(styles.sourceParagraphs > 1, 'response body was not grouped');
@@ -75,7 +77,7 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           assert.equal(styles.overflow, false);
           // Text moves inward, never the outer rail: preserve the narrow-phone
           // margin while leaving enough breathing room to read long answers.
-          assert.ok(styles.responderPadding >= 8 && styles.responderPadding <= 9,
+          assert.ok(styles.responderPadding >= 10 && styles.responderPadding <= 12,
             `${engineName}: unexpected responder padding: ${JSON.stringify(styles)}`);
           assert.equal(styles.userPadding, 0);
           assert.ok(styles.railLeft >= 0 && styles.textClearance >= 10 && styles.textClearance <= 14,
@@ -93,7 +95,7 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
               headingTop:longest.querySelector('h3').getBoundingClientRect().top,
               end:longest.getBoundingClientRect().bottom,
               bottom:innerHeight,
-              rail:getComputedStyle(longest,'::before').borderInlineStartStyle,
+              rail:getComputedStyle(longest).borderInlineStartStyle,
               nextRole:longest.nextElementSibling?.matches('.press-turn') ?
                 longest.nextElementSibling.querySelector(':scope > h3')?.getAttribute('data-press-speaker') : null,
             };
@@ -112,12 +114,12 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           await page.goto(uri + '#' + targetID);
           const cited = await page.locator('#' + targetID).evaluate(element => {
             const style = getComputedStyle(element), stripe = getComputedStyle(element,'::before');
-            const group = element.closest('.press-turn'), rail = getComputedStyle(group,'::before');
+            const group = element.closest('.press-turn'), rail = getComputedStyle(group);
             return {
               shadow: style.boxShadow, tint: style.backgroundColor,
               paper: getComputedStyle(document.body).backgroundColor,
               stripe: stripe.content, speakerRail: rail.borderInlineStartStyle,
-              grayX: group.getBoundingClientRect().left + parseFloat(rail.insetInlineStart),
+              grayX: group.getBoundingClientRect().left,
               blueX: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
               grayWidth: parseFloat(rail.borderInlineStartWidth),
               blueWidth: parseFloat(stripe.borderInlineStartWidth),
@@ -143,13 +145,13 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           await page.goto(uri + '#' + assistantID);
           const headTarget = await assistant.first().evaluate(element => {
             const stripe = getComputedStyle(element, '::before');
-            const turn = element.closest('.press-turn'), rail = getComputedStyle(turn, '::before');
+            const turn = element.closest('.press-turn'), rail = getComputedStyle(turn);
             return {
               stripe: stripe.content,
               tint: getComputedStyle(element).backgroundColor,
               paper: getComputedStyle(document.body).backgroundColor,
               x: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
-              railX: turn.getBoundingClientRect().left + parseFloat(rail.insetInlineStart),
+              railX: turn.getBoundingClientRect().left,
             };
           });
           assert.equal(headTarget.stripe, '""');
@@ -170,11 +172,12 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           const print = await assistant.first().evaluate(x => {
             const turn = x.parentElement;
             return {headingCue: getComputedStyle(x,'::after').content,
-              border: getComputedStyle(turn).borderInlineStartStyle,
+              tag:turn.tagName, border: getComputedStyle(turn).borderInlineStartStyle,
               width: parseFloat(getComputedStyle(turn).borderInlineStartWidth),
               screenRail: getComputedStyle(turn,'::before').content};
           });
           assert.equal(print.headingCue, 'none');
+          assert.equal(print.tag, 'BLOCKQUOTE');
           assert.equal(print.border, 'solid');
           assert.ok(print.width >= 2, 'printed long turns need a fragment-safe border');
           assert.equal(print.screenRail, 'none');
@@ -207,8 +210,8 @@ test('chromium: Windows forced-color simulation preserves textual labels and sys
     assert.equal(targeted.outline, 'solid');
     assert.equal(targeted.stripe, 'none');
     const details = await page.locator('h3[data-press-speaker="assistant"]').first().evaluate(node => ({
-      label: node.textContent, border: getComputedStyle(node.parentElement,'::before').borderInlineStartStyle,
-      width: parseFloat(getComputedStyle(node.parentElement,'::before').borderInlineStartWidth),
+      label: node.textContent, border: getComputedStyle(node.parentElement).borderInlineStartStyle,
+      width: parseFloat(getComputedStyle(node.parentElement).borderInlineStartWidth),
     }));
     assert.match(details.label, /Assistant/);
     assert.equal(details.border, 'solid');

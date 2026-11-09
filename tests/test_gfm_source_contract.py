@@ -52,8 +52,8 @@ class SourceContractTests(unittest.TestCase):
     def test_speaker_is_explicit_on_message_anchor_not_inferred_from_heading(self):
         source = document('<a name="plain"></a>\n\n## Assistant\n\n'
             '<a name="author-entry" data-press-speaker="author"></a>\n\n## Author\n\n'
-            '<a name="responder-entry" data-press-speaker="responder"></a>\n\n## Correspondent\n\n'
-            '<a name="body"></a>\n\nActual source text is preserved.\n')
+            '> <a name="responder-entry" data-press-speaker="responder"></a>\n>\n> ## Correspondent\n>\n'
+            '> <a name="body"></a>\n>\n> Actual source text is preserved.\n')
         ast, anchors, *_ = self.parse(source)
         self.assertEqual({'document','plain','author-entry','responder-entry','body'}, set(anchors))
         headings = [n for n in ast['blocks'] if n['t'] == 'Header']
@@ -61,8 +61,10 @@ class SourceContractTests(unittest.TestCase):
                          for h in headings[1:]])
         # A title that says 'Assistant' alone is *not* a sourced attribution.
         for tag in ('user', 'assistant'):
-            self.parse(document('<a name="named" data-press-speaker="'+tag+'"></a>\n\n## Any label\n'))
+            source = ('> <a name="named" data-press-speaker="assistant"></a>\n>\n> ## Any label\n' if tag == 'assistant' else '<a name="named" data-press-speaker="user"></a>\n\n## Any label\n')
+            self.parse(document(source))
         for bad in (
+            '<a name="msg" data-press-speaker="responder"></a>\n\n## Respondent\n',
             '<a name="msg" data-press-speaker="unknown"></a>\n\n## Respondent\n',
             '<a name="msg" data-press-speaker="Assistant"></a>\n\n## Respondent\n',
             '<a name="msg" data-press-speaker="responder" style="color:red"></a>\n\n## Respondent\n',
@@ -76,6 +78,24 @@ class SourceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(AssetError, 'unannotated'):
             self.parse('---\nDescription: Testing\n---\n\n'
                        '<a name="metadata" data-press-speaker="author"></a>\n\n<a name="doc"></a>\n\n# Evidence\n')
+
+    def test_native_responder_quote_preserves_inner_quotation_and_source_ids(self):
+        source=document('> <a name="response" data-press-speaker="responder"></a>\n>\n'
+            '> ## Correspondent\n>\n> <a name="paragraph"></a>\n>\n> Answer.\n>\n'
+            '> <a name="inner-quote"></a>\n>\n> > Another quoted passage.\n>\n'
+            '> <a name="code"></a>\n>\n> ```python\n> print(1)\n> ```\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual({'document','response','paragraph','inner-quote','code'},set(anchors))
+        self.assertIn('press-source-quoted-turn',ast['blocks'][anchors['response']]['c'][1][1])
+        self.assertEqual('BlockQuote',ast['blocks'][anchors['inner-quote']]['t'])
+        self.assertEqual('CodeBlock',ast['blocks'][anchors['code']]['t'])
+        for bad in (
+            '> <a name="reply" data-press-speaker="responder"></a>\n>\n> A paragraph\n',
+            '> <a name="reply" data-press-speaker="responder"></a>\n>\n> ### Wrong heading\n',
+            '> <a name="reply" data-press-speaker="user"></a>\n>\n> ## Wrong role\n',
+            '> <a name="reply" data-press-speaker="responder"></a>\n>\n> ## Response\n>\n> ## Another H2\n',
+        ):
+            with self.subTest(source=bad),self.assertRaises(AssetError):self.parse(document(bad))
 
     def test_semantic_time_is_exact_bounded_and_has_no_extra_attributes(self):
         values = {'2026-11-05': '5 Nov 2026',
@@ -204,8 +224,8 @@ class ElementPublicationTests(EditionTests):
         folder = self.repo / 'works/sample/supporting'; folder.mkdir()
         source = document('<a name="user-turn" data-press-speaker="author"></a>\n\n## Author\n\n'
             '<a name="user-text"></a>\n\nAn attributed question.\n\n'
-            '<a name="reply" data-press-speaker="responder"></a>\n\n## Responder\n\n'
-            '<a name="reply-text"></a>\n\nAn attributed answer.\n\n'
+            '> <a name="reply" data-press-speaker="responder"></a>\n>\n> ## Responder\n>\n'
+            '> <a name="reply-text"></a>\n>\n> An attributed answer.\n\n'
             '<a name="plain"></a>\n\n## Assistant\n\n'
             '<a name="plain-text"></a>\n\nUnattributed heading remains neutral.')
         (folder / 'voices.md').write_text(source)
@@ -227,7 +247,8 @@ class ElementPublicationTests(EditionTests):
         # The heading owns its reviewed speaker role; each annotated turn is
         # grouped without moving the stable H3 ID or per-block source anchors.
         markup = html.split(b'</style>', 1)[1]
-        self.assertEqual(2, markup.count(b'<div class="press-turn">'))
+        self.assertEqual(1, markup.count(b'<div class="press-turn">'))
+        self.assertEqual(1, markup.count(b'<blockquote class="press-turn">'))
         self.assertRegex(markup, rb'<h3\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
         self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['reply-text'].encode() + rb'"')
         self.assertNotRegex(markup, rb'<section\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
@@ -242,8 +263,8 @@ class ElementPublicationTests(EditionTests):
             verify_edition(self.output)
         # A publisher-owned wrapper also affects the cited element inventory:
         # removing the continuous rail cannot be laundered by rehashing HTML.
-        changed_group = markup.replace(b'<div class="press-turn">',
-                                       b'<div class="no-turn">', 1)
+        changed_group = markup.replace(b'<blockquote class="press-turn">',
+                                       b'<blockquote class="no-turn">', 1)
         self.assertNotEqual(changed_group, markup)
         changed = copy.deepcopy(manifest); self.rewrite(head + sep + changed_group, changed)
         with self.assertRaisesRegex(AssetError, 'element'):

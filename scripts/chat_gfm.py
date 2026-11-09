@@ -1,4 +1,5 @@
 """Convert selected exported message text to an explicitly anchored review draft."""
+import copy
 import hashlib
 import json
 import re
@@ -307,7 +308,10 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        blocks.extend([anchor(passage['id'], passage.get('speaker')),header(2,passage['label'])])
+        # Give a quoted responder its native GFM blockquote. GitHub renders
+        # the same speaker boundary as the issued HTML, without Press CSS.
+        # Keep the reviewed anchor and all citable child blocks *inside* it.
+        turn = [anchor(passage['id'], passage.get('speaker')), header(2, passage['label'])]
         details = []
         if 'timestamp' in passage:
             value = passage['timestamp']
@@ -318,7 +322,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         if labels:
             details.append({'t': 'Str', 'c': (' · ' if details else '')+' · '.join(labels)})
         if details:
-            blocks.extend([anchor('meta-'+passage['id']), {'t': 'Para', 'c': [{'t': 'Emph', 'c': details}]}])
+            turn.extend([anchor('meta-'+passage['id']), {'t': 'Para', 'c': [{'t': 'Emph', 'c': details}]}])
         occurrences = {}
         for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
@@ -328,10 +332,24 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             digest = hashlib.sha256(json.dumps(block,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
             occurrences[digest] = occurrences.get(digest,0)+1
             identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
-            blocks.extend([anchor(identifier),block])
+            turn.extend([anchor(identifier), block])
+        if passage.get('speaker') in {'assistant', 'responder'}:
+            blocks.append({'t': 'BlockQuote', 'c': turn})
+        else:
+            blocks.extend(turn)
+    # CommonMark treats a standalone '=' inside a quoted $$ expression as
+    # a Setext heading. Indent only such mathematical lines in a *writer copy*:
+    # GFM strips those four spaces when it parses the original math verbatim.
+    writer_blocks = copy.deepcopy(blocks)
+    for quote in writer_blocks:
+        if quote.get('t') != 'BlockQuote':
+            continue
+        for node in walk(quote):
+            if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
+                node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
         '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
-            'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
+            'pandoc-api-version':api,'meta':{},'blocks':writer_blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
     rendered = result.stdout.rstrip()+'\n'

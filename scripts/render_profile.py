@@ -174,22 +174,24 @@ def group_reviewed_speaker_turns(blocks: list[dict]) -> list[dict]:
     Unannotated H3s end the prior turn, and nested H4+ material remains inside.
     """
     grouped: list[dict] = []
-    in_turn = False
+    current_tag = None
     for block in blocks:
         if block.get("t") == "Header" and block["c"][0] <= 3:
-            if in_turn:
-                grouped.append({"t": "RawBlock", "c": ["html", "</div>"]})
-                in_turn = False
+            if current_tag is not None:
+                grouped.append({"t": "RawBlock", "c": ["html", "</" + current_tag + ">"]})
+                current_tag = None
             level, attributes, _inlines = block["c"]
             if level == 3 and "press-passage-heading" in attributes[1]:
                 if any(key == "data-press-speaker" for key, _value in attributes[2]):
-                    # The wrapper has no authorial ID or duplicated speaker role;
-                    # CSS derives its display role from the protected heading.
-                    grouped.append({"t": "RawBlock", "c": ["html", '<div class="press-turn">']})
-                    in_turn = True
+                    # Native quotation semantics and GitHub source presentation
+                    # agree only for explicitly quoted responder messages.
+                    quoted = "press-source-quoted-turn" in attributes[1]
+                    current_tag = "blockquote" if quoted else "div"
+                    grouped.append({"t": "RawBlock", "c": ["html",
+                                    '<' + current_tag + ' class="press-turn">']})
         grouped.append(block)
-    if in_turn:
-        grouped.append({"t": "RawBlock", "c": ["html", "</div>"]})
+    if current_tag is not None:
+        grouped.append({"t": "RawBlock", "c": ["html", "</" + current_tag + ">"]})
     return grouped
 
 

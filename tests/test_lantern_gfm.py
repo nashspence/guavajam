@@ -124,6 +124,16 @@ class LanternConversionTests(unittest.TestCase):
                     record, data, diagnostics = converted(tip)
                     self.assertEqual(FIXTURE.with_name(GFM_FIXTURES[tip]).read_bytes(), data,
                                      'committed GitHub review fixtures must match the converter output')
+                    # GitHub's native GFM reading surface now distinguishes
+                    # responder turns without any publisher-provided CSS.
+                    self.assertEqual(sum(p.get('speaker') == 'assistant' for p in record['passages']),
+                                     data.count(b'> ## Assistant'))
+                    self.assertNotIn(b'\n## Assistant\n', data)
+                    self.assertIn(b'data-press-speaker="assistant"', data)
+                    # Setext-looking TeX within quoted $$ stays mathematical,
+                    # not a spurious Markdown heading. Its AST is compared below.
+                    if tip == TIPS[1]:
+                        self.assertIn(b'>     =\n', data)
                     self.assertEqual((data, diagnostics), review_gfm(record, identity='lantern-qualification', references=references(tip)))
                     self.assertNotIn(b'[Unsupported message content omitted]', data)
                     self.assertTrue(all('timestamp' in passage for passage in record['passages']))

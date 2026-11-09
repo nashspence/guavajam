@@ -100,72 +100,51 @@ class PresentationStyleTests(unittest.TestCase):
         printed = css.split('@media print', 1)[1]
         self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
 
-    def test_turn_groups_preserve_heading_ids_and_terminate_at_unannotated_messages(self):
+    def test_turn_groups_preserve_ids_and_emit_native_responder_quotations(self):
         from render_profile import group_reviewed_speaker_turns
-        def head(level, identifier, role=None, *, passage=True):
-            return {"t": "Header", "c": [level, [identifier,
-                ["press-passage-heading"] if passage else [],
-                [["data-press-speaker", role]] if role else []],
-                [{"t": "Str", "c": identifier}]]}
-        blocks = [head(2, "record", passage=False),
-                  head(3, "author", "author"), {"t": "Para", "c": []},
-                  head(3, "responder", "responder"), {"t": "Para", "c": []},
-                  head(4, "subheading"), {"t": "CodeBlock", "c": [["", [], []], "print(1)"]},
-                  head(3, "unattributed"), {"t": "Para", "c": []},
-                  head(3, "assistant", "assistant"), {"t": "BulletList", "c": []},
-                  head(2, "next-record", passage=False)]
-        grouped = group_reviewed_speaker_turns(blocks)
-        starts = [n for n in grouped if n["t"] == "RawBlock" and n["c"][1] == '<div class="press-turn">']
-        stops = [n for n in grouped if n["t"] == "RawBlock" and n["c"][1] == '</div>']
-        self.assertEqual(3, len(starts))
-        self.assertEqual(len(starts), len(stops))
-        self.assertEqual(blocks, [n for n in grouped if n["t"] != "RawBlock"])
-        self.assertEqual(2, grouped.index(head(4, "subheading")) - grouped.index(head(3, "responder", "responder")))
-        # The unannotated heading closes the prior turn; no invented role.
-        pos = grouped.index(head(3, "unattributed"))
-        self.assertEqual({"t": "RawBlock", "c": ["html", "</div>"]}, grouped[pos - 1])
-        self.assertEqual({"t": "Para", "c": []}, grouped[pos + 1])
+        def head(level,identifier,role=None,quoted=False,passage=True):
+            return {'t':'Header','c':[level,[identifier,
+                (['press-passage-heading'] if passage else [])+(['press-source-quoted-turn'] if quoted else []),
+                [['data-press-speaker',role]] if role else []],[{'t':'Str','c':identifier}]]}
+        blocks=[head(2,'record',passage=False),head(3,'author','author'),{'t':'Para','c':[]},
+                head(3,'responder','responder',quoted=True),{'t':'Para','c':[]},
+                head(4,'nested'),{'t':'CodeBlock','c':[['',[],[]],'print(1)']},
+                head(3,'plain'),{'t':'Para','c':[]},
+                head(3,'assistant','assistant',quoted=True),{'t':'BulletList','c':[]},
+                head(2,'next-record',passage=False)]
+        grouped=group_reviewed_speaker_turns(blocks)
+        self.assertEqual(['<div class="press-turn">','</div>',
+                          '<blockquote class="press-turn">','</blockquote>',
+                          '<blockquote class="press-turn">','</blockquote>'],
+                         [n['c'][1] for n in grouped if n['t']=='RawBlock'])
+        self.assertEqual(blocks,[n for n in grouped if n['t']!='RawBlock'])
+        self.assertEqual({'t':'RawBlock','c':['html','</blockquote>']},
+                         grouped[grouped.index(head(3,'plain'))-1])
 
-    def test_responder_rail_and_citation_share_geometry_without_permanent_heading_tint(self):
-        css = (ROOT / 'styles/edition-v1.css').read_text()
-        role = '.press-turn:has(> .press-passage-heading:is('
-        target = '.press-edition ' + role
-        # A single set of inherited tokens controls both the continuous neutral
-        # speaker rail and the short blue overlay at a citable source block.
-        for token in ('--press-turn-rail-inset: -.35rem;',
-                      '--press-turn-rail-size: .2rem;',
-                      '--press-turn-text-inset: .5rem;',
-                      'padding-inline-start: var(--press-turn-text-inset);',
-                      'inset-inline-start: var(--press-turn-rail-inset);',
+    def test_quoted_responder_uses_the_native_blockquote_rail(self):
+        css=(ROOT/'styles/edition-v1.css').read_text()
+        for token in ('blockquote.press-turn {','margin-inline-start: -.35rem;',
+                      '--press-turn-text-inset: .65rem;',
                       'border-inline-start: var(--press-turn-rail-size) solid var(--press-border);',
-                      'inset-inline-start: calc(var(--press-turn-rail-inset) - var(--press-turn-text-inset));',
-                      'inline-size: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset));',
-                      'border-inline-start-width: var(--press-turn-rail-size);'):
-            self.assertIn(token, css)
-        self.assertIn(target, css)
-        self.assertNotIn('.press-passage-heading[data-press-speaker]::after', css)
-        self.assertNotIn('box-shadow: inset 0 .11rem 0 var(--press-link);', css)
-        self.assertIn('pointer-events: none;', css)
-        self.assertNotIn('speaker', css.split('/* Supporting evidence:')[0])
-        forced = css.split('@media (forced-colors: active)')[1].split('@media print')[0]
-        self.assertIn('border-inline-start-color: CanvasText;', forced)
-        self.assertIn('outline: 2px solid Highlight;', forced)
-        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', forced)
-        printed = css.split('@media print')[1]
-        self.assertIn('border-inline-start: var(--press-turn-rail-size) solid var(--press-border);', printed)
-        self.assertIn('margin-inline-start: var(--press-turn-rail-inset);', printed)
-        self.assertIn('padding-inline-start: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset) - var(--press-turn-rail-size));', printed)
-        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', printed)
+                      'inset-inline-start: calc(-1 * (var(--press-turn-text-inset) + var(--press-turn-rail-size)));',
+                      'inline-size: calc(var(--press-turn-text-inset) + var(--press-turn-rail-size));',
+                      'blockquote.press-turn { break-inside: auto; }'):
+            self.assertIn(token,css)
+        self.assertNotIn('blockquote.press-turn::before',css)
+        self.assertNotIn('box-shadow: inset 0 .11rem 0 var(--press-link);',css)
+        self.assertNotIn('speaker',css.split('/* Supporting evidence:')[0])
+        forced=css.split('@media (forced-colors: active)')[1].split('@media print')[0]
+        self.assertIn('blockquote.press-turn { border-inline-start-color: CanvasText; }',forced)
 
     def test_speaker_group_context_is_covered_by_existing_element_fingerprints(self):
         from element_citations import element_fingerprints
-        raw = (b'<div class="press-turn"><h3 id="reply" data-press-speaker="responder">'
-               b'Responder</h3><div id="block">Literal text</div></div>')
+        raw = (b'<blockquote class="press-turn"><h3 id="reply" data-press-speaker="responder">'
+               b'Responder</h3><div id="block">Literal text</div></blockquote>')
         baseline = element_fingerprints(raw, {"reply", "block"})
         changed = raw.replace(b'class="press-turn"', b'class="altered"')
         self.assertNotEqual(baseline, element_fingerprints(changed, {"reply", "block"}))
-        shifted = raw.replace(b'<div id="block">Literal text</div></div>',
-                              b'</div><div id="block">Literal text</div>')
+        shifted = raw.replace(b'<div id="block">Literal text</div></blockquote>',
+                              b'</blockquote><div id="block">Literal text</div>')
         self.assertNotEqual(baseline["block"], element_fingerprints(shifted, {"reply", "block"})["block"])
 
     def test_footnote_links_decorate_the_raised_numeral(self):

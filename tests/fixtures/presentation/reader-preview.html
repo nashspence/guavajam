@@ -311,37 +311,22 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   padding-top: 0;
   margin-top: .8rem;
 }
-/* Source-attributed turns are plain prose, not chat bubbles. Both rails
-   share one physical line: a neutral speaker rail, with the established blue
-   citation cue overpainting only the linked block. The rail keeps its former
-   phone-safe position relative to the blue cue, and the text stays comfortably
-   inset. Only the reviewed heading supplies the speaker role. */
-.press-turn { position: relative; }
-.press-turn:has(> .press-passage-heading:is(
-  [data-press-speaker="assistant"], [data-press-speaker="responder"])) {
-  --press-turn-rail-inset: -.35rem;
+/* Responder turns are native GFM quotations. The same semantic blockquote
+   reads naturally on GitHub and offline; no publisher-only pseudo rail is
+   needed. The small margin adjustment retains the phone-safe rule position. */
+blockquote.press-turn {
   --press-turn-rail-size: .2rem;
-  --press-turn-text-inset: .5rem;
+  --press-turn-text-inset: .65rem;
+  margin-inline-start: -.35rem;
   padding-inline-start: var(--press-turn-text-inset);
-}
-.press-turn:has(> .press-passage-heading:is(
-  [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: var(--press-turn-rail-inset);
   border-inline-start: var(--press-turn-rail-size) solid var(--press-border);
-  pointer-events: none;
 }
-/* Avoid a permanent heading tint: the text label and long neutral rail already
-   identify this speaker. The standard deep-link tint remains on :target only.
-   The blue cue's left edge and width are exactly those of the neutral rail;
-   inherited custom properties keep both aligned when spacing changes. */
-.press-edition .press-turn:has(> .press-passage-heading:is(
-  [data-press-speaker="assistant"], [data-press-speaker="responder"]))
-  :is(h3, h4, h5, h6, div, li)[id]:target::before {
-  inset-inline-start: calc(var(--press-turn-rail-inset) - var(--press-turn-text-inset));
-  inline-size: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset));
+/* The citation tint retains the original blue segment on the native quotation
+   border. This geometry uses the *actual* blockquote padding and border size,
+   including when the citable element is a nested quotation composite. */
+.press-edition blockquote.press-turn :is(h3, h4, h5, h6, div, li)[id]:target::before {
+  inset-inline-start: calc(-1 * (var(--press-turn-text-inset) + var(--press-turn-rail-size)));
+  inline-size: calc(var(--press-turn-text-inset) + var(--press-turn-rail-size));
   border-inline-start-width: var(--press-turn-rail-size);
 }
 .press-passage-heading .press-permalink { font-size: .8rem; }
@@ -394,30 +379,16 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
-  /* A system-color outline replaces the blue overlay in forced colors. */
-  .press-edition .press-turn:has(> .press-passage-heading:is(
-    [data-press-speaker="assistant"], [data-press-speaker="responder"]))
-    :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
-  .press-turn:has(> .press-passage-heading:is(
-    [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
-    border-inline-start-color: CanvasText;
-  }
+  /* In forced colors the native quote rail and system target outline remain. */
+  .press-edition blockquote.press-turn :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  blockquote.press-turn { border-inline-start-color: CanvasText; }
 }
 
 @media print {
-  /* A real border repeats across printed pages; the margin compensation
-     uses the same speaker-rail properties as the screen citation cue. */
-  .press-turn:has(> .press-passage-heading:is(
-    [data-press-speaker="assistant"], [data-press-speaker="responder"])) {
-    margin-inline-start: var(--press-turn-rail-inset);
-    padding-inline-start: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset) - var(--press-turn-rail-size));
-    border-inline-start: var(--press-turn-rail-size) solid var(--press-border);
-  }
-  .press-turn:has(> .press-passage-heading:is(
-    [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before { content: none; }
-  .press-edition .press-turn:has(> .press-passage-heading:is(
-    [data-press-speaker="assistant"], [data-press-speaker="responder"]))
-    :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  /* Native blockquote borders repeat across pages. Allow a lengthy quoted
+     response to break; ordinary short quotations keep their usual treatment. */
+  blockquote.press-turn { break-inside: auto; }
+  .press-edition blockquote.press-turn :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   :root {
     color-scheme: light;
     --press-paper: #fff;
