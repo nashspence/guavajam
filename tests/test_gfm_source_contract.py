@@ -123,6 +123,10 @@ class CustodyTests(EditionTests):
                 store.upload.assert_not_called()
             self.git('rm','-f',name)
         self.assertEqual('application/octet-stream',verify_bytes(b'{"measurements":[1,2,3]}','bin','application/octet-stream'))
+        ordinary=io.BytesIO()
+        with zipfile.ZipFile(ordinary,'w') as archive:
+            archive.writestr('conversations.json','{"measurements":[1,2,3]}')
+        self.assertEqual('application/octet-stream',verify_bytes(ordinary.getvalue(),'bin','application/octet-stream'))
         self.assertEqual([],validate_repository(self.repo,git_sources(self.repo)))
 
 
