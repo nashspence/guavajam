@@ -242,11 +242,15 @@ def append_gfm(root, relative, slug):
             node.update(t='RawInline', c=['html', '<time datetime="'+instant+'">'+html.escape(timestamp_label(instant))+'</time>'])
         if node.get('t') == 'Link' and node['c'][2][0].startswith('#'):
             node['c'][2][0] = '#' + anchors[node['c'][2][0][1:]]
+    first_passage = True
     for index, block in enumerate(ast['blocks'][1:], 1):
         anchor = by_index.get(index)
         if block['t'] == 'Header':
             if block['c'][0] == 2:
                 block['c'][1][1].append('press-passage-heading')
+                if first_passage:
+                    block['c'][1][1].append('press-first-passage')
+                    first_passage = False
             block['c'][0] += 1
             block['c'][1][0] = ''
             result.extend([{'t':'RawBlock','c':['html',f'<a id="{anchor}"></a>']}, block])
