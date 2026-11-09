@@ -3,13 +3,17 @@
 
 # Lantern experiment qualification (synthetic timestamps)
 
-User and assistant text along one selected branch of a ChatGPT export. Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. Unsupported content in included messages is marked inline.
+<a name="scope-doc-54c855337c6ab1bca879f0c80bc52bd45296002bf631bd2416ce62758303801d"></a>
+
+Selected user and assistant text from one branch of a ChatGPT capture/export; this document does not establish conversation completeness. Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. Unsupported content in included messages is marked inline.
 
 <a name="m-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15"></a>
 
 ## User
 
-*2020-01-01T00:01:00Z*
+<a name="meta-m-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15"></a>
+
+*<time datetime="2020-01-01T00:01:00Z">1 Jan 2020 · 00:01 UTC</time>*
 
 <a name="b-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15-d736ba5e331f8498ed9a937db0e598c83d4513a7274329b1beea70359dad7b8d-1"></a>
 
@@ -151,7 +155,9 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 
 ## Assistant
 
-*2020-01-01T00:03:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf"></a>
+
+*<time datetime="2020-01-01T00:03:00Z">1 Jan 2020 · 00:03 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -305,7 +311,9 @@ Reply **“Continue to stage 2”** when ready.
 
 ## User
 
-*2020-01-01T00:05:00Z*
+<a name="meta-m-ac711c71ed72c8e4006eb0b2d13c1f6e5f340ec06cb605b3b3fbad936b0de581"></a>
+
+*<time datetime="2020-01-01T00:05:00Z">1 Jan 2020 · 00:05 UTC</time>*
 
 <a name="b-ac711c71ed72c8e4006eb0b2d13c1f6e5f340ec06cb605b3b3fbad936b0de581-e5f2bd40508ed75eb84661f6c3f72e5d7efb6ecc9f9f035c98493a2f74b4ea48-1"></a>
 
@@ -315,7 +323,9 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 
 ## Assistant
 
-*2020-01-01T00:09:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5"></a>
+
+*<time datetime="2020-01-01T00:09:00Z">1 Jan 2020 · 00:09 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -630,7 +640,9 @@ Reply **“Continue to stage 3”** when ready.
 
 ## User
 
-*2020-01-01T00:11:00Z*
+<a name="meta-m-d6d9f0e1829f36a98c4c69e66041f8e245d3fc7f7fd60d56dca2029e732714e2"></a>
+
+*<time datetime="2020-01-01T00:11:00Z">1 Jan 2020 · 00:11 UTC</time>*
 
 <a name="b-d6d9f0e1829f36a98c4c69e66041f8e245d3fc7f7fd60d56dca2029e732714e2-e04510a811386db03c3cd6ba654419b50dc20a256ab3d2f31e15fd2fc4786618-1"></a>
 
@@ -640,7 +652,9 @@ Continue to stage 3
 
 ## Assistant
 
-*2020-01-01T00:14:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-ddcaaebf6283a549fe75949527d087a51f7d28b0ce3b077474303c0cc02a5a4b"></a>
+
+*<time datetime="2020-01-01T00:14:00Z">1 Jan 2020 · 00:14 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-ddcaaebf6283a549fe75949527d087a51f7d28b0ce3b077474303c0cc02a5a4b-9ef0833221bc32e83302cea31e7c757ac0b8bd575bab5bcbb1c193f8ecaa4af4-1"></a>
 
@@ -650,7 +664,9 @@ I’ll use the original five-row CSV as input, exclude the final reading from th
 
 ## Assistant
 
-*2020-01-01T00:31:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de"></a>
+
+*<time datetime="2020-01-01T00:31:00Z">1 Jan 2020 · 00:31 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -866,7 +882,9 @@ Reply **“Continue to stage 4”** when ready.
 
 ## User
 
-*2020-01-01T00:32:00Z*
+<a name="meta-m-300a2c6e0feb82ce533af8f86d5085aedb068e082df4f5bf049cb61ca87f96d8"></a>
+
+*<time datetime="2020-01-01T00:32:00Z">1 Jan 2020 · 00:32 UTC</time>*
 
 <a name="b-300a2c6e0feb82ce533af8f86d5085aedb068e082df4f5bf049cb61ca87f96d8-8956f304b7e0d61f87daa076133d5a432c4532566db34094febd41d86e80ae3b-1"></a>
 
@@ -876,7 +894,9 @@ Continue to stage 4
 
 ## Assistant
 
-*2020-01-01T00:56:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3"></a>
+
+*<time datetime="2020-01-01T00:56:00Z">1 Jan 2020 · 00:56 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -1096,7 +1116,9 @@ Reply **“Continue to stage 5”** when ready.
 
 ## User
 
-*2020-01-01T00:58:00Z*
+<a name="meta-m-930f457c9f10cb1a913e98d5a19104c7d2c5291f47e1fb20f64fbc7e5727e225"></a>
+
+*<time datetime="2020-01-01T00:58:00Z">1 Jan 2020 · 00:58 UTC</time>*
 
 <a name="b-930f457c9f10cb1a913e98d5a19104c7d2c5291f47e1fb20f64fbc7e5727e225-53f6adbff6d55e2e380329bc6b4e888ff2d6d7a1302769de352e92816bb01a96-1"></a>
 
@@ -1106,7 +1128,9 @@ Continue to stage 5
 
 ## Assistant
 
-*2020-01-01T01:00:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-115144cc702cfb5641ae2fb5357e3e33bfb108f1a7654ee9b2208f065ced70bc"></a>
+
+*<time datetime="2020-01-01T01:00:00Z">1 Jan 2020 · 01:00 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-115144cc702cfb5641ae2fb5357e3e33bfb108f1a7654ee9b2208f065ced70bc-815e1dd8bba41bbcef24bf79f605f801507c7221530caf7d210011a23b9b423f-1"></a>
 
@@ -1116,7 +1140,9 @@ I’ll create the original five-row CSV, a UTF-8 summary of the four-row analysi
 
 ## Assistant
 
-*2020-01-01T01:15:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5"></a>
+
+*<time datetime="2020-01-01T01:15:00Z">1 Jan 2020 · 01:15 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -1209,7 +1235,9 @@ I will inspect the actual uploaded files, compare their contents with the origin
 
 ## User
 
-*2020-01-01T01:17:00Z*
+<a name="meta-m-8263e25981466ef756e3a4e41be6124f69446a2de9e9d97e72079ac3441004b3"></a>
+
+*<time datetime="2020-01-01T01:17:00Z">1 Jan 2020 · 01:17 UTC</time>*
 
 <a name="b-8263e25981466ef756e3a4e41be6124f69446a2de9e9d97e72079ac3441004b3-8a99f3865da727d39ead3b57a414fd08c39c9a3ac7ff28c1828323fabd287463-1"></a>
 
@@ -1219,7 +1247,9 @@ Continue to stage 6
 
 ## Assistant
 
-*2020-01-01T01:21:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-cb2c63023615a9b4ed410a9f6239013c3ee5eb5d21aba07eb90cb2d11e041cc6"></a>
+
+*<time datetime="2020-01-01T01:21:00Z">1 Jan 2020 · 01:21 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-cb2c63023615a9b4ed410a9f6239013c3ee5eb5d21aba07eb90cb2d11e041cc6-f9a591726ad4cf109a00968d833d896c625cfe5fe0d11623d9b5fe5d9a6dbc09-1"></a>
 
@@ -1229,7 +1259,9 @@ I’ll inspect the CSV and chart you attached, compare them with the original ob
 
 ## Assistant
 
-*2020-01-01T01:55:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a"></a>
+
+*<time datetime="2020-01-01T01:55:00Z">1 Jan 2020 · 01:55 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a-5488312d10b47df9d8e22b18062b359d369fa12d437f3c4a7f1f2b8294b94390-1"></a>
 
@@ -1239,7 +1271,9 @@ The uploaded file paths aren’t opening in the calculation environment, althoug
 
 ## Assistant
 
-*2020-01-01T02:06:00Z · Model: gpt-6-thinking · Thinking effort: max*
+<a name="meta-m-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104"></a>
+
+*<time datetime="2020-01-01T02:06:00Z">1 Jan 2020 · 02:06 UTC</time> · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 

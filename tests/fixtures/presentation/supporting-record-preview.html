@@ -279,7 +279,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   border-top: 1px solid var(--press-border);
   font: 600 .94rem/1.4 system-ui, sans-serif;
 }
-.press-record-intro + .press-passage-heading {
+.press-first-passage {
   border-top: 0;
   padding-top: 0;
   margin-top: .8rem;
@@ -291,12 +291,12 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   font: .76rem/1.5 system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.press-supporting-passage {
-  white-space: pre-wrap;
+.press-supporting-element {
   overflow-wrap: anywhere;
   font-size: .96em;
   line-height: 1.55;
 }
+.press-passage-datetime > p { margin: 0; }
 @media (max-width: 36rem) {
   [id]:target, :focus-visible { scroll-margin-top: 9rem; }
   .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
@@ -370,45 +370,209 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
 .preview-note { font: .85rem/1.5 system-ui,sans-serif; color: var(--press-muted); margin: .5rem 0; }
 </style></head><body>
 <header class="press-status">Press · Supporting record presentation fixture</header>
-<main><article class="press-edition"><h1>Supporting evidence</h1>
-<p class="preview-note">Synthetic presentation fixture; timestamp examples include exact, date-only, and absent values.</p>
-<p>Supporting record layout preview. The notebook and conversation below are synthetic examples.</p>
-<p><a href="#record-notebook">Jump to notebook</a></p>
-<p><a href="#record-exchange">Jump to exchange</a></p>
-<h2 class="press-record-heading" id="record-notebook">Supporting record — Notebook on the boundary case <a href="https://press.example.org/works/preview/v1.0.0/read#record-notebook" class="press-permalink" lang="en" aria-label="Permalink to section record-notebook">¶</a></h2>
-<div class="press-record-intro"><p class="press-record-scope">Selected notebook entries; an unrelated calculation was omitted between the two passages.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/notebook.json</code></dd><dt>SHA-256</dt><dd><code>ec91696f044bf8b0e18fabee1c7c854945949ac359804b549351f3e3d136f4cf</code></dd></dl></div>
-<h3 class="press-passage-heading" id="passage-8-notebook-conjecture">Passage 1 — Initial conjecture <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-conjecture" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-conjecture">¶</a></h3>
-<p class="press-passage-datetime"><time datetime="2026-11-04">4 Nov 2026</time></p>
-<div class="press-supporting-passage">I expected the inequality to be strict throughout the interval.
-
-The estimates looked uniform on the interior.</div>
-<h3 class="press-passage-heading" id="passage-8-notebook-endpoint">Passage 2 — Checking the endpoint <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-endpoint" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-endpoint">¶</a></h3>
-<p class="press-passage-datetime"><time datetime="2026-11-05T16:20:00-08:00">5 Nov 2026 · 16:20 UTC-08:00</time></p>
-<div class="press-supporting-passage">At x = 0 both sides vanish. I revised the statement to allow equality at the endpoint.
-
-This should be checked again after revising Lemma 2.</div>
-<h3 class="press-passage-heading" id="passage-8-notebook-undated">Passage 3 — Additional note <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-notebook-undated" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-notebook-undated">¶</a></h3>
-<div class="press-supporting-passage">A related observation survives in the margin, without a reliable date.</div>
-<h2 class="press-record-heading" id="record-exchange">Supporting record — Discussion of the endpoint <a href="https://press.example.org/works/preview/v1.0.0/read#record-exchange" class="press-permalink" lang="en" aria-label="Permalink to section record-exchange">¶</a></h2>
-<div class="press-record-intro"><p class="press-record-scope">Illustrative reviewed User and Assistant text along one selected branch. Omitted messages and attachments are not included. This synthetic sample is not evidence of a real conversation.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/exchange.json</code></dd><dt>SHA-256</dt><dd><code>93078cba73c1d75bcc41ac1e5495e20b0d8557bbf4efce53baa1f574ac09e117</code></dd></dl></div>
-<h3 class="press-passage-heading" id="passage-8-exchange-user-one">Passage 1 — User <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-user-one" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-user-one">¶</a></h3>
-<p class="press-passage-datetime"><time datetime="2026-11-05T14:37:00Z">5 Nov 2026 · 14:37 UTC</time></p>
-<div class="press-supporting-passage">Could the estimate be strict at every point of the interval?
-I am worried about the boundary case at x = 0.
-
-Here is the claim as currently drafted:
-**For all x in [0,1], the lower bound is strict.**</div>
-<h3 class="press-passage-heading" id="passage-8-exchange-assistant-one">Passage 2 — Assistant <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-assistant-one" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-assistant-one">¶</a></h3>
-<p class="press-passage-datetime"><time datetime="2026-11-05T14:37:09.125Z">5 Nov 2026 · 14:37:09.125 UTC</time></p>
-<div class="press-supporting-passage">At x = 0, both sides of the stated bound evaluate to zero. That means strict inequality fails at the endpoint.
-
-A safer formulation is:
-- strict inequality for 0 &lt; x &lt;= 1;
-- equality allowed at x = 0.
-
-These Markdown characters remain literal rather than rendered as HTML.</div>
-<h3 class="press-passage-heading" id="passage-8-exchange-user-two">Passage 3 — User <a href="https://press.example.org/works/preview/v1.0.0/read#passage-8-exchange-user-two" class="press-permalink" lang="en" aria-label="Permalink to section passage-8-exchange-user-two">¶</a></h3>
-<div class="press-supporting-passage">Agreed. I will revise the proposition and retain this exchange as a supporting record. This last contribution has no timestamp.</div>
+<main><article class="press-edition"><h1 id="supporting-evidence">Supporting evidence</h1>
+<p>Supporting record layout preview. The notebook and conversation below
+are synthetic examples.</p>
+<p><a href="#record-md-8-notebook">Jump to notebook</a></p>
+<p><a href="#record-md-8-exchange">Jump to exchange</a></p>
+<h2 class="press-record-heading" id="record-md-8-notebook">Supporting
+record — Notebook on the boundary case <a
+href="https://press.example.org/works/preview/v1.0.0/read#record-md-8-notebook"
+class="press-permalink" lang="en"
+aria-label="Permalink to section record-md-8-notebook">¶</a></h2>
+<div data-press-source="works/preview/supporting/notebook.md" data-press-sha256="5841e63fd71672f8a7364a9dac3cc8a0fd36660771866d5da4ca881198a518be" class="press-record-intro"><p class="press-record-scope">Reviewed supporting Markdown.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/notebook.md</code></dd><dt>SHA-256</dt><dd><code>5841e63fd71672f8a7364a9dac3cc8a0fd36660771866d5da4ca881198a518be</code></dd></dl></div>
+<div id="support-md-8-notebook-scope" class="press-supporting-element">
+<p>Selected notebook entries; an unrelated calculation was omitted
+between the two passages. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-scope"
+class="press-permalink" data-press-passage="support-md-8-notebook-scope"
+aria-label="Permalink to passage support-md-8-notebook-scope"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading press-first-passage"
+id="support-md-8-notebook-conjecture">Passage 1 — Initial conjecture <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-conjecture"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-notebook-conjecture">¶</a></h3>
+<div id="support-md-8-notebook-conjecture-time"
+class="press-passage-datetime">
+<p><time datetime="2026-11-04">4 Nov 2026</time> <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-conjecture-time"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-conjecture-time"
+aria-label="Permalink to passage support-md-8-notebook-conjecture-time"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-notebook-expectation"
+class="press-supporting-element">
+<p>I expected the inequality to be strict throughout the interval. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-expectation"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-expectation"
+aria-label="Permalink to passage support-md-8-notebook-expectation"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-notebook-interior"
+class="press-supporting-element">
+<p>The estimates looked uniform on the interior. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-interior"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-interior"
+aria-label="Permalink to passage support-md-8-notebook-interior"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading"
+id="support-md-8-notebook-endpoint">Passage 2 — Checking the endpoint <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-endpoint"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-notebook-endpoint">¶</a></h3>
+<div id="support-md-8-notebook-endpoint-time"
+class="press-passage-datetime">
+<p><time datetime="2026-11-05T16:20:00-08:00">5 Nov 2026 · 16:20 UTC-08:00</time>
+<a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-endpoint-time"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-endpoint-time"
+aria-label="Permalink to passage support-md-8-notebook-endpoint-time"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-notebook-revision"
+class="press-supporting-element">
+<p>At x = 0 both sides vanish. I revised the statement to allow equality
+at the endpoint. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-revision"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-revision"
+aria-label="Permalink to passage support-md-8-notebook-revision"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-notebook-check" class="press-supporting-element">
+<p>This should be checked again after revising Lemma 2. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-check"
+class="press-permalink" data-press-passage="support-md-8-notebook-check"
+aria-label="Permalink to passage support-md-8-notebook-check"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading"
+id="support-md-8-notebook-undated">Passage 3 — Additional note <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-undated"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-notebook-undated">¶</a></h3>
+<div id="support-md-8-notebook-margin" class="press-supporting-element">
+<p>A related observation survives in the margin, without a reliable
+date. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-notebook-margin"
+class="press-permalink"
+data-press-passage="support-md-8-notebook-margin"
+aria-label="Permalink to passage support-md-8-notebook-margin"
+lang="en">¶</a></p>
+</div>
+<h2 class="press-record-heading" id="record-md-8-exchange">Supporting
+record — Discussion of the endpoint <a
+href="https://press.example.org/works/preview/v1.0.0/read#record-md-8-exchange"
+class="press-permalink" lang="en"
+aria-label="Permalink to section record-md-8-exchange">¶</a></h2>
+<div data-press-source="works/preview/supporting/exchange.md" data-press-sha256="3600870b5a7ac853433f65e5f72b26fc3708e825ebfed09dade9cdf581acda41" class="press-record-intro"><p class="press-record-scope">Reviewed supporting Markdown.</p><dl class="press-record-provenance"><dt>Source</dt><dd><code>works/preview/supporting/exchange.md</code></dd><dt>SHA-256</dt><dd><code>3600870b5a7ac853433f65e5f72b26fc3708e825ebfed09dade9cdf581acda41</code></dd></dl></div>
+<div id="support-md-8-exchange-scope" class="press-supporting-element">
+<p>Illustrative reviewed User and Assistant text along one selected
+branch. Omitted messages and attachments are not included. This
+synthetic sample is not evidence of a real conversation. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-scope"
+class="press-permalink" data-press-passage="support-md-8-exchange-scope"
+aria-label="Permalink to passage support-md-8-exchange-scope"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading press-first-passage"
+id="support-md-8-exchange-user-one">Passage 1 — User <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-user-one"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-exchange-user-one">¶</a></h3>
+<div id="support-md-8-exchange-user-time"
+class="press-passage-datetime">
+<p><time datetime="2026-11-05T14:37:00Z">5 Nov 2026 · 14:37 UTC</time>
+<a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-user-time"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-user-time"
+aria-label="Permalink to passage support-md-8-exchange-user-time"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-exchange-question"
+class="press-supporting-element">
+<p>Could the estimate be strict at every point of the interval? I am
+worried about the boundary case at x = 0. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-question"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-question"
+aria-label="Permalink to passage support-md-8-exchange-question"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-exchange-draft" class="press-supporting-element">
+<p>Here is the claim as currently drafted: <strong>For all x in [0,1],
+the lower bound is strict.</strong> <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-draft"
+class="press-permalink" data-press-passage="support-md-8-exchange-draft"
+aria-label="Permalink to passage support-md-8-exchange-draft"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading"
+id="support-md-8-exchange-assistant-one">Passage 2 — Assistant <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-assistant-one"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-exchange-assistant-one">¶</a></h3>
+<div id="support-md-8-exchange-assistant-time"
+class="press-passage-datetime">
+<p><time datetime="2026-11-05T14:37:09.125Z">5 Nov 2026 · 14:37:09.125 UTC</time>
+<a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-assistant-time"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-assistant-time"
+aria-label="Permalink to passage support-md-8-exchange-assistant-time"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-exchange-answer" class="press-supporting-element">
+<p>At x = 0, both sides of the stated bound evaluate to zero. That means
+strict inequality fails at the endpoint. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-answer"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-answer"
+aria-label="Permalink to passage support-md-8-exchange-answer"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-exchange-safer" class="press-supporting-element">
+<p>A safer formulation is: <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-safer"
+class="press-permalink" data-press-passage="support-md-8-exchange-safer"
+aria-label="Permalink to passage support-md-8-exchange-safer"
+lang="en">¶</a></p>
+</div>
+<div id="support-md-8-exchange-bounds" class="press-supporting-element">
+<ul>
+<li>strict inequality for 0 &lt; x &lt;= 1;</li>
+<li>equality allowed at x = 0.</li>
+</ul>
+<p><a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-bounds"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-bounds"
+aria-label="Permalink to passage support-md-8-exchange-bounds"
+lang="en">¶</a></p>
+</div>
+<h3 class="press-passage-heading"
+id="support-md-8-exchange-user-two">Passage 3 — User <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-user-two"
+class="press-permalink" lang="en"
+aria-label="Permalink to section support-md-8-exchange-user-two">¶</a></h3>
+<div id="support-md-8-exchange-agreement"
+class="press-supporting-element">
+<p>Agreed. I will revise the proposition and retain this exchange as a
+supporting record. This last contribution has no timestamp. <a
+href="https://press.example.org/works/preview/v1.0.0/read#support-md-8-exchange-agreement"
+class="press-permalink"
+data-press-passage="support-md-8-exchange-agreement"
+aria-label="Permalink to passage support-md-8-exchange-agreement"
+lang="en">¶</a></p>
+</div>
 </article></main>
 <footer>Press · Presentation test fixture.</footer>
 </body></html>

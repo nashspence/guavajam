@@ -236,9 +236,16 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     # Give wide tables and display mathematics an actual scroll container.
     # Pandoc Div blocks preserve table semantics, and the explicit tab stop lets
     # keyboard users pan overflow without relying on browser-specific defaults.
-    wrapped = []
-    for block in new:
+    def wrap(block):
         kind = block.get("t")
+        if kind == 'Div':
+            block['c'][1] = [wrap(child) for child in block['c'][1]]
+        elif kind == 'BlockQuote':
+            block['c'] = [wrap(child) for child in block['c']]
+        elif kind == 'BulletList':
+            block['c'] = [[wrap(child) for child in item] for item in block['c']]
+        elif kind == 'OrderedList':
+            block['c'][1] = [[wrap(child) for child in item] for item in block['c'][1]]
         display_math = (kind in {"Para", "Plain"} and any(
             node.get("t") == "Math" and isinstance(node.get("c"), list)
             and node["c"][:1] == [{"t": "DisplayMath"}]
@@ -247,12 +254,11 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
         if kind == "Table" or display_math:
             label = "Table" if kind == "Table" else "Displayed mathematics"
             cls = "press-table-scroll" if kind == "Table" else "press-math-scroll"
-            wrapped.append({"t": "Div", "c": [
+            return {"t": "Div", "c": [
                 ["", ["press-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
-            ]})
-        else:
-            wrapped.append(block)
-    ast["blocks"] = wrapped
+            ]}
+        return block
+    ast["blocks"] = [wrap(block) for block in new]
     return ast
 
 

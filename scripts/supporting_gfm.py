@@ -5,12 +5,107 @@ import hashlib
 import html
 import re
 from pathlib import Path
+from datetime import date, datetime
 
 from asset_policy import AssetError
 from identifier_schema import SLUG
 from render_profile import plain_text, walk
 
+MAX_RECORD_BYTES = 8 * 1024 * 1024
+
+TIMESTAMP = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    r"(?:T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?"
+    r"(?:Z|[+-][0-9]{2}:[0-5][0-9]))?\Z"
+)
+
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+def timestamp_label(value: str) -> str:
+    """Display source precision, date, and explicit zone without conversion."""
+    day = date.fromisoformat(value[:10])
+    readable = f"{day.day} {MONTHS[day.month - 1]} {day.year}"
+    if len(value) == 10:
+        return readable
+    zone_suffix = "Z" if value.endswith("Z") else value[-6:]
+    time = value[11:-len(zone_suffix)]
+    # Only omit an explicitly zero seconds field for legibility; the machine-
+    # readable <time datetime> always retains its exact source value.
+    if time.endswith(":00"):
+        time = time[:-3]
+    zone = "UTC" if zone_suffix == "Z" else "UTC" + zone_suffix
+    return readable + " · " + time + " " + zone
+
+def valid_timestamp(value) -> bool:
+    if not isinstance(value, str) or not TIMESTAMP.fullmatch(value):
+        return False
+    try:
+        if len(value) == 10:
+            date.fromisoformat(value)
+        else:
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            # Real-world offsets run from −12 to +14; RFC 3339's −00:00
+            # denotes an unknown offset, which must not be presented as known.
+            seconds = instant.utcoffset().total_seconds()
+            if value.endswith("-00:00") or seconds < -12 * 3600 or seconds > 14 * 3600:
+                return False
+        return True
+    except ValueError:
+        return False
+
+def record_path(relative: Path) -> bool:
+    parts = relative.parts
+    return (len(parts) == 4 and parts[0] == "works" and bool(SLUG.fullmatch(parts[1]))
+            and parts[2] == "supporting" and relative.suffix == ".md" and bool(SLUG.fullmatch(relative.stem)))
+
+def _heading(level: int, anchor: str, title: str, cls: str) -> list[dict]:
+    return [
+        {"t": "RawBlock", "c": ["html", f'<a id="{anchor}"></a>']},
+        {"t": "Header", "c": [level, ["", [cls], []], [{"t": "Str", "c": title}]]},
+    ]
+
+def _provenance(scope: str, path: str, sha256: str) -> dict:
+    # A definition list makes the reviewed source and full digest easy to find,
+    # select, and print without making a raw SHA dominate the reading experience.
+    return {"t": "RawBlock", "c": ["html", (
+        '<div class="press-record-intro">'
+        '<p class="press-record-scope">' + html.escape(scope) + '</p>'
+        '<dl class="press-record-provenance">'
+        '<dt>Source</dt><dd><code>' + html.escape(path) + '</code></dd>'
+        '<dt>SHA-256</dt><dd><code>' + sha256 + '</code></dd>'
+        '</dl></div>'
+    )]}
+
+
 TOOLTIP = re.compile(r"""<span title=(?:"([^"<>]*)"|'([^'<>]*)')>\Z""")
+TIME = re.compile(r"""<time datetime=(?:"([^"<>]*)"|'([^'<>]*)')>\Z""")
+
+
+def _semantic_times(value):
+    if isinstance(value, dict):
+        return {key: _semantic_times(item) for key, item in value.items()}
+    if not isinstance(value, list):
+        return value
+    result, index = [], 0
+    while index < len(value):
+        item = value[index]
+        raw = item.get('c') if isinstance(item, dict) and item.get('t') == 'RawInline' else None
+        match = TIME.fullmatch(raw[1]) if raw and raw[0] == 'html' else None
+        if not match:
+            result.append(_semantic_times(item)); index += 1
+            continue
+        instant = html.unescape(match[1] if match[1] is not None else match[2])
+        end = index + 1
+        while end < len(value) and value[end] != {'t': 'RawInline', 'c': ['html', '</time>']}:
+            end += 1
+        contents = value[index + 1:end]
+        if (not valid_timestamp(instant) or end == len(value) or
+                any(node.get('t') not in {'Str', 'Space'} for node in contents) or
+                plain_text(contents) != timestamp_label(instant)):
+            raise AssetError('semantic time requires an exact valid datetime and canonical plain-text label')
+        result.append({'t': 'Span', 'c': [['', [], [['data-press-datetime', instant]]], contents]})
+        index = end + 1
+    return result
 
 
 def _tooltip_spans(value):
@@ -59,7 +154,6 @@ def anchor_block(block):
 
 def load_gfm_record(path: Path, *, root=None):
     # Lazy imports keep the shared source validator and appendix builder acyclic.
-    from supporting_records import MAX_RECORD_BYTES
     from validate_sources import read_text
     from asset_policy import load_policy
     policy = load_policy(root) if root is not None else None
@@ -79,7 +173,7 @@ def load_gfm_record(path: Path, *, root=None):
 def parse_gfm_record(source, *, policy=None):
     from validate_sources import parse_pandoc, valid_edition_link
     ast = parse_pandoc(source)
-    ast['blocks'] = _tooltip_spans(ast['blocks'])
+    ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
     if ast.get('meta'):
         raise AssetError('supporting GFM does not accept YAML metadata')
     blocks, anchors, pending = [], {}, None
@@ -92,15 +186,16 @@ def parse_gfm_record(source, *, policy=None):
             pending = identifier
             continue
         if any(n.get('t') in {'RawBlock', 'RawInline', 'Note'} for n in walk(block)):
-            raise AssetError('supporting GFM permits only standalone anchors and title-only tooltip spans as HTML; footnotes are unsupported')
+            raise AssetError('supporting GFM permits only standalone anchors, exact semantic times and title-only spans as HTML; footnotes are unsupported')
         nested = [n for n in walk(block) if n.get('t') == 'Header']
         if nested:
             if block.get('t') != 'Header' or len(nested) != 1 or not pending or block['c'][0] > 5:
                 raise AssetError('supporting headings require top-level explicit anchors and levels H1–H5')
             headers.append(block)
-        if pending:
-            anchors[pending] = len(blocks)
-            pending = None
+        if not pending:
+            raise AssetError('every top-level supporting content block requires its own explicit anchor')
+        anchors[pending] = len(blocks)
+        pending = None
         blocks.append(block)
     if pending or not blocks or blocks[0].get('t') != 'Header' or blocks[0]['c'][0] != 1:
         raise AssetError('supporting GFM requires an explicitly anchored H1 title and no dangling anchor')
@@ -129,7 +224,6 @@ def parse_gfm_record(source, *, policy=None):
 
 
 def append_gfm(root, relative, slug):
-    from supporting_records import _heading, _provenance
     ast, positions, digest, size = load_gfm_record(root / relative, root=root)
     record_id = f'record-md-{len(slug)}-{slug}'
     anchors = {key: record_id if index == 0 else f'support-md-{len(slug)}-{slug}-{key}'
@@ -142,22 +236,72 @@ def append_gfm(root, relative, slug):
         html.escape(relative.as_posix()) + '" data-press-sha256="' + digest + '" ', 1)
     result.append(provenance)
     for node in walk(ast['blocks']):
+        if node.get('t') == 'Span' and 'data-press-datetime' in dict(node['c'][0][2]):
+            instant = dict(node['c'][0][2])['data-press-datetime']
+            node.clear()
+            node.update(t='RawInline', c=['html', '<time datetime="'+instant+'">'+html.escape(timestamp_label(instant))+'</time>'])
         if node.get('t') == 'Link' and node['c'][2][0].startswith('#'):
             node['c'][2][0] = '#' + anchors[node['c'][2][0][1:]]
+    first_passage = True
     for index, block in enumerate(ast['blocks'][1:], 1):
         anchor = by_index.get(index)
         if block['t'] == 'Header':
+            if block['c'][0] == 2:
+                block['c'][1][1].append('press-passage-heading')
+                if first_passage:
+                    block['c'][1][1].append('press-first-passage')
+                    first_passage = False
             block['c'][0] += 1
             block['c'][1][0] = ''
             result.extend([{'t':'RawBlock','c':['html',f'<a id="{anchor}"></a>']}, block])
         elif anchor:
-            # Generated wrappers, never source HTML; the ordinary reader remains static.
-            result.extend([{'t':'RawBlock','c':['html',f'<div id="{anchor}">']}, block,
-                {'t':'Para','c':[{'t':'Link','c':[['', ['press-permalink'],
+            metadata = (block['t'] == 'Para' and len(block['c']) == 1 and block['c'][0]['t'] == 'Emph'
+                        and (any(n.get('t') == 'RawInline' and n['c'][1].startswith('<time ') for n in walk(block))
+                             or plain_text(block).startswith(('Model: ', 'Thinking effort: '))))
+            if metadata:
+                block['c'] = block['c'][0]['c']
+            cls = 'press-passage-datetime' if metadata else 'press-supporting-element'
+            permalink = {'t':'Link','c':[['', ['press-permalink'],
                     [['data-press-passage',anchor],['aria-label','Permalink to passage '+anchor],['lang','en']]],
-                    [{'t':'Str','c':'¶'}],['press-passage:'+anchor,'']]}]},
-                {'t':'RawBlock','c':['html','</div>']}])
+                    [{'t':'Str','c':'¶'}],['press-passage:'+anchor,'']]}
+            children = [block]
+            if block['t'] in {'Para', 'Plain'}:
+                block['c'].extend([{'t':'Space'}, permalink])
+            else:
+                children.append({'t':'Para','c':[permalink]})
+            result.append({'t':'Div','c':[[anchor,[cls],[]],children]})
         else:
             result.append(block)
     inventory = {'source_path':relative.as_posix(), 'sha256':digest, 'byte_count':size, 'anchors':anchors}
     return result, anchors, record_id, inventory
+
+
+def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> list[dict]:
+    selector = re.compile(rf'supporting/({SLUG.pattern})\.md(?:#({SLUG.pattern}))?\Z')
+    selected = {}
+    for node in walk(ast['blocks']):
+        if node.get('t') != 'Link' or not node['c'][2][0].startswith('supporting/'):
+            continue
+        match = selector.fullmatch(node['c'][2][0])
+        if not match:
+            raise AssetError('supporting citations require reviewed GFM .md sources: '+node['c'][2][0])
+        slug, fragment = match.groups()
+        selected.setdefault(slug, []).append((node, fragment))
+    if len(selected) > 128:
+        raise AssetError('too many supporting documents')
+    inventory, total = [], 0
+    for slug, citations in selected.items():
+        relative = manuscript.parent / 'supporting' / (slug+'.md')
+        if relative not in tracked:
+            raise AssetError('supporting source is missing or untracked: '+str(relative))
+        total += (root/relative).stat().st_size
+        if total > 100*1024*1024:
+            raise AssetError('supporting source inventory exceeds 100 MiB')
+        blocks, anchors, record_id, entry = append_gfm(root, relative, slug)
+        for node, fragment in citations:
+            if fragment and fragment not in anchors:
+                raise AssetError('unknown explicit supporting anchor: '+node['c'][2][0])
+            node['c'][2][0] = '#'+(anchors[fragment] if fragment else record_id)
+        ast['blocks'].extend(blocks)
+        inventory.append(entry)
+    return inventory

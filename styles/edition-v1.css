@@ -272,7 +272,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   border-top: 1px solid var(--press-border);
   font: 600 .94rem/1.4 system-ui, sans-serif;
 }
-.press-record-intro + .press-passage-heading {
+.press-first-passage {
   border-top: 0;
   padding-top: 0;
   margin-top: .8rem;
@@ -284,12 +284,12 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   font: .76rem/1.5 system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
 }
-.press-supporting-passage {
-  white-space: pre-wrap;
+.press-supporting-element {
   overflow-wrap: anywhere;
   font-size: .96em;
   line-height: 1.55;
 }
+.press-passage-datetime > p { margin: 0; }
 @media (max-width: 36rem) {
   [id]:target, :focus-visible { scroll-margin-top: 9rem; }
   .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }

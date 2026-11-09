@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract one branch of a ChatGPT account export as a reviewable supporting record."""
+"""Convert one selected ChatGPT export branch to private GFM for review and redaction."""
 import argparse
 import hashlib
 import json
@@ -12,7 +12,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from supporting_records import ATTRIBUTION_TOKEN, MAX_RECORD_BYTES, validate_record
+from chat_gfm import ATTRIBUTION_TOKEN, review_gfm
+from supporting_gfm import MAX_RECORD_BYTES
 
 
 def conversations(source):
@@ -127,7 +128,8 @@ def transcript(conversation, tip):
         raise ValueError("no eligible messages on the selected branch")
     return {
         "title": title,
-        "scope": "User and assistant text along one selected branch of a ChatGPT export. "
+        "scope": "Selected user and assistant text from one branch of a ChatGPT capture/export; "
+                 "this document does not establish conversation completeness. "
                  "Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. "
                  "Unsupported content in included messages is marked inline.",
         "passages": passages,
@@ -136,15 +138,14 @@ def transcript(conversation, tip):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", type=Path, help="account export ZIP or conversations JSON file")
+    parser.add_argument("source", type=Path, help="private native capture/export ZIP or conversations JSON file")
     select = parser.add_mutually_exclusive_group(required=True)
     select.add_argument("--list", action="store_true", help="print IDs and titles locally as JSON lines")
     select.add_argument("--conversation", help="exact conversation ID")
     parser.add_argument("--tip", help="mapping node to use in place of current_node")
-    parser.add_argument("--output", type=Path, help="new review JSON file outside the Press checkout")
-    parser.add_argument('--gfm', action='store_true', help='write explicitly anchored GFM and report review diagnostics')
+    parser.add_argument("--output", type=Path, help="new review GFM .md file outside the Press checkout")
     args = parser.parse_args()
-    if args.list and (args.tip or args.output or args.gfm) or not args.list and not args.output:
+    if args.list and (args.tip or args.output) or not args.list and not args.output:
         parser.error("use --list alone, or --conversation with --output and an optional --tip")
     try:
         selected = None
@@ -161,23 +162,20 @@ def main():
         if selected is None:
             raise ValueError("conversation ID not found")
         record = transcript(selected, args.tip if args.tip is not None else selected.get("current_node"))
-        validate_record(record)
-        data = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-        if args.gfm:
-            from chat_gfm import review_gfm
-            from chat_references import reference_index
-            references = reference_index(msg for _, msg in branch_messages(
-                selected, args.tip if args.tip is not None else selected.get("current_node")))
-            data, diagnostics = review_gfm(record, identity=args.conversation, references=references)
+        from chat_references import reference_index
+        references = reference_index(msg for _, msg in branch_messages(
+            selected, args.tip if args.tip is not None else selected.get("current_node")))
+        data, diagnostics = review_gfm(record, identity=args.conversation, references=references)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name
         if output.is_relative_to(Path(__file__).resolve().parents[1]):
             raise ValueError("private review output must be outside the Press checkout")
+        if output.suffix != ".md":
+            raise ValueError("review output must be a GFM .md file")
         with open(output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
             stream.write(data)
-        if args.gfm:
-            print('Review required; GFM diagnostics: '+json.dumps(diagnostics,sort_keys=True),file=sys.stderr)
+        print('Review required; GFM diagnostics: '+json.dumps(diagnostics,sort_keys=True),file=sys.stderr)
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         parser.exit(1, f"{parser.prog}: {exc}\n")
 

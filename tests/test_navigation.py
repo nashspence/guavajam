@@ -141,7 +141,7 @@ class NavigationTests(unittest.TestCase):
 
 
 class NavigationBuildTests(unittest.TestCase):
-    def test_real_editions_select_sections_and_group_mixed_evidence(self):
+    def test_real_editions_select_sections_and_group_gfm_evidence(self):
         for count, records, expected in ((1, 0, False), (2, 0, False), (3, 0, True),
                                          (5, 0, True), (24, 0, True), (2, 1, True),
                                          (1, 2, False), (1, 3, True)):
@@ -161,7 +161,7 @@ class NavigationBuildTests(unittest.TestCase):
                     directory.mkdir()
                     for n in range(records):
                         name = f'note-{n}'
-                        suffix = '.json' if n == 0 else '.md'
+                        suffix = '.md'
                         original = ROOT / ('templates/work/supporting/note' + suffix)
                         (directory / (name + suffix)).write_bytes(original.read_bytes())
                         body += f'See the [record {n}](supporting/{name}{suffix}).\n\n'
@@ -177,7 +177,7 @@ class NavigationBuildTests(unittest.TestCase):
                     if toc:
                         targets = [f'#sec-{n}' for n in range(1, count + 1)]
                         if records:
-                            targets.append('#record-note-0')
+                            targets.append('#record-md-6-note-0')
                         self.assertEqual(targets, re.findall(r'href="(#[^"]+)"', toc.group()))
                         self.assertEqual(int(records > 0), toc.group().count('Supporting records'))
                         self.assertNotIn('<math', toc.group())

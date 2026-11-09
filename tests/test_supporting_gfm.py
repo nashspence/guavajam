@@ -28,8 +28,8 @@ NOTE = (ROOT/'templates/work/supporting/note.md').read_text()
 
 class GFMSourceTests(unittest.TestCase):
     def test_tooltips_are_balanced_title_only_literal_data(self):
-        source = NOTE + ('\n<span title=\'&lt;text color="secondary"&gt;\'>Readable **text**</span>\n\n'
-                         '<span title="&lt;icon name=&quot;alert-triangle&quot;/&gt;">□</span>\n')
+        source = NOTE + ('\n<a name="tooltip-text"></a>\n\n<span title=\'&lt;text color="secondary"&gt;\'>Readable **text**</span>\n\n'
+                         '<a name="tooltip-icon"></a>\n\n<span title="&lt;icon name=&quot;alert-triangle&quot;/&gt;">□</span>\n')
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'note.md'; path.write_text(source)
             ast, *_ = load_gfm_record(path)
@@ -54,7 +54,7 @@ class GFMSourceTests(unittest.TestCase):
             path=Path(tmp)/'note.md'
             path.write_text(NOTE)
             _,anchors,_,_=load_gfm_record(path)
-            self.assertEqual({'document-note','claim','calculation','code'},set(anchors))
+            self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(anchors))
             for bad in [
                 NOTE+'\n<script>alert(1)</script>\n', NOTE.replace('#claim','#missing'),
                 NOTE.replace('#claim','../manuscript.md'), NOTE.replace('#claim','javascript:alert(1)'),
@@ -78,7 +78,8 @@ class GFMImportTests(ExtractTests):
         msg.update(create_time=1577836800.125)
         msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
         data, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertIn(b'## Assistant\n\n*2020-01-01T00:00:00.125Z', data)
+        self.assertIn(b'## Assistant\n', data)
+        self.assertIn(b'<time datetime="2020-01-01T00:00:00.125Z">1 Jan 2020', data)
         self.assertIn(' · Model: gpt-6-thinking · Thinking effort: max*'.encode(), data)
         self.assertIn(b'## User\n\n', data)
         self.assertNotIn(b'## Assistant (', data)
@@ -189,7 +190,7 @@ class GFMPublicationTests(EditionTests):
         manifest=self.build()
         entry,=manifest['supporting_documents']
         self.assertEqual(digest,entry['sha256'])
-        self.assertEqual({'document-note','claim','calculation','code'},set(entry['anchors']))
+        self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(entry['anchors']))
         page=(self.output/manifest['canonical_artifact']).read_text()
         parser=EditionHTML(manifest['presentation_profile']);parser.feed(page)
         self.assertEqual(1,' '.join(page.split()).count('Supporting record — Reviewed supporting note'))

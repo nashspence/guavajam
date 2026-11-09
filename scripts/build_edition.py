@@ -23,7 +23,8 @@ from asset_policy import (AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, MIME, fetch_a
                           base64_size, check_html_size, load_policy, verify_bytes)
 from editorial_notices import render_initial_body
 from identifier_schema import TAG, edition_record_url
-from supporting_records import append_supporting_records
+from supporting_gfm import append_supporting_records
+from element_citations import bind_elements
 from validate_sources import parse_document, plain_text, validate_front_matter, validate_repository, walk
 from bibliography import ordered_authors
 from edition_package import stage_supplements, checksums, write_bundle
@@ -217,7 +218,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
-                     "scripts/render_profile.py", "scripts/supporting_records.py", "scripts/supporting_gfm.py", "scripts/table_captions.py",
+                     "scripts/render_profile.py", "scripts/supporting_gfm.py", "scripts/element_citations.py", "scripts/source_custody.py", "scripts/table_captions.py",
                      "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py", "scripts/edition_package.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():
@@ -232,6 +233,8 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
             raise AssetError("edition HTML rendering failed: " + result.stderr.strip())
         raw_html = prepare_code_focus(result.stdout).encode("utf-8")
         check_html_size(len(raw_html))
+        if supporting:
+            bind_elements(raw_html, supporting)
         filename = slug + "-" + version + ".html"
         manifest = {
             "schema": "press.edition.v1", "source_commit": commit, "tag": tag, "record_url": record_url,

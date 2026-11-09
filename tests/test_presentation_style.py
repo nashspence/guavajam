@@ -110,7 +110,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('class="press-skip" href="#press-main"', preview)
         self.assertIn('class="press-contents-link" href="#press-contents"', preview)
 
-    def test_supporting_preview_uses_exact_css_and_literal_passages(self):
+    def test_supporting_preview_uses_exact_css_and_semantic_gfm_passages(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         preview = (ROOT / "tests/fixtures/presentation/supporting-record-preview.html").read_text()
         embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
@@ -120,7 +120,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('datetime="2026-11-05T14:37:09.125Z"', preview)
         self.assertIn('datetime="2026-11-04"', preview)
         self.assertNotIn('datetime=""', preview)
-        self.assertIn('**For all x in [0,1]', preview)
+        self.assertIn('<strong>For all x in [0,1]', preview)
         self.assertIn('role="doc-', (ROOT / 'tests/fixtures/presentation/reader-preview.html').read_text())
 
     def test_mathematical_sections_and_tables_use_scholarly_rhythm(self):
@@ -167,6 +167,19 @@ class PresentationStyleTests(unittest.TestCase):
                 self.assertEqual([["role", "group"], ["aria-label", "Table" if cls == "press-table-scroll" else "Displayed mathematics"], ["tabindex", "0"]], attributes[2])
         self.assertIs(inline, ast["blocks"][2])
 
+    def test_citable_composites_retain_nested_math_and_table_keyboard_scrollers(self):
+        table={'t':'Table','c':['example']}
+        equation={'t':'Para','c':[{'t':'Math','c':[{'t':'DisplayMath'},'x=y']}]}
+        evidence={'t':'Div','c':[['source-claim',['press-supporting-element'],[]],[table,
+            {'t':'BlockQuote','c':[equation]}]]}
+        ast={'blocks':[evidence]}
+        prepare_presentation_ast(ast)
+        self.assertEqual('source-claim',ast['blocks'][0]['c'][0][0])
+        children=ast['blocks'][0]['c'][1]
+        self.assertEqual(['press-scroll','press-table-scroll'],children[0]['c'][0][1])
+        self.assertEqual(['press-scroll','press-math-scroll'],children[1]['c'][0]['c'][0][1])
+        self.assertEqual([table],children[0]['c'][1])
+
     def test_native_code_focus_preserves_markup_and_escaped_source(self):
         from asset_policy import AssetError
         source = '<!-- literal <pre> -->\n<pre><code>&lt;pre&gt;literal</code></pre><div class="sourceCode"><pre class="python"><code>x</code></pre></div>'
@@ -180,11 +193,10 @@ class PresentationStyleTests(unittest.TestCase):
             prepare_code_focus('<pre tabindex="-1"><code>x</code></pre>')
 
     def test_supporting_passage_uses_versioned_styles(self):
-        self.assertIn('class="press-supporting-passage"',
-                      (ROOT / "scripts/supporting_records.py").read_text())
+        self.assertIn("'press-supporting-element'",
+                      (ROOT / "scripts/supporting_gfm.py").read_text())
         stylesheet = (ROOT / "styles/edition-v1.css").read_text()
-        self.assertIn(".press-supporting-passage {", stylesheet)
-        self.assertIn("white-space: pre-wrap;", stylesheet)
+        self.assertIn(".press-supporting-element {", stylesheet)
         self.assertIn(".press-record-provenance {", stylesheet)
         self.assertIn(".press-passage-heading {", stylesheet)
         self.assertIn(".press-passage-datetime {", stylesheet)

@@ -4,10 +4,51 @@ import json
 import re
 import subprocess
 from pathlib import Path
+import html
+from supporting_gfm import MAX_RECORD_BYTES, valid_timestamp, timestamp_label
 
 from asset_policy import AssetError
+from identifier_schema import SLUG
 from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
+
+ATTRIBUTION_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z")
+
+def _text(value, *, single_line=False):
+    if not isinstance(value, str) or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]", value):
+        return False
+    return not single_line or (bool(value.strip()) and value.splitlines() == [value])
+
+def _validate_transcript(record: dict) -> None:
+    if not isinstance(record, dict) or record.keys() != {"title", "scope", "passages"}:
+        raise AssetError("supporting record must contain exactly title, scope and passages")
+    for field in ("title", "scope"):
+        if not _text(record[field], single_line=True):
+            raise AssetError(f"supporting record {field} must be nonempty single-line text")
+    if not isinstance(record["passages"], list) or not record["passages"]:
+        raise AssetError("supporting record requires a nonempty array of passages")
+    seen = set()
+    for i, passage in enumerate(record["passages"], start=1):
+        if (not isinstance(passage, dict) or
+                not {"id", "label", "text"} <= passage.keys() or
+                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort"}):
+            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model or thinking_effort only")
+        for field in ("model", "thinking_effort"):
+            if field in passage and (not isinstance(passage[field], str) or
+                                     not ATTRIBUTION_TOKEN.fullmatch(passage[field])):
+                raise AssetError(f"passage {i} requires a bounded single-token {field}")
+        if "timestamp" in passage and not valid_timestamp(passage["timestamp"]):
+            raise AssetError(f"passage {i} requires a valid date or offset-qualified timestamp")
+        identifier = passage["id"]
+        if not isinstance(identifier, str) or not SLUG.fullmatch(identifier) or identifier in seen:
+            raise AssetError(f"passage {i} requires a unique slug id")
+        seen.add(identifier)
+        if not _text(passage["label"], single_line=True) or not _text(passage["text"]):
+            raise AssetError(f"passage {i} requires a single-line label and literal text")
+
+def attribution_labels(passage: dict) -> list[str]:
+    return [label + passage[field] for field, label in
+            (("model", "Model: "), ("thinking_effort", "Thinking effort: ")) if field in passage]
 
 PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
 DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
@@ -140,8 +181,7 @@ def _component_blocks(text, report):
 
 
 def review_gfm(record, *, identity='document', references=None):
-    from supporting_records import MAX_RECORD_BYTES, attribution_labels, validate_record
-    validate_record(record)
+    _validate_transcript(record)
     if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
         raise AssetError('selected message text exceeds 8 MiB')
     diagnostics = {'selection-omissions': 1, 'markdown-normalized-to-gfm': 1}
@@ -252,7 +292,7 @@ def review_gfm(record, *, identity='document', references=None):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
     doc_id = 'doc-'+hashlib.sha256(identity.encode()).hexdigest()
-    blocks = [anchor(doc_id),header(1,title),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
+    blocks = [anchor(doc_id),header(1,title),anchor('scope-'+doc_id),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
     api = None
     for passage in record['passages']:
         text = passage['text']
@@ -265,9 +305,17 @@ def review_gfm(record, *, identity='document', references=None):
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
         blocks.extend([anchor(passage['id']),header(2,passage['label'])])
-        details = ([passage['timestamp']] if 'timestamp' in passage else []) + attribution_labels(passage)
+        details = []
+        if 'timestamp' in passage:
+            value = passage['timestamp']
+            details.append({'t': 'RawInline', 'c': ['html', '<time datetime=\"'+value+'\">']})
+            details.append({'t': 'Str', 'c': timestamp_label(value)})
+            details.append({'t': 'RawInline', 'c': ['html', '</time>']})
+        labels = attribution_labels(passage)
+        if labels:
+            details.append({'t': 'Str', 'c': (' · ' if details else '')+' · '.join(labels)})
         if details:
-            blocks.append({'t': 'Para', 'c': [{'t': 'Emph', 'c': [{'t': 'Str', 'c': ' · '.join(details)}]}]})
+            blocks.extend([anchor('meta-'+passage['id']), {'t': 'Para', 'c': [{'t': 'Emph', 'c': details}]}])
         occurrences = {}
         for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
@@ -301,7 +349,7 @@ def review_gfm(record, *, identity='document', references=None):
     if links(blocks) != links(parsed['blocks']):
         raise AssetError('GFM conversion would change a link label or destination')
     def tooltips(nodes):
-        return [node['c'][0] for node in walk(nodes) if node.get('t') == 'Span' and node['c'][0][2]]
+        return [node['c'][0] for node in walk(nodes) if node.get('t') == 'Span' and 'title' in dict(node['c'][0][2])]
     if tooltips(blocks) != tooltips(parsed['blocks']):
         raise AssetError('GFM conversion would change retained presentation markup')
     return data, diagnostics

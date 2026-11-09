@@ -51,6 +51,7 @@ class EditionHTML(html.parser.HTMLParser):
         self.passage_permalinks = []
         self.external_links = []
         self.supporting_sources = []
+        self.supporting_headings = []
         self.current_heading = None
         self.in_footer = False
         self.in_rights = False
@@ -110,6 +111,8 @@ class EditionHTML(html.parser.HTMLParser):
             self.h1 += 1
         if tag in {"h2", "h3", "h4", "h5", "h6"}:
             heading_id = attributes.get("id", "")
+            if 'press-record-heading' in attributes.get('class', '').split():
+                self.supporting_headings.append(heading_id)
             if not re.fullmatch(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*", heading_id):
                 self.errors.append("section heading requires an explicit stable ID")
             self.heading_ids.append(heading_id)
@@ -300,7 +303,7 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
         raise AssetError('invalid supporting document provenance')
     expected_sources, passage_ids, all_anchors = [], [], set()
     for entry in supporting:
-        from supporting_records import MAX_RECORD_BYTES, record_path
+        from supporting_gfm import MAX_RECORD_BYTES, record_path
         from identifier_schema import SLUG
         path = Path(entry['source_path'])
         if (not record_path(path) or path.suffix != '.md' or path.parts[1] != tag_match[1]
@@ -308,6 +311,8 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
                 or type(entry.get('byte_count')) is not int or not 0 < entry['byte_count'] <= MAX_RECORD_BYTES
                 or not isinstance(entry.get('anchors'), dict) or not entry['anchors']):
             raise AssetError('invalid supporting document identity')
+        if not isinstance(entry.get('elements'), dict) or set(entry['elements']) != set(entry['anchors']):
+            raise AssetError('supporting element inventory must cover every source anchor')
         expected_sources.append((str(path), entry['sha256']))
         for key, anchor in entry['anchors'].items():
             expected = f'support-md-{len(path.stem)}-{path.stem}-{key}'
@@ -318,8 +323,15 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
             if anchor not in parser.heading_ids:
                 passage_ids.append(anchor)
     if (parser.supporting_sources != expected_sources or len(set(expected_sources)) != len(expected_sources)
+            or parser.supporting_headings != [f'record-md-{len(Path(e["source_path"]).stem)}-{Path(e["source_path"]).stem}' for e in supporting]
             or sorted(parser.passage_permalinks) != sorted((a, manifest['record_url']+'/read#'+a) for a in passage_ids)):
         raise AssetError('supporting sources or passage permalinks differ from provenance')
+    if supporting:
+        from element_citations import element_fingerprints
+        facts = element_fingerprints(raw, all_anchors)
+        for entry in supporting:
+            if entry['elements'] != {key: facts[anchor] for key, anchor in entry['anchors'].items()}:
+                raise AssetError('supporting element content or citation target differs from provenance')
     if (parser.errors or parser.h1 != 1 or not parser.csp or not parser.viewport
             or not parser.html_lang or not parser.document_profile or not parser.profile_meta
             or parser.main_count != 1 or parser.article_count != 1 or parser.style_count != 1):
