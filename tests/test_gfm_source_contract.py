@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from asset_policy import AssetError, verify_bytes
-from supporting_gfm import load_gfm_record
+from supporting_gfm import load_gfm_record, timestamp_label, valid_timestamp
 from render_profile import plain_text, walk
 from validate_sources import git_sources, validate_repository
 from verify_edition import verify_edition
@@ -63,6 +63,19 @@ class SourceContractTests(unittest.TestCase):
                        '<time datetime="2026-11-05"><strong>5 Nov 2026</strong></time>'):
             with self.subTest(markup=markup), self.assertRaises(AssetError):
                 self.parse(document('<a name="metadata"></a>\n\n' + markup))
+
+    def test_timestamp_precision_and_explicit_timezones_remain_authoritative(self):
+        valid = {'2024-02-29':'29 Feb 2024',
+            '2026-11-05T14:37:03.123456789+05:30':'5 Nov 2026 · 14:37:03.123456789 UTC+05:30',
+            '2026-11-05T00:00:00+14:00':'5 Nov 2026 · 00:00 UTC+14:00',
+            '2026-11-05T00:00:00-12:00':'5 Nov 2026 · 00:00 UTC-12:00'}
+        for instant,label in valid.items():
+            self.assertTrue(valid_timestamp(instant));self.assertEqual(label,timestamp_label(instant))
+        for bad in (None,'',True,1793941631,'2026-02-29','2026-11-05T14:37:00',
+                    '2026-11-05T14:37:00-00:00','2026-11-05T14:37:00+14:01',
+                    '2026-11-05T14:37:00-12:01','2026-11-05T14:37:00+05:99',
+                    '2026-11-05T14:37:00.1234567890Z','2026-11-05T25:37:00Z'):
+            self.assertFalse(valid_timestamp(bad),str(bad))
 
 
 class CustodyTests(EditionTests):

@@ -110,7 +110,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('class="press-skip" href="#press-main"', preview)
         self.assertIn('class="press-contents-link" href="#press-contents"', preview)
 
-    def test_supporting_preview_uses_exact_css_and_literal_passages(self):
+    def test_supporting_preview_uses_exact_css_and_semantic_gfm_passages(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         preview = (ROOT / "tests/fixtures/presentation/supporting-record-preview.html").read_text()
         embedded = preview.split('<style id="press-edition-css">\n', 1)[1].split("</style>", 1)[0]
@@ -120,7 +120,7 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('datetime="2026-11-05T14:37:09.125Z"', preview)
         self.assertIn('datetime="2026-11-04"', preview)
         self.assertNotIn('datetime=""', preview)
-        self.assertIn('**For all x in [0,1]', preview)
+        self.assertIn('<strong>For all x in [0,1]', preview)
         self.assertIn('role="doc-', (ROOT / 'tests/fixtures/presentation/reader-preview.html').read_text())
 
     def test_mathematical_sections_and_tables_use_scholarly_rhythm(self):
@@ -180,11 +180,10 @@ class PresentationStyleTests(unittest.TestCase):
             prepare_code_focus('<pre tabindex="-1"><code>x</code></pre>')
 
     def test_supporting_passage_uses_versioned_styles(self):
-        self.assertIn('class="press-supporting-passage"',
-                      (ROOT / "scripts/supporting_records.py").read_text())
+        self.assertIn("'press-supporting-element'",
+                      (ROOT / "scripts/supporting_gfm.py").read_text())
         stylesheet = (ROOT / "styles/edition-v1.css").read_text()
-        self.assertIn(".press-supporting-passage {", stylesheet)
-        self.assertIn("white-space: pre-wrap;", stylesheet)
+        self.assertIn(".press-supporting-element {", stylesheet)
         self.assertIn(".press-record-provenance {", stylesheet)
         self.assertIn(".press-passage-heading {", stylesheet)
         self.assertIn(".press-passage-datetime {", stylesheet)
