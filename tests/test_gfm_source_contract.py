@@ -49,6 +49,34 @@ class SourceContractTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.parse(document('<a name="list"></a>\n\n- <a name="nested"></a>\n\n  Nested anchor\n'))
 
+    def test_speaker_is_explicit_on_message_anchor_not_inferred_from_heading(self):
+        source = document('<a name="plain"></a>\n\n## Assistant\n\n'
+            '<a name="author-entry" data-press-speaker="author"></a>\n\n## Author\n\n'
+            '<a name="responder-entry" data-press-speaker="responder"></a>\n\n## Correspondent\n\n'
+            '<a name="body"></a>\n\nActual source text is preserved.\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual({'document','plain','author-entry','responder-entry','body'}, set(anchors))
+        headings = [n for n in ast['blocks'] if n['t'] == 'Header']
+        self.assertEqual([None,'author','responder'], [dict(h['c'][1][2]).get('data-press-speaker')
+                         for h in headings[1:]])
+        # A title that says 'Assistant' alone is *not* a sourced attribution.
+        for tag in ('user', 'assistant'):
+            self.parse(document('<a name="named" data-press-speaker="'+tag+'"></a>\n\n## Any label\n'))
+        for bad in (
+            '<a name="msg" data-press-speaker="unknown"></a>\n\n## Respondent\n',
+            '<a name="msg" data-press-speaker="Assistant"></a>\n\n## Respondent\n',
+            '<a name="msg" data-press-speaker="responder" style="color:red"></a>\n\n## Respondent\n',
+            '<a name="msg" data-press-speaker="responder"></a>\n\n### Respondent\n',
+            '<a name="msg" data-press-speaker="responder"></a>\n\nA paragraph.\n',
+            '<a name="msg" data-press-speaker="responder"></a>\n\n',
+            '<a name="msg" data-press-speaker="responder"></a>\n\n<details>raw</details>\n',
+        ):
+            with self.subTest(source=bad[:70]), self.assertRaises(AssetError):
+                self.parse(document(bad))
+        with self.assertRaisesRegex(AssetError, 'unannotated'):
+            self.parse('---\nDescription: Testing\n---\n\n'
+                       '<a name="metadata" data-press-speaker="author"></a>\n\n<a name="doc"></a>\n\n# Evidence\n')
+
     def test_semantic_time_is_exact_bounded_and_has_no_extra_attributes(self):
         values = {'2026-11-05': '5 Nov 2026',
                   '2026-11-05T14:37:03.123456789Z': '5 Nov 2026 · 14:37:03.123456789 UTC',
@@ -170,6 +198,35 @@ class ElementPublicationTests(EditionTests):
         swapped=raw.replace(a,b'press-swap-placeholder').replace(b,a).replace(b'press-swap-placeholder',b)
         changed=copy.deepcopy(manifest);self.rewrite(swapped,changed)
         with self.assertRaisesRegex(AssetError,'element'):
+            verify_edition(self.output)
+
+    def test_explicit_speaker_survives_publication_and_fingerprint_verification(self):
+        folder = self.repo / 'works/sample/supporting'; folder.mkdir()
+        source = document('<a name="user-turn" data-press-speaker="author"></a>\n\n## Author\n\n'
+            '<a name="user-text"></a>\n\nAn attributed question.\n\n'
+            '<a name="reply" data-press-speaker="responder"></a>\n\n## Responder\n\n'
+            '<a name="reply-text"></a>\n\nAn attributed answer.\n\n'
+            '<a name="plain"></a>\n\n## Assistant\n\n'
+            '<a name="plain-text"></a>\n\nUnattributed heading remains neutral.')
+        (folder / 'voices.md').write_text(source)
+        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
+            stream.write('\n[Question](supporting/voices.md#user-turn), '
+                         '[answer](supporting/voices.md#reply), '
+                         '[neutral](supporting/voices.md#plain).\n')
+        self.git('add', 'works'); self.git('commit', '-qm', 'Review explicit source speaker roles')
+        self.commit = self.git('rev-parse', 'HEAD')
+        manifest = self.build()
+        entry, = manifest['supporting_documents']
+        html = (self.output / manifest['canonical_artifact']).read_bytes()
+        self.assertIn(b'data-press-speaker="author"', html)
+        self.assertIn(b'data-press-speaker="responder"', html)
+        self.assertNotIn(b'data-press-speaker="assistant"', html)
+        self.assertIn('user-turn', entry['anchors']); self.assertIn('reply', entry['anchors'])
+        self.assertEqual(manifest, verify_edition(self.output))
+        altered = html.replace(b'data-press-speaker="responder"', b'data-press-speaker="author"')
+        self.assertNotEqual(html, altered)
+        changed = copy.deepcopy(manifest); self.rewrite(altered, changed)
+        with self.assertRaisesRegex(AssetError, 'element'):
             verify_edition(self.output)
 
     def test_dashed_document_and_fragment_names_have_distinct_namespaces(self):

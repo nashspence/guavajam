@@ -309,6 +309,24 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   padding-top: 0;
   margin-top: .8rem;
 }
+/* Explicitly attributed responders get a quiet heading accent.  The marker
+   is source-owned on a message anchor; neither labels nor message order are
+   inspected. Body prose, section IDs, and permalink placement do not change.
+   The pseudo-element also leaves the approved heading geometry intact. */
+.press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"]) {
+  position: relative;
+  isolation: isolate;
+}
+.press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"])::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: -.65rem 0;
+  border-inline-start: .18rem solid var(--press-border);
+  background: var(--press-tint);
+  pointer-events: none;
+  z-index: -1;
+}
 .press-passage-heading .press-permalink { font-size: .8rem; }
 .press-passage-datetime {
   margin: -.3rem 0 .4rem;
@@ -359,9 +377,15 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
+  .press-passage-heading[data-press-speaker]::after {
+    background: Canvas;
+    border-inline-start-color: CanvasText;
+  }
 }
 
 @media print {
+  /* Keep a monochrome speaker cue in print, without shaded message bodies. */
+  .press-passage-heading[data-press-speaker]::after { background: transparent; }
   :root {
     color-scheme: light;
     --press-paper: #fff;

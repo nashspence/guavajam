@@ -5,7 +5,7 @@ import re
 import subprocess
 from pathlib import Path
 import html
-from supporting_gfm import MAX_RECORD_BYTES, valid_timestamp, timestamp_label
+from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, valid_timestamp, timestamp_label
 
 from asset_policy import AssetError
 from identifier_schema import SLUG
@@ -31,8 +31,10 @@ def _validate_transcript(record: dict) -> None:
     for i, passage in enumerate(record["passages"], start=1):
         if (not isinstance(passage, dict) or
                 not {"id", "label", "text"} <= passage.keys() or
-                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort"}):
-            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model or thinking_effort only")
+                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort", "speaker"}):
+            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model, thinking_effort or speaker only")
+        if "speaker" in passage and (not isinstance(passage["speaker"], str) or passage["speaker"] not in SPEAKERS):
+            raise AssetError(f"passage {i} requires an explicit supported speaker role")
         for field in ("model", "thinking_effort"):
             if field in passage and (not isinstance(passage[field], str) or
                                      not ATTRIBUTION_TOKEN.fullmatch(passage[field])):
@@ -286,8 +288,9 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
                 text = re.sub('[\ue000-\uf8ff]', '[Unsupported token]', text)
             return {'t':'Str','c':text}
         return {key:clean(item) for key,item in value.items()}
-    def anchor(identifier):
-        return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"></a>\n']}
+    def anchor(identifier, speaker=None):
+        annotation = ' data-press-speaker="' + speaker + '"' if speaker else ''
+        return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"{annotation}></a>\n']}
     def header(level,text):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
@@ -304,7 +307,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        blocks.extend([anchor(passage['id']),header(2,passage['label'])])
+        blocks.extend([anchor(passage['id'], passage.get('speaker')),header(2,passage['label'])])
         details = []
         if 'timestamp' in passage:
             value = passage['timestamp']

@@ -91,6 +91,29 @@ class GFMImportTests(ExtractTests):
         self.assertNotIn(b'Thinking effort:', data)
         self.assertNotIn(b'2020-', data)
 
+    def test_review_gfm_keeps_exported_speaker_without_guessing_a_heading(self):
+        record = transcript(self.record, 'tip')
+        source, _ = review_gfm(record)
+        self.assertIn(b'data-press-speaker="user"', source)
+        self.assertIn(b'data-press-speaker="assistant"', source)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'review.md'; path.write_bytes(source)
+            ast, anchors, *_ = load_gfm_record(path)
+        self.assertEqual(['user', 'assistant'], [dict(n['c'][1][2])['data-press-speaker']
+            for n in ast['blocks'] if n['t'] == 'Header' and n['c'][0] == 2])
+        self.assertTrue(all(key in anchors for key in [p['id'] for p in record['passages']]))
+        # Reviewed labels and source roles are independent. Absence means neutral.
+        alternate = copy.deepcopy(record)
+        alternate['passages'][0]['label'] = 'Assistant'
+        alternate['passages'][0]['speaker'] = 'user'
+        alternate['passages'][1].pop('speaker')
+        text, _ = review_gfm(alternate)
+        self.assertEqual(text.count(b'data-press-speaker='), 1)
+        for value in ({'forged': True}, 'system', 'ASSISTANT', '', 2, ['user']):
+            bad = copy.deepcopy(record); bad['passages'][0]['speaker'] = value
+            with self.subTest(value=str(value)), self.assertRaises(AssetError):
+                review_gfm(bad)
+
     def test_dividers_split_nested_wrappers_and_lists_but_remain_literal_in_code(self):
         tag = '<divider color="subtle"/>'
         text = ('<box gap={3}><text>Before</text>' + tag + '<text>After</text></box>\n\n'

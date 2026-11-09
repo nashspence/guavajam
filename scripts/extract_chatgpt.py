@@ -115,7 +115,7 @@ def transcript(conversation, tip):
             anchor = "m-" + key
         else:
             anchor = "m-" + hashlib.sha256(key.encode()).hexdigest()
-        passage = {"id": anchor, "label": role.title(), "text": text}
+        passage = {"id": anchor, "label": role.title(), "text": text, "speaker": role}
         if role == "assistant":
             model = metadata.get("resolved_model_slug") or metadata.get("model_slug")
             for field, value in (("model", model), ("thinking_effort", metadata.get("thinking_effort"))):

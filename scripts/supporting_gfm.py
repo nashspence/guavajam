@@ -138,10 +138,15 @@ def _tooltip_spans(value):
         raise AssetError('unbalanced supporting tooltip span')
     return result
 
+# The only optional speaker annotation lives on an existing explicit H2 anchor.
+# Its value describes a reviewed source role, not publication authorship.
+SPEAKERS = frozenset({'user', 'assistant', 'author', 'responder'})
 ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern + r')"></a>\Z')
+SPEAKER_ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern +
+                            r')" data-press-speaker="(user|assistant|author|responder)"></a>\Z')
 
 
-def anchor_block(block):
+def anchor_details(block):
     if block.get('t') == 'RawBlock' and block['c'][0] == 'html':
         text = block['c'][1]
     elif block.get('t') == 'Para' and all(n.get('t') == 'RawInline' and n['c'][0] == 'html'
@@ -150,7 +155,15 @@ def anchor_block(block):
     else:
         return None
     match = ANCHOR.fullmatch(text)
-    return match[1] if match else None
+    if match:
+        return match[1], None
+    match = SPEAKER_ANCHOR.fullmatch(text)
+    return (match[1], match[2]) if match else None
+
+
+def anchor_block(block):
+    details = anchor_details(block)
+    return details[0] if details else None
 
 
 def load_gfm_record(path: Path, *, root=None):
@@ -177,21 +190,23 @@ def parse_gfm_record(source, *, policy=None):
     ast = parse_pandoc(body, reader=FORMAT.replace('+yaml_metadata_block', '-yaml_metadata_block'))
     metadata_anchor = None
     if fields:
-        metadata_anchor = anchor_block(ast['blocks'][0]) if ast['blocks'] else None
-        if not metadata_anchor:
-            raise AssetError('supporting metadata requires its own explicit anchor after the front matter')
+        metadata_details = anchor_details(ast['blocks'][0]) if ast['blocks'] else None
+        if not metadata_details or metadata_details[1] is not None:
+            raise AssetError('supporting metadata requires its own unannotated explicit anchor after the front matter')
+        metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
     if ast.get('meta'):
         raise AssetError('unexpected supporting parser metadata')
-    blocks, anchors, pending = [], {}, None
+    blocks, anchors, pending, speaker = [], {}, None, None
     headers = []
     for block in ast['blocks']:
-        identifier = anchor_block(block)
-        if identifier:
+        details = anchor_details(block)
+        if details:
+            identifier, explicit_speaker = details
             if pending or identifier in anchors:
                 raise AssetError('duplicate or unattached supporting anchor')
-            pending = identifier
+            pending, speaker = identifier, explicit_speaker
             continue
         if any(n.get('t') in {'RawBlock', 'RawInline', 'Note'} for n in walk(block)):
             raise AssetError('supporting GFM permits only standalone anchors, exact semantic times and title-only spans as HTML; footnotes are unsupported')
@@ -202,8 +217,12 @@ def parse_gfm_record(source, *, policy=None):
             headers.append(block)
         if not pending:
             raise AssetError('every top-level supporting content block requires its own explicit anchor')
+        if speaker is not None:
+            if block.get('t') != 'Header' or block['c'][0] != 2:
+                raise AssetError('explicit speaker attribution requires an anchored H2 message heading')
+            block['c'][1][2].append(['data-press-speaker', speaker])
         anchors[pending] = len(blocks)
-        pending = None
+        pending, speaker = None, None
         blocks.append(block)
     if pending or not blocks or blocks[0].get('t') != 'Header' or blocks[0]['c'][0] != 1:
         raise AssetError('supporting GFM requires an explicitly anchored H1 title and no dangling anchor')

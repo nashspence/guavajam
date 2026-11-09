@@ -100,6 +100,17 @@ class PresentationStyleTests(unittest.TestCase):
         printed = css.split('@media print', 1)[1]
         self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
 
+    def test_source_attributed_speaker_headings_are_subtle_and_inert(self):
+        stylesheet = (ROOT / 'styles/edition-v1.css').read_text()
+        selector = '.press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"])'
+        self.assertIn(selector + '::after', stylesheet)
+        self.assertIn('border-inline-start: .18rem solid var(--press-border);', stylesheet)
+        self.assertIn('background: var(--press-tint);', stylesheet)
+        self.assertIn('pointer-events: none;', stylesheet)
+        self.assertNotIn('speaker', stylesheet.split('/* Supporting evidence:')[0])
+        self.assertIn('background: Canvas;', stylesheet.split('@media (forced-colors: active)')[1])
+        self.assertIn('background: transparent;', stylesheet.split('@media print')[1])
+
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         self.assertIn(".footnote-ref { text-decoration: none; white-space: nowrap; }", css)

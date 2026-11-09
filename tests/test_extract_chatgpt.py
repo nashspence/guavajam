@@ -42,6 +42,7 @@ class ExtractTests(unittest.TestCase):
         first, second = record["passages"]
         self.assertEqual((first["label"], first["text"]), ("User", "  Original <script>\nline\n"))
         self.assertEqual((second["label"], second["text"]), ("Assistant", "Visible reply"))
+        self.assertEqual((first['speaker'], second['speaker']), ('user', 'assistant'))
         self.assertFalse(any(secret in json.dumps(record["passages"]) for secret in
                              ("unselected sibling", "hidden context", "custom instructions", "tool output", "arguments",
                               "internal reasoning", "system context", "private metadata")))

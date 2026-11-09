@@ -143,5 +143,5 @@ if __name__=='__main__':
         if result:
             raise SystemExit(result)
     with lantern_fixture() as directory, metadata_fixture() as metadata:
-        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
+        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_speaker_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
             env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata)}).returncode)
