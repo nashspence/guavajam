@@ -39,12 +39,12 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
             const assistant = document.querySelector('h3[data-press-speaker="assistant"]');
             const user = document.querySelector('h3[data-press-speaker="user"]');
             const turn = assistant.parentElement, userTurn = user.parentElement;
-            const rule = getComputedStyle(assistant, '::after');
             const rail = getComputedStyle(turn, '::before');
             const a = getComputedStyle(assistant), u = getComputedStyle(user);
             return {
-              tint: rule.backgroundColor, paper: getComputedStyle(document.body).backgroundColor,
-              content: rule.content, railContent: rail.content,
+              headingTint: a.backgroundColor, authorTint: u.backgroundColor,
+              headingCue: getComputedStyle(assistant, '::after').content,
+              railContent: rail.content,
               thickness: parseFloat(rail.borderInlineStartWidth),
               railStyle: rail.borderInlineStartStyle,
               ownLabel: assistant.textContent.includes('Assistant'),
@@ -62,12 +62,12 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
                 parseFloat(rail.borderInlineStartWidth),
             };
           });
-          assert.equal(styles.content, '""');
+          assert.equal(styles.headingCue, 'none', 'no permanent responder-heading tint');
+          assert.equal(styles.headingTint, styles.authorTint, 'speaker headings retain identical paper surfaces');
           assert.equal(styles.railContent, '""');
           assert.equal(styles.railStyle, 'solid');
-          assert.ok(styles.thickness >= 2);
+          assert.ok(styles.thickness >= 3 && styles.thickness <= 4, 'match the original blue cue thickness');
           assert.ok(styles.sourceParagraphs > 1, 'response body was not grouped');
-          assert.notEqual(styles.tint, styles.paper, 'responder heading tint must be perceptible');
           assert.equal(styles.originPseudo, 'none', 'unaccented source roles remain neutral');
           assert.equal(styles.font, true);
           assert.equal(styles.textColor, true);
@@ -75,7 +75,7 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           assert.equal(styles.overflow, false);
           // Text moves inward, never the outer rail: preserve the narrow-phone
           // margin while leaving enough breathing room to read long answers.
-          assert.ok(styles.responderPadding >= 4 && styles.responderPadding <= 5,
+          assert.ok(styles.responderPadding >= 8 && styles.responderPadding <= 9,
             `${engineName}: unexpected responder padding: ${JSON.stringify(styles)}`);
           assert.equal(styles.userPadding, 0);
           assert.ok(styles.railLeft >= 0 && styles.textClearance >= 10 && styles.textClearance <= 14,
@@ -101,8 +101,8 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           assert.ok(midTurn.headingTop < 0 && midTurn.end > 0,
             `${engineName}: long response rail must remain in view after its heading scrolls away`);
           assert.equal(midTurn.rail, 'solid');
-          // A citation within a responder turn remains specific without a
-          // second vertical blue stripe competing with its continuous rail.
+          // A citation to a reviewed block overpaints the same physical rail,
+          // with no permanent heading tint and no separate horizontal stripe.
           const targetID = await page.evaluate(() => {
             const turns = [...document.querySelectorAll('.press-turn')].filter(turn =>
               turn.querySelector(':scope > h3[data-press-speaker="assistant"]'));
@@ -111,31 +111,51 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           });
           await page.goto(uri + '#' + targetID);
           const cited = await page.locator('#' + targetID).evaluate(element => {
-            const tint = getComputedStyle(element), stripe = getComputedStyle(element,'::before');
-            const group = element.closest('.press-turn');
+            const style = getComputedStyle(element), stripe = getComputedStyle(element,'::before');
+            const group = element.closest('.press-turn'), rail = getComputedStyle(group,'::before');
             return {
-              shadow: tint.boxShadow, tint: tint.backgroundColor,
+              shadow: style.boxShadow, tint: style.backgroundColor,
               paper: getComputedStyle(document.body).backgroundColor,
-              stripe: stripe.content, speakerRail: getComputedStyle(group,'::before').borderInlineStartStyle,
+              stripe: stripe.content, speakerRail: rail.borderInlineStartStyle,
+              grayX: group.getBoundingClientRect().left + parseFloat(rail.insetInlineStart),
+              blueX: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
+              grayWidth: parseFloat(rail.borderInlineStartWidth),
+              blueWidth: parseFloat(stripe.borderInlineStartWidth),
+              grayColor: rail.borderInlineStartColor, blueColor: stripe.borderInlineStartColor,
               clearOfStatus: element.getBoundingClientRect().top >=
                 document.querySelector('.press-status').getBoundingClientRect().bottom - 1,
               overflow: document.documentElement.scrollWidth > innerWidth + 1,
             };
           });
-          assert.ok(cited.shadow.includes('inset'), `${engineName}: citation needs a horizontal rule`);
+          assert.equal(cited.shadow, 'none', `${engineName}: no horizontal citation line`);
           assert.notEqual(cited.tint, cited.paper);
-          assert.equal(cited.stripe, 'none', `${engineName}: doubled citation and role rails`);
+          assert.equal(cited.stripe, '""', `${engineName}: linked passage needs the original blue cue`);
           assert.equal(cited.speakerRail, 'solid');
+          assert.ok(Math.abs(cited.grayX - cited.blueX) <= 1,
+            `${engineName}: blue and neutral rail X coordinates differ: ${JSON.stringify(cited)}`);
+          assert.ok(Math.abs(cited.grayWidth - cited.blueWidth) <= .75,
+            `${engineName}: rail thickness differs: ${JSON.stringify(cited)}`);
+          assert.notEqual(cited.grayColor, cited.blueColor, 'the blue cue must visibly distinguish the cited passage');
           assert.equal(cited.clearOfStatus && !cited.overflow, true);
-          // A citation to the responder heading behaves the same way.
+          // Citation to the heading itself uses the same overlay geometry,
+          // but the untargeted heading has no permanent fill.
           const assistantID = await assistant.first().getAttribute('id');
           await page.goto(uri + '#' + assistantID);
-          const headTarget = await assistant.first().evaluate(element => ({
-            shadow: getComputedStyle(element).boxShadow,
-            stripe: getComputedStyle(element,'::before').content,
-          }));
-          assert.ok(headTarget.shadow.includes('inset'));
-          assert.equal(headTarget.stripe, 'none');
+          const headTarget = await assistant.first().evaluate(element => {
+            const stripe = getComputedStyle(element, '::before');
+            const turn = element.closest('.press-turn'), rail = getComputedStyle(turn, '::before');
+            return {
+              stripe: stripe.content,
+              tint: getComputedStyle(element).backgroundColor,
+              paper: getComputedStyle(document.body).backgroundColor,
+              x: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
+              railX: turn.getBoundingClientRect().left + parseFloat(rail.insetInlineStart),
+            };
+          });
+          assert.equal(headTarget.stripe, '""');
+          assert.notEqual(headTarget.tint, headTarget.paper);
+          assert.ok(Math.abs(headTarget.x - headTarget.railX) <= 1,
+            `${engineName}: heading citation line must follow the speaker rail`);
           // Ordinary author citations keep the original blue margin cue.
           const userID = await user.first().getAttribute('id');
           await page.goto(uri + '#' + userID);
@@ -149,17 +169,18 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           await page.emulateMedia({media:'print', colorScheme:'dark'});
           const print = await assistant.first().evaluate(x => {
             const turn = x.parentElement;
-            return {heading: getComputedStyle(x,'::after').backgroundColor,
+            return {headingCue: getComputedStyle(x,'::after').content,
               border: getComputedStyle(turn).borderInlineStartStyle,
               width: parseFloat(getComputedStyle(turn).borderInlineStartWidth),
               screenRail: getComputedStyle(turn,'::before').content};
           });
-          assert.equal(print.heading, 'rgba(0, 0, 0, 0)');
+          assert.equal(print.headingCue, 'none');
           assert.equal(print.border, 'solid');
           assert.ok(print.width >= 2, 'printed long turns need a fragment-safe border');
           assert.equal(print.screenRail, 'none');
-          assert.equal(await page.locator('#' + targetID).evaluate(el => getComputedStyle(el).boxShadow), 'none',
-            `${engineName}: citation cue should not be printed`);
+          assert.equal(await page.locator('#' + targetID).evaluate(el =>
+            getComputedStyle(el,'::before').content), 'none',
+            `${engineName}: blue citation cue should not be printed`);
           assert.deepEqual(requested, []);
         } finally {await context.close();}
       }

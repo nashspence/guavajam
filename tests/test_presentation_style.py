@@ -126,39 +126,36 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertEqual({"t": "RawBlock", "c": ["html", "</div>"]}, grouped[pos - 1])
         self.assertEqual({"t": "Para", "c": []}, grouped[pos + 1])
 
-    def test_source_attributed_speaker_headings_are_subtle_and_inert(self):
-        stylesheet = (ROOT / 'styles/edition-v1.css').read_text()
-        selector = '.press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"])'
-        self.assertIn(selector + '::after', stylesheet)
-        self.assertIn('.press-turn:has(> .press-passage-heading:is(', stylesheet)
-        self.assertIn('border-inline-start: .15rem solid var(--press-border);', stylesheet)
-        self.assertIn('background: var(--press-tint);', stylesheet)
-        self.assertIn('pointer-events: none;', stylesheet)
-        self.assertNotIn('speaker', stylesheet.split('/* Supporting evidence:')[0])
-        forced = stylesheet.split('@media (forced-colors: active)')[1]
-        self.assertIn('border-inline-start-color: CanvasText;', forced)
-        self.assertIn('background: Canvas;', forced)
-        printed = stylesheet.split('@media print')[1]
-        self.assertIn('border-inline-start: .15rem solid var(--press-border);', printed)
-        self.assertIn('[data-press-speaker="responder"]))::before { content: none; }', printed)
-        self.assertIn('background: transparent;', printed)
-
-    def test_responder_rail_has_breathing_room_and_citations_have_distinct_cues(self):
+    def test_responder_rail_and_citation_share_geometry_without_permanent_heading_tint(self):
         css = (ROOT / 'styles/edition-v1.css').read_text()
-        selector = '.press-turn:has(> .press-passage-heading:is('
-        self.assertIn(selector, css)
-        self.assertIn('padding-inline-start: .25rem;', css)
-        self.assertIn('inset-inline-start: -.55rem;', css)
-        self.assertIn('inset-inline: calc(-.55rem - .25rem) 0;', css)
-        self.assertIn('box-shadow: inset 0 .11rem 0 var(--press-link);', css)
-        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', css)
-        # Forced colors retain their native target outline; paper output keeps
-        # the real rail across pages without printing a link-specific stripe.
-        forced = css.split('@media (forced-colors: active)', 1)[1].split('@media print', 1)[0]
-        printed = css.split('@media print', 1)[1]
-        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }', forced)
-        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }', printed)
-        self.assertIn('padding-inline-start: calc(.55rem - .15rem + .25rem);', printed)
+        role = '.press-turn:has(> .press-passage-heading:is('
+        target = '.press-edition ' + role
+        # A single set of inherited tokens controls both the continuous neutral
+        # speaker rail and the short blue overlay at a citable source block.
+        for token in ('--press-turn-rail-inset: -.35rem;',
+                      '--press-turn-rail-size: .2rem;',
+                      '--press-turn-text-inset: .5rem;',
+                      'padding-inline-start: var(--press-turn-text-inset);',
+                      'inset-inline-start: var(--press-turn-rail-inset);',
+                      'border-inline-start: var(--press-turn-rail-size) solid var(--press-border);',
+                      'inset-inline-start: calc(var(--press-turn-rail-inset) - var(--press-turn-text-inset));',
+                      'inline-size: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset));',
+                      'border-inline-start-width: var(--press-turn-rail-size);'):
+            self.assertIn(token, css)
+        self.assertIn(target, css)
+        self.assertNotIn('.press-passage-heading[data-press-speaker]::after', css)
+        self.assertNotIn('box-shadow: inset 0 .11rem 0 var(--press-link);', css)
+        self.assertIn('pointer-events: none;', css)
+        self.assertNotIn('speaker', css.split('/* Supporting evidence:')[0])
+        forced = css.split('@media (forced-colors: active)')[1].split('@media print')[0]
+        self.assertIn('border-inline-start-color: CanvasText;', forced)
+        self.assertIn('outline: 2px solid Highlight;', forced)
+        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', forced)
+        printed = css.split('@media print')[1]
+        self.assertIn('border-inline-start: var(--press-turn-rail-size) solid var(--press-border);', printed)
+        self.assertIn('margin-inline-start: var(--press-turn-rail-inset);', printed)
+        self.assertIn('padding-inline-start: calc(var(--press-turn-text-inset) - var(--press-turn-rail-inset) - var(--press-turn-rail-size));', printed)
+        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', printed)
 
     def test_speaker_group_context_is_covered_by_existing_element_fingerprints(self):
         from element_citations import element_fingerprints
