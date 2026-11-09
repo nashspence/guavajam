@@ -14,6 +14,7 @@ from edition_package import edition_directory
 from verify_edition import verify_edition
 from test_asset_downloads import DownloadPublicationTests
 from test_preview_site import PreviewTests
+from test_lantern_gfm import LanternPublicationTests
 from issuance import authorization
 from preview_site import preview_server
 from public_record import EDITION_RECORDS, WORK_RECORDS, write_records
@@ -109,8 +110,26 @@ def site_fixture():
         fixture.doCleanups()
 
 
+@contextmanager
+def lantern_fixture():
+    fixture = LanternPublicationTests('test_both_branches_publish_and_verify_with_exact_reviewed_sources')
+    try:
+        fixture.setUp()
+        fixture.source()
+        fixture.build()
+        verify_edition(fixture.output)
+        yield fixture.output
+    finally:
+        fixture.doCleanups()
+
+
 if __name__=='__main__':
     with browser_fixture() as directory, site_fixture() as sites:
-        raise SystemExit(subprocess.run(['node','--test','tests/test_offline_browser.mjs',
+        result = subprocess.run(['node','--test','tests/test_offline_browser.mjs',
             'tests/test_reader_site.mjs'], cwd=ROOT, env={**os.environ,
-            'PRESS_OFFLINE_TEST_DIR':str(directory), 'PRESS_SITE_TESTS':json.dumps(sites)}).returncode)
+            'PRESS_OFFLINE_TEST_DIR':str(directory), 'PRESS_SITE_TESTS':json.dumps(sites)}).returncode
+        if result:
+            raise SystemExit(result)
+    with lantern_fixture() as directory:
+        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs'], cwd=ROOT,
+            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory)}).returncode)

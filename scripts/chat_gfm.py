@@ -3,29 +3,206 @@ import hashlib
 import json
 import re
 import subprocess
+from pathlib import Path
 
 from asset_policy import AssetError
-from render_profile import plain_text
+from chat_references import citation_inlines, component_inlines
+from render_profile import plain_text, walk
+
+PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
+DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
 
 
-def review_gfm(record, *, identity='document'):
-    from supporting_records import MAX_RECORD_BYTES, validate_record
+def _divider_blocks(value, *, inline_only=False):
+    """Lift separators through inline wrappers without putting blocks inside spans."""
+    def split(inlines):
+        chunks = [[]]
+        for item in inlines:
+            if item.get('t') == 'RawInline' and item['c'][0] == 'press-divider':
+                chunks.append([])
+                continue
+            kind = item.get('t')
+            inner = item['c'] if kind in {'Emph', 'Strong', 'Strikeout'} else (
+                item['c'][1] if kind in {'Span', 'Link', 'Quoted'} else None)
+            pieces = split(inner) if inner is not None else None
+            if pieces is None or len(pieces) == 1:
+                chunks[-1].append(item)
+                continue
+            for index, piece in enumerate(pieces):
+                if index:
+                    chunks.append([])
+                if piece:
+                    contents = piece if kind in {'Emph', 'Strong', 'Strikeout'} else [
+                        item['c'][0], piece, *item['c'][2:]]
+                    chunks[-1].append({'t': kind, 'c': contents})
+        if len(chunks) > 1:
+            for chunk in chunks:
+                while chunk and chunk[0].get('t') in {'Space', 'SoftBreak', 'LineBreak'}:
+                    chunk.pop(0)
+                while chunk and chunk[-1].get('t') in {'Space', 'SoftBreak', 'LineBreak'}:
+                    chunk.pop()
+        return chunks
+
+    if isinstance(value, list):
+        result = []
+        for item in value:
+            expanded = _divider_blocks(item, inline_only=inline_only)
+            if not inline_only and isinstance(item, dict) and item.get('t') in {'Para', 'Plain'}:
+                result.extend(expanded)
+            else:
+                result.append(expanded)
+        return result
+    if not isinstance(value, dict):
+        return value
+    if not inline_only and value.get('t') in {'Para', 'Plain'}:
+        chunks = split(value['c'])
+        blocks = []
+        for index, chunk in enumerate(chunks):
+            if index:
+                blocks.append({'t': 'HorizontalRule'})
+            if any(node.get('t') not in {'Space', 'SoftBreak', 'LineBreak'} for node in chunk):
+                blocks.append({'t': value['t'], 'c': chunk})
+        return blocks
+    # Headings and GFM table cells cannot contain block separators.
+    if value.get('t') == 'RawInline' and value['c'][0] == 'press-divider':
+        return {'t': 'Span', 'c': [['', [], [['title', value['c'][1]]]], [{'t': 'Str', 'c': '—'}]]}
+    return {key: _divider_blocks(item, inline_only=inline_only or value.get('t') in {'Header', 'Table'})
+            for key, item in value.items()}
+
+
+def _presentation_pairs(inlines):
+    pairs, stack = {}, []
+    for index, item in enumerate(inlines):
+        raw = item.get('c') if isinstance(item, dict) and item.get('t') == 'RawInline' else None
+        if not raw or raw[0] != 'html':
+            continue
+        opening = PRESENTATION.fullmatch(raw[1]) if len(raw[1]) <= 2000 else None
+        closing = re.fullmatch(r'</(text|row|box|b|strong|i|em)>', raw[1])
+        if opening:
+            stack.append((opening[1], index))
+        elif closing:
+            if stack and stack[-1][0] == closing[1]:
+                _, start = stack.pop()
+                pairs[start] = index
+            else:
+                stack.clear()
+    return pairs
+
+
+def _component_blocks(text, report):
+    """Protect standalone rich code before Markdown interprets its contents."""
+    lines = text.splitlines(keepends=True)
+    result = []
+    fence = None
+    index = 0
+
+    def literal(body, language=''):
+        width = max((len(run) for run in re.findall(r'~+', body)), default=2) + 1
+        marker = '~' * max(3, width)
+        return '\n' + marker + language + '\n' + body + ('' if body.endswith('\n') else '\n') + marker + '\n\n'
+
+    while index < len(lines):
+        line = lines[index]
+        if fence:
+            if re.fullmatch(r' {0,3}' + re.escape(fence[0]) + r'{' + str(fence[1]) + r',}[ \t]*\r?\n?', line):
+                fence = None
+            result.append(line); index += 1
+            continue
+        opening = re.fullmatch(r' {0,3}(`{3,}|~{3,})([^\r\n]*)\r?\n?', line)
+        if opening and not (opening[1][0] == '`' and '`' in opening[2]):
+            fence = (opening[1][0], len(opening[1]))
+            result.append(line); index += 1
+            continue
+        boundary = index == 0 or not lines[index - 1].strip(' \t\r\n')
+        component = re.fullmatch(r'<CodeBlock([^>\r\n]*)>[ \t]*\r?\n?', line) if boundary else None
+        if component:
+            end = index + 1
+            while end < len(lines) and not re.fullmatch(r'</CodeBlock>[ \t]*\r?\n?', lines[end]):
+                end += 1
+            if end == len(lines):
+                raise AssetError('unterminated standalone ChatGPT CodeBlock')
+            attributes = re.fullmatch(r'\s*(?:language=([\"\x27])([A-Za-z0-9_+.-]+)\1)?\s*(?:editable)?\s*', component[1])
+            if attributes:
+                report('chatgpt-codeblock-normalized')
+                result.append(literal(''.join(lines[index + 1:end]), attributes[2] or ''))
+            else:
+                report('unsupported-rich-component-as-literal-code')
+                result.append(literal(''.join(lines[index:end + 1])))
+            index = end + 1
+            continue
+        if (boundary and re.match(r'<[A-Z][A-Za-z0-9]*\b', line) and
+                not re.match(r'<(?:Link|Cite|Icon)\b', line) and line.rstrip('\r\n').endswith('/>')):
+            report('unsupported-rich-component-as-literal-code')
+            result.append(literal(line)); index += 1
+            continue
+        result.append(line); index += 1
+    return ''.join(result)
+
+
+def review_gfm(record, *, identity='document', references=None):
+    from supporting_records import MAX_RECORD_BYTES, attribution_labels, validate_record
     validate_record(record)
     if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
         raise AssetError('selected message text exceeds 8 MiB')
     diagnostics = {'selection-omissions': 1, 'markdown-normalized-to-gfm': 1}
+    references = references or {}
     def report(kind):
         diagnostics[kind] = diagnostics.get(kind, 0) + 1
     def clean(value):
         if isinstance(value, list):
-            return [clean(x) for x in value]
+            result = []
+            pairs = _presentation_pairs(value)
+            index = 0
+            while index < len(value):
+                original = value[index]
+                raw = original.get('c') if isinstance(original, dict) and original.get('t') == 'RawInline' else None
+                if index in pairs:
+                    opening = PRESENTATION.fullmatch(raw[1])
+                    end = pairs[index]
+                    contents = clean(value[index + 1:end])
+                    if opening[1] in {'b', 'strong', 'i', 'em'}:
+                        contents = [{'t': 'Strong' if opening[1] in {'b', 'strong'} else 'Emph', 'c': contents}]
+                    title = raw[1] + ' … ' + value[end]['c'][1]
+                    item = {'t': 'Span', 'c': [['', [], [['title', title]]], contents]}
+                    report('presentation-wrapper-retained-in-tooltip')
+                    index = end + 1
+                else:
+                    item = clean(original)
+                    index += 1
+                if (isinstance(item, dict) and item.get('t') == 'Code' and result and
+                        isinstance(result[-1], dict) and result[-1].get('t') == 'Code' and
+                        result[-1]['c'][0] == item['c'][0]):
+                    report('adjacent-inline-code-merged')
+                    result[-1] = {'t':'Code','c':[item['c'][0],result[-1]['c'][1] + item['c'][1]]}
+                else:
+                    result.append(item)
+            return result
         if not isinstance(value, dict):
             return value
         kind = value.get('t')
         if kind in {'Code', 'CodeBlock', 'Math'}:
             return value  # Never rewrite citations, math delimiters or HTML in code.
         if kind in {'RawBlock', 'RawInline'}:
+            if len(value['c'][1]) <= 2000 and DIVIDER.fullmatch(value['c'][1]):
+                report('chatgpt-divider-normalized')
+                return {'t': 'HorizontalRule'} if kind == 'RawBlock' else {
+                    't': 'RawInline', 'c': ['press-divider', value['c'][1]]}
+            if re.match(r'<CodeBlock\b', value['c'][1]):
+                raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
+            if re.fullmatch(r'<(?:icon|Icon)\b[^<>\r\n]*/>', value['c'][1]) and len(value['c'][1]) <= 2000:
+                report('unsupported-icon-retained-in-tooltip')
+                span = {'t': 'Span', 'c': [['', [], [['title', value['c'][1]]]], [{'t': 'Str', 'c': '□'}]]}
+                return {'t': 'Para', 'c': [span]} if kind == 'RawBlock' else span
+            inlines = component_inlines(value['c'][1], references)
+            if inlines is not None:
+                report('chatgpt-reference-resolved')
+                return ({'t': 'Para', 'c': inlines} if kind == 'RawBlock' else
+                        {'t': 'Span', 'c': [['', [], []], inlines]})
             report('raw-markup-as-literal-code')
+            if re.match(r'<Cite\b', value['c'][1]):
+                report('unresolved-chatgpt-citation')
+            if re.match(r'<Link\b', value['c'][1]):
+                report('unresolved-chatgpt-link')
             return {'t':'CodeBlock','c':[['',[],[]],value['c'][1]]} if kind == 'RawBlock' else {
                 't':'Code','c':[['',[],[]],value['c'][1]]}
         if kind == 'Image':
@@ -47,6 +224,20 @@ def review_gfm(record, *, identity='document'):
                 return {'t':'Str','c':plain_text(value['c'][1])+' ['+value['c'][2][0]+']'}
         if kind == 'Str':
             text = value['c']
+            chunks = []
+            position = 0
+            for citation in re.finditer('\ue200cite((?:\ue202[^\ue201\ue202]+)+)\ue201', text):
+                chunks.append({'t': 'Str', 'c': text[position:citation.start()]})
+                resolved = citation_inlines(citation[1].split('\ue202')[1:], references)
+                if resolved is None:
+                    report('unresolved-chatgpt-citation')
+                else:
+                    report('chatgpt-reference-resolved')
+                chunks.extend(resolved or [{'t': 'Str', 'c': '[Unresolved ChatGPT citation]'}])
+                position = citation.end()
+            if chunks:
+                chunks.append({'t': 'Str', 'c': text[position:]})
+                return {'t': 'Span', 'c': [['', [], []], [clean(item) if item['t'] == 'Str' else item for item in chunks]]}
             text, count = re.subn('\ue200[^\ue201]*\ue201', '[Unresolved ChatGPT citation]', text)
             if count:
                 report('unresolved-chatgpt-citation')
@@ -68,16 +259,17 @@ def review_gfm(record, *, identity='document'):
         if '[Non-text part omitted]' in text or '[Unsupported message content omitted]' in text:
             report('unsupported-message-content-omitted')
         result = subprocess.run(['pandoc','--fail-if-warnings','--from',
-            'markdown+raw_html+tex_math_dollars+tex_math_single_backslash-smart-yaml_metadata_block-implicit_header_references','--to','json'],
-            input=text,capture_output=True,text=True)
+            'markdown+raw_html+tex_math_dollars+tex_math_single_backslash-smart-yaml_metadata_block-implicit_header_references-implicit_figures','--to','json'],
+            input=_component_blocks(text, report),capture_output=True,text=True)
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        label = passage['label'] + (' — '+passage['timestamp'] if 'timestamp' in passage else '')
-        blocks.extend([anchor(passage['id']),header(2,label)])
+        blocks.extend([anchor(passage['id']),header(2,passage['label'])])
+        details = ([passage['timestamp']] if 'timestamp' in passage else []) + attribution_labels(passage)
+        if details:
+            blocks.append({'t': 'Para', 'c': [{'t': 'Emph', 'c': [{'t': 'Str', 'c': ' · '.join(details)}]}]})
         occurrences = {}
-        for original in ast['blocks']:
-            block = clean(original)
+        for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
                 block['c'][0] = min(5, block['c'][0]+2)
                 block['c'][1] = ['',[],[]]
@@ -87,8 +279,29 @@ def review_gfm(record, *, identity='document'):
             identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
             blocks.extend([anchor(identifier),block])
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
-        '--to=gfm+tex_math_dollars-tex_math_gfm','--wrap=none'],input=json.dumps({
+        '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
             'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    return (result.stdout.rstrip()+'\n').encode(), diagnostics
+    data = (result.stdout.rstrip()+'\n').encode()
+    from supporting_gfm import parse_gfm_record
+    from validate_sources import read_text
+    source, errors = read_text(Path('review.md'), Path('review.md'), raw=data)
+    if errors:
+        raise AssetError('converted GFM is not valid source: ' + '; '.join(errors))
+    parsed, _ = parse_gfm_record(source)
+    def retained(nodes):
+        return [(node['t'], node['c'][0]['t'] if node['t'] == 'Math' else '',
+                 node['c'][1].strip() if node['t'] == 'Math' else node['c'][1])
+                for node in walk(nodes) if node.get('t') in {'Math','Code','CodeBlock'}]
+    if retained(blocks) != retained(parsed['blocks']):
+        raise AssetError('GFM conversion would change mathematics or literal code')
+    def links(nodes):
+        return [(plain_text(node['c'][1]), node['c'][2]) for node in walk(nodes) if node.get('t') == 'Link']
+    if links(blocks) != links(parsed['blocks']):
+        raise AssetError('GFM conversion would change a link label or destination')
+    def tooltips(nodes):
+        return [node['c'][0] for node in walk(nodes) if node.get('t') == 'Span' and node['c'][0][2]]
+    if tooltips(blocks) != tooltips(parsed['blocks']):
+        raise AssetError('GFM conversion would change retained presentation markup')
+    return data, diagnostics

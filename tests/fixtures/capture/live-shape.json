@@ -32,7 +32,8 @@
             ]
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {},
+          "create_time": 1577836860
         }
       },
       "edited-prompt": {
@@ -53,7 +54,8 @@
             ]
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {},
+          "create_time": 1577836920
         }
       },
       "original-recap": {
@@ -72,7 +74,11 @@
             "content": "Synthetic recap."
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577836980
         }
       },
       "regenerated-recap": {
@@ -91,7 +97,11 @@
             "content": "Synthetic recap."
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837040
         }
       },
       "original-answer": {
@@ -110,7 +120,11 @@
             ]
           },
           "channel": "final",
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837100
         }
       },
       "regenerated-answer": {
@@ -129,7 +143,11 @@
             ]
           },
           "channel": "final",
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837160
         }
       },
       "edited-recap": {
@@ -148,7 +166,11 @@
             "content": "Synthetic recap."
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837220
         }
       },
       "edited-answer": {
@@ -167,7 +189,11 @@
             ]
           },
           "channel": "final",
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837280
         }
       }
     }
@@ -207,7 +233,8 @@
           "channel": null,
           "metadata": {
             "has_versions": true
-          }
+          },
+          "create_time": 1577836920
         },
         {
           "id": "selected-system-2",
@@ -251,7 +278,11 @@
             "content": "Synthetic recap."
           },
           "channel": null,
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837220
         },
         {
           "id": "edited-answer",
@@ -265,7 +296,11 @@
             ]
           },
           "channel": "final",
-          "metadata": {}
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837280
         }
       ],
       "page_info": {

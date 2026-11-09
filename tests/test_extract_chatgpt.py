@@ -40,7 +40,7 @@ class ExtractTests(unittest.TestCase):
         first, second = record["passages"]
         self.assertEqual((first["label"], first["text"]), ("User", "  Original <script>\nline\n"))
         self.assertEqual((second["label"], second["text"]), ("Assistant", "Visible reply"))
-        self.assertFalse(any(secret in json.dumps(record) for secret in
+        self.assertFalse(any(secret in json.dumps(record["passages"]) for secret in
                              ("unselected sibling", "hidden context", "custom instructions", "tool output", "arguments",
                               "internal reasoning", "system context", "private metadata")))
         self.assertEqual(first, transcript(self.record, "other")["passages"][0])
@@ -72,6 +72,53 @@ class ExtractTests(unittest.TestCase):
         content.update(content_type="new-format", parts=["private-structured-data"])
         self.assertEqual(transcript(self.record, "tip")["passages"][-1]["text"],
                          "[Unsupported message content omitted]")
+        content["content_type"] = {"future": True}
+        self.assertEqual(transcript(self.record, "tip")["passages"][-1]["text"],
+                         "[Unsupported message content omitted]")
+
+    def test_internal_content_types_are_not_transcript_messages(self):
+        for kind in ('thoughts', 'reasoning_recap'):
+            self.record['mapping']['tip']['message']['content'] = {
+                'content_type': kind, 'parts': ['Internal text must not appear']}
+            passages = transcript(self.record, 'tip')['passages']
+            self.assertEqual(1, len(passages))
+            self.assertEqual('User', passages[0]['label'])
+            self.assertNotIn('Unsupported', json.dumps(passages))
+
+    def test_per_message_model_is_reported_without_guessing_a_default(self):
+        metadata = self.record['mapping']['tip']['message']['metadata']
+        metadata.update(default_model_slug='default-model', model_slug='requested-model',
+                        resolved_model_slug='reported-model')
+        passage = transcript(self.record, 'tip')['passages'][-1]
+        self.assertEqual('Assistant', passage['label'])
+        self.assertEqual('reported-model', passage['model'])
+        del metadata['resolved_model_slug']
+        self.assertEqual('requested-model', transcript(self.record, 'tip')['passages'][-1]['model'])
+        del metadata['model_slug']
+        self.assertNotIn('model', transcript(self.record, 'tip')['passages'][-1])
+        for bad in ('untrusted\nmodel', '<script>', {}, 5):
+            metadata['model_slug'] = bad
+            self.assertNotIn('model', transcript(self.record, 'tip')['passages'][-1])
+
+    def test_effort_is_per_message_evidence_without_inventing_a_model_mode(self):
+        metadata = self.record['mapping']['tip']['message']['metadata']
+        metadata.update(model_slug='gpt-6-thinking', thinking_effort='max',
+                        default_model_slug='gpt-6-pro', model_switcher_deny=['instant'])
+        self.record['default_model_slug'] = 'gpt-6-pro'
+        self.record['mapping']['user']['message']['metadata'] = dict(metadata)
+        for effort in ('max', 'high', 'low', 'none'):
+            metadata['thinking_effort'] = effort
+            user, assistant = transcript(self.record, 'tip')['passages']
+            self.assertNotIn('model', user)
+            self.assertNotIn('thinking_effort', user)
+            self.assertEqual('Assistant', assistant['label'])
+            self.assertEqual('gpt-6-thinking', assistant['model'])
+            self.assertEqual(effort, assistant['thinking_effort'])
+            self.assertNotIn('pro', json.dumps(assistant))
+            self.assertNotIn('instant', json.dumps(assistant))
+        for invalid in (None, '', True, {}, ['max'], 'max\npro', '<script>', 'a' * 129):
+            metadata['thinking_effort'] = invalid
+            self.assertNotIn('thinking_effort', transcript(self.record, 'tip')['passages'][-1])
 
     def test_broken_ancestry(self):
         for parent in ("tip", "missing", []):

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from supporting_records import MAX_RECORD_BYTES, validate_record
+from supporting_records import ATTRIBUTION_TOKEN, MAX_RECORD_BYTES, validate_record
 
 
 def conversations(source):
@@ -101,6 +101,8 @@ def transcript(conversation, tip):
         content = msg.get("content")
         if not isinstance(content, dict):
             raise ValueError("invalid message content")
+        if content.get("content_type") in ("thoughts", "reasoning_recap"):
+            continue
         parts = content.get("parts")
         if content.get("content_type") in ("text", "multimodal_text") and isinstance(parts, list):
             text = "\n\n".join(part if isinstance(part, str) else "[Non-text part omitted]"
@@ -113,6 +115,11 @@ def transcript(conversation, tip):
         else:
             anchor = "m-" + hashlib.sha256(key.encode()).hexdigest()
         passage = {"id": anchor, "label": role.title(), "text": text}
+        if role == "assistant":
+            model = metadata.get("resolved_model_slug") or metadata.get("model_slug")
+            for field, value in (("model", model), ("thinking_effort", metadata.get("thinking_effort"))):
+                if isinstance(value, str) and ATTRIBUTION_TOKEN.fullmatch(value):
+                    passage[field] = value
         if msg.get("create_time") is not None:
             passage["timestamp"] = export_timestamp(msg["create_time"])
         passages.append(passage)
@@ -121,7 +128,7 @@ def transcript(conversation, tip):
     return {
         "title": title,
         "scope": "User and assistant text along one selected branch of a ChatGPT export. "
-                 "Other branches, messages marked hidden, tool traffic and attachments are omitted. "
+                 "Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. "
                  "Unsupported content in included messages is marked inline.",
         "passages": passages,
     }
@@ -158,7 +165,10 @@ def main():
         data = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
         if args.gfm:
             from chat_gfm import review_gfm
-            data, diagnostics = review_gfm(record, identity=args.conversation)
+            from chat_references import reference_index
+            references = reference_index(msg for _, msg in branch_messages(
+                selected, args.tip if args.tip is not None else selected.get("current_node")))
+            data, diagnostics = review_gfm(record, identity=args.conversation, references=references)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name
