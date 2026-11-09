@@ -76,6 +76,13 @@ def verify(directory):
             markdown = directory / f'{archive.stem}-{tip}.md'
             conversion = command('chat-gfm', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=markdown)
             text = markdown.read_text()
+            assert expected_text[0] in text, 'selected original or edited user wording survives GFM conversion'
+            if not live:
+                assert expected_text[1] in text, 'the selected synthetic answer is retained verbatim'
+            from supporting_gfm import load_gfm_record
+            from render_profile import plain_text
+            ast, anchors, *_ = load_gfm_record(markdown)
+            assert [plain_text(ast['blocks'][anchors[identifier]]['c'][2]) for identifier in ids] == ['User','Assistant']
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
             for identifier in ids:
