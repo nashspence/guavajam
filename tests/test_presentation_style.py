@@ -167,6 +167,19 @@ class PresentationStyleTests(unittest.TestCase):
                 self.assertEqual([["role", "group"], ["aria-label", "Table" if cls == "press-table-scroll" else "Displayed mathematics"], ["tabindex", "0"]], attributes[2])
         self.assertIs(inline, ast["blocks"][2])
 
+    def test_citable_composites_retain_nested_math_and_table_keyboard_scrollers(self):
+        table={'t':'Table','c':['example']}
+        equation={'t':'Para','c':[{'t':'Math','c':[{'t':'DisplayMath'},'x=y']}]}
+        evidence={'t':'Div','c':[['source-claim',['press-supporting-element'],[]],[table,
+            {'t':'BlockQuote','c':[equation]}]]}
+        ast={'blocks':[evidence]}
+        prepare_presentation_ast(ast)
+        self.assertEqual('source-claim',ast['blocks'][0]['c'][0][0])
+        children=ast['blocks'][0]['c'][1]
+        self.assertEqual(['press-scroll','press-table-scroll'],children[0]['c'][0][1])
+        self.assertEqual(['press-scroll','press-math-scroll'],children[1]['c'][0]['c'][0][1])
+        self.assertEqual([table],children[0]['c'][1])
+
     def test_native_code_focus_preserves_markup_and_escaped_source(self):
         from asset_policy import AssetError
         source = '<!-- literal <pre> -->\n<pre><code>&lt;pre&gt;literal</code></pre><div class="sourceCode"><pre class="python"><code>x</code></pre></div>'
