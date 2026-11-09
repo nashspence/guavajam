@@ -131,5 +131,5 @@ if __name__=='__main__':
         if result:
             raise SystemExit(result)
     with lantern_fixture() as directory:
-        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs'], cwd=ROOT,
+        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_presentation_regression.mjs'], cwd=ROOT,
             env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory)}).returncode)

@@ -45,7 +45,7 @@ def _is_archive(source):
     source.seek(0)
     signature = source.read(4)
     # Keep damaged ZIP headers fail-closed; is_zipfile also finds ZIPs with stubs.
-    result = signature.startswith(b'PK') or zipfile.is_zipfile(source)
+    result = signature in {b'PK\x03\x04', b'PK\x05\x06', b'PK\x07\x08', b'PK\x06\x06'} or zipfile.is_zipfile(source)
     source.seek(0)
     return result
 

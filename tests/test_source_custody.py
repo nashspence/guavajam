@@ -62,7 +62,7 @@ class NativeInputTests(unittest.TestCase):
             self.assertTrue(native_path(path, 10 * 1024 * 1024))
 
     def test_ordinary_datasets_and_archives_keep_their_original_bytes(self):
-        for raw in (ORDINARY, ORDINARY.decode().encode('utf-16'), b'ordinary data', b'', archive(),
+        for raw in (ORDINARY, ORDINARY.decode().encode('utf-16'), b'ordinary data', b'PK,measurement\n1,2\n', b'', archive(),
                     archive(('conversations.json', ORDINARY), ('figure.bin', b'opaque data')),
                     archive(('nested.zip', archive(('dataset.json', ORDINARY))))):
             with self.subTest(size=len(raw)):
