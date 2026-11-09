@@ -90,8 +90,13 @@ def verify(directory):
             assert fixture_tables(native_text) == parsed_tables(ast)
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
-            for identifier in ids:
-                assert f'<a name="{identifier}"></a>' in text
+            for identifier, key in zip(ids, selected):
+                # The importer now preserves the export's reviewed speaker on
+                # its existing message anchor. Check the exact role rather
+                # than accepting the old unannotated spelling or any role.
+                role = fixture['mapping'][key]['message']['author']['role']
+                assert role in {'user', 'assistant'}
+                assert f'<a name="{identifier}" data-press-speaker="{role}"></a>' in text
             if live:
                 from datetime import datetime, timezone
                 for key in selected:
