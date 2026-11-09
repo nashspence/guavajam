@@ -62,7 +62,10 @@ class NativeInputTests(unittest.TestCase):
             self.assertTrue(native_path(path, 10 * 1024 * 1024))
 
     def test_ordinary_datasets_and_archives_keep_their_original_bytes(self):
-        for raw in (ORDINARY, ORDINARY.decode().encode('utf-16'), b'ordinary data', b'PK,measurement\n1,2\n', b'', archive(),
+        stored = io.BytesIO()
+        with zipfile.ZipFile(stored, 'w', compression=zipfile.ZIP_STORED) as bundle:
+            bundle.writestr('data.json', ORDINARY)
+        for raw in (stored.getvalue(), ORDINARY, ORDINARY.decode().encode('utf-16'), b'ordinary data', b'PK,measurement\n1,2\n', b'', archive(),
                     archive(('conversations.json', ORDINARY), ('figure.bin', b'opaque data')),
                     archive(('nested.zip', archive(('dataset.json', ORDINARY))))):
             with self.subTest(size=len(raw)):
@@ -100,6 +103,10 @@ class NativeInputTests(unittest.TestCase):
         with patch('source_custody.MAX_ARCHIVE_MEMBER_BYTES', 3), patch.object(zipfile.ZipFile, 'open') as opening, \
                 self.assertRaises(AssetError):
             native_conversation(oversized)
+        opening.assert_not_called()
+        unsupported = header_edit(archive(('data', ORDINARY)), method=zipfile.ZIP_LZMA)
+        with patch.object(zipfile.ZipFile, 'open') as opening, self.assertRaisesRegex(AssetError, 'compression'):
+            native_conversation(unsupported)
         opening.assert_not_called()
 
     def test_tracked_json_and_zip_cannot_exceed_inspection_bounds_silently(self):

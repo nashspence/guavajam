@@ -62,6 +62,8 @@ def _archive(source, budget, depth):
             for member in members:
                 if member.flag_bits & 1:
                     raise AssetError('encrypted archive cannot complete native-input inspection')
+                if member.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}:
+                    raise AssetError('unsupported archive compression cannot complete native-input inspection')
                 if member.file_size > MAX_ARCHIVE_MEMBER_BYTES:
                     raise AssetError('archive member exceeds native-input inspection byte limit')
                 budget.expanded_bytes += member.file_size
