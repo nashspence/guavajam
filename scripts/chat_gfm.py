@@ -180,7 +180,7 @@ def _component_blocks(text, report):
     return ''.join(result)
 
 
-def review_gfm(record, *, identity='document', references=None):
+def review_gfm(record, *, identity='document', references=None, metadata=None):
     _validate_transcript(record)
     if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
         raise AssetError('selected message text exceeds 8 MiB')
@@ -331,7 +331,12 @@ def review_gfm(record, *, identity='document', references=None):
             'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    data = (result.stdout.rstrip()+'\n').encode()
+    rendered = result.stdout.rstrip()+'\n'
+    if metadata:
+        from supporting_metadata import metadata_frontmatter
+        rendered = metadata_frontmatter(metadata) + '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered
+        diagnostics['document-metadata-fields-added'] = len(metadata)
+    data = rendered.encode()
     from supporting_gfm import parse_gfm_record
     from validate_sources import read_text
     source, errors = read_text(Path('review.md'), Path('review.md'), raw=data)

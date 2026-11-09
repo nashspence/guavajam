@@ -15,6 +15,7 @@ from verify_edition import verify_edition
 from test_asset_downloads import DownloadPublicationTests
 from test_preview_site import PreviewTests
 from test_lantern_gfm import LanternPublicationTests
+from test_supporting_metadata import MetadataPublicationTests
 from issuance import authorization
 from preview_site import preview_server
 from public_record import EDITION_RECORDS, WORK_RECORDS, write_records
@@ -123,6 +124,17 @@ def lantern_fixture():
         fixture.doCleanups()
 
 
+@contextmanager
+def metadata_fixture():
+    fixture = MetadataPublicationTests('test_fields_are_document_scoped_escaped_and_never_become_edition_metadata')
+    try:
+        fixture.setUp(); fixture.source(); fixture.build()
+        verify_edition(fixture.output)
+        yield fixture.output
+    finally:
+        fixture.doCleanups()
+
+
 if __name__=='__main__':
     with browser_fixture() as directory, site_fixture() as sites:
         result = subprocess.run(['node','--test','tests/test_offline_browser.mjs',
@@ -130,6 +142,6 @@ if __name__=='__main__':
             'PRESS_OFFLINE_TEST_DIR':str(directory), 'PRESS_SITE_TESTS':json.dumps(sites)}).returncode
         if result:
             raise SystemExit(result)
-    with lantern_fixture() as directory:
-        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_presentation_regression.mjs'], cwd=ROOT,
-            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory)}).returncode)
+    with lantern_fixture() as directory, metadata_fixture() as metadata:
+        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
+            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata)}).returncode)

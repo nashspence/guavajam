@@ -10,6 +10,7 @@ from datetime import date, datetime
 from asset_policy import AssetError
 from identifier_schema import SLUG
 from render_profile import plain_text, walk
+from supporting_metadata import split_frontmatter, metadata_block
 
 MAX_RECORD_BYTES = 8 * 1024 * 1024
 
@@ -171,11 +172,18 @@ def load_gfm_record(path: Path, *, root=None):
 
 
 def parse_gfm_record(source, *, policy=None):
-    from validate_sources import parse_pandoc, valid_edition_link
-    ast = parse_pandoc(source)
+    from validate_sources import FORMAT, parse_pandoc, valid_edition_link
+    fields, body = split_frontmatter(source)
+    ast = parse_pandoc(body, reader=FORMAT.replace('+yaml_metadata_block', '-yaml_metadata_block'))
+    metadata_anchor = None
+    if fields:
+        metadata_anchor = anchor_block(ast['blocks'][0]) if ast['blocks'] else None
+        if not metadata_anchor:
+            raise AssetError('supporting metadata requires its own explicit anchor after the front matter')
+        ast['blocks'] = ast['blocks'][1:]
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
     if ast.get('meta'):
-        raise AssetError('supporting GFM does not accept YAML metadata')
+        raise AssetError('unexpected supporting parser metadata')
     blocks, anchors, pending = [], {}, None
     headers = []
     for block in ast['blocks']:
@@ -201,6 +209,13 @@ def parse_gfm_record(source, *, policy=None):
         raise AssetError('supporting GFM requires an explicitly anchored H1 title and no dangling anchor')
     if sum(h['c'][0] == 1 for h in headers) != 1 or 0 not in anchors.values():
         raise AssetError('supporting GFM requires exactly one explicitly anchored H1 title')
+    if fields:
+        if metadata_anchor in anchors:
+            raise AssetError('duplicate supporting metadata anchor')
+        shifted = {key: position + (position > 0) for key, position in anchors.items()}
+        first = next(iter(shifted))
+        anchors = {first: 0, metadata_anchor: 1, **{key: pos for key, pos in shifted.items() if key != first}}
+        blocks.insert(1, metadata_block(fields))
     if set(anchors) & {h['c'][1][0] for h in headers}:
         raise AssetError('explicit supporting anchors collide with automatic heading IDs')
     for node in walk(blocks):
@@ -234,16 +249,32 @@ def append_gfm(root, relative, slug):
     provenance = _provenance('Reviewed supporting Markdown.', relative.as_posix(), digest)
     provenance['c'][1] = provenance['c'][1].replace('<div ', '<div data-press-source="' +
         html.escape(relative.as_posix()) + '" data-press-sha256="' + digest + '" ', 1)
-    result.append(provenance)
     for node in walk(ast['blocks']):
+        if node.get('t') == 'Span' and {'data-press-metadata-key', 'data-press-metadata-value'} & dict(node['c'][0][2]).keys():
+            # Escape trusted literal AST text and its whitespace before the HTML
+            # writer can insert formatting newlines into machine-readable values.
+            literal = html.escape(node['c'][1][0]['c']).replace(' ', '&#32;').replace('\r', '&#13;').replace('\n', '&#10;').replace('\t', '&#9;')
+            node['c'][1] = [{'t':'RawInline','c':['html', literal]}]
         if node.get('t') == 'Span' and 'data-press-datetime' in dict(node['c'][0][2]):
             instant = dict(node['c'][0][2])['data-press-datetime']
             node.clear()
             node.update(t='RawInline', c=['html', '<time datetime="'+instant+'">'+html.escape(timestamp_label(instant))+'</time>'])
         if node.get('t') == 'Link' and node['c'][2][0].startswith('#'):
             node['c'][2][0] = '#' + anchors[node['c'][2][0][1:]]
+    if len(ast['blocks']) > 1 and ast['blocks'][1]['t'] == 'Div' and 'press-document-metadata' in ast['blocks'][1]['c'][0][1]:
+        block = ast['blocks'][1]
+        anchor = by_index[1]
+        block['c'][0][0] = anchor
+        block['c'][0][2].extend([['data-press-document', record_id], ['role', 'group'], ['aria-label', 'Document metadata']])
+        block['c'][1].insert(0, {'t':'Para','c':[{'t':'Str','c':'Document metadata'}, {'t':'Space'},
+            {'t':'Link','c':[['', ['press-permalink'], [['data-press-passage',anchor], ['aria-label','Permalink to document metadata'], ['lang','en']]],
+                           [{'t':'Str','c':'¶'}], ['press-passage:'+anchor,'']]}]})
+        result.append(block)
+    result.append(provenance)
     first_passage = True
     for index, block in enumerate(ast['blocks'][1:], 1):
+        if block['t'] == 'Div' and 'press-document-metadata' in block['c'][0][1]:
+            continue
         anchor = by_index.get(index)
         if block['t'] == 'Header':
             if block['c'][0] == 2:

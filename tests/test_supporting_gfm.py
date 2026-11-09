@@ -33,7 +33,7 @@ class GFMSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'note.md'; path.write_text(source)
             ast, *_ = load_gfm_record(path)
-            spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+            spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span' and 'title' in dict(node['c'][0][2])]
             self.assertEqual(['<text color="secondary">', '<icon name="alert-triangle"/>'],
                              [dict(node['c'][0][2])['title'] for node in spans])
             for markup in ('<span title="x" onclick="alert(1)">Text</span>',
@@ -54,7 +54,7 @@ class GFMSourceTests(unittest.TestCase):
             path=Path(tmp)/'note.md'
             path.write_text(NOTE)
             _,anchors,_,_=load_gfm_record(path)
-            self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(anchors))
+            self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(anchors))
             for bad in [
                 NOTE+'\n<script>alert(1)</script>\n', NOTE.replace('#claim','#missing'),
                 NOTE.replace('#claim','../manuscript.md'), NOTE.replace('#claim','javascript:alert(1)'),
@@ -126,7 +126,7 @@ class GFMImportTests(ExtractTests):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'review.md'; path.write_bytes(data)
             ast, *_ = load_gfm_record(path)
-        spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+        spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span' and 'title' in dict(node['c'][0][2])]
         self.assertEqual([opening + ' … </text>', icon], [dict(node['c'][0][2])['title'] for node in spans])
         self.assertIn('□'.encode(), data)
         self.assertFalse(any(node['t'] in {'RawInline', 'RawBlock', 'Code'} for node in walk(ast['blocks'])))
@@ -190,7 +190,7 @@ class GFMPublicationTests(EditionTests):
         manifest=self.build()
         entry,=manifest['supporting_documents']
         self.assertEqual(digest,entry['sha256'])
-        self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(entry['anchors']))
+        self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(entry['anchors']))
         page=(self.output/manifest['canonical_artifact']).read_text()
         parser=EditionHTML(manifest['presentation_profile']);parser.feed(page)
         self.assertEqual(1,' '.join(page.split()).count('Supporting record — Reviewed supporting note'))
