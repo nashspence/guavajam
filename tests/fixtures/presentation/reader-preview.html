@@ -381,6 +381,9 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   h1, h2, h3, h4, h5, h6, .press-passage-heading, .press-passage-datetime,
   caption { break-after: avoid-page; }
   tr { break-inside: avoid; }
+  /* Keep a metadata label or value intact on paper without forcing a full
+     multi-row record onto one page. */
+  .press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
     background: transparent;
     outline: none;

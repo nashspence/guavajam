@@ -97,6 +97,8 @@ class PresentationStyleTests(unittest.TestCase):
         mobile = css.split('@media (max-width: 36rem)', 1)[1].split('@media (prefers-color-scheme: dark)', 1)[0]
         self.assertIn('border-block-start: 0;', mobile)
         self.assertNotIn('press-metadata-dense', css)
+        printed = css.split('@media print', 1)[1]
+        self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
 
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
