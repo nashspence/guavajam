@@ -266,6 +266,23 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   font-size: .96em;
   overflow-wrap: anywhere;
 }
+.press-document-metadata {
+  margin: .6rem 0 1.2rem;
+  color: var(--press-muted);
+  font: .76rem/1.5 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.press-document-metadata > p { margin: 0 0 .4rem; font-weight: 600; }
+.press-document-metadata dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: .22rem .8rem;
+  margin: 0;
+}
+.press-document-metadata dt { min-width: 0; font-weight: 600; }
+.press-document-metadata dd { min-width: 0; margin: 0; }
+.press-document-metadata ul { margin: 0; padding-left: 1.2em; }
+.press-metadata-value { white-space: pre-wrap; }
 .press-passage-heading {
   margin: 1.25rem 0 .35rem;
   padding-top: .8rem;
@@ -292,8 +309,8 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
 .press-passage-datetime > p { margin: 0; }
 @media (max-width: 36rem) {
   [id]:target, :focus-visible { scroll-margin-top: 9rem; }
-  .press-record-provenance { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
-  .press-record-provenance dd { margin-bottom: .35rem; }
+  .press-record-provenance, .press-document-metadata dl { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-record-provenance dd, .press-document-metadata dd { margin-bottom: .35rem; }
 }
 
 @media (prefers-color-scheme: dark) {

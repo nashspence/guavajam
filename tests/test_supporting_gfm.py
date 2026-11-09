@@ -54,7 +54,7 @@ class GFMSourceTests(unittest.TestCase):
             path=Path(tmp)/'note.md'
             path.write_text(NOTE)
             _,anchors,_,_=load_gfm_record(path)
-            self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(anchors))
+            self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(anchors))
             for bad in [
                 NOTE+'\n<script>alert(1)</script>\n', NOTE.replace('#claim','#missing'),
                 NOTE.replace('#claim','../manuscript.md'), NOTE.replace('#claim','javascript:alert(1)'),
@@ -190,7 +190,7 @@ class GFMPublicationTests(EditionTests):
         manifest=self.build()
         entry,=manifest['supporting_documents']
         self.assertEqual(digest,entry['sha256'])
-        self.assertEqual({'document-note','scope','claim','calculation','code','return'},set(entry['anchors']))
+        self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(entry['anchors']))
         page=(self.output/manifest['canonical_artifact']).read_text()
         parser=EditionHTML(manifest['presentation_profile']);parser.feed(page)
         self.assertEqual(1,' '.join(page.split()).count('Supporting record — Reviewed supporting note'))

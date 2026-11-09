@@ -127,7 +127,7 @@ class MetadataPublicationTests(EditionTests):
     def source(self):
         folder = self.repo/'works/sample/supporting'; folder.mkdir()
         for name, value in [('first','metadata-token-one'),('second','metadata-token-two')]:
-            fields = FIELDS + 'record_note: "'+value+'"\n'
+            fields = FIELDS + 'record_note: "'+value+'"\n' + '"Long ' + 'label-'*20 + '": "' + 'CaféΔ-'*80 + '"\n'
             (folder/(name+'.md')).write_text(document(fields))
         with (self.repo/'works/sample/manuscript.md').open('a') as stream:
             stream.write('\n[First metadata](supporting/first.md#details), '
