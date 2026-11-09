@@ -3,6 +3,7 @@ import copy
 import hashlib
 import io
 import json
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -81,6 +82,17 @@ class SourceContractTests(unittest.TestCase):
 
 
 class CustodyTests(EditionTests):
+    def test_local_review_output_is_gfm_only_and_never_writes_a_json_source(self):
+        source=self.base/'private-native.json'
+        native=json.loads((ROOT/'tests/fixtures/capture/conversation.json').read_text())
+        source.write_text(json.dumps([native]))
+        output=self.base/'review.json'
+        result=subprocess.run([sys.executable,ROOT/'scripts/extract_chatgpt.py',source,
+            '--conversation',native['conversation_id'],'--output',output],capture_output=True,text=True)
+        self.assertNotEqual(0,result.returncode)
+        self.assertIn('GFM .md',result.stderr)
+        self.assertFalse(output.exists())
+
     def test_json_supporting_documents_and_their_references_are_rejected(self):
         folder = self.repo / 'works/sample/supporting'; folder.mkdir()
         path = folder / 'note.json'
