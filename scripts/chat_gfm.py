@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 import html
-from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, valid_timestamp, timestamp_label
+from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, valid_timestamp
 
 from asset_policy import AssetError
 from identifier_schema import SLUG
@@ -46,12 +46,9 @@ def _validate_transcript(record: dict) -> None:
         if not isinstance(identifier, str) or not SLUG.fullmatch(identifier) or identifier in seen:
             raise AssetError(f"passage {i} requires a unique slug id")
         seen.add(identifier)
-        if not _text(passage["label"], single_line=True) or not _text(passage["text"]):
+        if (not _text(passage["label"], single_line=True) or len(passage["label"]) > 160
+                or not _text(passage["text"])):
             raise AssetError(f"passage {i} requires a single-line label and literal text")
-
-def attribution_labels(passage: dict) -> list[str]:
-    return [label + passage[field] for field, label in
-            (("model", "Model: "), ("thinking_effort", "Thinking effort: ")) if field in passage]
 
 PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
 DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
@@ -308,33 +305,35 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        # Give a quoted responder its native GFM blockquote. GitHub renders
-        # the same speaker boundary as the issued HTML, without Press CSS.
-        # Keep the reviewed anchor and all citable child blocks *inside* it.
-        turn = [anchor(passage['id'], passage.get('speaker')), header(2, passage['label'])]
-        details = []
-        if 'timestamp' in passage:
-            value = passage['timestamp']
-            details.append({'t': 'RawInline', 'c': ['html', '<time datetime=\"'+value+'\">']})
-            details.append({'t': 'Str', 'c': timestamp_label(value)})
-            details.append({'t': 'RawInline', 'c': ['html', '</time>']})
-        labels = attribution_labels(passage)
-        if labels:
-            details.append({'t': 'Str', 'c': (' · ' if details else '')+' · '.join(labels)})
-        if details:
-            turn.extend([anchor('meta-'+passage['id']), {'t': 'Para', 'c': [{'t': 'Emph', 'c': details}]}])
+        # Only an *external responder* is quoted and explicitly credited.
+        # Author/user text is the default: no quotation, role annotation,
+        # repeated heading, timestamp, model subtitle or other attribution.
+        # Source metadata remains in the private review record.
+        speaker = passage.get('speaker')
+        quoted = speaker in {'assistant', 'responder'}
+        turn = []
         occurrences = {}
         for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
-                block['c'][0] = min(5, block['c'][0]+2)
-                block['c'][1] = ['',[],[]]
+                # Preserve authored structural headings; a turn does not
+                # introduce an artificial heading level of its own.
+                block['c'][0] = min(5, block['c'][0] + 1)
+                block['c'][1] = ['', [], []]
                 report('heading-level-adjusted')
-            digest = hashlib.sha256(json.dumps(block,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
-            occurrences[digest] = occurrences.get(digest,0)+1
-            identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
+            digest = hashlib.sha256(json.dumps(block, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+            occurrences[digest] = occurrences.get(digest, 0) + 1
+            block_id = 'b-' + passage['id'][2:] + '-' + digest + '-' + str(occurrences[digest])
+            # The first author paragraph carries the original turn fragment;
+            # every other block keeps its independently citable fingerprint ID.
+            # A quoted turn has a separate figure/blockquote anchor, leaving
+            # every contained block ID intact.
+            identifier = block_id if quoted or turn else passage['id']
             turn.extend([anchor(identifier), block])
-        if passage.get('speaker') in {'assistant', 'responder'}:
-            blocks.append({'t': 'BlockQuote', 'c': turn})
+        if quoted:
+            blocks.extend([anchor(passage['id'], speaker),
+                {'t': 'BlockQuote', 'c': turn},
+                {'t': 'Para', 'c': [{'t': 'Str', 'c': '—'}, {'t': 'Space'},
+                                  {'t': 'Str', 'c': passage['label']}]}])
         else:
             blocks.extend(turn)
     # CommonMark treats a standalone '=' inside a quoted $$ expression as

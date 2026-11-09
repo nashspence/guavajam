@@ -73,42 +73,41 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
-    def test_attribution_is_a_subtitle_and_missing_metadata_is_not_invented(self):
+    def test_only_responder_has_a_trailing_credit_not_per_turn_metadata(self):
         msg = self.record['mapping']['tip']['message']
         msg.update(create_time=1577836800.125)
         msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
         data, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertIn(b'## Assistant\n', data)
-        self.assertIn(b'<time datetime="2020-01-01T00:00:00.125Z">1 Jan 2020', data)
-        self.assertIn(' · Model: gpt-6-thinking · Thinking effort: max*'.encode(), data)
-        self.assertIn(b'## User\n\n', data)
-        self.assertNotIn(b'## Assistant (', data)
-        self.assertNotIn(b'Pro', data)
-        msg.pop('create_time')
-        msg['metadata'].clear()
-        data, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertIn(b'data-press-speaker="assistant"', data)
+        self.assertIn('— Assistant'.encode(), data)
+        self.assertNotIn(b'## Assistant', data)
+        self.assertNotIn(b'## User', data)
+        self.assertNotIn(b'data-press-speaker="user"', data)
+        self.assertNotIn(b'<time ', data)
         self.assertNotIn(b'Model:', data)
         self.assertNotIn(b'Thinking effort:', data)
-        self.assertNotIn(b'2020-', data)
+        msg.pop('create_time'); msg['metadata'].clear()
+        later, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertEqual(data, later)
 
-    def test_review_gfm_keeps_exported_speaker_without_guessing_a_heading(self):
+    def test_review_gfm_quotes_only_external_responders_regardless_of_label(self):
         record = transcript(self.record, 'tip')
         source, _ = review_gfm(record)
-        self.assertIn(b'data-press-speaker="user"', source)
+        self.assertNotIn(b'data-press-speaker="user"', source)
         self.assertIn(b'data-press-speaker="assistant"', source)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'review.md'; path.write_bytes(source)
             ast, anchors, *_ = load_gfm_record(path)
-        self.assertEqual(['user', 'assistant'], [dict(n['c'][1][2])['data-press-speaker']
-            for n in ast['blocks'] if n['t'] == 'Header' and n['c'][0] == 2])
+        self.assertEqual(['assistant'], [dict(n['c'][0][2])['data-press-speaker']
+            for n in ast['blocks'] if n['t'] == 'Div' and 'press-reviewed-turn-start' in n['c'][0][1]])
         self.assertTrue(all(key in anchors for key in [p['id'] for p in record['passages']]))
-        # Reviewed labels and source roles are independent. Absence means neutral.
+        # Neither a forged label nor an absent role can create attribution.
         alternate = copy.deepcopy(record)
         alternate['passages'][0]['label'] = 'Assistant'
         alternate['passages'][0]['speaker'] = 'user'
         alternate['passages'][1].pop('speaker')
         text, _ = review_gfm(alternate)
-        self.assertEqual(text.count(b'data-press-speaker='), 1)
+        self.assertEqual(text.count(b'data-press-speaker='), 0)
         for value in ({'forged': True}, 'system', 'ASSISTANT', '', 2, ['user']):
             bad = copy.deepcopy(record); bad['passages'][0]['speaker'] = value
             with self.subTest(value=str(value)), self.assertRaises(AssetError):
@@ -163,7 +162,7 @@ class GFMImportTests(ExtractTests):
         draft,diagnostics=review_gfm(record)
         self.assertEqual((draft,diagnostics),review_gfm(record))
         self.assertIn(b'\\(literal\\)',draft)
-        self.assertIn(b'$`x=x`$',draft)
+        self.assertIn(b'$x=x$',draft)
         self.assertIn('unresolved-chatgpt-citation',diagnostics)
         self.assertIn('raw-markup-as-literal-code',diagnostics)
         self.assertIn('unsupported-message-content-omitted',diagnostics)

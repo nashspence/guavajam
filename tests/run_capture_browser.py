@@ -82,7 +82,9 @@ def verify(directory):
             from render_profile import plain_text, walk
             from test_lantern_gfm import native_code, native_math, fixture_tables, parsed_tables
             ast, anchors, *_ = load_gfm_record(markdown)
-            assert [plain_text(ast['blocks'][anchors[identifier]]['c'][2]) for identifier in ids] == ['User','Assistant']
+            assert ast['blocks'][anchors[ids[0]]]['t'] in {'Para','Header','Div'}
+            assert ast['blocks'][anchors[ids[1]]]['t'] == 'Div'
+            assert 'press-reviewed-turn-start' in ast['blocks'][anchors[ids[1]]]['c'][0][1]
             native_text={'passages':[{'text':part} for part in expected_text]}
             assert native_code(native_text) == [node['c'][1] for node in walk(ast['blocks']) if node['t']=='CodeBlock']
             assert native_math(native_text) == [(node['c'][0]['t'],node['c'][1].strip())
@@ -91,18 +93,19 @@ def verify(directory):
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
             for identifier, key in zip(ids, selected):
-                # The importer now preserves the export's reviewed speaker on
-                # its existing message anchor. Check the exact role rather
-                # than accepting the old unannotated spelling or any role.
+                # Authorial text is the unquoted default. Only reviewed external
+                # responses receive an explicit role and trailing attribution.
                 role = fixture['mapping'][key]['message']['author']['role']
                 assert role in {'user', 'assistant'}
-                assert f'<a name="{identifier}" data-press-speaker="{role}"></a>' in text
-            if live:
-                from datetime import datetime, timezone
-                for key in selected:
-                    instant = datetime.fromtimestamp(fixture['mapping'][key]['message']['create_time'], timezone.utc).isoformat().replace('+00:00', 'Z')
-                    assert '<time datetime="'+instant+'">' in text
-                assert 'Model: gpt-6-thinking' in text
+                if role == 'assistant':
+                    assert f'<a name="{identifier}" data-press-speaker="assistant"></a>' in text
+                else:
+                    assert f'<a name="{identifier}"></a>' in text
+            assert '— Assistant' in text and '> ' in text
+            assert 'data-press-speaker="user"' not in text
+            assert '## User' not in text and '## Assistant' not in text
+            assert '<time datetime=' not in text
+            assert 'Model: gpt-6-thinking' not in text
             expected_marker = ({'original-answer': 'K7M2Q9RX', 'regenerated-answer': 'K7M4Q2ZX',
                                 'edited-answer': 'K7M2Q9TX'} if live else {
                                 'a1': 'Original answer.', 'a2': 'Regenerated answer.', 'a3': 'Edited branch answer.'})[tip]

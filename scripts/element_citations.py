@@ -35,11 +35,11 @@ def element_fingerprints(raw: bytes, identifiers: set[str]) -> dict:
             if tag in VOID:
                 self.save(tag, identifier, start, start + len(self.get_starttag_text()))
             else:
-                # A speaker turn has no source-owned ID of its own. Include its
-                # exact opening tag in the fingerprints of anchored descendants
-                # so removing/relabeling the presentation wrapper is detectable
-                # even after external HTML/checksum values are recomputed.
-                turn_tag = self.get_starttag_text() if tag in {'div', 'blockquote'} and \
+                # The source-anchored figure represents a responder turn; its
+                # exact opening bytes also bind every citable quoted child.
+                # A renamed/moved quotation cannot be laundered by rehashing
+                # the outer HTML and its checksum alone.
+                turn_tag = self.get_starttag_text() if tag == 'figure' and \
                     'press-turn' in attrs.get('class', '').split() else ''
                 stack.append((tag, identifier, start, turn_tag))
 

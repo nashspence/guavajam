@@ -138,12 +138,12 @@ def _tooltip_spans(value):
         raise AssetError('unbalanced supporting tooltip span')
     return result
 
-# The only optional speaker annotation lives on an existing explicit H2 anchor.
-# Its value describes a reviewed source role, not publication authorship.
+# A source annotation applies only to externally quoted responders.
+# Ordinary, unquoted material is always authorial, without a role label.
 SPEAKERS = frozenset({'user', 'assistant', 'author', 'responder'})
 ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern + r')"></a>\Z')
 SPEAKER_ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern +
-                            r')" data-press-speaker="(user|assistant|author|responder)"></a>\Z')
+                            r')" data-press-speaker="(assistant|responder)"></a>\Z')
 
 
 def anchor_details(block):
@@ -159,6 +159,25 @@ def anchor_details(block):
         return match[1], None
     match = SPEAKER_ANCHOR.fullmatch(text)
     return (match[1], match[2]) if match else None
+
+
+def _turn_caption(block):
+    """A plain, unquoted Markdown credit; no inferred speaker or inline HTML."""
+    if block.get('t') != 'Para' or any(n.get('t') not in {'Str', 'Space'} for n in block['c']):
+        return None
+    value = plain_text(block)
+    if not value.startswith('— ') or len(value) > 162:
+        return None
+    label = value[2:]
+    if not label or label != label.strip() or any(ord(char) < 32 for char in label):
+        return None
+    return label
+
+
+def _turn_boundary(kind, identifier='', speaker='', label=''):
+    attrs = ([['data-press-speaker', speaker], ['data-press-attribution', label]]
+             if kind == 'start' else [])
+    return {'t': 'Div', 'c': [[identifier, ['press-reviewed-turn-' + kind], attrs], []]}
 
 
 def anchor_block(block):
@@ -196,45 +215,64 @@ def parse_gfm_record(source, *, policy=None):
         metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
-    # Exactly an attributed responder quote is expanded for per-block source
-    # validation. All its explicit child IDs keep their original flat order.
-    # A nested ordinary quotation remains ONE citable BlockQuote element.
-    quoted_speaker_anchors = set()
+    # Only an outermost responder quotation followed by an unquoted credit
+    # is an attributed turn. Each child is flattened to retain its own citable
+    # anchor; publisher-only sentinels preserve the figure's exact boundaries.
     expanded = []
-    for block in ast['blocks']:
+    index = 0
+    while index < len(ast['blocks']):
+        block = ast['blocks'][index]
+        details = anchor_details(block)
+        if details and details[1] is not None:
+            if index + 2 >= len(ast['blocks']) or ast['blocks'][index + 1].get('t') != 'BlockQuote':
+                raise AssetError('speaker annotation requires an outermost responder blockquote')
+            identifier, speaker = details
+            quote = ast['blocks'][index + 1]['c']
+            caption = _turn_caption(ast['blocks'][index + 2])
+            if not quote or caption is None or caption.casefold() in {'user', 'author'}:
+                raise AssetError('responder blockquote requires anchored content and an external-speaker credit')
+            if any(anchor_details(child) and anchor_details(child)[1] is not None for child in quote):
+                raise AssetError('speaker annotations cannot nest within a quoted turn')
+            if not any(anchor_details(child) for child in quote):
+                raise AssetError('responder blockquote requires individually anchored content')
+            expanded.append(_turn_boundary('start', identifier, speaker, caption))
+            expanded.extend(quote)
+            expanded.append(_turn_boundary('end'))
+            index += 3
+            continue
         if block.get('t') == 'BlockQuote' and block['c']:
-            first = anchor_details(block['c'][0])
-            if first and first[1] in {'assistant', 'responder'}:
-                if (len(block['c']) < 2 or block['c'][1].get('t') != 'Header'
-                        or block['c'][1]['c'][0] != 2):
-                    raise AssetError('responder blockquote requires a reviewed H2 message heading')
-                if any(child.get('t') == 'Header' and child['c'][0] <= 2
-                       for child in block['c'][2:]):
-                    raise AssetError('responder blockquote cannot contain a second top-level message heading')
-                if any(anchor_details(child) and anchor_details(child)[1] is not None
-                       for child in block['c'][2:]):
-                    raise AssetError('responder blockquote cannot contain a second speaker annotation')
-                quoted_speaker_anchors.add(first[0])
-                expanded.extend(block['c'])
-                continue
-            # A speaker inside a blockquote cannot silently become a nested
-            # reply; only the outermost explicitly attributed turn is valid.
-            if any(anchor_details(n) and anchor_details(n)[1] is not None
-                   for n in block['c']):
-                raise AssetError('speaker attribution requires an outermost responder blockquote')
+            # No implicit role recognition inside nested ordinary quotations.
+            if any(anchor_details(child) and anchor_details(child)[1] is not None
+                   for child in block['c']):
+                raise AssetError('nested speaker annotations are not supported')
         expanded.append(block)
+        index += 1
     ast['blocks'] = expanded
     if ast.get('meta'):
         raise AssetError('unexpected supporting parser metadata')
-    blocks, anchors, pending, speaker = [], {}, None, None
+    blocks, anchors, pending = [], {}, None
     headers = []
     for block in ast['blocks']:
+        if block.get('t') == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
+            identifier = block['c'][0][0]
+            if pending or identifier in anchors:
+                raise AssetError('duplicate or unattached supporting turn anchor')
+            anchors[identifier] = len(blocks)
+            blocks.append(block)
+            continue
+        if block.get('t') == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
+            if pending:
+                raise AssetError('unattached anchor inside supporting turn')
+            blocks.append(block)
+            continue
         details = anchor_details(block)
         if details:
             identifier, explicit_speaker = details
             if pending or identifier in anchors:
                 raise AssetError('duplicate or unattached supporting anchor')
-            pending, speaker = identifier, explicit_speaker
+            if explicit_speaker is not None:
+                raise AssetError('speaker annotation must precede a top-level responder quotation')
+            pending = identifier
             continue
         if any(n.get('t') in {'RawBlock', 'RawInline', 'Note'} for n in walk(block)):
             raise AssetError('supporting GFM permits only standalone anchors, exact semantic times and title-only spans as HTML; footnotes are unsupported')
@@ -245,16 +283,8 @@ def parse_gfm_record(source, *, policy=None):
             headers.append(block)
         if not pending:
             raise AssetError('every top-level supporting content block requires its own explicit anchor')
-        if speaker is not None:
-            if block.get('t') != 'Header' or block['c'][0] != 2:
-                raise AssetError('explicit speaker attribution requires an anchored H2 message heading')
-            if speaker in {'assistant', 'responder'} and pending not in quoted_speaker_anchors:
-                raise AssetError('responder messages require a source GFM blockquote')
-            block['c'][1][2].append(['data-press-speaker', speaker])
-            if pending in quoted_speaker_anchors:
-                block['c'][1][1].append('press-source-quoted-turn')
         anchors[pending] = len(blocks)
-        pending, speaker = None, None
+        pending = None
         blocks.append(block)
     if pending or not blocks or blocks[0].get('t') != 'Header' or blocks[0]['c'][0] != 1:
         raise AssetError('supporting GFM requires an explicitly anchored H1 title and no dangling anchor')
@@ -328,12 +358,34 @@ def append_gfm(root, relative, slug):
     else:
         result.append(provenance)
     first_passage = True
+    turn_start = None
     for index, block in enumerate(ast['blocks'][1:], 1):
         if block['t'] == 'Div' and 'press-document-metadata' in block['c'][0][1]:
             continue
         anchor = by_index.get(index)
+        if block['t'] == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
+            speaker = dict(block['c'][0][2])['data-press-speaker']
+            turn_start, turn_index = block, index
+            result.append({'t':'RawBlock','c':['html',
+                '<figure class="press-turn" id="' + anchor + '" data-press-speaker="' + speaker + '">']})
+            result.append({'t':'RawBlock','c':['html', '<blockquote class="press-turn-quotation">']})
+            continue
+        if block['t'] == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
+            # The paired opening marker provides the exact reviewed caption.
+            caption = dict(turn_start['c'][0][2])['data-press-attribution']
+            turn_anchor = by_index[turn_index]
+            result.append({'t':'RawBlock','c':['html', '</blockquote><figcaption class="press-turn-attribution">']})
+            permalink = {'t':'Link','c':[['', ['press-permalink'],
+                [['data-press-passage',turn_anchor],
+                 ['aria-label','Permalink to attributed turn '+turn_anchor], ['lang','en']]],
+                 [{'t':'Str','c':'¶'}], ['press-passage:'+turn_anchor,'']]}
+            result.append({'t':'Para','c':[{'t':'Str','c':'—'}, {'t':'Space'},
+                                          {'t':'Str','c':caption}, {'t':'Space'}, permalink]})
+            result.append({'t':'RawBlock','c':['html', '</figcaption></figure>']})
+            turn_start = None
+            continue
         if block['t'] == 'Header':
-            if block['c'][0] == 2:
+            if block['c'][0] == 2 and turn_start is None:
                 block['c'][1][1].append('press-passage-heading')
                 if first_passage:
                     block['c'][1][1].append('press-first-passage')

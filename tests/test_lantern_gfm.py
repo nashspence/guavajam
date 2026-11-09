@@ -127,9 +127,13 @@ class LanternConversionTests(unittest.TestCase):
                     # GitHub's native GFM reading surface now distinguishes
                     # responder turns without any publisher-provided CSS.
                     self.assertEqual(sum(p.get('speaker') == 'assistant' for p in record['passages']),
-                                     data.count(b'> ## Assistant'))
+                                     data.count(b'data-press-speaker="assistant"'))
                     self.assertNotIn(b'\n## Assistant\n', data)
-                    self.assertIn(b'data-press-speaker="assistant"', data)
+                    self.assertNotIn(b'\n## User\n', data)
+                    self.assertNotIn(b'data-press-speaker="user"', data)
+                    self.assertNotIn(b'Model:', data)
+                    self.assertNotIn(b'Thinking effort:', data)
+                    self.assertIn(b'\n\n\xe2\x80\x94 Assistant\n', data)
                     # Setext-looking TeX within quoted $$ stays mathematical,
                     # not a spurious Markdown heading. Its AST is compared below.
                     if tip == TIPS[1]:

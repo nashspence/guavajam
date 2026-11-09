@@ -1,4 +1,4 @@
-/* Review source-attributed human/agent turns without making a chat application. */
+/* Source-backed quotations, plain authorial prose, and semantic end credits. */
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -12,210 +12,133 @@ const manifest = JSON.parse(await readFile(path.join(directory, 'provenance.json
 const uri = pathToFileURL(path.join(directory, manifest.canonical_artifact)).href;
 
 for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) {
-  test(`${engineName}: reviewed speakers are distinguishable without a chat shell`, {timeout: 120000}, async () => {
-    const browser = await engine.launch({headless:true});
+  test(`${engineName}: only externally sourced passages are quoted and credited`, {timeout: 120000}, async () => {
+    const browser = await engine.launch({headless: true});
     try {
       for (const width of [320, 375, 1280]) for (const colorScheme of ['light', 'dark']) {
-        const context = await browser.newContext({offline:true, viewport:{width, height:900}, colorScheme});
+        const context = await browser.newContext({offline: true, viewport: {width, height: 900}, colorScheme});
         try {
           const page = await context.newPage(), requested = [];
           page.on('request', req => { if (/^https?:/.test(req.url())) requested.push(req.url()); });
           await page.goto(uri);
-          const attributed = page.locator('h3.press-passage-heading[data-press-speaker]');
-          const user = page.locator('h3.press-passage-heading[data-press-speaker="user"]');
-          const assistant = page.locator('h3.press-passage-heading[data-press-speaker="assistant"]');
-          assert.ok(await user.count() >= 5 && await assistant.count() >= 8);
-          assert.equal(await attributed.count(), await user.count() + await assistant.count());
-          assert.equal(await page.locator('article .press-record-heading[data-press-speaker]').count(), 0);
-          assert.equal(await page.locator('article [data-press-speaker]:not(h3)').count(), 0);
-          assert.equal(await page.locator('article .press-supporting-element[data-press-speaker]').count(), 0);
-          // Explicit source messages use native quoted responder HTML and plain author divs. The H3 still
-          // owns its ID, role, and canonical permalink; body blocks remain
-          // individually citable within the correct source-backed turn.
-          assert.equal(await page.locator('article .press-turn').count(), await attributed.count());
-          assert.equal(await page.locator('article .press-turn > h3.press-passage-heading').count(),
-            await attributed.count());
-          assert.equal(await page.locator('article blockquote.press-turn').count(), await assistant.count());
-          assert.equal(await page.locator('article div.press-turn').count(), await user.count());
-          const styles = await page.evaluate(() => {
-            const assistant = document.querySelector('h3[data-press-speaker="assistant"]');
-            const user = document.querySelector('h3[data-press-speaker="user"]');
-            const turn = assistant.parentElement, userTurn = user.parentElement;
-            const rail = getComputedStyle(turn);
-            const a = getComputedStyle(assistant), u = getComputedStyle(user);
+          const turns = page.locator('article figure.press-turn[data-press-speaker="assistant"]');
+          assert.ok(await turns.count() >= 8);
+          assert.equal(await page.locator('article [data-press-speaker]').count(), await turns.count());
+          assert.equal(await page.locator('article [data-press-speaker="user"], article [data-press-speaker="author"]').count(), 0);
+          assert.equal(await page.locator('article .press-turn > blockquote.press-turn-quotation').count(), await turns.count());
+          assert.equal(await page.locator('article .press-turn > figcaption.press-turn-attribution').count(), await turns.count());
+          assert.equal(await page.locator('article .press-turn h3.press-passage-heading').count(), 0,
+            'quotation contents must not acquire synthetic speaker headings');
+          assert.equal(await page.locator('article .press-passage-datetime').count(), 0,
+            'private message timestamps do not take space in the published document');
+          const reader = await page.evaluate(() => {
+            const figure = document.querySelector('article figure.press-turn');
+            const quote = figure.querySelector(':scope > blockquote');
+            const credit = figure.querySelector(':scope > figcaption');
+            const text = [...document.querySelectorAll('article .press-supporting-element')].find(el =>
+              el.textContent.includes('Help me develop a short technical notebook'));
+            const quotedBlock = quote.querySelector('.press-supporting-element');
+            const rail = getComputedStyle(quote);
+            const figRect = figure.getBoundingClientRect(), quoteRect = quote.getBoundingClientRect();
             return {
-              headingTint: a.backgroundColor, authorTint: u.backgroundColor,
-              headingCue: getComputedStyle(assistant, '::after').content,
-              tag:turn.tagName, authorTag:userTurn.tagName,
-              thickness: parseFloat(rail.borderInlineStartWidth),
-              railStyle: rail.borderInlineStartStyle,
-              ownLabel: assistant.textContent.includes('Assistant'),
-              originLabel: user.textContent.includes('User'),
-              originPseudo: getComputedStyle(userTurn, '::before').content,
-              font: a.fontFamily === u.fontFamily && a.fontSize === u.fontSize && a.fontWeight === u.fontWeight,
-              textColor: a.color === u.color,
+              figureTag: figure.tagName, quoteTag: quote.tagName, captionTag: credit.tagName,
+              speaker: figure.dataset.pressSpeaker, figID: figure.id, passageID: quotedBlock.id,
+              caption: credit.textContent, captionLink: credit.querySelector('a.press-permalink')?.getAttribute('href'),
+              authorshipIsPlain: !!text && !text.closest('blockquote, figure') && !text.closest('[data-press-speaker]'),
+              authoredElementHasID: !!text?.id, border: rail.borderInlineStartStyle,
+              borderWidth: parseFloat(rail.borderInlineStartWidth),
+              padding: parseFloat(rail.paddingInlineStart),
+              clearance: quotedBlock.getBoundingClientRect().left - quoteRect.left - parseFloat(rail.borderInlineStartWidth),
+              left: quoteRect.left, quoteHeight: quoteRect.height, width: figRect.width,
               overflow: document.documentElement.scrollWidth > innerWidth + 1,
-              sourceParagraphs: turn.querySelectorAll('.press-supporting-element').length,
-              responderPadding: parseFloat(getComputedStyle(turn).paddingInlineStart),
-              userPadding: parseFloat(getComputedStyle(userTurn).paddingInlineStart),
-              railLeft: turn.getBoundingClientRect().left,
-              textClearance: turn.querySelector('.press-supporting-element').getBoundingClientRect().left -
-                turn.getBoundingClientRect().left - parseFloat(rail.borderInlineStartWidth),
             };
           });
-          assert.equal(styles.headingCue, 'none', 'no permanent responder-heading tint');
-          assert.equal(styles.headingTint, styles.authorTint, 'speaker headings retain identical paper surfaces');
-          assert.equal(styles.tag, 'BLOCKQUOTE');
-          assert.equal(styles.authorTag, 'DIV');
-          assert.equal(styles.railStyle, 'solid');
-          assert.ok(styles.thickness >= 3 && styles.thickness <= 4, 'match the original blue cue thickness');
-          assert.ok(styles.sourceParagraphs > 1, 'response body was not grouped');
-          assert.equal(styles.originPseudo, 'none', 'unaccented source roles remain neutral');
-          assert.equal(styles.font, true);
-          assert.equal(styles.textColor, true);
-          assert.equal(styles.ownLabel && styles.originLabel, true);
-          assert.equal(styles.overflow, false);
-          // Text moves inward, never the outer rail: preserve the narrow-phone
-          // margin while leaving enough breathing room to read long answers.
-          assert.ok(styles.responderPadding >= 10 && styles.responderPadding <= 12,
-            `${engineName}: unexpected responder padding: ${JSON.stringify(styles)}`);
-          assert.equal(styles.userPadding, 0);
-          assert.ok(styles.railLeft >= 0 && styles.textClearance >= 10 && styles.textClearance <= 14,
-            `${engineName}: responder rail too close to words or clipped: ${JSON.stringify(styles)}`);
-          // The rail remains visible at the middle of a long turn even when
-          // its heading is several screens above, and ends at the next message.
-          const midTurn = await page.evaluate(() => {
-            const turns = [...document.querySelectorAll('.press-turn')].filter(turn =>
-              turn.querySelector(':scope > h3[data-press-speaker="assistant"]'));
-            const longest = turns.sort((a,b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
-            const parts = [...longest.querySelectorAll(':scope > .press-supporting-element')];
-            const midway = parts[Math.floor(parts.length / 2)];
-            midway.scrollIntoView({block:'center'});
-            return {
-              headingTop:longest.querySelector('h3').getBoundingClientRect().top,
-              end:longest.getBoundingClientRect().bottom,
-              bottom:innerHeight,
-              rail:getComputedStyle(longest).borderInlineStartStyle,
-              nextRole:longest.nextElementSibling?.matches('.press-turn') ?
-                longest.nextElementSibling.querySelector(':scope > h3')?.getAttribute('data-press-speaker') : null,
-            };
+          assert.deepEqual([reader.figureTag, reader.quoteTag, reader.captionTag], ['FIGURE', 'BLOCKQUOTE', 'FIGCAPTION']);
+          assert.equal(reader.speaker, 'assistant');
+          assert.ok(reader.figID && reader.passageID);
+          assert.ok(reader.caption.trim().startsWith('— Assistant'));
+          assert.ok(reader.captionLink?.endsWith('#' + reader.figID));
+          assert.ok(reader.authorshipIsPlain && reader.authoredElementHasID);
+          assert.equal(reader.border, 'solid');
+          assert.ok(reader.borderWidth >= 2.5 && reader.borderWidth <= 4);
+          assert.ok(reader.padding >= 10 && reader.padding <= 12.5);
+          assert.ok(reader.clearance >= 9 && reader.clearance <= 15);
+          assert.ok(reader.left >= 0 && reader.width <= width && !reader.overflow);
+          assert.ok(reader.quoteHeight > 100);
+
+          // Long quotations must keep the neutral rail visible even after any
+          // interior heading scrolls out of view; no persistent chat labels.
+          const long = await page.evaluate(() => {
+            const quotes = [...document.querySelectorAll('figure.press-turn > blockquote')];
+            const quote = quotes.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
+            const children = quote.querySelectorAll('.press-supporting-element');
+            children[Math.floor(children.length / 2)].scrollIntoView({block: 'center'});
+            return {height: quote.getBoundingClientRect().height, bottom: quote.getBoundingClientRect().bottom,
+              border: getComputedStyle(quote).borderInlineStartStyle};
           });
-          assert.ok(midTurn.headingTop < 0 && midTurn.end > 0,
-            `${engineName}: long response rail must remain in view after its heading scrolls away`);
-          assert.equal(midTurn.rail, 'solid');
-          // A citation to a reviewed block overpaints the same physical rail,
-          // with no permanent heading tint and no separate horizontal stripe.
-          const targetID = await page.evaluate(() => {
-            const turns = [...document.querySelectorAll('.press-turn')].filter(turn =>
-              turn.querySelector(':scope > h3[data-press-speaker="assistant"]'));
-            const longest = turns.sort((a,b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
-            return longest.querySelector(':scope > .press-supporting-element[id]').id;
-          });
-          await page.goto(uri + '#' + targetID);
-          const cited = await page.locator('#' + targetID).evaluate(element => {
-            const style = getComputedStyle(element), stripe = getComputedStyle(element,'::before');
-            const group = element.closest('.press-turn'), rail = getComputedStyle(group);
-            return {
-              shadow: style.boxShadow, tint: style.backgroundColor,
+          assert.ok(long.height > 900 && long.bottom > 0 && long.border === 'solid');
+
+          // A cited inner block receives the standard blue segment aligned
+          // over the quote rail, while a cited whole turn highlights the figure.
+          await page.goto(uri + '#' + reader.passageID);
+          const cited = await page.locator('#' + reader.passageID).evaluate(element => {
+            const before = getComputedStyle(element, '::before');
+            const quote = element.closest('blockquote.press-turn-quotation');
+            const border = getComputedStyle(quote);
+            return {content: before.content, tint: getComputedStyle(element).backgroundColor,
               paper: getComputedStyle(document.body).backgroundColor,
-              stripe: stripe.content, speakerRail: rail.borderInlineStartStyle,
-              grayX: group.getBoundingClientRect().left,
-              blueX: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
-              grayWidth: parseFloat(rail.borderInlineStartWidth),
-              blueWidth: parseFloat(stripe.borderInlineStartWidth),
-              grayColor: rail.borderInlineStartColor, blueColor: stripe.borderInlineStartColor,
-              clearOfStatus: element.getBoundingClientRect().top >=
-                document.querySelector('.press-status').getBoundingClientRect().bottom - 1,
-              overflow: document.documentElement.scrollWidth > innerWidth + 1,
-            };
+              grayX: quote.getBoundingClientRect().left,
+              blueX: element.getBoundingClientRect().left + parseFloat(before.insetInlineStart),
+              grayWidth: parseFloat(border.borderInlineStartWidth),
+              blueWidth: parseFloat(before.borderInlineStartWidth)};
           });
-          assert.equal(cited.shadow, 'none', `${engineName}: no horizontal citation line`);
+          assert.equal(cited.content, '""');
           assert.notEqual(cited.tint, cited.paper);
-          assert.equal(cited.stripe, '""', `${engineName}: linked passage needs the original blue cue`);
-          assert.equal(cited.speakerRail, 'solid');
-          assert.ok(Math.abs(cited.grayX - cited.blueX) <= 1,
-            `${engineName}: blue and neutral rail X coordinates differ: ${JSON.stringify(cited)}`);
-          assert.ok(Math.abs(cited.grayWidth - cited.blueWidth) <= .75,
-            `${engineName}: rail thickness differs: ${JSON.stringify(cited)}`);
-          assert.notEqual(cited.grayColor, cited.blueColor, 'the blue cue must visibly distinguish the cited passage');
-          assert.equal(cited.clearOfStatus && !cited.overflow, true);
-          // Citation to the heading itself uses the same overlay geometry,
-          // but the untargeted heading has no permanent fill.
-          const assistantID = await assistant.first().getAttribute('id');
-          await page.goto(uri + '#' + assistantID);
-          const headTarget = await assistant.first().evaluate(element => {
-            const stripe = getComputedStyle(element, '::before');
-            const turn = element.closest('.press-turn'), rail = getComputedStyle(turn);
-            return {
-              stripe: stripe.content,
-              tint: getComputedStyle(element).backgroundColor,
-              paper: getComputedStyle(document.body).backgroundColor,
-              x: element.getBoundingClientRect().left + parseFloat(stripe.insetInlineStart),
-              railX: turn.getBoundingClientRect().left,
-            };
-          });
-          assert.equal(headTarget.stripe, '""');
-          assert.notEqual(headTarget.tint, headTarget.paper);
-          assert.ok(Math.abs(headTarget.x - headTarget.railX) <= 1,
-            `${engineName}: heading citation line must follow the speaker rail`);
-          // Ordinary author citations keep the original blue margin cue.
-          const userID = await user.first().getAttribute('id');
-          await page.goto(uri + '#' + userID);
-          assert.equal(await user.first().evaluate(el => getComputedStyle(el,'::before').content), '""');
-          // Re-enter the responder to check print removes only the citation cue.
-          await page.goto(uri + '#' + targetID);
-          const canonical = await assistant.first().locator('a.press-permalink').getAttribute('href');
-          assert.ok(canonical.startsWith(manifest.record_url + '/read#'));
-          await assistant.first().locator('a.press-permalink').focus();
-          assert.notEqual(await assistant.first().locator('a.press-permalink').evaluate(x => getComputedStyle(x).outlineStyle), 'none');
-          await page.emulateMedia({media:'print', colorScheme:'dark'});
-          const print = await assistant.first().evaluate(x => {
-            const turn = x.parentElement;
-            return {headingCue: getComputedStyle(x,'::after').content,
-              tag:turn.tagName, border: getComputedStyle(turn).borderInlineStartStyle,
-              width: parseFloat(getComputedStyle(turn).borderInlineStartWidth),
-              screenRail: getComputedStyle(turn,'::before').content};
-          });
-          assert.equal(print.headingCue, 'none');
-          assert.equal(print.tag, 'BLOCKQUOTE');
+          assert.ok(Math.abs(cited.grayX - cited.blueX) <= 1);
+          assert.ok(Math.abs(cited.grayWidth - cited.blueWidth) <= .75);
+          await page.goto(uri + '#' + reader.figID);
+          const turnTarget = await turns.first().evaluate(el => ({
+            border: getComputedStyle(el.querySelector(':scope > blockquote')).borderInlineStartColor,
+            caption: getComputedStyle(el.querySelector(':scope > figcaption')).color,
+          }));
+          assert.equal(turnTarget.border, turnTarget.caption);
+
+          // Each whole-turn credit is navigable without inventing a heading.
+          await turns.first().locator('figcaption a.press-permalink').focus();
+          assert.notEqual(await turns.first().locator('figcaption a.press-permalink').evaluate(el =>
+            getComputedStyle(el).outlineStyle), 'none');
+          await page.emulateMedia({media: 'print', colorScheme: 'dark'});
+          const print = await turns.first().evaluate(el => ({
+            border: getComputedStyle(el.querySelector('blockquote')).borderInlineStartStyle,
+            captionDisplay: getComputedStyle(el.querySelector('figcaption')).display,
+          }));
           assert.equal(print.border, 'solid');
-          assert.ok(print.width >= 2, 'printed long turns need a fragment-safe border');
-          assert.equal(print.screenRail, 'none');
-          assert.equal(await page.locator('#' + targetID).evaluate(el =>
-            getComputedStyle(el,'::before').content), 'none',
-            `${engineName}: blue citation cue should not be printed`);
+          assert.notEqual(print.captionDisplay, 'none');
+          assert.equal(await page.locator('#' + reader.passageID).evaluate(el =>
+            getComputedStyle(el, '::before').content), 'none');
           assert.deepEqual(requested, []);
-        } finally {await context.close();}
+        } finally { await context.close(); }
       }
-    } finally {await browser.close();}
+    } finally { await browser.close(); }
   });
 }
 
-test('chromium: Windows forced-color simulation preserves textual labels and system rule', {timeout:45000}, async () => {
-  const browser = await chromium.launch({headless:true});
+test('chromium: forced colors retain the real quotation border and targeted source block', {timeout: 45000}, async () => {
+  const browser = await chromium.launch({headless: true});
   try {
-    const context = await browser.newContext({offline:true, forcedColors:'active', viewport:{width:375,height:900}});
+    const context = await browser.newContext({offline: true, forcedColors: 'active', viewport: {width: 375, height: 900}});
     const page = await context.newPage();
     await page.goto(uri);
-    assert.equal(await page.evaluate(() => matchMedia('(forced-colors: active)').matches), true);
-    const targetID = await page.locator('.press-turn:has(> h3[data-press-speaker="assistant"])')
-      .first().locator('.press-supporting-element[id]').first().getAttribute('id');
+    const quote = page.locator('figure.press-turn > blockquote.press-turn-quotation').first();
+    const targetID = await quote.locator('.press-supporting-element[id]').first().getAttribute('id');
     await page.goto(uri + '#' + targetID);
-    const targeted = await page.locator('#' + targetID).evaluate(el => ({
-      shadow: getComputedStyle(el).boxShadow,
+    assert.equal(await quote.evaluate(el => getComputedStyle(el).borderInlineStartStyle), 'solid');
+    const target = await page.locator('#' + targetID).evaluate(el => ({
       outline: getComputedStyle(el).outlineStyle,
-      stripe: getComputedStyle(el,'::before').content,
+      stripe: getComputedStyle(el, '::before').content,
     }));
-    assert.equal(targeted.shadow, 'none');
-    assert.equal(targeted.outline, 'solid');
-    assert.equal(targeted.stripe, 'none');
-    const details = await page.locator('h3[data-press-speaker="assistant"]').first().evaluate(node => ({
-      label: node.textContent, border: getComputedStyle(node.parentElement).borderInlineStartStyle,
-      width: parseFloat(getComputedStyle(node.parentElement).borderInlineStartWidth),
-    }));
-    assert.match(details.label, /Assistant/);
-    assert.equal(details.border, 'solid');
-    assert.ok(details.width >= 2);
+    assert.equal(target.outline, 'solid');
+    assert.equal(target.stripe, 'none');
     await context.close();
-  } finally {await browser.close();}
+  } finally { await browser.close(); }
 });

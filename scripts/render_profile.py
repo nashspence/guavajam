@@ -164,37 +164,6 @@ def _contents_blocks(blocks: list[dict]) -> list[dict]:
     ]
 
 
-def group_reviewed_speaker_turns(blocks: list[dict]) -> list[dict]:
-    """Keep each explicitly attributed turn intact using publisher HTML wrappers.
-
-    RawBlock boundaries are intentional: Pandoc's HTML writer transfers the
-    heading id to a <section> (leaving <h3> without an id) when a Div begins
-    with a Header. Plain publisher-owned div tags retain the existing H3 id,
-    permalink, element fingerprint and screen-reader heading semantics.
-    Unannotated H3s end the prior turn, and nested H4+ material remains inside.
-    """
-    grouped: list[dict] = []
-    current_tag = None
-    for block in blocks:
-        if block.get("t") == "Header" and block["c"][0] <= 3:
-            if current_tag is not None:
-                grouped.append({"t": "RawBlock", "c": ["html", "</" + current_tag + ">"]})
-                current_tag = None
-            level, attributes, _inlines = block["c"]
-            if level == 3 and "press-passage-heading" in attributes[1]:
-                if any(key == "data-press-speaker" for key, _value in attributes[2]):
-                    # Native quotation semantics and GitHub source presentation
-                    # agree only for explicitly quoted responder messages.
-                    quoted = "press-source-quoted-turn" in attributes[1]
-                    current_tag = "blockquote" if quoted else "div"
-                    grouped.append({"t": "RawBlock", "c": ["html",
-                                    '<' + current_tag + ' class="press-turn">']})
-        grouped.append(block)
-    if current_tag is not None:
-        grouped.append({"t": "RawBlock", "c": ["html", "</" + current_tag + ">"]})
-    return grouped
-
-
 def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.
 
@@ -289,7 +258,7 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
                 ["", ["press-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
             ]}
         return block
-    ast["blocks"] = group_reviewed_speaker_turns([wrap(block) for block in new])
+    ast["blocks"] = [wrap(block) for block in new]
     return ast
 
 
