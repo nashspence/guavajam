@@ -228,9 +228,9 @@ class ElementPublicationTests(EditionTests):
         # grouped without moving the stable H3 ID or per-block source anchors.
         markup = html.split(b'</style>', 1)[1]
         self.assertEqual(2, markup.count(b'<div class="press-turn">'))
-        self.assertIn(b'<h3 id="' + entry['anchors']['reply'].encode(), markup)
-        self.assertIn(b'<div id="' + entry['anchors']['reply-text'].encode(), markup)
-        self.assertNotIn(b'<section id="' + entry['anchors']['reply'].encode(), markup)
+        self.assertRegex(markup, rb'<h3\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
+        self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['reply-text'].encode() + rb'"')
+        self.assertNotRegex(markup, rb'<section\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
         # Tamper with a protected heading role, not the matching CSS selector.
         head, sep, markup = html.partition(b'</style>')
         self.assertTrue(sep)
