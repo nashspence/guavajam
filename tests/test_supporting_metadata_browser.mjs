@@ -32,6 +32,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.equal(await block.getAttribute('data-press-document'), 'record-md-' + slug.length + '-' + slug);
             const fields = await block.locator('dt').evaluateAll(terms => terms.map(term => {
               const definition = term.nextElementSibling;
+              const label = term.querySelector('[data-press-metadata-key]');
+              if (label.textContent !== label.getAttribute('data-press-metadata-key')) throw new Error('Metadata label changed');
               return [term.querySelector('[data-press-metadata-key]').getAttribute('data-press-metadata-key'),
                 definition.querySelector('[data-press-metadata-kind]').getAttribute('data-press-metadata-kind'),
                 [...definition.querySelectorAll('[data-press-metadata-value]')].map(node => node.textContent)];
@@ -45,6 +47,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.deepEqual(byKey.boolean.values, ['yes']); assert.deepEqual(byKey.number.values, ['001']);
             assert.deepEqual(byKey.empty.values, ['']);
             assert.deepEqual(byKey.multiline.values, ['First line.\nSecond line.\n']);
+            assert.deepEqual(byKey['Quoted \"label\" · Café'].values, ['Δ & <literal>  \t spaced']);
+            assert.deepEqual(byKey['Empty list'], {kind:'list', values:[]});
             assert.deepEqual(byKey.record_note.values, [slug === 'first' ? 'metadata-token-one' : 'metadata-token-two']);
             const appearance = await block.evaluate(node => {
               const style = getComputedStyle(node), provenance = getComputedStyle(document.querySelector('.press-record-provenance'));

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import yaml
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,6 +91,8 @@ class MetadataSourceTests(unittest.TestCase):
             self.parse(document('key: "' + 'x' * (64 * 1024) + '"\n'))
         with self.assertRaises(AssetError):
             self.parse(document('---\na: value\n'))
+        with self.assertRaisesRegex(AssetError, '64 fields'):
+            self.parse(document(''.join(f'field{n}: value\n' for n in range(65))))
 
     def test_metadata_markers_cannot_be_forged_in_authored_html_and_later_yaml_is_not_silently_consumed(self):
         for markup in ('<span data-press-metadata-key="forged">Text</span>',
@@ -128,6 +131,7 @@ class MetadataPublicationTests(EditionTests):
         folder = self.repo/'works/sample/supporting'; folder.mkdir()
         for name, value in [('first','metadata-token-one'),('second','metadata-token-two')]:
             fields = FIELDS + 'record_note: "'+value+'"\n' + '"Long ' + 'label-'*20 + '": "' + 'CaféΔ-'*80 + '"\n'
+            fields += yaml.safe_dump({'Quoted \"label\" · Café': 'Δ & <literal>  \t spaced', 'Empty list': []}, allow_unicode=True, sort_keys=False)
             (folder/(name+'.md')).write_text(document(fields))
         with (self.repo/'works/sample/manuscript.md').open('a') as stream:
             stream.write('\n[First metadata](supporting/first.md#details), '
