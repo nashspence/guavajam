@@ -3,7 +3,7 @@
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
-export CONVERSATION TIP OUTPUT PACKAGE_ROOT PORT
+export CONVERSATION TIP OUTPUT METADATA PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
 export ASSET_TARGET
 
@@ -53,9 +53,9 @@ assets-policy-apply: ## ASSET_APP=app-slug  Activate the previewed branch-deleti
 chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also accepts conversations JSON.
 	@$(PYTHON) scripts/extract_chatgpt.py --list -- "$${FILE:?Set FILE to the export path}"
 
-chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id]  Convert one branch to anchored GFM for review, reporting losses. OUTPUT must be new and outside the checkout; no commit is made.
+chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id] [METADATA=../fields.yml]  Convert one branch to anchored GFM for review, reporting losses. OUTPUT must be new and outside the checkout; no commit is made.
 	@$(PYTHON) scripts/extract_chatgpt.py --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
-		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} -- "$${FILE:?Set FILE to the export path}"
+		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} $${METADATA:+"--metadata=$$METADATA"} -- "$${FILE:?Set FILE to the export path}"
 
 build: ## TAG=works/essay/v1.0.0  Build from HEAD into dist/<tag>/. Downloads add a complete offline ZIP containing canonical HTML, provenance, checksums, reading copy and original files. Extract and open index.html; make verify DIR=the.zip verifies it.
 	@$(PYTHON) scripts/build_edition.py --commit "$$(git rev-parse HEAD)" \

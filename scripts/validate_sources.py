@@ -236,8 +236,8 @@ def inspect_manuscript_syntax(relative: Path, source: str, first_line: int = 1) 
             "display_math": display_math_count, "footnote_refs": len(footnote_refs)}, errors
 
 
-def parse_pandoc(source: str) -> dict:
-    result = subprocess.run(["pandoc", "--fail-if-warnings", "--from", FORMAT, "--to", "json"],
+def parse_pandoc(source: str, *, reader: str = FORMAT) -> dict:
+    result = subprocess.run(["pandoc", "--fail-if-warnings", "--from", reader, "--to", "json"],
                             input=source, capture_output=True, text=True, check=False)
     if result.returncode:
         raise ValueError("Pandoc parse failed or warned: " + result.stderr.strip())

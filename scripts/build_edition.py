@@ -218,7 +218,7 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # the repository HEAD while uncommitted presentation changes are used.
         for path in [TEMPLATE_PATH, STYLESHEET_PATH, "scripts/build_edition.py",
                      "scripts/asset_policy.py", "scripts/editorial_notices.py", "scripts/identifier_schema.py",
-                     "scripts/render_profile.py", "scripts/supporting_gfm.py", "scripts/element_citations.py", "scripts/source_custody.py", "scripts/table_captions.py",
+                     "scripts/render_profile.py", "scripts/supporting_gfm.py", "scripts/supporting_metadata.py", "scripts/element_citations.py", "scripts/source_custody.py", "scripts/table_captions.py",
                      "scripts/validate_sources.py", "scripts/verify_edition.py", "scripts/bibliography.py", "scripts/edition_package.py"]:
             committed = git(builder, "show", f"{builder_commit}:{path}", binary=True)
             if committed != (builder / path).read_bytes():

@@ -144,8 +144,9 @@ def main():
     select.add_argument("--conversation", help="exact conversation ID")
     parser.add_argument("--tip", help="mapping node to use in place of current_node")
     parser.add_argument("--output", type=Path, help="new review GFM .md file outside the Press checkout")
+    parser.add_argument("--metadata", type=Path, help="optional local YAML mapping of submitter-defined document metadata")
     args = parser.parse_args()
-    if args.list and (args.tip or args.output) or not args.list and not args.output:
+    if args.list and (args.tip or args.output or args.metadata) or not args.list and not args.output:
         parser.error("use --list alone, or --conversation with --output and an optional --tip")
     try:
         selected = None
@@ -165,7 +166,9 @@ def main():
         from chat_references import reference_index
         references = reference_index(msg for _, msg in branch_messages(
             selected, args.tip if args.tip is not None else selected.get("current_node")))
-        data, diagnostics = review_gfm(record, identity=args.conversation, references=references)
+        from supporting_metadata import read_metadata
+        metadata = read_metadata(args.metadata) if args.metadata else None
+        data, diagnostics = review_gfm(record, identity=args.conversation, references=references, metadata=metadata)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name
