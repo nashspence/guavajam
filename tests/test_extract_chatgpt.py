@@ -38,6 +38,7 @@ class ExtractTests(unittest.TestCase):
     def test_selected_branch_and_stable_passages(self):
         record = transcript(self.record, "tip")
         self.assertEqual(set(record), {"title", "scope", "passages"})
+        self.assertIn('does not establish conversation completeness',record['scope'])
         first, second = record["passages"]
         self.assertEqual((first["label"], first["text"]), ("User", "  Original <script>\nline\n"))
         self.assertEqual((second["label"], second["text"]), ("Assistant", "Visible reply"))

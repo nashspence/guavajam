@@ -588,8 +588,8 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
 
     for rel in sorted(paths):
         if rel.parts[:2] != ('tests', 'fixtures') and (root / rel).is_file() and not (root / rel).is_symlink():
-            from source_custody import native_conversation
-            if (root / rel).stat().st_size <= MAX_BYTES and native_conversation((root / rel).read_bytes()):
+            from source_custody import native_path
+            if native_path(root / rel, MAX_BYTES):
                 errors.append(issue(rel, 'native conversation JSON and archives must remain outside tracked publication sources'))
         supporting = record_path(rel)
         in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"

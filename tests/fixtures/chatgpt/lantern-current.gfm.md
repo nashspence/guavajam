@@ -5,7 +5,7 @@
 
 <a name="scope-doc-54c855337c6ab1bca879f0c80bc52bd45296002bf631bd2416ce62758303801d"></a>
 
-User and assistant text along one selected branch of a ChatGPT export. Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. Unsupported content in included messages is marked inline.
+Selected user and assistant text from one branch of a ChatGPT capture/export; this document does not establish conversation completeness. Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. Unsupported content in included messages is marked inline.
 
 <a name="m-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15"></a>
 

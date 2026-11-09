@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 import zipfile
+from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -16,6 +17,7 @@ from supporting_gfm import load_gfm_record, timestamp_label, valid_timestamp
 from render_profile import plain_text, walk
 from validate_sources import git_sources, validate_repository
 from verify_edition import verify_edition
+from manage_assets import upload
 from test_assets import EditionTests
 
 
@@ -103,6 +105,10 @@ class CustodyTests(EditionTests):
                 self.assertTrue(any('native' in error.lower() for error in validate_repository(self.repo,git_sources(self.repo))))
                 with self.assertRaisesRegex(AssetError,'native'):
                     verify_bytes(data,'bin','application/octet-stream')
+                store=Mock()
+                with self.assertRaisesRegex(AssetError,'native'):
+                    upload(self.repo,path,store)
+                store.upload.assert_not_called()
             self.git('rm','-f',name)
         self.assertEqual('application/octet-stream',verify_bytes(b'{"measurements":[1,2,3]}','bin','application/octet-stream'))
         self.assertEqual([],validate_repository(self.repo,git_sources(self.repo)))
@@ -149,6 +155,35 @@ class ElementPublicationTests(EditionTests):
         changed=copy.deepcopy(manifest);self.rewrite(swapped,changed)
         with self.assertRaisesRegex(AssetError,'element'):
             verify_edition(self.output)
+
+    def test_dashed_document_and_fragment_names_have_distinct_namespaces(self):
+        folder=self.repo/'works/sample/supporting';folder.mkdir()
+        for name,key,text in (('a-b','c','First document claim.'),('a','b-c','Second document claim.')):
+            (folder/(name+'.md')).write_text(document('<a name="'+key+'"></a>\n\n'+text))
+        with (self.repo/'works/sample/manuscript.md').open('a') as stream:
+            stream.write('\n[First](supporting/a-b.md#c) and [Second](supporting/a.md#b-c).\n')
+        self.git('add','works');self.git('commit','-qm','Review distinct dashed namespaces')
+        self.commit=self.git('rev-parse','HEAD')
+        manifest=self.build()
+        a,b=manifest['supporting_documents']
+        self.assertEqual('support-md-3-a-b-c',a['anchors']['c'])
+        self.assertEqual('support-md-1-a-b-c',b['anchors']['b-c'])
+        self.assertNotEqual(a['anchors']['c'],b['anchors']['b-c'])
+        self.assertEqual(manifest,verify_edition(self.output))
+
+    def test_element_inventory_and_nested_composite_content_cannot_be_dropped_or_changed(self):
+        self.source();manifest=self.build()
+        raw=(self.output/manifest['canonical_artifact']).read_bytes()
+        for edit in ('inventory','nested'):
+            changed=copy.deepcopy(manifest)
+            updated=raw
+            if edit=='inventory': changed['supporting_documents'][0]['elements'].pop('list')
+            else:
+                updated=raw.replace(b'>Nested<',b'>Substituted<')
+                self.assertNotEqual(raw,updated)
+            self.rewrite(updated,changed)
+            with self.assertRaisesRegex(AssetError,'element'):
+                verify_edition(self.output)
 
 
 def load_tests(loader, tests, pattern):

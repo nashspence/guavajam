@@ -128,7 +128,8 @@ def transcript(conversation, tip):
         raise ValueError("no eligible messages on the selected branch")
     return {
         "title": title,
-        "scope": "User and assistant text along one selected branch of a ChatGPT export. "
+        "scope": "Selected user and assistant text from one branch of a ChatGPT capture/export; "
+                 "this document does not establish conversation completeness. "
                  "Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. "
                  "Unsupported content in included messages is marked inline.",
         "passages": passages,
