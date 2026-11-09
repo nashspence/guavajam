@@ -9,6 +9,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
 FIXTURE = json.loads((ROOT / 'tests/fixtures/capture/conversation.json').read_text())
 LIVE_SHAPE = json.loads((ROOT / 'tests/fixtures/capture/live-shape.json').read_text())
 AUDIT_UNAVAILABLE = {'audit-unavailable', 'stalled', 'rate-limit'}
