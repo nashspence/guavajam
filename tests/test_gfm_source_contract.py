@@ -224,9 +224,28 @@ class ElementPublicationTests(EditionTests):
         self.assertNotIn(b'data-press-speaker="assistant"', html.split(b'</style>', 1)[1])
         self.assertIn('user-turn', entry['anchors']); self.assertIn('reply', entry['anchors'])
         self.assertEqual(manifest, verify_edition(self.output))
-        altered = html.replace(b'data-press-speaker="responder"', b'data-press-speaker="author"')
-        self.assertNotEqual(html, altered)
-        changed = copy.deepcopy(manifest); self.rewrite(altered, changed)
+        # The heading owns its reviewed speaker role; each annotated turn is
+        # grouped without moving the stable H3 ID or per-block source anchors.
+        markup = html.split(b'</style>', 1)[1]
+        self.assertEqual(2, markup.count(b'<div class="press-turn">'))
+        self.assertIn(b'<h3 id="' + entry['anchors']['reply'].encode(), markup)
+        self.assertIn(b'<div id="' + entry['anchors']['reply-text'].encode(), markup)
+        self.assertNotIn(b'<section id="' + entry['anchors']['reply'].encode(), markup)
+        # Tamper with a protected heading role, not the matching CSS selector.
+        head, sep, markup = html.partition(b'</style>')
+        self.assertTrue(sep)
+        changed_role = markup.replace(b'data-press-speaker="responder"',
+                                      b'data-press-speaker="author"', 1)
+        self.assertNotEqual(changed_role, markup)
+        changed = copy.deepcopy(manifest); self.rewrite(head + sep + changed_role, changed)
+        with self.assertRaisesRegex(AssetError, 'element'):
+            verify_edition(self.output)
+        # A publisher-owned wrapper also affects the cited element inventory:
+        # removing the continuous rail cannot be laundered by rehashing HTML.
+        changed_group = markup.replace(b'<div class="press-turn">',
+                                       b'<div class="no-turn">', 1)
+        self.assertNotEqual(changed_group, markup)
+        changed = copy.deepcopy(manifest); self.rewrite(head + sep + changed_group, changed)
         with self.assertRaisesRegex(AssetError, 'element'):
             verify_edition(self.output)
 

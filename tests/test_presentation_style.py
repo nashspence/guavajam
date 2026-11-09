@@ -100,16 +100,59 @@ class PresentationStyleTests(unittest.TestCase):
         printed = css.split('@media print', 1)[1]
         self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
 
+    def test_turn_groups_preserve_heading_ids_and_terminate_at_unannotated_messages(self):
+        from render_profile import group_reviewed_speaker_turns
+        def head(level, identifier, role=None, *, passage=True):
+            return {"t": "Header", "c": [level, [identifier,
+                ["press-passage-heading"] if passage else [],
+                [["data-press-speaker", role]] if role else []],
+                [{"t": "Str", "c": identifier}]]}
+        blocks = [head(2, "record", passage=False),
+                  head(3, "author", "author"), {"t": "Para", "c": []},
+                  head(3, "responder", "responder"), {"t": "Para", "c": []},
+                  head(4, "subheading"), {"t": "CodeBlock", "c": [["", [], []], "print(1)"]},
+                  head(3, "unattributed"), {"t": "Para", "c": []},
+                  head(3, "assistant", "assistant"), {"t": "BulletList", "c": []},
+                  head(2, "next-record", passage=False)]
+        grouped = group_reviewed_speaker_turns(blocks)
+        starts = [n for n in grouped if n["t"] == "RawBlock" and n["c"][1] == '<div class="press-turn">']
+        stops = [n for n in grouped if n["t"] == "RawBlock" and n["c"][1] == '</div>']
+        self.assertEqual(3, len(starts))
+        self.assertEqual(len(starts), len(stops))
+        self.assertEqual(blocks, [n for n in grouped if n["t"] != "RawBlock"])
+        self.assertEqual(2, grouped.index(head(4, "subheading")) - grouped.index(head(3, "responder", "responder")))
+        # The unannotated heading closes the prior turn; no invented role.
+        pos = grouped.index(head(3, "unattributed"))
+        self.assertEqual({"t": "RawBlock", "c": ["html", "</div>"]}, grouped[pos - 1])
+        self.assertEqual({"t": "Para", "c": []}, grouped[pos + 1])
+
     def test_source_attributed_speaker_headings_are_subtle_and_inert(self):
         stylesheet = (ROOT / 'styles/edition-v1.css').read_text()
         selector = '.press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"])'
         self.assertIn(selector + '::after', stylesheet)
-        self.assertIn('border-inline-start: .18rem solid var(--press-border);', stylesheet)
+        self.assertIn('.press-turn:has(> .press-passage-heading:is(', stylesheet)
+        self.assertIn('border-inline-start: .15rem solid var(--press-border);', stylesheet)
         self.assertIn('background: var(--press-tint);', stylesheet)
         self.assertIn('pointer-events: none;', stylesheet)
         self.assertNotIn('speaker', stylesheet.split('/* Supporting evidence:')[0])
-        self.assertIn('background: Canvas;', stylesheet.split('@media (forced-colors: active)')[1])
-        self.assertIn('background: transparent;', stylesheet.split('@media print')[1])
+        forced = stylesheet.split('@media (forced-colors: active)')[1]
+        self.assertIn('border-inline-start-color: CanvasText;', forced)
+        self.assertIn('background: Canvas;', forced)
+        printed = stylesheet.split('@media print')[1]
+        self.assertIn('border-inline-start: .15rem solid var(--press-border);', printed)
+        self.assertIn('[data-press-speaker="responder"]))::before { content: none; }', printed)
+        self.assertIn('background: transparent;', printed)
+
+    def test_speaker_group_context_is_covered_by_existing_element_fingerprints(self):
+        from element_citations import element_fingerprints
+        raw = (b'<div class="press-turn"><h3 id="reply" data-press-speaker="responder">'
+               b'Responder</h3><div id="block">Literal text</div></div>')
+        baseline = element_fingerprints(raw, {"reply", "block"})
+        changed = raw.replace(b'class="press-turn"', b'class="altered"')
+        self.assertNotEqual(baseline, element_fingerprints(changed, {"reply", "block"}))
+        shifted = raw.replace(b'<div id="block">Literal text</div></div>',
+                              b'</div><div id="block">Literal text</div>')
+        self.assertNotEqual(baseline["block"], element_fingerprints(shifted, {"reply", "block"})["block"])
 
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()

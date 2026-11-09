@@ -314,10 +314,19 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   padding-top: 0;
   margin-top: .8rem;
 }
-/* Explicitly attributed responders get a quiet heading accent.  The marker
-   is source-owned on a message anchor; neither labels nor message order are
-   inspected. Body prose, section IDs, and permalink placement do not change.
-   The pseudo-element also leaves the approved heading geometry intact. */
+/* A source-attributed turn is a neutral container, not a chat bubble.
+   The heading remains the sole protected source of the speaker role. A rail
+   stays visible even when a long reply's heading has scrolled off screen. */
+.press-turn { position: relative; }
+.press-turn:has(> .press-passage-heading:is(
+  [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -.55rem;
+  border-inline-start: .15rem solid var(--press-border);
+  pointer-events: none;
+}
 .press-passage-heading:is([data-press-speaker="assistant"], [data-press-speaker="responder"]) {
   position: relative;
   isolation: isolate;
@@ -326,8 +335,7 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   content: "";
   position: absolute;
   inset-block: 0;
-  inset-inline: -.65rem 0;
-  border-inline-start: .18rem solid var(--press-border);
+  inset-inline: -.55rem 0;
   background: var(--press-tint);
   pointer-events: none;
   z-index: -1;
@@ -382,14 +390,25 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
-  .press-passage-heading[data-press-speaker]::after {
-    background: Canvas;
+  .press-passage-heading[data-press-speaker]::after { background: Canvas; }
+  .press-turn:has(> .press-passage-heading:is(
+    [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
     border-inline-start-color: CanvasText;
   }
 }
 
 @media print {
-  /* Keep a monochrome speaker cue in print, without shaded message bodies. */
+  /* Printed turns can span pages: a real border repeats on every fragment,
+     whereas an absolutely positioned rail only appears on the first sheet.
+     Compensating negative margin/padding keep the source text aligned. */
+  .press-turn:has(> .press-passage-heading:is(
+    [data-press-speaker="assistant"], [data-press-speaker="responder"])) {
+    margin-inline-start: -.55rem;
+    padding-inline-start: calc(.55rem - .15rem);
+    border-inline-start: .15rem solid var(--press-border);
+  }
+  .press-turn:has(> .press-passage-heading:is(
+    [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before { content: none; }
   .press-passage-heading[data-press-speaker]::after { background: transparent; }
   :root {
     color-scheme: light;

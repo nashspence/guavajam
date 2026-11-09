@@ -164,6 +164,35 @@ def _contents_blocks(blocks: list[dict]) -> list[dict]:
     ]
 
 
+def group_reviewed_speaker_turns(blocks: list[dict]) -> list[dict]:
+    """Keep each explicitly attributed turn intact using publisher HTML wrappers.
+
+    RawBlock boundaries are intentional: Pandoc's HTML writer transfers the
+    heading id to a <section> (leaving <h3> without an id) when a Div begins
+    with a Header. Plain publisher-owned div tags retain the existing H3 id,
+    permalink, element fingerprint and screen-reader heading semantics.
+    Unannotated H3s end the prior turn, and nested H4+ material remains inside.
+    """
+    grouped: list[dict] = []
+    in_turn = False
+    for block in blocks:
+        if block.get("t") == "Header" and block["c"][0] <= 3:
+            if in_turn:
+                grouped.append({"t": "RawBlock", "c": ["html", "</div>"]})
+                in_turn = False
+            level, attributes, _inlines = block["c"]
+            if level == 3 and "press-passage-heading" in attributes[1]:
+                if any(key == "data-press-speaker" for key, _value in attributes[2]):
+                    # The wrapper has no authorial ID or duplicated speaker role;
+                    # CSS derives its display role from the protected heading.
+                    grouped.append({"t": "RawBlock", "c": ["html", '<div class="press-turn">']})
+                    in_turn = True
+        grouped.append(block)
+    if in_turn:
+        grouped.append({"t": "RawBlock", "c": ["html", "</div>"]})
+    return grouped
+
+
 def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.
 
@@ -258,7 +287,7 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
                 ["", ["press-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
             ]}
         return block
-    ast["blocks"] = [wrap(block) for block in new]
+    ast["blocks"] = group_reviewed_speaker_turns([wrap(block) for block in new])
     return ast
 
 
