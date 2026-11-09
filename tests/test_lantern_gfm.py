@@ -71,6 +71,7 @@ def fixture_tables(record):
             rows = match[0].splitlines()
             cells = [[cell.strip().replace('`', '').replace('\\(', '').replace('\\)', '')
                       for cell in row.strip('|').split('|')] for row in [rows[0], *rows[2:]]]
+            cells = [[re.sub(r'<icon\b[^<>\r\n]*/>', '□', cell) for cell in row] for row in cells]
             result.append(cells)
     return result
 
@@ -139,6 +140,11 @@ class LanternConversionTests(unittest.TestCase):
                         self.assertIn(body, actual_code)
                     self.assertEqual(6 if tip == TIPS[0] else 11, len(actual_code))
                     original = '\n'.join(passage['text'] for passage in record['passages'])
+                    tooltip_icons = [dict(node['c'][0][2]).get('title', '') for node in walk(parsed['blocks'])
+                                     if node['t'] == 'Span' and dict(node['c'][0][2]).get('title', '').startswith('<icon ')]
+                    literal_icons = [icon for body in actual_code for icon in re.findall(r'<icon\b[^<>\r\n]*/>', body)]
+                    self.assertCountEqual(re.findall(r'<icon\b[^<>\r\n]*/>', original), tooltip_icons + literal_icons,
+                                          'each icon remains exact in hover metadata or literal code')
                     for body in actual_code:
                         self.assertTrue(body in original or textwrap.indent(body, '    ') in original,
                                         'every code block retains exact source text, including literal layout components')
@@ -152,6 +158,8 @@ class LanternConversionTests(unittest.TestCase):
                     self.assertEqual(2, diagnostics['unsupported-rich-component-as-literal-code'])
                     self.assertEqual(1, diagnostics['image-or-attachment-omitted'])
                     self.assertEqual(9 if tip == TIPS[0] else 13, diagnostics['chatgpt-reference-resolved'])
+                    self.assertGreater(diagnostics['presentation-wrapper-retained-in-tooltip'], 5)
+                    self.assertGreater(diagnostics['unsupported-icon-retained-in-tooltip'], 1)
                     links = [node['c'][2][0] for node in walk(parsed['blocks']) if node['t'] == 'Link']
                     self.assertIn('https://docs.python.org/3/library/csv.html', links)
                     self.assertTrue(any('nist.gov/' in link for link in links))
@@ -183,7 +191,7 @@ class LanternConversionTests(unittest.TestCase):
                 '````markdown\n<CodeBlock language="python">\nnot a component\n````\n\n'
                 '`<CodeBlock language="python">`\n\n'
                 '    <CodeBlock language="python">\n    indented literal\n\n'
-                '<b><Link url={turn0.url.uri} title="Unresolved"/></b>\n')
+                '<widget><Link url={turn0.url.uri} title="Unresolved"/></widget>\n')
         record = {'title': 'Literal qualification', 'scope': 'Synthetic',
                   'passages': [{'id': 'literal', 'label': 'Assistant', 'text': text}]}
         data, diagnostics = review_gfm(record)

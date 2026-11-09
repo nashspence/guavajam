@@ -153,9 +153,9 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-fa64a6d24b6c161b404d550ee141845a5c9fafccaffae9bff277202c716ed2db-1"></a>
+<a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-4403f9c93d9d9b72657ee6ba94ef3eccc03ade78e2e7e971b09e8209702ac2f2-1"></a>
 
-`<text color="secondary" weight="medium" size="sm">`Technical Notebook · Stage 1 of 6 — Understand the Observations`</text>`
+<span title="&lt;text color=&quot;secondary&quot; weight=&quot;medium&quot; size=&quot;sm&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 1 of 6 — Understand the Observations</span>
 
 <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-1f7dcce71276baed7b571b62771626cb3c1ea209dd3d1b735e741bbd1f3bc570-1"></a>
 
@@ -313,9 +313,9 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-95a92ed5b3e6b7e625f4d2f574003708717dce37f6ce27f0280ed1b8305cc5e4-1"></a>
+<a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-b6bbb75fad82135a5dbee8c5516e30faaa6c559ac5c5f43301d0ed712d9b5f15-1"></a>
 
-`<text color="secondary" size="sm" weight="medium">`Technical Notebook · Stage 2 of 6 — Work Through the Mathematics`</text>`
+<span title="&lt;text color=&quot;secondary&quot; size=&quot;sm&quot; weight=&quot;medium&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 2 of 6 — Work Through the Mathematics</span>
 
 <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-fd698337c72554a910e067e2c2d195b73031b3138604ca7aeccd3b0622a8ea3f-1"></a>
 
@@ -642,9 +642,9 @@ I’ll use the original five-row CSV as input, exclude the final reading from th
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-938d5a9973c8327f7d59d914db7c2f29a20abe9791cc2aba6cbc65fc8dafbeab-1"></a>
+<a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-0120b4dd839591658ba26db16cd5c318a1011c1a1603b4195f4f341a9469538f-1"></a>
 
-`<text color="secondary" weight="medium" size="sm">`Technical Notebook · Stage 3 of 6 — Implement the Calculation`</text>`
+<span title="&lt;text color=&quot;secondary&quot; weight=&quot;medium&quot; size=&quot;sm&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 3 of 6 — Implement the Calculation</span>
 
 <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-c6b2eda4edf402db66cacb3cc7430a66ec1a3481869f3af1668c4d8151f053ae-1"></a>
 
@@ -793,9 +793,9 @@ The following is the actual output produced by running the script, not an illust
 }
 ```
 
-<a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-95ab862454c817f393c21d00ecb59b2ac691011a326aa7534c9432b8d70870ff-1"></a>
+<a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-29843ca78a3bb1dc95b5091f851d57abf06884509883a11200a62f69c1639d0e-1"></a>
 
-`<row align="center" gap={2}>` `<icon name="check-circle" color="success" size="lg"/>` **All numerical and CSV parsing checks passed.** `</row>`
+<span title="&lt;row align=&quot;center&quot; gap={2}&gt; … &lt;/row&gt;"> <span title="&lt;icon name=&quot;check-circle&quot; color=&quot;success&quot; size=&quot;lg&quot;/&gt;">□</span> **All numerical and CSV parsing checks passed.** </span>
 
 <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-a83ff15d485652b222ed1fd2ac892fc4957d9f0a62e1c4f1c2d9e571f345c93e-1"></a>
 
@@ -864,9 +864,9 @@ Continue to stage 4
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-9dfb4493bfaca72f8a8300ab15a0d54fe83497bb035f978d4ef6dc9c2e3bd874-1"></a>
+<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-ce335995c185899bf8a9a4d5307f81fd5ae859e0ab55122e6246fee6ddca4c80-1"></a>
 
-`<text color="secondary" weight="medium" size="sm">`Technical Notebook · Stage 4 of 6 — Check Public References`</text>`
+<span title="&lt;text color=&quot;secondary&quot; weight=&quot;medium&quot; size=&quot;sm&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 4 of 6 — Check Public References</span>
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-15ac5291b0671c9a5be8575e6d3d76e8ef727431c3fa48082bc19cf705a9cf4a-1"></a>
 
@@ -880,9 +880,9 @@ I consulted the official Python documentation and the National Institute of Stan
 
 #### 1. Python: CSV parsing and quoting
 
-<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-51b058110bc895b14a591a910dad8ea504001556133983650cdfee593c020960-1"></a>
+<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-8eaadaab7152f386f3da2964aba8587d9ba7406c30a224d85c59cff8076fc6d5-1"></a>
 
-`<text weight="medium">`[Python documentation — csv module](https://docs.python.org/3/library/csv.html)`</text>`
+<span title="&lt;text weight=&quot;medium&quot;&gt; … &lt;/text&gt;">[Python documentation — csv module](https://docs.python.org/3/library/csv.html)</span>
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-8cba1e137308effa7c8c7902f139532cf5704fc4feed7b8039ae13c8ae363202-1"></a>
 
@@ -928,9 +928,9 @@ The labels `Café` and `Δ` can be preserved using UTF-8 text.
 
 #### 2. NIST: Least-squares regression
 
-<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-c12afd43046cf6d428e23e16242485ed68036dabb8abc9940e2b22ddb1dcfda3-1"></a>
+<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-2ce50f16ab2c41430e6a2c57cb005f10bf53a81cc4cfd6ee4bc21623d9373a26-1"></a>
 
-`<text weight="medium">`[NIST — 4.4.3.1. Least Squares](https://www.itl.nist.gov/div898/handbook/pmd/section4/pmd431.htm?pageid=293&pg=page&s=1406)`</text>`
+<span title="&lt;text weight=&quot;medium&quot;&gt; … &lt;/text&gt;">[NIST — 4.4.3.1. Least Squares](https://www.itl.nist.gov/div898/handbook/pmd/section4/pmd431.htm?pageid=293&pg=page&s=1406)</span>
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-e066ce7e8c27b2ee97a33bc7addf128febfd4a876b39ac7edaf9516f7a792e3d-1"></a>
 
@@ -982,9 +982,9 @@ This confirms that our mathematical method follows standard least-squares method
 
 #### 3. NIST: Regression assumptions
 
-<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-9548bc0bc84c5dc3f7cc3850966bfd22fe997ac9f41e47d8cf99eb7de697cbff-1"></a>
+<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-e64980eb66aa387d18d071d28b0bb5c948307fb5480642a3e387ec3323e65518-1"></a>
 
-`<text weight="medium">`[NIST — 5.2.4.5. Check of Assumptions](https://itl.nist.gov/div898/handbook/pri/section2/pri245.htm)`</text>`
+<span title="&lt;text weight=&quot;medium&quot;&gt; … &lt;/text&gt;">[NIST — 5.2.4.5. Check of Assumptions](https://itl.nist.gov/div898/handbook/pri/section2/pri245.htm)</span>
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-9ed2a02ced3113f00d055fe86b11db4f59bf60f1003c07ba27cd9fabb77a3a6a-1"></a>
 
@@ -1098,9 +1098,9 @@ I’ll create the original five-row CSV, a UTF-8 summary of the four-row analysi
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-1a961e9b0f0b4bdb99adc57114711e6c034b8da9e020fbb3f7f1fde1cef38a78-1"></a>
+<a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-37bda57e99d4743a3b8120f98c252e55e5688a6a1d4e4be96e6b9dd0867a85ea-1"></a>
 
-`<text color="secondary" weight="medium" size="sm">`Technical Notebook · Stage 5 of 6 — Produce Useful Files`</text>`
+<span title="&lt;text color=&quot;secondary&quot; weight=&quot;medium&quot; size=&quot;sm&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 5 of 6 — Produce Useful Files</span>
 
 <a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-12ccc2f95bd0eb816a3d51e633d3e44944f277d176be6179ffa6fde4f9a4c588-1"></a>
 
@@ -1110,9 +1110,9 @@ All three files have been created and verified.
 
 #### 1. Download the files
 
-<a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-4e161f1543a0e64c4e2541dc78f95c94900a5b64c46afa80dd6a4edd3e62fc0c-1"></a>
+<a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-d5983f8f78dd71528d61a0faddfb811883aa5959b67820b74cb5df890be9fd31-1"></a>
 
-`<box gap={3}>` `<row align="center" gap={3}>` `<icon name="file-spreadsheet" size="xl" color="secondary"/>` `<box flex="1" gap={1}>` **lantern-observations.csv \[sandbox:/mnt/data/lantern-observations.csv\]** `<text size="xs" color="secondary">`Original five observations, UTF-8 CSV`</text>` `</box>` `</row>` `<divider color="subtle"/>` `<row align="center" gap={3}>` `<icon name="file-text" size="xl" color="secondary"/>` `<box flex="1" gap={1}>` **lantern-summary.txt \[sandbox:/mnt/data/lantern-summary.txt\]** `<text size="xs" color="secondary">`Calculations, assumptions, and limitations`</text>` `</box>` `</row>` `<divider color="subtle"/>` `<row align="center" gap={3}>` `<icon name="image" size="xl" color="secondary"/>` `<box flex="1" gap={1}>` **lantern-fit.png \[sandbox:/mnt/data/lantern-fit.png\]** `<text size="xs" color="secondary">`Regression chart with labeled axes and legend`</text>` `</box>` `</row>` `</box>`
+<span title="&lt;box gap={3}&gt; … &lt;/box&gt;"> <span title="&lt;row align=&quot;center&quot; gap={3}&gt; … &lt;/row&gt;"> <span title="&lt;icon name=&quot;file-spreadsheet&quot; size=&quot;xl&quot; color=&quot;secondary&quot;/&gt;">□</span> <span title="&lt;box flex=&quot;1&quot; gap={1}&gt; … &lt;/box&gt;"> **lantern-observations.csv \[sandbox:/mnt/data/lantern-observations.csv\]** <span title="&lt;text size=&quot;xs&quot; color=&quot;secondary&quot;&gt; … &lt;/text&gt;">Original five observations, UTF-8 CSV</span> </span> </span> `<divider color="subtle"/>` <span title="&lt;row align=&quot;center&quot; gap={3}&gt; … &lt;/row&gt;"> <span title="&lt;icon name=&quot;file-text&quot; size=&quot;xl&quot; color=&quot;secondary&quot;/&gt;">□</span> <span title="&lt;box flex=&quot;1&quot; gap={1}&gt; … &lt;/box&gt;"> **lantern-summary.txt \[sandbox:/mnt/data/lantern-summary.txt\]** <span title="&lt;text size=&quot;xs&quot; color=&quot;secondary&quot;&gt; … &lt;/text&gt;">Calculations, assumptions, and limitations</span> </span> </span> `<divider color="subtle"/>` <span title="&lt;row align=&quot;center&quot; gap={3}&gt; … &lt;/row&gt;"> <span title="&lt;icon name=&quot;image&quot; size=&quot;xl&quot; color=&quot;secondary&quot;/&gt;">□</span> <span title="&lt;box flex=&quot;1&quot; gap={1}&gt; … &lt;/box&gt;"> **lantern-fit.png \[sandbox:/mnt/data/lantern-fit.png\]** <span title="&lt;text size=&quot;xs&quot; color=&quot;secondary&quot;&gt; … &lt;/text&gt;">Regression chart with labeled axes and legend</span> </span> </span> </span>
 
 <a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-4b23a6adae52c4e36f525e85d623c5aa3560bcf1cfc2419ec7841c825663ded5-1"></a>
 
@@ -1197,9 +1197,9 @@ The uploaded file paths aren’t opening in the calculation environment, althoug
 
 ### Lantern Counts Over Time: A Fictional Experiment
 
-<a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-645b3942529019af2f196545584c7b58c44e930857f2c3d068acbec658c431ae-1"></a>
+<a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-af4558c8ea0bb9fd9112cf35373cc496c06be437a4ad8101ef373bfc4a646b46-1"></a>
 
-`<text color="secondary" weight="medium" size="sm">`Technical Notebook · Stage 6 of 6 — Review the Uploaded Artifacts`</text>`
+<span title="&lt;text color=&quot;secondary&quot; weight=&quot;medium&quot; size=&quot;sm&quot;&gt; … &lt;/text&gt;">Technical Notebook · Stage 6 of 6 — Review the Uploaded Artifacts</span>
 
 <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-6404e66c699c290460d20ef33a7c5b53a78e60dddc74b84e89b73d9e0da4804c-1"></a>
 
@@ -1209,12 +1209,12 @@ I inspected both uploaded files. **The CSV matches the original observations, bu
 
 #### 1. Artifact review
 
-<a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-eda0d35f0247418a0e316889dbcef03992ed707c0453299eb4940aa9d71a001e-1"></a>
+<a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-455a4a7dc965216479bf43ae7948d231fd7736a916c77e4413b1ff3a2f6ed0eb-1"></a>
 
 | Uploaded file | Result | Finding |
 |----|----|----|
-| `lantern-observations(1).csv` | `<icon name="check-circle" color="success" inline/>` Matches | All five original records are present |
-| `lantern-fit(3).png` | `<icon name="alert-triangle" color="danger" inline/>` Discrepancy | Includes the excluded fifth observation and fits a different line |
+| `lantern-observations(1).csv` | <span title="&lt;icon name=&quot;check-circle&quot; color=&quot;success&quot; inline/&gt;">□</span> Matches | All five original records are present |
+| `lantern-fit(3).png` | <span title="&lt;icon name=&quot;alert-triangle&quot; color=&quot;danger&quot; inline/&gt;">□</span> Discrepancy | Includes the excluded fifth observation and fits a different line |
 
 <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-581726819effb2af7883b919937a6c9fe44befd46bf9c72bb782a93ce0fe30e7-1"></a>
 

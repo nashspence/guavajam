@@ -40,6 +40,15 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           assert.ok(await page.getByText(/2020-01-01T.*Z/).count() > 10, 'synthetic fixture times survive publication');
           assert.ok(await page.locator('a[href="https://docs.python.org/3/library/csv.html"]').count() >= 2);
           assert.ok(await page.locator('a[href*="nist.gov/"]').count() >= 2);
+          const presentation = page.locator('main span[title^="<text "]').filter({ hasText: 'Technical Notebook' }).first();
+          assert.equal(await presentation.count(), 1);
+          assert.match(await presentation.getAttribute('title'), /^<text .* … <\/text>$/);
+          assert.doesNotMatch(await presentation.innerText(), /<text|<\/text>/);
+          const icon = page.locator('main span[title^="<icon "]').first();
+          assert.equal(await icon.innerText(), '□');
+          await icon.hover();
+          assert.match(await icon.getAttribute('title'), /^<icon .*\/>$/);
+          assert.deepEqual(await icon.evaluate(el => el.getAttributeNames()), ['title']);
           const code = await page.locator('pre code').allTextContents();
           for (const program of programs) assert.ok(code.some(text => text.replace(/\n$/, '') === program), 'Python stays byte-exact');
           for (const document of manifest.supporting_documents) {

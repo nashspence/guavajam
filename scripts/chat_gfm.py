@@ -9,6 +9,27 @@ from asset_policy import AssetError
 from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
 
+PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
+
+
+def _presentation_pairs(inlines):
+    pairs, stack = {}, []
+    for index, item in enumerate(inlines):
+        raw = item.get('c') if isinstance(item, dict) and item.get('t') == 'RawInline' else None
+        if not raw or raw[0] != 'html':
+            continue
+        opening = PRESENTATION.fullmatch(raw[1]) if len(raw[1]) <= 2000 else None
+        closing = re.fullmatch(r'</(text|row|box|b|strong|i|em)>', raw[1])
+        if opening:
+            stack.append((opening[1], index))
+        elif closing:
+            if stack and stack[-1][0] == closing[1]:
+                _, start = stack.pop()
+                pairs[start] = index
+            else:
+                stack.clear()
+    return pairs
+
 
 def _component_blocks(text, report):
     """Protect standalone rich code before Markdown interprets its contents."""
@@ -52,7 +73,7 @@ def _component_blocks(text, report):
             index = end + 1
             continue
         if (boundary and re.match(r'<[A-Z][A-Za-z0-9]*\b', line) and
-                not re.match(r'<(?:Link|Cite)\b', line) and line.rstrip('\r\n').endswith('/>')):
+                not re.match(r'<(?:Link|Cite|Icon)\b', line) and line.rstrip('\r\n').endswith('/>')):
             report('unsupported-rich-component-as-literal-code')
             result.append(literal(line)); index += 1
             continue
@@ -72,7 +93,24 @@ def review_gfm(record, *, identity='document', references=None):
     def clean(value):
         if isinstance(value, list):
             result = []
-            for item in map(clean, value):
+            pairs = _presentation_pairs(value)
+            index = 0
+            while index < len(value):
+                original = value[index]
+                raw = original.get('c') if isinstance(original, dict) and original.get('t') == 'RawInline' else None
+                if index in pairs:
+                    opening = PRESENTATION.fullmatch(raw[1])
+                    end = pairs[index]
+                    contents = clean(value[index + 1:end])
+                    if opening[1] in {'b', 'strong', 'i', 'em'}:
+                        contents = [{'t': 'Strong' if opening[1] in {'b', 'strong'} else 'Emph', 'c': contents}]
+                    title = raw[1] + ' … ' + value[end]['c'][1]
+                    item = {'t': 'Span', 'c': [['', [], [['title', title]]], contents]}
+                    report('presentation-wrapper-retained-in-tooltip')
+                    index = end + 1
+                else:
+                    item = clean(original)
+                    index += 1
                 if (isinstance(item, dict) and item.get('t') == 'Code' and result and
                         isinstance(result[-1], dict) and result[-1].get('t') == 'Code' and
                         result[-1]['c'][0] == item['c'][0]):
@@ -89,6 +127,10 @@ def review_gfm(record, *, identity='document', references=None):
         if kind in {'RawBlock', 'RawInline'}:
             if re.match(r'<CodeBlock\b', value['c'][1]):
                 raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
+            if re.fullmatch(r'<(?:icon|Icon)\b[^<>\r\n]*/>', value['c'][1]) and len(value['c'][1]) <= 2000:
+                report('unsupported-icon-retained-in-tooltip')
+                span = {'t': 'Span', 'c': [['', [], [['title', value['c'][1]]]], [{'t': 'Str', 'c': '□'}]]}
+                return {'t': 'Para', 'c': [span]} if kind == 'RawBlock' else span
             inlines = component_inlines(value['c'][1], references)
             if inlines is not None:
                 report('chatgpt-reference-resolved')
@@ -195,4 +237,8 @@ def review_gfm(record, *, identity='document', references=None):
         return [(plain_text(node['c'][1]), node['c'][2]) for node in walk(nodes) if node.get('t') == 'Link']
     if links(blocks) != links(parsed['blocks']):
         raise AssetError('GFM conversion would change a link label or destination')
+    def tooltips(nodes):
+        return [node['c'][0] for node in walk(nodes) if node.get('t') == 'Span' and node['c'][0][2]]
+    if tooltips(blocks) != tooltips(parsed['blocks']):
+        raise AssetError('GFM conversion would change retained presentation markup')
     return data, diagnostics

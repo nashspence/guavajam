@@ -14,6 +14,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from asset_policy import AssetError
 from build_edition import build_edition
 from chat_gfm import review_gfm
+from render_profile import walk
 from extract_chatgpt import transcript
 from supporting_gfm import load_gfm_record
 from validate_sources import git_sources, validate_repository
@@ -26,6 +27,28 @@ NOTE = (ROOT/'templates/work/supporting/note.md').read_text()
 
 
 class GFMSourceTests(unittest.TestCase):
+    def test_tooltips_are_balanced_title_only_literal_data(self):
+        source = NOTE + ('\n<span title=\'&lt;text color="secondary"&gt;\'>Readable **text**</span>\n\n'
+                         '<span title="&lt;icon name=&quot;alert-triangle&quot;/&gt;">□</span>\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'note.md'; path.write_text(source)
+            ast, *_ = load_gfm_record(path)
+            spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+            self.assertEqual(['<text color="secondary">', '<icon name="alert-triangle"/>'],
+                             [dict(node['c'][0][2])['title'] for node in spans])
+            for markup in ('<span title="x" onclick="alert(1)">Text</span>',
+                           '<span title="x" style="display:none">Text</span>',
+                           '<span title="x" id="claim">Text</span>',
+                           '<span title="x"><script>alert(1)</script></span>',
+                           '<span title="x"><img src="https://example.org/tracker"></span>',
+                           '<span title="x">Unclosed',
+                           'Unopened</span>',
+                           '<span title="&#10;">Line break</span>'):
+                with self.subTest(markup=markup):
+                    path.write_text(NOTE + '\n' + markup + '\n')
+                    with self.assertRaises(AssetError):
+                        load_gfm_record(path)
+
     def test_narrow_source_rejects_unsafe_dangling_duplicate_and_implicit_anchors(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'note.md'
@@ -50,6 +73,22 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
+    def test_presentation_wrappers_and_icon_placeholders_preserve_exact_hover_data(self):
+        opening = '<text color="secondary" weight="medium" size="sm">'
+        icon = '<icon name="alert-triangle" color="danger" inline/>'
+        text = opening + 'Technical **Notebook**</text> and ' + icon + '\n'
+        self.record['mapping']['tip']['message']['content']['parts'] = [text]
+        data, diagnostics = review_gfm(transcript(self.record, 'tip'))
+        self.assertEqual(1, diagnostics['presentation-wrapper-retained-in-tooltip'])
+        self.assertEqual(1, diagnostics['unsupported-icon-retained-in-tooltip'])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'review.md'; path.write_bytes(data)
+            ast, *_ = load_gfm_record(path)
+        spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+        self.assertEqual([opening + ' … </text>', icon], [dict(node['c'][0][2])['title'] for node in spans])
+        self.assertIn('□'.encode(), data)
+        self.assertFalse(any(node['t'] in {'RawInline', 'RawBlock', 'Code'} for node in walk(ast['blocks'])))
+
     def test_import_is_deterministic_syntax_aware_and_reports_loss(self):
         text = ('A claim with \\(x=x\\) and citeturn0search0.\n\n'
                 '\\[\nx=x\n\\]\n\n```python\nprint(r"\\(literal\\)")\n```\n\n'

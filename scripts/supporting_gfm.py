@@ -10,6 +10,38 @@ from asset_policy import AssetError
 from identifier_schema import SLUG
 from render_profile import plain_text, walk
 
+TOOLTIP = re.compile(r"""<span title=(?:"([^"<>]*)"|'([^'<>]*)')>\Z""")
+
+
+def _tooltip_spans(value):
+    """Normalize balanced title-only spans; every other raw tag stays prohibited."""
+    if isinstance(value, dict):
+        return {key: _tooltip_spans(item) for key, item in value.items()}
+    if not isinstance(value, list):
+        return value
+    result = []
+    stack = [result]
+    for item in value:
+        raw = item.get('c') if isinstance(item, dict) and item.get('t') == 'RawInline' else None
+        match = TOOLTIP.fullmatch(raw[1]) if raw and raw[0] == 'html' else None
+        if match:
+            title = html.unescape(match[1] if match[1] is not None else match[2])
+            if (not title.strip() or len(title) > 4096 or title.splitlines() != [title] or
+                    any(ord(char) < 32 for char in title)):
+                raise AssetError('supporting tooltip requires a nonempty single-line title')
+            span = {'t': 'Span', 'c': [['', [], [['title', title]]], []]}
+            stack[-1].append(span)
+            stack.append(span['c'][1])
+        elif raw == ['html', '</span>']:
+            if len(stack) == 1:
+                raise AssetError('unbalanced supporting tooltip span')
+            stack.pop()
+        else:
+            stack[-1].append(_tooltip_spans(item))
+    if len(stack) != 1:
+        raise AssetError('unbalanced supporting tooltip span')
+    return result
+
 ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern + r')"></a>\Z')
 
 
@@ -47,6 +79,7 @@ def load_gfm_record(path: Path, *, root=None):
 def parse_gfm_record(source, *, policy=None):
     from validate_sources import parse_pandoc, valid_edition_link
     ast = parse_pandoc(source)
+    ast['blocks'] = _tooltip_spans(ast['blocks'])
     if ast.get('meta'):
         raise AssetError('supporting GFM does not accept YAML metadata')
     blocks, anchors, pending = [], {}, None
@@ -59,7 +92,7 @@ def parse_gfm_record(source, *, policy=None):
             pending = identifier
             continue
         if any(n.get('t') in {'RawBlock', 'RawInline', 'Note'} for n in walk(block)):
-            raise AssetError('supporting GFM permits only standalone explicit anchors as HTML; footnotes are unsupported')
+            raise AssetError('supporting GFM permits only standalone anchors and title-only tooltip spans as HTML; footnotes are unsupported')
         nested = [n for n in walk(block) if n.get('t') == 'Header']
         if nested:
             if block.get('t') != 'Header' or len(nested) != 1 or not pending or block['c'][0] > 5:
