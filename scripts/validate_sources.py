@@ -589,8 +589,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
     for rel in sorted(paths):
         if rel.parts[:2] != ('tests', 'fixtures') and (root / rel).is_file() and not (root / rel).is_symlink():
             from source_custody import native_path
-            if native_path(root / rel, MAX_BYTES):
-                errors.append(issue(rel, 'native conversation JSON and archives must remain outside tracked publication sources'))
+            try:
+                if native_path(root / rel, MAX_BYTES):
+                    errors.append(issue(rel, 'native conversation JSON and archives must remain outside tracked publication sources'))
+            except (OSError, AssetError) as exc:
+                errors.append(issue(rel, str(exc)))
         supporting = record_path(rel)
         in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
         edition_notes = in_editions and rel.suffix == ".md" and VERSION.fullmatch(rel.stem)
