@@ -140,6 +140,9 @@ def verify_bytes(raw: bytes, extension: str, content_type: str) -> str:
     if extension == 'bin':
         if len(raw) > MAX_BYTES:
             raise AssetError('asset exceeds 10 MiB limit')
+        from source_custody import native_conversation
+        if native_conversation(raw):
+            raise AssetError('native conversation JSON and archives are private import inputs, not publication assets')
         return 'application/octet-stream'
     if not raw or len(raw) > MAX_BYTES:
         raise AssetError("asset is empty or exceeds 10 MiB limit")

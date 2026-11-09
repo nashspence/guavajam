@@ -71,27 +71,21 @@ def verify(directory):
                 ('edited-answer', ['edited-prompt', 'edited-answer'])) if live else (
                 ('a1', ['u', 'a1']), ('a2', ['u', 'a2']), ('a3', ['edited-u', 'a3']))
         for tip, selected in tips:
-            output = directory / f'{archive.stem}-{tip}.json'
-            command('chat-extract', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=output)
-            passages = json.loads(output.read_text())['passages']
             expected_text = [fixture['mapping'][key]['message']['content']['parts'][0] for key in selected]
-            assert [passage['text'] for passage in passages] == expected_text
-            assert [passage['label'] for passage in passages] == ['User', 'Assistant']
-            if live:
-                assert passages[-1]['model'] == 'gpt-6-thinking'
-            if live:
-                from datetime import datetime, timezone
-                for passage, key in zip(passages, selected):
-                    expected_time = datetime.fromtimestamp(fixture['mapping'][key]['message']['create_time'], timezone.utc).isoformat().replace('+00:00', 'Z')
-                    assert passage['timestamp'] == expected_time
-            assert all(passage['id'].startswith('m-') for passage in passages)
+            ids = ['m-' + hashlib.sha256(key.encode()).hexdigest() for key in selected]
             markdown = directory / f'{archive.stem}-{tip}.md'
             conversion = command('chat-gfm', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=markdown)
             text = markdown.read_text()
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
-            for passage in passages:
-                assert f'<a name="{passage["id"]}"></a>' in text
+            for identifier in ids:
+                assert f'<a name="{identifier}"></a>' in text
+            if live:
+                from datetime import datetime, timezone
+                for key in selected:
+                    instant = datetime.fromtimestamp(fixture['mapping'][key]['message']['create_time'], timezone.utc).isoformat().replace('+00:00', 'Z')
+                    assert '<time datetime="'+instant+'">' in text
+                assert 'Model: gpt-6-thinking' in text
             expected_marker = ({'original-answer': 'K7M2Q9RX', 'regenerated-answer': 'K7M4Q2ZX',
                                 'edited-answer': 'K7M2Q9TX'} if live else {
                                 'a1': 'Original answer.', 'a2': 'Regenerated answer.', 'a3': 'Edited branch answer.'})[tip]
@@ -101,7 +95,7 @@ def verify(directory):
                 assert 'Synthetic hidden system context.' not in text
                 diagnostics = json.loads(conversion.stderr.split('GFM diagnostics: ', 1)[1])
                 assert 'unsupported-message-content-omitted' not in diagnostics
-    print(f'Independent ZIP/CRC/SHA checks and all three import commands passed for {len(archives)} real downloads.', flush=True)
+    print(f'Independent ZIP/CRC/SHA checks and both import commands passed for {len(archives)} real downloads.', flush=True)
 
 
 if __name__ == '__main__':

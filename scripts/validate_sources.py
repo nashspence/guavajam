@@ -21,7 +21,7 @@ from editorial_notices import check_initial_notes, check_rights_statement
 from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
-from supporting_records import append_supporting_records, load_record, record_path
+from supporting_gfm import append_supporting_records, load_gfm_record, record_path
 from table_captions import normalize_table_captions
 from bibliography import check_optional_bibliography, ordered_authors, reviewed_language
 
@@ -587,6 +587,10 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         return [f"Pandoc version mismatch: expected {expected}, got {version.stdout.splitlines()[0]}"]
 
     for rel in sorted(paths):
+        if rel.parts[:2] != ('tests', 'fixtures') and (root / rel).is_file() and not (root / rel).is_symlink():
+            from source_custody import native_conversation
+            if (root / rel).stat().st_size <= MAX_BYTES and native_conversation((root / rel).read_bytes()):
+                errors.append(issue(rel, 'native conversation JSON and archives must remain outside tracked publication sources'))
         supporting = record_path(rel)
         in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
         edition_notes = in_editions and rel.suffix == ".md" and VERSION.fullmatch(rel.stem)
@@ -604,11 +608,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                 errors.append(issue(rel, "unexpected source directly beneath works/"))
         if supporting:
             try:
-                if rel.suffix == '.md':
-                    from supporting_gfm import load_gfm_record
-                    load_gfm_record(root / rel, root=root)
-                else:
-                    load_record(root / rel)
+                load_gfm_record(root / rel, root=root)
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
             continue

@@ -79,7 +79,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset):
             raise AssetError("\n".join(errors))
         manuscript = len(path.parts) == 3 and path.parts[0] == "works" and path.name == "manuscript.md"
         if manuscript:
-            from supporting_records import append_supporting_records
+            from supporting_gfm import append_supporting_records
             append_supporting_records(ast, root, path, tracked)
         images = Counter(node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Image')
         downloads = Counter(node['c'][2][0] for node in walk(ast['blocks']) if node.get('t') == 'Link'

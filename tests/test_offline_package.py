@@ -140,7 +140,7 @@ class OfflineBudgetTests(unittest.TestCase):
         (root/'asset-policy.json').write_text(json.dumps({'origin':ORIGIN}))
         (root/manuscript).write_text('![Inline]('+URL+')\n\n[First]('+DOWNLOAD+') and [repeat]('+DOWNLOAD+').\n\n[Claim](supporting/note.md#claim)\n')
         note=Path('works/sample/supporting/note.md')
-        (root/note).write_text((ROOT/'templates/work/supporting/note.md').read_text()+'\n[Third]('+DOWNLOAD+').\n')
+        (root/note).write_text((ROOT/'templates/work/supporting/note.md').read_text()+'\n<a name="download"></a>\n\n[Third]('+DOWNLOAD+').\n')
         bound=base64_size(len(SVG))+3*package.download_attribute_size(len(RAW),KEY)
         def fetch(policy,url):return (RAW,'application/octet-stream') if url==DOWNLOAD else (SVG,'image/svg+xml')
         with patch('verify_source_assets.git_sources',return_value=[manuscript,note]):

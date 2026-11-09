@@ -131,7 +131,7 @@ class DownloadPublicationTests(EditionTests):
         manuscript=self.repo/'works/sample/manuscript.md'
         directory=manuscript.parent/'supporting';directory.mkdir()
         note=(Path(__file__).resolve().parents[1]/'templates/work/supporting/note.md').read_text()
-        (directory/'note.md').write_text(note+'\nA whole-object [download]('+DOWNLOAD+').\n')
+        (directory/'note.md').write_text(note+'\n<a name="download"></a>\n\nA whole-object [download]('+DOWNLOAD+').\n')
         with manuscript.open('a') as stream:
             stream.write('\nRead a [download]('+DOWNLOAD+') and [claim](supporting/note.md#claim).\n')
         self.git('add','works');self.git('commit','-qm','Review image, opaque object and supporting Markdown')

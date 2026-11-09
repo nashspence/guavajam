@@ -2,6 +2,8 @@
 
 # Reviewed supporting note
 
+<a name="scope"></a>
+
 Replace this note with reviewed material and describe its scope here.
 
 <a name="claim"></a>
@@ -20,5 +22,7 @@ $$
 def identity(value):
     return value
 ```
+
+<a name="return"></a>
 
 Return to [the claim](#claim).

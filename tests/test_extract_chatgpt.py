@@ -11,6 +11,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 from extract_chatgpt import export_timestamp, transcript
+from chat_gfm import review_gfm
 
 
 class ExtractTests(unittest.TestCase):
@@ -135,7 +136,7 @@ class ExtractTests(unittest.TestCase):
             scripts = shutil.copytree(SCRIPTS, checkout / "scripts")
             (root / "linked").symlink_to(checkout, target_is_directory=True)
             for parent in (checkout, root / "linked"):
-                output = parent / "review.json"
+                output = parent / "review.md"
                 result = subprocess.run([sys.executable, str(scripts / "extract_chatgpt.py"),
                                          source, "--conversation", "selected", "--output", output],
                                         capture_output=True, text=True)
@@ -147,7 +148,7 @@ class ExtractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "export.zip"
-            output = root / "record.json"
+            output = root / "record.md"
             payload = json.dumps([self.record])
             json_file = root / "conversations.json"
             json_file.write_text(payload, encoding="utf-8")
@@ -160,7 +161,7 @@ class ExtractTests(unittest.TestCase):
             args = ["--conversation", "selected", "--output", str(output)]
             subprocess.run([*cmd, source, *args], check=True)
             expected = output.read_bytes()
-            self.assertEqual(json.loads(expected), transcript(self.record, "tip"))
+            self.assertEqual(expected, review_gfm(transcript(self.record, "tip"), identity="selected")[0])
             self.assertEqual(json.loads(subprocess.check_output([*cmd, json_file, "--list"])),
                              ["selected", "A question"])
             overwrite = subprocess.run([*cmd, json_file, *args, "--tip", "other"], capture_output=True)
