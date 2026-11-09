@@ -73,6 +73,47 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
+    def test_attribution_is_a_subtitle_and_missing_metadata_is_not_invented(self):
+        msg = self.record['mapping']['tip']['message']
+        msg.update(create_time=1577836800.125)
+        msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
+        data, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertIn(b'## Assistant\n\n*2020-01-01T00:00:00.125Z', data)
+        self.assertIn(' · Model: gpt-6-thinking · Thinking effort: max*'.encode(), data)
+        self.assertIn(b'## User\n\n', data)
+        self.assertNotIn(b'## Assistant (', data)
+        self.assertNotIn(b'Pro', data)
+        msg.pop('create_time')
+        msg['metadata'].clear()
+        data, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertNotIn(b'Model:', data)
+        self.assertNotIn(b'Thinking effort:', data)
+        self.assertNotIn(b'2020-', data)
+
+    def test_dividers_split_nested_wrappers_and_lists_but_remain_literal_in_code(self):
+        tag = '<divider color="subtle"/>'
+        text = ('<box gap={3}><text>Before</text>' + tag + '<text>After</text></box>\n\n'
+                + tag + '\n\n- First ' + tag + ' second\n\n'
+                '| Cell |\n|---|\n| Before ' + tag + ' after |\n\n'
+                '# Heading ' + tag + ' end\n\n'
+                'Literal ' + chr(96) + tag + chr(96) + '\n\n'
+                + chr(96) * 3 + '\n' + tag + '\n' + chr(96) * 3 + '\n\n'
+                '    ' + tag + '\n')
+        self.record['mapping']['tip']['message']['content']['parts'] = [text]
+        data, diagnostics = review_gfm(transcript(self.record, 'tip'))
+        self.assertEqual(5, diagnostics['chatgpt-divider-normalized'])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'review.md'; path.write_bytes(data)
+            ast, *_ = load_gfm_record(path)
+        nodes = list(walk(ast['blocks']))
+        self.assertEqual(3, sum(node['t'] == 'HorizontalRule' for node in nodes))
+        self.assertEqual(3, [node['c'][1] for node in nodes if node['t'] in {'Code', 'CodeBlock'}].count(tag))
+        divider = [node for node in nodes if node['t'] == 'Span' and dict(node['c'][0][2]).get('title') == tag]
+        self.assertEqual(2, len(divider), 'headings and table cells use a quiet separator with the exact tag on hover')
+        self.assertEqual('—', divider[0]['c'][1][0]['c'])
+        self.assertTrue(all(not any(node['t'] == 'HorizontalRule' for node in walk(span['c'][1]))
+                            for span in nodes if span['t'] == 'Span'))
+
     def test_presentation_wrappers_and_icon_placeholders_preserve_exact_hover_data(self):
         opening = '<text color="secondary" weight="medium" size="sm">'
         icon = '<icon name="alert-triangle" color="danger" inline/>'

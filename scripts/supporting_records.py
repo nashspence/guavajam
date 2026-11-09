@@ -14,6 +14,7 @@ from identifier_schema import SLUG
 from render_profile import walk
 
 MAX_RECORD_BYTES = 8 * 1024 * 1024
+ATTRIBUTION_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z")
 SELECTOR = re.compile(rf"supporting/({SLUG.pattern})\.json(?:#({SLUG.pattern}))?")
 # Date-only notes and offset-qualified instants. Never guess a timezone or a time.
 TIMESTAMP = re.compile(
@@ -91,8 +92,12 @@ def validate_record(record: dict) -> None:
     for i, passage in enumerate(record["passages"], start=1):
         if (not isinstance(passage, dict) or
                 not {"id", "label", "text"} <= passage.keys() or
-                passage.keys() - {"id", "label", "text", "timestamp"}):
-            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp only")
+                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort"}):
+            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model or thinking_effort only")
+        for field in ("model", "thinking_effort"):
+            if field in passage and (not isinstance(passage[field], str) or
+                                     not ATTRIBUTION_TOKEN.fullmatch(passage[field])):
+                raise AssetError(f"passage {i} requires a bounded single-token {field}")
         if "timestamp" in passage and not valid_timestamp(passage["timestamp"]):
             raise AssetError(f"passage {i} requires a valid date or offset-qualified timestamp")
         identifier = passage["id"]
@@ -151,6 +156,11 @@ def _timestamp(value: str) -> dict:
     )]}
 
 
+def attribution_labels(passage: dict) -> list[str]:
+    return [label + passage[field] for field, label in
+            (("model", "Model: "), ("thinking_effort", "Thinking effort: ")) if field in passage]
+
+
 def _append_json_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> None:
     """Rewrite citations and append each complete record once, in first-citation order."""
     passages_by_record = {}
@@ -183,6 +193,9 @@ def _append_json_records(ast: dict, root: Path, manuscript: Path, tracked: set[P
                                        "press-passage-heading"))
                 if "timestamp" in item:
                     appendix.append(_timestamp(item["timestamp"]))
+                if labels := attribution_labels(item):
+                    appendix.append({"t": "RawBlock", "c": ["html",
+                        '<p class="press-passage-datetime">' + html.escape(" · ".join(labels)) + '</p>']})
                 # A div keeps an initial newline, which a pre element would swallow.
                 # Character references preserve carriage returns through HTML parsing.
                 literal = html.escape(item["text"], quote=False).replace("\r", "&#13;")

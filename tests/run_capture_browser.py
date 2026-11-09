@@ -76,7 +76,9 @@ def verify(directory):
             passages = json.loads(output.read_text())['passages']
             expected_text = [fixture['mapping'][key]['message']['content']['parts'][0] for key in selected]
             assert [passage['text'] for passage in passages] == expected_text
-            assert [passage['label'] for passage in passages] == (['User', 'Assistant (gpt-6-thinking)'] if live else ['User', 'Assistant'])
+            assert [passage['label'] for passage in passages] == ['User', 'Assistant']
+            if live:
+                assert passages[-1]['model'] == 'gpt-6-thinking'
             if live:
                 from datetime import datetime, timezone
                 for passage, key in zip(passages, selected):

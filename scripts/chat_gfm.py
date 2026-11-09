@@ -10,6 +10,64 @@ from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
 
 PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
+DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
+
+
+def _divider_blocks(value, *, inline_only=False):
+    """Lift separators through inline wrappers without putting blocks inside spans."""
+    def split(inlines):
+        chunks = [[]]
+        for item in inlines:
+            if item.get('t') == 'RawInline' and item['c'][0] == 'press-divider':
+                chunks.append([])
+                continue
+            kind = item.get('t')
+            inner = item['c'] if kind in {'Emph', 'Strong', 'Strikeout'} else (
+                item['c'][1] if kind in {'Span', 'Link', 'Quoted'} else None)
+            pieces = split(inner) if inner is not None else None
+            if pieces is None or len(pieces) == 1:
+                chunks[-1].append(item)
+                continue
+            for index, piece in enumerate(pieces):
+                if index:
+                    chunks.append([])
+                if piece:
+                    contents = piece if kind in {'Emph', 'Strong', 'Strikeout'} else [
+                        item['c'][0], piece, *item['c'][2:]]
+                    chunks[-1].append({'t': kind, 'c': contents})
+        if len(chunks) > 1:
+            for chunk in chunks:
+                while chunk and chunk[0].get('t') in {'Space', 'SoftBreak', 'LineBreak'}:
+                    chunk.pop(0)
+                while chunk and chunk[-1].get('t') in {'Space', 'SoftBreak', 'LineBreak'}:
+                    chunk.pop()
+        return chunks
+
+    if isinstance(value, list):
+        result = []
+        for item in value:
+            expanded = _divider_blocks(item, inline_only=inline_only)
+            if not inline_only and isinstance(item, dict) and item.get('t') in {'Para', 'Plain'}:
+                result.extend(expanded)
+            else:
+                result.append(expanded)
+        return result
+    if not isinstance(value, dict):
+        return value
+    if not inline_only and value.get('t') in {'Para', 'Plain'}:
+        chunks = split(value['c'])
+        blocks = []
+        for index, chunk in enumerate(chunks):
+            if index:
+                blocks.append({'t': 'HorizontalRule'})
+            if any(node.get('t') not in {'Space', 'SoftBreak', 'LineBreak'} for node in chunk):
+                blocks.append({'t': value['t'], 'c': chunk})
+        return blocks
+    # Headings and GFM table cells cannot contain block separators.
+    if value.get('t') == 'RawInline' and value['c'][0] == 'press-divider':
+        return {'t': 'Span', 'c': [['', [], [['title', value['c'][1]]]], [{'t': 'Str', 'c': '—'}]]}
+    return {key: _divider_blocks(item, inline_only=inline_only or value.get('t') in {'Header', 'Table'})
+            for key, item in value.items()}
 
 
 def _presentation_pairs(inlines):
@@ -82,7 +140,7 @@ def _component_blocks(text, report):
 
 
 def review_gfm(record, *, identity='document', references=None):
-    from supporting_records import MAX_RECORD_BYTES, validate_record
+    from supporting_records import MAX_RECORD_BYTES, attribution_labels, validate_record
     validate_record(record)
     if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
         raise AssetError('selected message text exceeds 8 MiB')
@@ -125,6 +183,10 @@ def review_gfm(record, *, identity='document', references=None):
         if kind in {'Code', 'CodeBlock', 'Math'}:
             return value  # Never rewrite citations, math delimiters or HTML in code.
         if kind in {'RawBlock', 'RawInline'}:
+            if len(value['c'][1]) <= 2000 and DIVIDER.fullmatch(value['c'][1]):
+                report('chatgpt-divider-normalized')
+                return {'t': 'HorizontalRule'} if kind == 'RawBlock' else {
+                    't': 'RawInline', 'c': ['press-divider', value['c'][1]]}
             if re.match(r'<CodeBlock\b', value['c'][1]):
                 raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
             if re.fullmatch(r'<(?:icon|Icon)\b[^<>\r\n]*/>', value['c'][1]) and len(value['c'][1]) <= 2000:
@@ -202,11 +264,12 @@ def review_gfm(record, *, identity='document', references=None):
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        label = passage['label'] + (' — '+passage['timestamp'] if 'timestamp' in passage else '')
-        blocks.extend([anchor(passage['id']),header(2,label)])
+        blocks.extend([anchor(passage['id']),header(2,passage['label'])])
+        details = ([passage['timestamp']] if 'timestamp' in passage else []) + attribution_labels(passage)
+        if details:
+            blocks.append({'t': 'Para', 'c': [{'t': 'Emph', 'c': [{'t': 'Str', 'c': ' · '.join(details)}]}]})
         occurrences = {}
-        for original in ast['blocks']:
-            block = clean(original)
+        for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
                 block['c'][0] = min(5, block['c'][0]+2)
                 block['c'][1] = ['',[],[]]

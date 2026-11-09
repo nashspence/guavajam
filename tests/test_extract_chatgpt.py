@@ -89,14 +89,36 @@ class ExtractTests(unittest.TestCase):
         metadata = self.record['mapping']['tip']['message']['metadata']
         metadata.update(default_model_slug='default-model', model_slug='requested-model',
                         resolved_model_slug='reported-model')
-        self.assertEqual('Assistant (reported-model)', transcript(self.record, 'tip')['passages'][-1]['label'])
+        passage = transcript(self.record, 'tip')['passages'][-1]
+        self.assertEqual('Assistant', passage['label'])
+        self.assertEqual('reported-model', passage['model'])
         del metadata['resolved_model_slug']
-        self.assertEqual('Assistant (requested-model)', transcript(self.record, 'tip')['passages'][-1]['label'])
+        self.assertEqual('requested-model', transcript(self.record, 'tip')['passages'][-1]['model'])
         del metadata['model_slug']
-        self.assertEqual('Assistant', transcript(self.record, 'tip')['passages'][-1]['label'])
+        self.assertNotIn('model', transcript(self.record, 'tip')['passages'][-1])
         for bad in ('untrusted\nmodel', '<script>', {}, 5):
             metadata['model_slug'] = bad
-            self.assertEqual('Assistant', transcript(self.record, 'tip')['passages'][-1]['label'])
+            self.assertNotIn('model', transcript(self.record, 'tip')['passages'][-1])
+
+    def test_effort_is_per_message_evidence_without_inventing_a_model_mode(self):
+        metadata = self.record['mapping']['tip']['message']['metadata']
+        metadata.update(model_slug='gpt-6-thinking', thinking_effort='max',
+                        default_model_slug='gpt-6-pro', model_switcher_deny=['instant'])
+        self.record['default_model_slug'] = 'gpt-6-pro'
+        self.record['mapping']['user']['message']['metadata'] = dict(metadata)
+        for effort in ('max', 'high', 'low', 'none'):
+            metadata['thinking_effort'] = effort
+            user, assistant = transcript(self.record, 'tip')['passages']
+            self.assertNotIn('model', user)
+            self.assertNotIn('thinking_effort', user)
+            self.assertEqual('Assistant', assistant['label'])
+            self.assertEqual('gpt-6-thinking', assistant['model'])
+            self.assertEqual(effort, assistant['thinking_effort'])
+            self.assertNotIn('pro', json.dumps(assistant))
+            self.assertNotIn('instant', json.dumps(assistant))
+        for invalid in (None, '', True, {}, ['max'], 'max\npro', '<script>', 'a' * 129):
+            metadata['thinking_effort'] = invalid
+            self.assertNotIn('thinking_effort', transcript(self.record, 'tip')['passages'][-1])
 
     def test_broken_ancestry(self):
         for parent in ("tip", "missing", []):

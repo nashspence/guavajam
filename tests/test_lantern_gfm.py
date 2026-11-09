@@ -102,7 +102,9 @@ class LanternConversionTests(unittest.TestCase):
             self.assertEqual({'role'}, set(message['author']))
             self.assertLessEqual(set(message.get('metadata', {})),
                                  {'is_visually_hidden_from_conversation', 'is_user_system_message',
-                                  'model_slug', 'resolved_model_slug', 'search_result_groups'})
+                                  'model_slug', 'resolved_model_slug', 'thinking_effort', 'search_result_groups'})
+            if 'thinking_effort' in message.get('metadata', {}):
+                self.assertEqual('max', message['metadata']['thinking_effort'])
             for group in message.get('metadata', {}).get('search_result_groups', []):
                 self.assertEqual({'entries'}, set(group))
                 for entry in group['entries']:
@@ -125,8 +127,12 @@ class LanternConversionTests(unittest.TestCase):
                     self.assertEqual((data, diagnostics), review_gfm(record, identity='lantern-qualification', references=references(tip)))
                     self.assertNotIn(b'[Unsupported message content omitted]', data)
                     self.assertTrue(all('timestamp' in passage for passage in record['passages']))
-                    self.assertTrue(all(passage['label'] == 'User' or passage['label'] == 'Assistant (gpt-6-thinking)'
-                                        for passage in record['passages']))
+                    self.assertTrue(all(passage['label'] in {'User', 'Assistant'} for passage in record['passages']))
+                    for passage in record['passages']:
+                        if passage['label'] == 'Assistant':
+                            self.assertEqual('gpt-6-thinking', passage['model'])
+                            self.assertEqual('max', passage['thinking_effort'])
+                    self.assertEqual(2, diagnostics['chatgpt-divider-normalized'])
                     path = Path(scratch) / (tip + '.md'); path.write_bytes(data)
                     parsed, anchors, _, _ = load_gfm_record(path)
                     math = [(node['c'][0]['t'], node['c'][1].strip())

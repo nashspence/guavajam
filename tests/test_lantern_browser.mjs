@@ -36,7 +36,11 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
           assert.equal(await page.locator('a[href^="sandbox:"], img[src^="sandbox:"]').count(), 0);
           assert.equal(await page.getByText('[Unsupported message content omitted]', { exact: true }).count(), 0);
-          assert.ok(await page.locator('h3', { hasText: 'Assistant (gpt-6-thinking)' }).count() > 10);
+          assert.ok(await page.locator('h3').filter({ hasText: /^Assistant\s*¶?$/ }).count() > 10);
+          assert.equal(await page.locator('h3', { hasText: /gpt-6-thinking|2020-|Thinking effort/ }).count(), 0);
+          assert.ok(await page.locator('h3 + p > em').filter({ hasText: 'Model: gpt-6-thinking · Thinking effort: max' }).count() > 10);
+          assert.equal(await page.locator('main span[title*="divider"]').count(), 0);
+          assert.ok(await page.locator('main hr').count() >= 4, 'native separators survive publication');
           assert.ok(await page.getByText(/2020-01-01T.*Z/).count() > 10, 'synthetic fixture times survive publication');
           assert.ok(await page.locator('a[href="https://docs.python.org/3/library/csv.html"]').count() >= 2);
           assert.ok(await page.locator('a[href*="nist.gov/"]').count() >= 2);

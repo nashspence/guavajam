@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from supporting_records import MAX_RECORD_BYTES, validate_record
+from supporting_records import ATTRIBUTION_TOKEN, MAX_RECORD_BYTES, validate_record
 
 
 def conversations(source):
@@ -117,8 +117,9 @@ def transcript(conversation, tip):
         passage = {"id": anchor, "label": role.title(), "text": text}
         if role == "assistant":
             model = metadata.get("resolved_model_slug") or metadata.get("model_slug")
-            if isinstance(model, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}", model):
-                passage["label"] += " (" + model + ")"
+            for field, value in (("model", model), ("thinking_effort", metadata.get("thinking_effort"))):
+                if isinstance(value, str) and ATTRIBUTION_TOKEN.fullmatch(value):
+                    passage[field] = value
         if msg.get("create_time") is not None:
             passage["timestamp"] = export_timestamp(msg["create_time"])
         passages.append(passage)

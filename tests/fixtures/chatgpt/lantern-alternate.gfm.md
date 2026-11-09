@@ -7,7 +7,9 @@ User and assistant text along one selected branch of a ChatGPT export. Other bra
 
 <a name="m-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15"></a>
 
-## User — 2020-01-01T00:01:00Z
+## User
+
+*2020-01-01T00:01:00Z*
 
 <a name="b-c3daf3e07d5438fe48671ea8f98478d80d50744a60b54bfbd215a534c12bfe15-d736ba5e331f8498ed9a937db0e598c83d4513a7274329b1beea70359dad7b8d-1"></a>
 
@@ -147,7 +149,9 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 
 <a name="m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T00:03:00Z
+## Assistant
+
+*2020-01-01T00:03:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -299,7 +303,9 @@ Reply **“Continue to stage 2”** when ready.
 
 <a name="m-38c68b54d3070172de72816657338cbe7639e025970d6410317d57b5b5c3a5b0"></a>
 
-## User — 2020-01-01T00:04:00Z
+## User
+
+*2020-01-01T00:04:00Z*
 
 <a name="b-38c68b54d3070172de72816657338cbe7639e025970d6410317d57b5b5c3a5b0-d8df11d53f5356140c3e3f3b534fe679360d17d0a436aa2e7501b829e66c6641-1"></a>
 
@@ -307,7 +313,9 @@ Continue to stage 2
 
 <a name="m-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T00:08:00Z
+## Assistant
+
+*2020-01-01T00:08:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -694,7 +702,9 @@ Reply **“Continue to stage 3”** when ready.
 
 <a name="m-d11a24b4662632dbabbad00499a92045f3d9a8d53103e26fb2643acfd2bde6f0"></a>
 
-## User — 2020-01-01T00:10:00Z
+## User
+
+*2020-01-01T00:10:00Z*
 
 <a name="b-d11a24b4662632dbabbad00499a92045f3d9a8d53103e26fb2643acfd2bde6f0-e04510a811386db03c3cd6ba654419b50dc20a256ab3d2f31e15fd2fc4786618-1"></a>
 
@@ -702,7 +712,9 @@ Continue to stage 3
 
 <a name="m-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T00:20:00Z
+## Assistant
+
+*2020-01-01T00:20:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -1007,7 +1019,9 @@ Reply **“Continue to stage 4”** when ready.
 
 <a name="m-de1f634a0574cd4475998c7e472b28db3f3907498869e577a28d0ceb3fa02bca"></a>
 
-## User — 2020-01-01T00:22:00Z
+## User
+
+*2020-01-01T00:22:00Z*
 
 <a name="b-de1f634a0574cd4475998c7e472b28db3f3907498869e577a28d0ceb3fa02bca-8956f304b7e0d61f87daa076133d5a432c4532566db34094febd41d86e80ae3b-1"></a>
 
@@ -1015,7 +1029,9 @@ Continue to stage 4
 
 <a name="m-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T00:50:00Z
+## Assistant
+
+*2020-01-01T00:50:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -1269,7 +1285,9 @@ Reply **“Continue to stage 5”** when ready.
 
 <a name="m-dbcfc05781294723e01bd017ef662a0de965c7aa2c8f16fe9fe9774b971fc994"></a>
 
-## User — 2020-01-01T00:51:00Z
+## User
+
+*2020-01-01T00:51:00Z*
 
 <a name="b-dbcfc05781294723e01bd017ef662a0de965c7aa2c8f16fe9fe9774b971fc994-53f6adbff6d55e2e380329bc6b4e888ff2d6d7a1302769de352e92816bb01a96-1"></a>
 
@@ -1277,7 +1295,9 @@ Continue to stage 5
 
 <a name="m-4a6cbe121392f7d1136d13330b4faa13612d0a0ac0fd6ce865943c8a8c10dc19"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T00:57:00Z
+## Assistant
+
+*2020-01-01T00:57:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-4a6cbe121392f7d1136d13330b4faa13612d0a0ac0fd6ce865943c8a8c10dc19-2b78a258abe639845f90976af25caf62985b6566a568c9bc5761427e6d1cff0a-1"></a>
 
@@ -1285,7 +1305,9 @@ I’ll create the three files, then check that the CSV preserves the original te
 
 <a name="m-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T01:19:00Z
+## Assistant
+
+*2020-01-01T01:19:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 
@@ -1313,9 +1335,17 @@ All three files have been created and saved.
     </box>
     <icon name="check-circle" color="success"/>
 
-<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-22a35e17125e4da0715230b5cb0cdd220ddff95b52c8948c11b25e86a0810e01-1"></a>
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-bc44399a1b9b868b4118a6084d208b0bc8c3a8f3221b7f27668556d72924e09f-1"></a>
 
-`</row>` `<divider color="subtle"/>` `<row align="center" gap={3}>` <span title="&lt;icon name=&quot;file-text&quot; size=&quot;2xl&quot; color=&quot;secondary&quot;/&gt;">□</span> `<box flex="1" gap={1}>` **lantern-summary.txt \[sandbox:/mnt/data/lantern-summary.txt\]**
+`</row>`
+
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-66b49ccc319959bc2edb91fdb21c031da35c21e99ef4976bbce256fa056f7260-1"></a>
+
+------------------------------------------------------------------------
+
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-06ed6a9a82e7e002659ceaeede0b65bbafae67f2ade132988989b029e4d6e88f-1"></a>
+
+`<row align="center" gap={3}>` <span title="&lt;icon name=&quot;file-text&quot; size=&quot;2xl&quot; color=&quot;secondary&quot;/&gt;">□</span> `<box flex="1" gap={1}>` **lantern-summary.txt \[sandbox:/mnt/data/lantern-summary.txt\]**
 
 <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-c53e59afa7869e67d23c2998361ee35beb541c45b0d23c5a532d2c17d0003af6-1"></a>
 
@@ -1323,9 +1353,17 @@ All three files have been created and saved.
     </box>
     <icon name="check-circle" color="success"/>
 
-<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-1215060fa6ec8fd9fc0225dbda1d3f1e5e298c229c20ecaaa9a1e8da27756bfe-1"></a>
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-bc44399a1b9b868b4118a6084d208b0bc8c3a8f3221b7f27668556d72924e09f-2"></a>
 
-`</row>` `<divider color="subtle"/>` `<row align="center" gap={3}>` <span title="&lt;icon name=&quot;image&quot; size=&quot;2xl&quot; color=&quot;secondary&quot;/&gt;">□</span> `<box flex="1" gap={1}>` **lantern-fit.png \[sandbox:/mnt/data/lantern-fit.png\]**
+`</row>`
+
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-66b49ccc319959bc2edb91fdb21c031da35c21e99ef4976bbce256fa056f7260-2"></a>
+
+------------------------------------------------------------------------
+
+<a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-d5fb6a0ec7de5fcb847e957f2a5baa718766032679c7f6b712a6d6a8cc923eaf-1"></a>
+
+`<row align="center" gap={3}>` <span title="&lt;icon name=&quot;image&quot; size=&quot;2xl&quot; color=&quot;secondary&quot;/&gt;">□</span> `<box flex="1" gap={1}>` **lantern-fit.png \[sandbox:/mnt/data/lantern-fit.png\]**
 
 <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-00566b17921ebe3de265450e8e677a119842c9eb9dc5f97ff44de79eb4344ba2-1"></a>
 
@@ -1413,7 +1451,9 @@ In Stage 6, I will inspect the actual uploaded artifacts, compare them with the 
 
 <a name="m-bf82d077d7f3e1e69775ee148662fce598adf52002c8f1249129b24edf32436b"></a>
 
-## User — 2020-01-01T01:20:00Z
+## User
+
+*2020-01-01T01:20:00Z*
 
 <a name="b-bf82d077d7f3e1e69775ee148662fce598adf52002c8f1249129b24edf32436b-7c15fe70b964aff693d2c105c804ee8832538930b6e059d6e54a19832b5ad7de-1"></a>
 
@@ -1421,7 +1461,9 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 
 <a name="m-b3ed9efbb18d8be99294c65b9582ff60767a53fc28efa4c60e6fa9488dadbadf"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T01:23:00Z
+## Assistant
+
+*2020-01-01T01:23:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-b3ed9efbb18d8be99294c65b9582ff60767a53fc28efa4c60e6fa9488dadbadf-0d9e7978dcf74b8978b7b2482fefd9f16e3ebeeb5c92e5bf21dff840420d9709-1"></a>
 
@@ -1429,7 +1471,9 @@ I’ll review the PNG you attached against the original observations and fitted 
 
 <a name="m-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587"></a>
 
-## Assistant (gpt-6-thinking) — 2020-01-01T02:16:00Z
+## Assistant
+
+*2020-01-01T02:16:00Z · Model: gpt-6-thinking · Thinking effort: max*
 
 <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-205af4f3ecc0d6430336c480e703d7308af85b0c4893c670f79333f2c9f39ba5-1"></a>
 

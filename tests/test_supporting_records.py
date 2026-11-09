@@ -106,6 +106,25 @@ class SupportingRecordTests(unittest.TestCase):
                          [("passage-10-field-note-one", "Passage 1 — User"),
                           ("passage-10-field-note-two", "Passage 2 — User")])
 
+    def test_model_and_effort_are_validated_and_rendered_below_the_speaker(self):
+        record = copy.deepcopy(RECORD)
+        passage = record['passages'][0]
+        passage.update(label='Assistant', model='gpt-6-thinking', thinking_effort='max')
+        validate_record(record)
+        for field in ('model', 'thinking_effort'):
+            for invalid in (None, {}, True, '', 'a' * 129, 'line\nbreak', '<script>'):
+                changed = copy.deepcopy(record)
+                changed['passages'][0][field] = invalid
+                with self.subTest(field=field, invalid=invalid), self.assertRaises(AssetError):
+                    validate_record(changed)
+        self.absolute.write_text(json.dumps(record), encoding='utf-8')
+        ast = manuscript('supporting/field-note.json#first')
+        append_supporting_records(ast, self.root, MANUSCRIPT, {self.path})
+        header = next(block for block in ast['blocks'] if block.get('t') == 'Header' and block['c'][0] == 3)
+        self.assertEqual('Passage 1 — Assistant', header['c'][2][0]['c'])
+        self.assertIn('<p class="press-passage-datetime">Model: gpt-6-thinking · Thinking effort: max</p>',
+                      [block['c'][1] for block in ast['blocks'] if block['t'] == 'RawBlock'])
+
     def test_optional_dates_are_validated_without_guessing_precision_or_zone(self):
         valid = {
             "2026-11-05": "5 Nov 2026",

@@ -252,7 +252,7 @@ test("preserves creation times, per-message models and reference destinations in
   const r = routes();
   const message = r[singular].mapping.a2.message;
   message.create_time = 1577836800.125;
-  message.metadata = { model_slug: "requested-model", resolved_model_slug: "reported-model",
+  message.metadata = { model_slug: "requested-model", resolved_model_slug: "reported-model", thinking_effort: "max",
     search_result_groups: [{ entries: [{ ref_id: { turn_index: 0, ref_type: "search", ref_index: 0 },
       url: "https://docs.python.org/3/library/csv.html", title: "CSV documentation" }] }] };
   const x = await capture(r);
@@ -261,6 +261,7 @@ test("preserves creation times, per-message models and reference destinations in
   assert.deepEqual(saved.mapping.a2.message, message);
   assert.equal(saved.mapping.a2.message.create_time, 1577836800.125);
   assert.equal(saved.mapping.a2.message.metadata.resolved_model_slug, "reported-model");
+  assert.equal(saved.mapping.a2.message.metadata.thinking_effort, "max");
   assert.equal(saved.mapping.a1.message.create_time, undefined, "no time is invented for an undated message");
 });
 
