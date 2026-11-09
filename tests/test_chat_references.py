@@ -1,5 +1,6 @@
 """Captured reference evidence must resolve links without inventing destinations."""
 from pathlib import Path
+import json
 import sys
 import tempfile
 import unittest
@@ -43,13 +44,52 @@ class ReferenceTests(unittest.TestCase):
                   'Before \ue200cite\ue202turn655023search0\ue201 after.\n')
         data, diagnostics, ast = self.parse(source)
         links = [node for node in walk(ast['blocks']) if node['t'] == 'Link']
-        self.assertEqual(6, len(links))
+        self.assertEqual(5, len(links))
         self.assertEqual(URL, links[-1]['c'][2][0])
         self.assertEqual('CSV & quoting', plain_text(links[0]['c'][1]))
         self.assertEqual(5, diagnostics['chatgpt-reference-resolved'])
         self.assertNotIn(b'<Cite', data); self.assertNotIn(b'<Link', data)
         self.assertNotIn(b'turn655023', data)
         self.assertIn(b'Before ', data); self.assertIn(b' after.', data)
+
+    def test_citation_aliases_collapse_per_group_in_source_order_for_both_native_forms(self):
+        other = 'https://docs.python.org/3/library/io.html'
+        references = {**self.references,
+            'turn1view0': {'url': URL, 'title': 'Another title for the same page'},
+            'turn2search0': {'url': URL, 'title': 'CSV once more'},
+            'turn3view0': {'url': other, 'title': 'Streams'}}
+        ids = [REF, 'turn3view0', 'turn1view0', 'turn2search0', 'turn3view0']
+        source = ('<Cite refs={' + json.dumps(ids, separators=(',', ':')) + '}/>\n\n'
+                  'Another claim \ue200cite' + ''.join('\ue202' + identifier for identifier in ids) + '\ue201.\n\n'
+                  '<Link url={turn655023search0.url.uri} title="Independent CSV link"/>')
+        data, diagnostics, ast = self.parse(source, references)
+        links = [node for node in walk(ast['blocks']) if node['t'] == 'Link']
+        self.assertEqual([URL, other, URL, other, URL], [node['c'][2][0] for node in links])
+        self.assertEqual(['Python csv module', 'Streams'] * 2 + ['Independent CSV link'],
+                         [plain_text(node['c'][1]) for node in links])
+        self.assertEqual(3, diagnostics['chatgpt-reference-resolved'])
+        self.assertNotIn(b'Another title', data)
+        self.assertNotIn(b'CSV once more', data)
+
+    def test_same_title_different_page_fragment_or_query_stays_distinct(self):
+        urls = [URL, URL + '#reader-objects', URL + '#writer-objects',
+                'https://docs.python.org/3/library/csv.html?dialect=excel',
+                'https://docs.python.org/3/library/io.html']
+        ids = [f'turn7view{i}' for i in range(len(urls))]
+        references = {key: {'url': url, 'title': 'Same title'} for key, url in zip(ids, urls)}
+        _, _, ast = self.parse('<Cite refs={' + json.dumps(ids, separators=(',', ':')) + '}/>', references)
+        self.assertEqual(urls, [node['c'][2][0] for node in walk(ast['blocks']) if node['t'] == 'Link'])
+
+    def test_alias_deduplication_does_not_hide_unresolved_or_invalid_evidence(self):
+        for target in (None, {'url': URL, 'title': 'Bad\ntitle'},
+                       {'url': 'javascript:alert(1)', 'title': 'Unsafe'}):
+            references = {**self.references, 'turn1view0': target}
+            source = '<Cite refs={["turn655023search0","turn655023search0","turn1view0"]}/>'
+            with self.subTest(target=target):
+                self.assertIsNone(component_inlines(source, references))
+                _, diagnostics, ast = self.parse(source, references)
+                self.assertEqual(1, diagnostics['unresolved-chatgpt-citation'])
+                self.assertFalse(any(node['t'] == 'Link' for node in walk(ast['blocks'])))
 
     def test_unsafe_missing_conflicting_or_executable_references_stay_unresolved(self):
         conflicting = reference_index([message_reference(), message_reference('https://example.org/different')])

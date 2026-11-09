@@ -167,6 +167,12 @@ class LanternConversionTests(unittest.TestCase):
                     self.assertGreater(diagnostics['presentation-wrapper-retained-in-tooltip'], 5)
                     self.assertGreater(diagnostics['unsupported-icon-retained-in-tooltip'], 1)
                     links = [node['c'][2][0] for node in walk(parsed['blocks']) if node['t'] == 'Link']
+                    encoding_claims = [node for node in walk(parsed['blocks']) if node['t'] in {'Para', 'Plain'}
+                                       and plain_text(node).startswith('Text encoding should be handled explicitly')]
+                    self.assertEqual(1 if tip == TIPS[0] else 0, len(encoding_claims))
+                    for claim in encoding_claims:
+                        self.assertEqual(['https://docs.python.org/3/library/csv.html'],
+                                         [node['c'][2][0] for node in walk(claim) if node['t'] == 'Link'])
                     self.assertIn('https://docs.python.org/3/library/csv.html', links)
                     self.assertTrue(any('nist.gov/' in link for link in links))
                     self.assertNotIn(b'Synthetic excluded message.', data)

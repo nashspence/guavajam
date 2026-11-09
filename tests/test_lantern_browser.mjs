@@ -43,6 +43,10 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           assert.ok(await page.locator('main hr').count() >= 4, 'native separators survive publication');
           assert.ok(await page.getByText(/2020-01-01T.*Z/).count() > 10, 'synthetic fixture times survive publication');
           assert.ok(await page.locator('a[href="https://docs.python.org/3/library/csv.html"]').count() >= 2);
+          const encodingClaim = page.locator('main li').filter({ hasText: /^Text encoding should be handled explicitly/ });
+          assert.equal(await encodingClaim.count(), 1);
+          assert.deepEqual(await encodingClaim.locator('a').evaluateAll(links => links.map(link => link.getAttribute('href'))),
+            ['https://docs.python.org/3/library/csv.html'], 'reference aliases become one citation to the page');
           assert.ok(await page.locator('a[href*="nist.gov/"]').count() >= 2);
           const presentation = page.locator('main span[title^="<text "]').filter({ hasText: 'Technical Notebook' }).first();
           assert.equal(await presentation.count(), 1);

@@ -906,13 +906,13 @@ I consulted the official Python documentation and the National Institute of Stan
 
 The official documentation confirms several behaviors relevant to our implementation:
 
-<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-5cd2ff2de1a344a39a726c52e8612dea6b7d8f71ea2d28204278bc30c041cb4d-1"></a>
+<a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-edac655bf797ae887865ed2948d185c45f6fbeea4ccea1ebbb8167644ddd5a62-1"></a>
 
 - `csv.DictReader` uses the first row as column names and maps subsequent records to dictionaries.
 - Quoted fields can contain commas without being split into additional columns.
 - Doubled quotation marks represent quotation marks inside quoted fields under the default CSV dialect.
 - Using `newline=""` is recommended when opening CSV files.
-- Text encoding should be handled explicitly when reading or writing files that must preserve Unicode characters. \[[csv — CSV file reading and writing — Python 3.15.2 documentation](https://docs.python.org/3/library/csv.html); [csv — CSV file reading and writing — Python 3.15.2 documentation](https://docs.python.org/3/library/csv.html); [csv — CSV file reading and writing — Python 3.15.2 documentation](https://docs.python.org/3/library/csv.html)\]
+- Text encoding should be handled explicitly when reading or writing files that must preserve Unicode characters. \[[csv — CSV file reading and writing — Python 3.15.2 documentation](https://docs.python.org/3/library/csv.html)\]
 
 <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-f0a555f14e98b574f036fcd52ff66febb0657a05e887b343c3bf267def6b6f48-1"></a>
 

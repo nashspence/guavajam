@@ -60,11 +60,17 @@ def citation_inlines(ids, references):
     if not isinstance(ids, list) or not ids:
         return None
     links = []
+    destinations = set()
     for identifier in ids:
         target = references.get(identifier) if isinstance(identifier, str) else None
         link = _link(target.get('url'), target.get('title')) if isinstance(target, dict) else None
         if link is None:
             return None
+        # Search and view IDs can denote the same page. Validate every ID before
+        # collapsing exact destinations within this group, in first-seen order.
+        if target['url'] in destinations:
+            continue
+        destinations.add(target['url'])
         if links:
             links.append({'t': 'Str', 'c': '; '})
         links.append(link)
