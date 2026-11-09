@@ -253,7 +253,7 @@ def append_gfm(root, relative, slug):
         if node.get('t') == 'Span' and {'data-press-metadata-key', 'data-press-metadata-value'} & dict(node['c'][0][2]).keys():
             # Escape trusted literal AST text and its whitespace before the HTML
             # writer can insert formatting newlines into machine-readable values.
-            literal = html.escape(node['c'][1][0]['c']).replace(' ', '&#32;').replace('\n', '&#10;').replace('\t', '&#9;')
+            literal = html.escape(node['c'][1][0]['c']).replace(' ', '&#32;').replace('\r', '&#13;').replace('\n', '&#10;').replace('\t', '&#9;')
             node['c'][1] = [{'t':'RawInline','c':['html', literal]}]
         if node.get('t') == 'Span' and 'data-press-datetime' in dict(node['c'][0][2]):
             instant = dict(node['c'][0][2])['data-press-datetime']

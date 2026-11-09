@@ -49,6 +49,7 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             assert.deepEqual(byKey.multiline.values, ['First line.\nSecond line.\n']);
             assert.deepEqual(byKey['Quoted \"label\" · Café'].values, ['Δ & <literal>  \t spaced']);
             assert.deepEqual(byKey['Empty list'], {kind:'list', values:[]});
+            assert.deepEqual(byKey['Whitespace controls'].values, ['CR:\r\nTab:\t']);
             assert.deepEqual(byKey.record_note.values, [slug === 'first' ? 'metadata-token-one' : 'metadata-token-two']);
             const appearance = await block.evaluate(node => {
               const style = getComputedStyle(node), provenance = getComputedStyle(document.querySelector('.press-record-provenance'));

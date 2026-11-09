@@ -131,7 +131,7 @@ class MetadataPublicationTests(EditionTests):
         folder = self.repo/'works/sample/supporting'; folder.mkdir()
         for name, value in [('first','metadata-token-one'),('second','metadata-token-two')]:
             fields = FIELDS + 'record_note: "'+value+'"\n' + '"Long ' + 'label-'*20 + '": "' + 'CaféΔ-'*80 + '"\n'
-            fields += yaml.safe_dump({'Quoted \"label\" · Café': 'Δ & <literal>  \t spaced', 'Empty list': []}, allow_unicode=True, sort_keys=False)
+            fields += yaml.safe_dump({'Quoted \"label\" · Café': 'Δ & <literal>  \t spaced', 'Empty list': [], 'Whitespace controls': 'CR:\r\nTab:\t'}, allow_unicode=True, sort_keys=False)
             (folder/(name+'.md')).write_text(document(fields))
         with (self.repo/'works/sample/manuscript.md').open('a') as stream:
             stream.write('\n[First metadata](supporting/first.md#details), '
