@@ -13,7 +13,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
 from asset_policy import AssetError
-from supporting_gfm import load_gfm_record
+from supporting_gfm import append_gfm, load_gfm_record
 from render_profile import walk
 from validate_sources import git_sources, validate_repository
 from verify_edition import verify_edition
@@ -77,6 +77,31 @@ class MetadataSourceTests(unittest.TestCase):
             self.assertEqual({'document','claim'}, set(anchors))
             self.assertFalse(any(n['t'] == 'DefinitionList' for n in walk(ast['blocks'])))
 
+    def test_provenance_precedes_submitter_fields_without_readdressing_passages(self):
+        # The source SHA is a publisher assertion; arbitrary values such as
+        # "Source" and "Status" are only document-scoped assertions.
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            relative = Path('works/demo/supporting/note.md')
+            path = root / relative
+            path.parent.mkdir(parents=True)
+            path.write_text(document('Source: A submitter claim\nStatus: In review\n'))
+            blocks, anchors, _, inventory = append_gfm(root, relative, 'note')
+        self.assertEqual(['RawBlock', 'Header', 'RawBlock', 'Div'], [node['t'] for node in blocks[:4]])
+        self.assertIn('data-press-source="works/demo/supporting/note.md"', blocks[2]['c'][1])
+        self.assertIn('press-document-metadata', blocks[3]['c'][0][1])
+        self.assertEqual('support-md-4-note-details', anchors['details'])
+        self.assertEqual(str(relative), inventory['source_path'])
+
+    def test_dense_metadata_retains_64_ordered_fields_and_no_implicit_semantics(self):
+        source = document(''.join(f'field-{n:02d}: "Value {n:02d} — Café"\n' for n in range(64)))
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual({}, ast['meta'])
+        keys = [dict(node['c'][0][2])['data-press-metadata-key'] for node in walk(ast['blocks'])
+                if node['t'] == 'Span' and 'data-press-metadata-key' in dict(node['c'][0][2])]
+        self.assertEqual([f'field-{n:02d}' for n in range(64)], keys)
+        self.assertEqual({'document', 'details', 'claim'}, set(anchors))
+
     def test_unsafe_ambiguous_or_complex_yaml_is_rejected_without_dumping_values(self):
         invalid = ('a: first\na: second\n', 'a: &value private-sentinel\nb: *value\n',
                    'a: !!str private-sentinel\n', 'a:\n  nested: private-sentinel\n',
@@ -132,6 +157,10 @@ class MetadataPublicationTests(EditionTests):
         for name, value in [('first','metadata-token-one'),('second','metadata-token-two')]:
             fields = FIELDS + 'record_note: "'+value+'"\n' + '"Long ' + 'label-'*20 + '": "' + 'CaféΔ-'*80 + '"\n'
             fields += yaml.safe_dump({'Quoted \"label\" · Café': 'Δ & <literal>  \t spaced', 'Empty list': [], 'Whitespace controls': 'CR:\r\nTab:\t'}, allow_unicode=True, sort_keys=False)
+            if name == 'second':
+                # An actual 20-field document exercises the mobile/desktop
+                # grouping rules in pinned browser qualification.
+                fields += ''.join(f'Additional-{n}: "Synthetic review context {n}"\n' for n in range(3))
             (folder/(name+'.md')).write_text(document(fields))
         with (self.repo/'works/sample/manuscript.md').open('a') as stream:
             stream.write('\n[First metadata](supporting/first.md#details), '
@@ -153,6 +182,11 @@ class MetadataPublicationTests(EditionTests):
             self.assertEqual(hashlib.sha256((self.repo/relative).read_bytes()).hexdigest(),entry['sha256'])
             self.assertIn('details',entry['elements'])
             self.assertIn('href="'+manifest['record_url']+'/read#'+entry['anchors']['details']+'"',page)
+            # Semantic source/provenance authority comes before document metadata,
+            # without rewriting any original field, fragment or record digest.
+            source_at = page.index('data-press-source="' + relative.as_posix() + '"')
+            metadata_at = page.index('data-press-document="record-md-' + str(len(slug)) + '-' + slug + '"')
+            self.assertLess(source_at, metadata_at)
         other = self.base/'repeat'
         from build_edition import build_edition
         build_edition(self.repo,self.commit,self.tag,other,fetcher=lambda *_:(SVG,'image/svg+xml'))

@@ -12,10 +12,10 @@ const manifest = JSON.parse(await readFile(path.join(directory, 'provenance.json
 const url = pathToFileURL(path.join(directory, manifest.canonical_artifact)).href;
 
 for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
-  test(`${name}: supporting metadata is scoped, literal, citable, quiet and printable`, {timeout: 60000}, async t => {
+  test(`${name}: supporting metadata is scoped, literal, citable, quiet and printable`, {timeout: 90000}, async t => {
     const browser = await engine.launch({headless: true});
     try {
-      for (const width of [320, 1280]) for (const colorScheme of ['light', 'dark']) {
+      for (const width of [320, 375, 768, 1280]) for (const colorScheme of ['light', 'dark']) {
         const context = await browser.newContext({offline: true, viewport: {width, height: 900}, colorScheme});
         try {
           const page = await context.newPage(), requests = [], errors = [];
@@ -30,6 +30,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             const slug = path.basename(entry.source_path, '.md');
             const block = page.locator('#' + entry.anchors.details);
             assert.equal(await block.getAttribute('data-press-document'), 'record-md-' + slug.length + '-' + slug);
+            assert.equal(await block.evaluate(node => node.previousElementSibling?.classList.contains('press-record-intro')),
+              true, 'publisher-controlled source and SHA-256 must precede submitted metadata');
             const fields = await block.locator('dt').evaluateAll(terms => terms.map(term => {
               const definition = term.nextElementSibling;
               const label = term.querySelector('[data-press-metadata-key]');
@@ -39,6 +41,7 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
                 [...definition.querySelectorAll('[data-press-metadata-value]')].map(node => node.textContent)];
             }));
             const byKey = Object.fromEntries(fields.map(([key, kind, values]) => [key, {kind, values}]));
+            assert.equal(fields.length, slug === 'second' ? 20 : 17, 'dense record must keep every field');
             assert.deepEqual(fields.slice(0, 6).map(x => x[0]), ['date_created','user_account','exported_identity','title','schema','unknown_']);
             assert.deepEqual(byKey.date_created.values, ['2026-11-08']);
             assert.deepEqual(byKey.unknown_.values, ['Do not discard this field']);
@@ -56,12 +59,34 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
               return [style.fontSize, provenance.fontSize, style.color, provenance.color, style.fontFamily, provenance.fontFamily];
             });
             for (let i=0; i<appearance.length; i+=2) assert.equal(appearance[i], appearance[i+1]);
+            const legibility = await block.evaluate(node => {
+              const terms = node.querySelectorAll('dt');
+              const definition = terms[1].nextElementSibling;
+              const termStyle = getComputedStyle(terms[1]), valueStyle = getComputedStyle(definition);
+              return {termPx: parseFloat(termStyle.fontSize), valuePx: parseFloat(valueStyle.fontSize),
+                termBorder: parseFloat(termStyle.borderTopWidth), valueBorder: parseFloat(valueStyle.borderTopWidth),
+                labelColor: getComputedStyle(node).color};
+            });
+            assert.ok(legibility.termPx >= 14 && legibility.valuePx >= 14,
+              'document labels and values should remain comfortably readable at default text size');
+            assert.ok(legibility.termBorder >= 1, 'subtle boundaries distinguish dense fields');
+            assert.equal(legibility.valueBorder >= 1, width > 576,
+              'mobile pairs must not have a second boundary between term and value');
             const permalink = block.locator('.press-permalink');
             assert.equal(await permalink.getAttribute('href'), manifest.record_url + '/read#' + entry.anchors.details);
             await permalink.focus();
             assert.equal(await permalink.evaluate(node => getComputedStyle(node).outlineStyle !== 'none'), true);
           }
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+          if (width === 375) {
+            await page.evaluate(() => {
+              document.documentElement.style.fontSize = '200%';
+              document.documentElement.style.letterSpacing = '.12em';
+              document.documentElement.style.wordSpacing = '.16em';
+            });
+            assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true,
+              'metadata must reflow with enlarged text and spacing');
+          }
           const target = manifest.supporting_documents[0].anchors.details;
           await page.getByRole('link', {name:'First metadata', exact:true}).click();
           assert.equal(await page.evaluate(() => location.hash), '#' + target);
