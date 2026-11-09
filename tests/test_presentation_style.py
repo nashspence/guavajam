@@ -143,6 +143,23 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('[data-press-speaker="responder"]))::before { content: none; }', printed)
         self.assertIn('background: transparent;', printed)
 
+    def test_responder_rail_has_breathing_room_and_citations_have_distinct_cues(self):
+        css = (ROOT / 'styles/edition-v1.css').read_text()
+        selector = '.press-turn:has(> .press-passage-heading:is('
+        self.assertIn(selector, css)
+        self.assertIn('padding-inline-start: .25rem;', css)
+        self.assertIn('inset-inline-start: -.55rem;', css)
+        self.assertIn('inset-inline: calc(-.55rem - .25rem) 0;', css)
+        self.assertIn('box-shadow: inset 0 .11rem 0 var(--press-link);', css)
+        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }', css)
+        # Forced colors retain their native target outline; paper output keeps
+        # the real rail across pages without printing a link-specific stripe.
+        forced = css.split('@media (forced-colors: active)', 1)[1].split('@media print', 1)[0]
+        printed = css.split('@media print', 1)[1]
+        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }', forced)
+        self.assertIn(':is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }', printed)
+        self.assertIn('padding-inline-start: calc(.55rem - .15rem + .25rem);', printed)
+
     def test_speaker_group_context_is_covered_by_existing_element_fingerprints(self):
         from element_citations import element_fingerprints
         raw = (b'<div class="press-turn"><h3 id="reply" data-press-speaker="responder">'

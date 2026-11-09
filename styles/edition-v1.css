@@ -303,9 +303,13 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   margin-top: .8rem;
 }
 /* A source-attributed turn is a neutral container, not a chat bubble.
-   The heading remains the sole protected source of the speaker role. A rail
-   stays visible even when a long reply's heading has scrolled off screen. */
+   Inset responder content a little, not the rail: even a 320px reading surface
+   keeps the same outer margin. The role lives on the reviewed heading only. */
 .press-turn { position: relative; }
+.press-turn:has(> .press-passage-heading:is(
+  [data-press-speaker="assistant"], [data-press-speaker="responder"])) {
+  padding-inline-start: .25rem;
+}
 .press-turn:has(> .press-passage-heading:is(
   [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
   content: "";
@@ -323,11 +327,21 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   content: "";
   position: absolute;
   inset-block: 0;
-  inset-inline: -.55rem 0;
+  inset-inline: calc(-.55rem - .25rem) 0;
   background: var(--press-tint);
   pointer-events: none;
   z-index: -1;
 }
+/* The neutral rail marks who is speaking; an internal blue horizontal rule
+   identifies the precise cited passage. Avoid a competing vertical blue rail. */
+.press-edition .press-turn:has(> .press-passage-heading:is(
+  [data-press-speaker="assistant"], [data-press-speaker="responder"]))
+  :is(h3, h4, h5, h6, div, li)[id]:target {
+  box-shadow: inset 0 .11rem 0 var(--press-link);
+}
+.press-edition .press-turn:has(> .press-passage-heading:is(
+  [data-press-speaker="assistant"], [data-press-speaker="responder"]))
+  :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
 .press-passage-heading .press-permalink { font-size: .8rem; }
 .press-passage-datetime {
   margin: -.3rem 0 .4rem;
@@ -378,6 +392,10 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
+  /* A deep link uses the system outline, not a shadow or a second rule. */
+  .press-edition .press-turn:has(> .press-passage-heading:is(
+    [data-press-speaker="assistant"], [data-press-speaker="responder"]))
+    :is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }
   .press-passage-heading[data-press-speaker]::after { background: Canvas; }
   .press-turn:has(> .press-passage-heading:is(
     [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before {
@@ -392,12 +410,15 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-turn:has(> .press-passage-heading:is(
     [data-press-speaker="assistant"], [data-press-speaker="responder"])) {
     margin-inline-start: -.55rem;
-    padding-inline-start: calc(.55rem - .15rem);
+    padding-inline-start: calc(.55rem - .15rem + .25rem);
     border-inline-start: .15rem solid var(--press-border);
   }
   .press-turn:has(> .press-passage-heading:is(
     [data-press-speaker="assistant"], [data-press-speaker="responder"]))::before { content: none; }
   .press-passage-heading[data-press-speaker]::after { background: transparent; }
+  .press-edition .press-turn:has(> .press-passage-heading:is(
+    [data-press-speaker="assistant"], [data-press-speaker="responder"]))
+    :is(h3, h4, h5, h6, div, li)[id]:target { box-shadow: none; }
   :root {
     color-scheme: light;
     --press-paper: #fff;
