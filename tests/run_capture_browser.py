@@ -77,12 +77,16 @@ def verify(directory):
             conversion = command('chat-gfm', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=markdown)
             text = markdown.read_text()
             assert expected_text[0] in text, 'selected original or edited user wording survives GFM conversion'
-            if not live:
-                assert expected_text[1] in text, 'the selected synthetic answer is retained verbatim'
             from supporting_gfm import load_gfm_record
-            from render_profile import plain_text
+            from render_profile import plain_text, walk
+            from test_lantern_gfm import native_code, native_math, fixture_tables, parsed_tables
             ast, anchors, *_ = load_gfm_record(markdown)
             assert [plain_text(ast['blocks'][anchors[identifier]]['c'][2]) for identifier in ids] == ['User','Assistant']
+            native_text={'passages':[{'text':part} for part in expected_text]}
+            assert native_code(native_text) == [node['c'][1] for node in walk(ast['blocks']) if node['t']=='CodeBlock']
+            assert native_math(native_text) == [(node['c'][0]['t'],node['c'][1].strip())
+                                               for node in walk(ast['blocks']) if node['t']=='Math']
+            assert fixture_tables(native_text) == parsed_tables(ast)
             assert 'SYNTHETIC HIDDEN CONTEXT' not in text
             assert 'SYNTHETIC TOOL OUTPUT' not in text
             for identifier in ids:
