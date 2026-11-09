@@ -35,6 +35,11 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
           assert.ok(await page.locator('math mtable').count() >= 10, 'matrices and aligned mathematics remain structured MathML');
           assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
           assert.equal(await page.locator('a[href^="sandbox:"], img[src^="sandbox:"]').count(), 0);
+          assert.equal(await page.getByText('[Unsupported message content omitted]', { exact: true }).count(), 0);
+          assert.ok(await page.locator('h3', { hasText: 'Assistant (gpt-6-thinking)' }).count() > 10);
+          assert.ok(await page.getByText(/2020-01-01T.*Z/).count() > 10, 'synthetic fixture times survive publication');
+          assert.ok(await page.locator('a[href="https://docs.python.org/3/library/csv.html"]').count() >= 2);
+          assert.ok(await page.locator('a[href*="nist.gov/"]').count() >= 2);
           const code = await page.locator('pre code').allTextContents();
           for (const program of programs) assert.ok(code.some(text => text.replace(/\n$/, '') === program), 'Python stays byte-exact');
           for (const document of manifest.supporting_documents) {

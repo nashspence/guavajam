@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from asset_policy import AssetError
+from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
 
 
@@ -50,7 +51,8 @@ def _component_blocks(text, report):
                 result.append(literal(''.join(lines[index:end + 1])))
             index = end + 1
             continue
-        if boundary and re.match(r'<[A-Z][A-Za-z0-9]*\b', line) and line.rstrip('\r\n').endswith('/>'):
+        if (boundary and re.match(r'<[A-Z][A-Za-z0-9]*\b', line) and
+                not re.match(r'<(?:Link|Cite)\b', line) and line.rstrip('\r\n').endswith('/>')):
             report('unsupported-rich-component-as-literal-code')
             result.append(literal(line)); index += 1
             continue
@@ -58,12 +60,13 @@ def _component_blocks(text, report):
     return ''.join(result)
 
 
-def review_gfm(record, *, identity='document'):
+def review_gfm(record, *, identity='document', references=None):
     from supporting_records import MAX_RECORD_BYTES, validate_record
     validate_record(record)
     if sum(len(p['text'].encode()) for p in record['passages']) > MAX_RECORD_BYTES:
         raise AssetError('selected message text exceeds 8 MiB')
     diagnostics = {'selection-omissions': 1, 'markdown-normalized-to-gfm': 1}
+    references = references or {}
     def report(kind):
         diagnostics[kind] = diagnostics.get(kind, 0) + 1
     def clean(value):
@@ -86,6 +89,11 @@ def review_gfm(record, *, identity='document'):
         if kind in {'RawBlock', 'RawInline'}:
             if re.match(r'<CodeBlock\b', value['c'][1]):
                 raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
+            inlines = component_inlines(value['c'][1], references)
+            if inlines is not None:
+                report('chatgpt-reference-resolved')
+                return ({'t': 'Para', 'c': inlines} if kind == 'RawBlock' else
+                        {'t': 'Span', 'c': [['', [], []], inlines]})
             report('raw-markup-as-literal-code')
             if re.match(r'<Cite\b', value['c'][1]):
                 report('unresolved-chatgpt-citation')
@@ -112,6 +120,20 @@ def review_gfm(record, *, identity='document'):
                 return {'t':'Str','c':plain_text(value['c'][1])+' ['+value['c'][2][0]+']'}
         if kind == 'Str':
             text = value['c']
+            chunks = []
+            position = 0
+            for citation in re.finditer('\ue200cite((?:\ue202[^\ue201\ue202]+)+)\ue201', text):
+                chunks.append({'t': 'Str', 'c': text[position:citation.start()]})
+                resolved = citation_inlines(citation[1].split('\ue202')[1:], references)
+                if resolved is None:
+                    report('unresolved-chatgpt-citation')
+                else:
+                    report('chatgpt-reference-resolved')
+                chunks.extend(resolved or [{'t': 'Str', 'c': '[Unresolved ChatGPT citation]'}])
+                position = citation.end()
+            if chunks:
+                chunks.append({'t': 'Str', 'c': text[position:]})
+                return {'t': 'Span', 'c': [['', [], []], [clean(item) if item['t'] == 'Str' else item for item in chunks]]}
             text, count = re.subn('\ue200[^\ue201]*\ue201', '[Unresolved ChatGPT citation]', text)
             if count:
                 report('unresolved-chatgpt-citation')
@@ -169,4 +191,8 @@ def review_gfm(record, *, identity='document'):
                 for node in walk(nodes) if node.get('t') in {'Math','Code','CodeBlock'}]
     if retained(blocks) != retained(parsed['blocks']):
         raise AssetError('GFM conversion would change mathematics or literal code')
+    def links(nodes):
+        return [(plain_text(node['c'][1]), node['c'][2]) for node in walk(nodes) if node.get('t') == 'Link']
+    if links(blocks) != links(parsed['blocks']):
+        raise AssetError('GFM conversion would change a link label or destination')
     return data, diagnostics

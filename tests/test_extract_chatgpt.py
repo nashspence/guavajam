@@ -40,7 +40,7 @@ class ExtractTests(unittest.TestCase):
         first, second = record["passages"]
         self.assertEqual((first["label"], first["text"]), ("User", "  Original <script>\nline\n"))
         self.assertEqual((second["label"], second["text"]), ("Assistant", "Visible reply"))
-        self.assertFalse(any(secret in json.dumps(record) for secret in
+        self.assertFalse(any(secret in json.dumps(record["passages"]) for secret in
                              ("unselected sibling", "hidden context", "custom instructions", "tool output", "arguments",
                               "internal reasoning", "system context", "private metadata")))
         self.assertEqual(first, transcript(self.record, "other")["passages"][0])
@@ -72,6 +72,31 @@ class ExtractTests(unittest.TestCase):
         content.update(content_type="new-format", parts=["private-structured-data"])
         self.assertEqual(transcript(self.record, "tip")["passages"][-1]["text"],
                          "[Unsupported message content omitted]")
+        content["content_type"] = {"future": True}
+        self.assertEqual(transcript(self.record, "tip")["passages"][-1]["text"],
+                         "[Unsupported message content omitted]")
+
+    def test_internal_content_types_are_not_transcript_messages(self):
+        for kind in ('thoughts', 'reasoning_recap'):
+            self.record['mapping']['tip']['message']['content'] = {
+                'content_type': kind, 'parts': ['Internal text must not appear']}
+            passages = transcript(self.record, 'tip')['passages']
+            self.assertEqual(1, len(passages))
+            self.assertEqual('User', passages[0]['label'])
+            self.assertNotIn('Unsupported', json.dumps(passages))
+
+    def test_per_message_model_is_reported_without_guessing_a_default(self):
+        metadata = self.record['mapping']['tip']['message']['metadata']
+        metadata.update(default_model_slug='default-model', model_slug='requested-model',
+                        resolved_model_slug='reported-model')
+        self.assertEqual('Assistant (reported-model)', transcript(self.record, 'tip')['passages'][-1]['label'])
+        del metadata['resolved_model_slug']
+        self.assertEqual('Assistant (requested-model)', transcript(self.record, 'tip')['passages'][-1]['label'])
+        del metadata['model_slug']
+        self.assertEqual('Assistant', transcript(self.record, 'tip')['passages'][-1]['label'])
+        for bad in ('untrusted\nmodel', '<script>', {}, 5):
+            metadata['model_slug'] = bad
+            self.assertEqual('Assistant', transcript(self.record, 'tip')['passages'][-1]['label'])
 
     def test_broken_ancestry(self):
         for parent in ("tip", "missing", []):

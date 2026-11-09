@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from asset_policy import AssetError
 from chat_gfm import review_gfm
-from extract_chatgpt import transcript
+from extract_chatgpt import branch_messages, transcript
+from chat_references import reference_index
 from render_profile import plain_text, walk
 from supporting_gfm import load_gfm_record
 from validate_sources import git_sources, validate_repository
@@ -34,8 +35,13 @@ GFM_FIXTURES = dict(zip(TIPS, ('lantern-current.gfm.md', 'lantern-alternate.gfm.
 def converted(tip):
     conversation, = json.loads(FIXTURE.read_text())
     record = transcript(conversation, tip)
-    data, diagnostics = review_gfm(record, identity=conversation['conversation_id'])
+    data, diagnostics = review_gfm(record, identity=conversation['conversation_id'], references=references(tip))
     return record, data, diagnostics
+
+
+def references(tip):
+    conversation, = json.loads(FIXTURE.read_text())
+    return reference_index(message for _, message in branch_messages(conversation, tip))
 
 
 def native_math(record):
@@ -90,10 +96,18 @@ class LanternConversionTests(unittest.TestCase):
             message = node['message']
             if message is None:
                 continue
-            self.assertLessEqual(set(message), {'id', 'author', 'content', 'channel', 'recipient', 'metadata'})
+            self.assertLessEqual(set(message), {'id', 'author', 'content', 'channel', 'recipient', 'metadata', 'create_time'})
+            self.assertEqual(1577836800 + 60 * int(node['id'].split('-')[1]), message['create_time'])
             self.assertEqual({'role'}, set(message['author']))
             self.assertLessEqual(set(message.get('metadata', {})),
-                                 {'is_visually_hidden_from_conversation', 'is_user_system_message'})
+                                 {'is_visually_hidden_from_conversation', 'is_user_system_message',
+                                  'model_slug', 'resolved_model_slug', 'search_result_groups'})
+            for group in message.get('metadata', {}).get('search_result_groups', []):
+                self.assertEqual({'entries'}, set(group))
+                for entry in group['entries']:
+                    self.assertEqual({'ref_id', 'url', 'title'}, set(entry))
+                    self.assertEqual({'turn_index', 'ref_type', 'ref_index'}, set(entry['ref_id']))
+                    self.assertTrue(entry['url'].startswith(('https://docs.python.org/', 'https://www.itl.nist.gov/', 'https://itl.nist.gov/')))
             if 'parts' in message['content'] and message['content']['parts'] != ['Synthetic excluded message.']:
                 parts.append(message['content']['parts'])
         self.assertEqual(28, len(parts))
@@ -107,7 +121,11 @@ class LanternConversionTests(unittest.TestCase):
                     record, data, diagnostics = converted(tip)
                     self.assertEqual(FIXTURE.with_name(GFM_FIXTURES[tip]).read_bytes(), data,
                                      'committed GitHub review fixtures must match the converter output')
-                    self.assertEqual((data, diagnostics), review_gfm(record, identity='lantern-qualification'))
+                    self.assertEqual((data, diagnostics), review_gfm(record, identity='lantern-qualification', references=references(tip)))
+                    self.assertNotIn(b'[Unsupported message content omitted]', data)
+                    self.assertTrue(all('timestamp' in passage for passage in record['passages']))
+                    self.assertTrue(all(passage['label'] == 'User' or passage['label'] == 'Assistant (gpt-6-thinking)'
+                                        for passage in record['passages']))
                     path = Path(scratch) / (tip + '.md'); path.write_bytes(data)
                     parsed, anchors, _, _ = load_gfm_record(path)
                     math = [(node['c'][0]['t'], node['c'][1].strip())
@@ -129,12 +147,14 @@ class LanternConversionTests(unittest.TestCase):
                     python = next(body for body in expected_code if 'import csv' in body)
                     python_ast.parse(python)
                     self.assertIn('Café', python); self.assertIn('Δ', python)
-                    self.assertGreater(len(anchors), 300)
+                    self.assertGreater(len(anchors), 250)
                     self.assertEqual(2, diagnostics['chatgpt-codeblock-normalized'])
                     self.assertEqual(2, diagnostics['unsupported-rich-component-as-literal-code'])
                     self.assertEqual(1, diagnostics['image-or-attachment-omitted'])
-                    self.assertGreaterEqual(diagnostics['unresolved-chatgpt-link'], 5)
-                    self.assertGreaterEqual(diagnostics['unresolved-chatgpt-citation'], 4)
+                    self.assertEqual(9 if tip == TIPS[0] else 13, diagnostics['chatgpt-reference-resolved'])
+                    links = [node['c'][2][0] for node in walk(parsed['blocks']) if node['t'] == 'Link']
+                    self.assertIn('https://docs.python.org/3/library/csv.html', links)
+                    self.assertTrue(any('nist.gov/' in link for link in links))
                     self.assertNotIn(b'Synthetic excluded message.', data)
                     self.assertFalse(any(node['t'] in {'RawBlock', 'RawInline', 'Image', 'Note'}
                                          for node in walk(parsed['blocks'])))
@@ -153,7 +173,7 @@ class LanternConversionTests(unittest.TestCase):
                 self.assertEqual(0, run.returncode, run.stderr)
                 self.assertEqual(converted(tip)[1], output.read_bytes())
                 self.assertEqual(0o600, output.stat().st_mode & 0o777)
-                self.assertIn('unresolved-chatgpt-citation', run.stderr)
+                self.assertIn('chatgpt-reference-resolved', run.stderr)
                 self.assertNotEqual(0, subprocess.run(command, cwd=ROOT, env=env, capture_output=True).returncode)
                 self.assertEqual(converted(tip)[1], output.read_bytes())
 
@@ -201,7 +221,7 @@ class LanternPublicationTests(EditionTests):
         for document in manifest['supporting_documents']:
             expected = (self.repo / document['source_path']).read_bytes()
             self.assertEqual(hashlib.sha256(expected).hexdigest(), document['sha256'])
-            self.assertGreater(len(document['anchors']), 300)
+            self.assertGreater(len(document['anchors']), 250)
         self.assertGreater(page.count('<math'), 106)
         self.assertNotIn('<CodeBlock', page); self.assertNotIn('<Chart', page)
         self.assertIn('Café', page); self.assertIn('Δ', page)

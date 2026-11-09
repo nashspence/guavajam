@@ -75,10 +75,13 @@ def verify(directory):
             command('chat-extract', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=output)
             passages = json.loads(output.read_text())['passages']
             expected_text = [fixture['mapping'][key]['message']['content']['parts'][0] for key in selected]
-            if live:
-                expected_text.insert(1, '[Unsupported message content omitted]')
             assert [passage['text'] for passage in passages] == expected_text
-            assert [passage['label'] for passage in passages] == (['User', 'Assistant', 'Assistant'] if live else ['User', 'Assistant'])
+            assert [passage['label'] for passage in passages] == (['User', 'Assistant (gpt-6-thinking)'] if live else ['User', 'Assistant'])
+            if live:
+                from datetime import datetime, timezone
+                for passage, key in zip(passages, selected):
+                    expected_time = datetime.fromtimestamp(fixture['mapping'][key]['message']['create_time'], timezone.utc).isoformat().replace('+00:00', 'Z')
+                    assert passage['timestamp'] == expected_time
             assert all(passage['id'].startswith('m-') for passage in passages)
             markdown = directory / f'{archive.stem}-{tip}.md'
             conversion = command('chat-gfm', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=markdown)
@@ -92,10 +95,10 @@ def verify(directory):
                                 'a1': 'Original answer.', 'a2': 'Regenerated answer.', 'a3': 'Edited branch answer.'})[tip]
             assert expected_marker in text
             if live:
-                assert 'Unsupported message content omitted' in text
+                assert 'Unsupported message content omitted' not in text
                 assert 'Synthetic hidden system context.' not in text
                 diagnostics = json.loads(conversion.stderr.split('GFM diagnostics: ', 1)[1])
-                assert diagnostics['unsupported-message-content-omitted'] == 1
+                assert 'unsupported-message-content-omitted' not in diagnostics
     print(f'Independent ZIP/CRC/SHA checks and all three import commands passed for {len(archives)} real downloads.', flush=True)
 
 
