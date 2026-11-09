@@ -250,6 +250,11 @@ def append_gfm(root, relative, slug):
     provenance['c'][1] = provenance['c'][1].replace('<div ', '<div data-press-source="' +
         html.escape(relative.as_posix()) + '" data-press-sha256="' + digest + '" ', 1)
     for node in walk(ast['blocks']):
+        if node.get('t') == 'Span' and {'data-press-metadata-key', 'data-press-metadata-value'} & dict(node['c'][0][2]).keys():
+            # Escape trusted literal AST text and its whitespace before the HTML
+            # writer can insert formatting newlines into machine-readable values.
+            literal = html.escape(node['c'][1][0]['c']).replace(' ', '&#32;').replace('\n', '&#10;').replace('\t', '&#9;')
+            node['c'][1] = [{'t':'RawInline','c':['html', literal]}]
         if node.get('t') == 'Span' and 'data-press-datetime' in dict(node['c'][0][2]):
             instant = dict(node['c'][0][2])['data-press-datetime']
             node.clear()
