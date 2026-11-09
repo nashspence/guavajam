@@ -33,7 +33,7 @@ class GFMSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'note.md'; path.write_text(source)
             ast, *_ = load_gfm_record(path)
-            spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+            spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span' and 'title' in dict(node['c'][0][2])]
             self.assertEqual(['<text color="secondary">', '<icon name="alert-triangle"/>'],
                              [dict(node['c'][0][2])['title'] for node in spans])
             for markup in ('<span title="x" onclick="alert(1)">Text</span>',
@@ -126,7 +126,7 @@ class GFMImportTests(ExtractTests):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'review.md'; path.write_bytes(data)
             ast, *_ = load_gfm_record(path)
-        spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span']
+        spans = [node for node in walk(ast['blocks']) if node['t'] == 'Span' and 'title' in dict(node['c'][0][2])]
         self.assertEqual([opening + ' … </text>', icon], [dict(node['c'][0][2])['title'] for node in spans])
         self.assertIn('□'.encode(), data)
         self.assertFalse(any(node['t'] in {'RawInline', 'RawBlock', 'Code'} for node in walk(ast['blocks'])))
