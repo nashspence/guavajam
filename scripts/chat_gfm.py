@@ -1,18 +1,146 @@
 """Convert selected exported message text to an explicitly anchored review draft."""
+import copy
 import hashlib
 import json
 import re
 import subprocess
 from pathlib import Path
 import html
-from supporting_gfm import MAX_RECORD_BYTES, valid_timestamp, timestamp_label
+from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, ATTRIBUTION_TOKEN, valid_timestamp
 
 from asset_policy import AssetError
 from identifier_schema import SLUG
 from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
 
-ATTRIBUTION_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z")
+
+def _normalize_quote_blank_markers(text: str) -> str:
+    """Remove Pandoc's trailing spaces only on empty GFM quote-marker lines.
+
+    Pandoc 3.12.1 may emit `> ` as a structural blank line, which strict
+    source validation rejects. Do not relax validation or touch nonblank lines:
+    authored code, mathematics, and literal whitespace remain source content.
+    """
+    return '\n'.join(
+        line.rstrip(' \t') if re.fullmatch(r'(?:>[ \t]*)+', line) else line
+        for line in text.split('\n'))
+
+
+def _write_math_gfm(blocks: list[dict]) -> tuple[list[dict], dict[str, tuple[str, str]]]:
+    """Use neutral writer tokens for math, never Pandoc's version-specific math markup.
+
+    GFM writers differ in their math spelling (some write math as fenced code).
+    Only original Pandoc Math nodes become unique alphanumeric placeholders;
+    restoring them *after* the GFM writer leaves authored code untouched.
+    Re-parsing and byte-by-byte math/code checks below remain mandatory.
+    """
+    prefix = 'PRESSMATHTOKEN' + hashlib.sha256(json.dumps(
+        blocks, ensure_ascii=True, sort_keys=True).encode()).hexdigest()[:20].upper()
+    mapping: dict[str, tuple[str, str]] = {}
+
+    def hide(node):
+        if isinstance(node, list):
+            return [hide(part) for part in node]
+        if not isinstance(node, dict):
+            return node
+        if node.get('t') == 'Math':
+            token = prefix + 'N' + str(len(mapping)) + 'X'
+            kind = node['c'][0]['t']
+            mapping[token] = (kind, node['c'][1])
+            return {'t': 'Str', 'c': token}
+        return {key: hide(value) for key, value in node.items()}
+
+    return hide(blocks), mapping
+
+
+def _restore_math_gfm(text: str, mapping: dict[str, tuple[str, str]]) -> str:
+    for token, (kind, source) in mapping.items():
+        if text.count(token) != 1:
+            raise AssetError('GFM math placeholder missing or duplicated')
+        if kind == 'InlineMath':
+            text = text.replace(token, '$' + source + '$')
+            continue
+        if kind != 'DisplayMath':
+            raise AssetError('unexpected mathematics type in GFM conversion')
+        # Keep quote/list nesting when the writer puts a formula on its own
+        # line. List markers occur only on the first delimiter line; subsequent
+        # lines keep their indentation and any enclosing quote markers.
+        layout = r'(?:[ \t]*(?:>[ \t]?|(?:[-+*]|[0-9]+[.)])[ \t]+))*[ \t]*'
+        match = re.search(r'(?m)^(?P<prefix>' + layout + r')' + token + r'[ \t]*$', text)
+        if not match:
+            if '\n' in source:
+                raise AssetError('GFM display math is not an isolated block')
+            # Pandoc also permits a single-line display formula within a
+            # paragraph. Retain that mathematical type without splitting prose.
+            text = text.replace(token, '$$' + source + '$$')
+            continue
+        prefix = match['prefix']
+        continuation = re.sub(r'(?<!\S)(?:[-+*]|[0-9]+[.)])(?=[ \t])',
+                              lambda marker: ' ' * len(marker[0]), prefix)
+        lines = source.strip('\n').split('\n')
+        replacement = prefix + '$$\n' + '\n'.join(continuation + item for item in [*lines, '$$'])
+        text = text[:match.start()] + replacement + text[match.end():]
+    return text
+
+
+def _normalize_gfm_pipe_tables(text: str) -> str:
+    """Canonicalize pipe-table padding after writer-version-dependent widths.
+
+    This changes only horizontal padding around cells and delimiter widths;
+    source cell content, column alignment and quoted nesting are untouched.
+    Pandoc writes these from structured Table nodes, never from raw markup.
+    Fenced code (including tables in code) is not rewritten.
+    """
+    lines = text.split('\n')
+    result = []
+    index = 0
+    fence = None
+
+    def row(line):
+        match = re.fullmatch(r'(?P<prefix>(?:[ ]*>[ ]?)*)(?P<cells>\|.*\|)[ \t]*', line)
+        if not match:
+            return None
+        pieces = re.split(r'(?<!\\)\|', match['cells'])
+        if not (pieces[0] == pieces[-1] == '' and len(pieces) >= 3):
+            return None
+        return match['prefix'], [part.strip() for part in pieces[1:-1]]
+
+    def separator(parts):
+        return all(re.fullmatch(r':?-{3,}:?', cell) for cell in parts)
+
+    while index < len(lines):
+        line = lines[index]
+        stripped = re.sub(r'^(?:[ ]*>[ ]?)*', '', line).lstrip()
+        marker = re.match(r'^(\x60{3,}|~{3,})', stripped)
+        if marker:
+            if fence is None:
+                fence = marker.group(1)
+            elif marker.group(1)[0] == fence[0] and len(marker.group(1)) >= len(fence):
+                fence = None
+        if fence is None and index + 1 < len(lines):
+            head, rule = row(lines[index]), row(lines[index + 1])
+            if (head and rule and head[0] == rule[0]
+                    and len(head[1]) == len(rule[1]) and separator(rule[1])):
+                prefix = head[0]
+                def emit(parts):
+                    return prefix + '| ' + ' | '.join(parts) + ' |'
+                result.append(emit(head[1]))
+                normalized_rules = [':' + '-'*3 + ':' if r.startswith(':') and r.endswith(':')
+                    else ':' + '-'*3 if r.startswith(':')
+                    else '-'*3 + ':' if r.endswith(':') else '-'*3 for r in rule[1]]
+                result.append(emit(normalized_rules))
+                index += 2
+                while index < len(lines):
+                    item = row(lines[index])
+                    if not item or item[0] != prefix or len(item[1]) != len(head[1]):
+                        break
+                    result.append(emit(item[1]))
+                    index += 1
+                continue
+        result.append(line)
+        index += 1
+    return '\n'.join(result)
+
 
 def _text(value, *, single_line=False):
     if not isinstance(value, str) or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]", value):
@@ -31,8 +159,10 @@ def _validate_transcript(record: dict) -> None:
     for i, passage in enumerate(record["passages"], start=1):
         if (not isinstance(passage, dict) or
                 not {"id", "label", "text"} <= passage.keys() or
-                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort"}):
-            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model or thinking_effort only")
+                passage.keys() - {"id", "label", "text", "timestamp", "model", "thinking_effort", "speaker"}):
+            raise AssetError(f"passage {i} must contain id, label, text and optional timestamp, model, thinking_effort or speaker only")
+        if "speaker" in passage and (not isinstance(passage["speaker"], str) or passage["speaker"] not in SPEAKERS):
+            raise AssetError(f"passage {i} requires an explicit supported speaker role")
         for field in ("model", "thinking_effort"):
             if field in passage and (not isinstance(passage[field], str) or
                                      not ATTRIBUTION_TOKEN.fullmatch(passage[field])):
@@ -43,12 +173,11 @@ def _validate_transcript(record: dict) -> None:
         if not isinstance(identifier, str) or not SLUG.fullmatch(identifier) or identifier in seen:
             raise AssetError(f"passage {i} requires a unique slug id")
         seen.add(identifier)
-        if not _text(passage["label"], single_line=True) or not _text(passage["text"]):
+        if (not _text(passage["label"], single_line=True) or len(passage["label"]) > 160
+                or not _text(passage["text"])):
             raise AssetError(f"passage {i} requires a single-line label and literal text")
-
-def attribution_labels(passage: dict) -> list[str]:
-    return [label + passage[field] for field, label in
-            (("model", "Model: "), ("thinking_effort", "Thinking effort: ")) if field in passage]
+        if passage.get('speaker') in {'assistant', 'responder'} and ' · ' in passage['label']:
+            raise AssetError(f'passage {i} speaker label cannot contain technical-credit separators')
 
 PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
 DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
@@ -286,8 +415,9 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
                 text = re.sub('[\ue000-\uf8ff]', '[Unsupported token]', text)
             return {'t':'Str','c':text}
         return {key:clean(item) for key,item in value.items()}
-    def anchor(identifier):
-        return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"></a>\n']}
+    def anchor(identifier, speaker=None):
+        annotation = ' data-press-speaker="' + speaker + '"' if speaker else ''
+        return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"{annotation}></a>\n']}
     def header(level,text):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
@@ -304,34 +434,61 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         if result.returncode:
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
-        blocks.extend([anchor(passage['id']),header(2,passage['label'])])
-        details = []
-        if 'timestamp' in passage:
-            value = passage['timestamp']
-            details.append({'t': 'RawInline', 'c': ['html', '<time datetime=\"'+value+'\">']})
-            details.append({'t': 'Str', 'c': timestamp_label(value)})
-            details.append({'t': 'RawInline', 'c': ['html', '</time>']})
-        labels = attribution_labels(passage)
-        if labels:
-            details.append({'t': 'Str', 'c': (' · ' if details else '')+' · '.join(labels)})
-        if details:
-            blocks.extend([anchor('meta-'+passage['id']), {'t': 'Para', 'c': [{'t': 'Emph', 'c': details}]}])
+        # Only an *external responder* is quoted and explicitly credited.
+        # Author/user text is the default: no quotation, repeated heading, or
+        # inferred speaker. Timestamps remain in the private review; the
+        # source-backed model and thinking-effort tokens may appear at the end.
+        speaker = passage.get('speaker')
+        quoted = speaker in {'assistant', 'responder'}
+        turn = []
         occurrences = {}
         for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
-                block['c'][0] = min(5, block['c'][0]+2)
-                block['c'][1] = ['',[],[]]
+                # Preserve authored structural headings; a turn does not
+                # introduce an artificial heading level of its own.
+                block['c'][0] = min(5, block['c'][0] + 1)
+                block['c'][1] = ['', [], []]
                 report('heading-level-adjusted')
-            digest = hashlib.sha256(json.dumps(block,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
-            occurrences[digest] = occurrences.get(digest,0)+1
-            identifier = 'b-'+passage['id'][2:]+'-'+digest+'-'+str(occurrences[digest])
-            blocks.extend([anchor(identifier),block])
+            digest = hashlib.sha256(json.dumps(block, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+            occurrences[digest] = occurrences.get(digest, 0) + 1
+            block_id = 'b-' + passage['id'][2:] + '-' + digest + '-' + str(occurrences[digest])
+            # The first author paragraph carries the original turn fragment;
+            # every other block keeps its independently citable fingerprint ID.
+            # A quoted turn has a separate figure/blockquote anchor, leaving
+            # every contained block ID intact.
+            identifier = block_id if quoted or turn else passage['id']
+            turn.extend([anchor(identifier), block])
+        if quoted:
+            # Credit the source entity, not its generic chat role. An exported
+            # model slug is preserved verbatim rather than promoted to a
+            # possibly invented product name; the effort is a configuration,
+            # not a second visible metadata field. Never infer a model ID.
+            model = passage.get('model')
+            effort = passage.get('thinking_effort')
+            identity = (model or ('Unidentified AI model' if speaker == 'assistant' or effort
+                                  else passage['label']))
+            credit = '— ' + identity + (f' ({effort} effort)' if effort else '')
+            # The credit stays a native, unquoted GFM paragraph after the
+            # blockquote; only the reviewed message's exact tokens are used.
+            blocks.extend([anchor(passage['id'], speaker),
+                {'t': 'BlockQuote', 'c': turn},
+                {'t': 'Para', 'c': [{'t': 'Str', 'c': credit}]}])
+        else:
+            blocks.extend(turn)
+    # CommonMark can treat standalone '=' or '-' in $$ as Setext syntax in
+    # authorial text as well as quotations. Protect only those mathematical
+    # lines in a writer copy; the strict math/code round-trip remains decisive.
+    writer_blocks = copy.deepcopy(blocks)
+    for node in walk(writer_blocks):
+        if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
+            node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
+    writer_blocks, math_tokens = _write_math_gfm(writer_blocks)
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
         '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
-            'pandoc-api-version':api,'meta':{},'blocks':blocks}),capture_output=True,text=True)
+            'pandoc-api-version':api,'meta':{},'blocks':writer_blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    rendered = result.stdout.rstrip()+'\n'
+    rendered = _normalize_gfm_pipe_tables(_restore_math_gfm(_normalize_quote_blank_markers(result.stdout.rstrip()), math_tokens)) + '\n'
     if metadata:
         from supporting_metadata import metadata_frontmatter
         rendered = metadata_frontmatter(metadata) + '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered

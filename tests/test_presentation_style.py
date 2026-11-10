@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from asset_policy import AssetError
 from public_record import PAGE_STYLE
 from render_profile import canonical_template, prepare_code_focus, prepare_presentation_ast
 
@@ -99,6 +100,80 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertNotIn('press-metadata-dense', css)
         printed = css.split('@media print', 1)[1]
         self.assertIn('.press-document-metadata dt, .press-document-metadata dd { break-inside: avoid; }', printed)
+
+    def test_responder_figure_uses_caption_outside_quote_not_artificial_headings(self):
+        from supporting_gfm import parse_gfm_record
+        source = ('<a name="document"></a>\n\n# Evidence\n\n'
+                  '<a name="author"></a>\n\nAuthorial prose.\n\n'
+                  '<a name="response" data-press-speaker="responder"></a>\n\n'
+                  '> <a name="body"></a>\n>\n> Quoted response.\n\n— Correspondent\n')
+        ast, anchors = parse_gfm_record(source)
+        self.assertEqual('Para', ast['blocks'][anchors['author']]['t'])
+        start = ast['blocks'][anchors['response']]
+        self.assertEqual('Div', start['t'])
+        self.assertEqual('responder', dict(start['c'][0][2])['data-press-speaker'])
+        self.assertEqual('Correspondent', dict(start['c'][0][2])['data-press-attribution'])
+        self.assertEqual('Para', ast['blocks'][anchors['body']]['t'])
+        self.assertEqual(1, len([b for b in ast['blocks'] if b['t']=='Header']))
+
+    def test_end_attribution_preserves_source_model_and_effort_without_badges(self):
+        from supporting_gfm import append_gfm
+        from tempfile import TemporaryDirectory
+        import json
+        import subprocess
+        with TemporaryDirectory() as directory:
+            root=Path(directory)
+            relative=Path('works/demo/supporting/quote.md')
+            path=root/relative
+            path.parent.mkdir(parents=True)
+            path.write_text('<a name="document"></a>\n\n# Evidence\n\n'
+                            '<a name="response" data-press-speaker="assistant"></a>\n\n'
+                            '> <a name="quoted"></a>\n>\n> Exact quote.\n\n'
+                            '— gpt-6-thinking (max effort)\n')
+            blocks, anchors, _, _ = append_gfm(root, relative, 'quote')
+            opening=next(b for b in blocks if b['t']=='RawBlock' and '<figcaption' in b['c'][1])
+            caption=blocks[blocks.index(opening)+1]
+        self.assertEqual('Para',caption['t'])
+        spans=[node for node in caption['c'] if node['t']=='Span']
+        self.assertEqual([['press-turn-credit']],
+                         [node['c'][0][1] for node in spans])
+        self.assertEqual('— gpt-6-thinking (max effort)',
+                         ''.join(x['c'] if x['t']=='Str' else ' '
+                                 for x in spans[0]['c'][1]))
+        css=(ROOT/'styles/edition-v1.css').read_text()
+        self.assertIn('press-turn-credit { font-weight: 500; overflow-wrap: anywhere;', css)
+        self.assertNotIn('press-turn-details', css)
+
+    def test_quoted_responder_uses_the_native_blockquote_rail(self):
+        css=(ROOT/'styles/edition-v1.css').read_text()
+        for token in ('figure.press-turn > blockquote.press-turn-quotation {','margin: 0 0 0 -.35rem;',
+                      '--press-turn-text-inset: .65rem;',
+                      'border-inline-start: var(--press-turn-rail-size) solid var(--press-border);',
+                      'inset-inline-start: calc(-1 * (var(--press-turn-text-inset) + var(--press-turn-rail-size)));',
+                      'inline-size: calc(var(--press-turn-text-inset) + var(--press-turn-rail-size));',
+                      'figure.press-turn, figure.press-turn > blockquote.press-turn-quotation' ):
+            self.assertIn(token,css)
+        self.assertNotIn('blockquote.press-turn::before',css)
+        self.assertNotIn('box-shadow: inset 0 .11rem 0 var(--press-link);',css)
+        self.assertNotIn('speaker',css.split('/* Supporting evidence:')[0])
+        forced=css.split('@media (forced-colors: active)')[1].split('@media print')[0]
+        self.assertIn('border-inline-start-color: CanvasText;',forced)
+
+    def test_figure_quote_and_credit_are_bound_by_element_fingerprints(self):
+        from element_citations import element_fingerprints
+        raw = (b'<figure class="press-turn" id="reply" data-press-speaker="responder">'
+               b'<blockquote class="press-turn-quotation"><div id="block">Quoted text</div>'
+               b'</blockquote><figcaption>-- Correspondent</figcaption></figure>')
+        baseline = element_fingerprints(raw, {"reply", "block"})
+        changed_role = raw.replace(b'data-press-speaker="responder"', b'data-press-speaker="assistant"')
+        self.assertNotEqual(baseline, element_fingerprints(changed_role, {"reply", "block"}))
+        changed_credit = raw.replace(b'-- Correspondent', b'-- Unknown')
+        self.assertNotEqual(baseline['reply'], element_fingerprints(changed_credit, {"reply", "block"})['reply'])
+        changed_quote = raw.replace(b'class="press-turn-quotation"', b'class="ordinary"')
+        self.assertNotEqual(baseline['reply'], element_fingerprints(changed_quote, {"reply", "block"})['reply'])
+        shifted = raw.replace(b'</blockquote><figcaption>', b'<figcaption>')
+        with self.assertRaises(AssetError):
+            element_fingerprints(shifted, {"reply", "block"})
 
     def test_footnote_links_decorate_the_raised_numeral(self):
         css = (ROOT / "styles/edition-v1.css").read_text()

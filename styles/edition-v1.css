@@ -302,6 +302,39 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   padding-top: 0;
   margin-top: .8rem;
 }
+/* Reviewed chat citations remain native GFM blockquotes with an ordinary
+   following credit. Issued HTML associates the two in figure/figcaption;
+   roles are source-authored, never inferred from visual order or prose. */
+figure.press-turn {
+  margin: 1.05rem 0 1.2rem;
+  min-width: 0;
+}
+figure.press-turn > blockquote.press-turn-quotation {
+  --press-turn-rail-size: .2rem;
+  --press-turn-text-inset: .65rem;
+  margin: 0 0 0 -.35rem;
+  padding: .15rem 0 .15rem var(--press-turn-text-inset);
+  border-inline-start: var(--press-turn-rail-size) solid var(--press-border);
+}
+figure.press-turn > figcaption.press-turn-attribution {
+  margin: .14rem 0 0;
+  text-align: end;
+  color: var(--press-muted);
+  font: .78rem/1.45 system-ui, sans-serif;
+}
+figure.press-turn > figcaption.press-turn-attribution p { margin: 0; }
+/* The complete, reviewed source entity is one unobtrusive line. Its
+   technical slug remains literal, with a short effort qualifier if recorded. */
+.press-turn-credit { font-weight: 500; overflow-wrap: anywhere; }
+figure.press-turn:target > blockquote.press-turn-quotation { border-inline-start-color: var(--press-link); }
+figure.press-turn:target > figcaption.press-turn-attribution { color: var(--press-link); }
+/* A cited interior block overlays the native border with the ordinary
+   blue citation cue. The quote's neutral rail stays at the same position. */
+.press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before {
+  inset-inline-start: calc(-1 * (var(--press-turn-text-inset) + var(--press-turn-rail-size)));
+  inline-size: calc(var(--press-turn-text-inset) + var(--press-turn-rail-size));
+  border-inline-start-width: var(--press-turn-rail-size);
+}
 .press-passage-heading .press-permalink { font-size: .8rem; }
 .press-passage-datetime {
   margin: -.3rem 0 .4rem;
@@ -352,9 +385,16 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   .press-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
+  /* In forced colors the native quote rail and system target outline remain. */
+  .press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  blockquote.press-turn-quotation { border-inline-start-color: CanvasText; }
 }
 
 @media print {
+  /* Keep the quote rail inside the printable content area. Screen-only
+     negative margins can otherwise be clipped at the paper's page margin. */
+  figure.press-turn > blockquote.press-turn-quotation { margin-inline-start: 0; }
+  .press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   :root {
     color-scheme: light;
     --press-paper: #fff;
@@ -389,5 +429,6 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
   figure, blockquote, pre { break-inside: avoid; }
+  figure.press-turn, figure.press-turn > blockquote.press-turn-quotation { break-inside: auto; }
   footer { break-before: auto; }
 }

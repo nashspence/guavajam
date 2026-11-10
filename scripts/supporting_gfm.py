@@ -138,10 +138,17 @@ def _tooltip_spans(value):
         raise AssetError('unbalanced supporting tooltip span')
     return result
 
+# A source annotation applies only to externally quoted responders.
+# Ordinary, unquoted material is always authorial, without a role label.
+SPEAKERS = frozenset({'user', 'assistant', 'author', 'responder'})
+# Source-backed, bounded technical labels; shared with the ChatGPT importer.
+ATTRIBUTION_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z')
 ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern + r')"></a>\Z')
+SPEAKER_ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern +
+                            r')" data-press-speaker="(assistant|responder)"></a>\Z')
 
 
-def anchor_block(block):
+def anchor_details(block):
     if block.get('t') == 'RawBlock' and block['c'][0] == 'html':
         text = block['c'][1]
     elif block.get('t') == 'Para' and all(n.get('t') == 'RawInline' and n['c'][0] == 'html'
@@ -150,7 +157,42 @@ def anchor_block(block):
     else:
         return None
     match = ANCHOR.fullmatch(text)
-    return match[1] if match else None
+    if match:
+        return match[1], None
+    match = SPEAKER_ANCHOR.fullmatch(text)
+    return (match[1], match[2]) if match else None
+
+
+def _turn_caption(block):
+    """Accept a single reviewed source-entity credit, not a metadata list.
+
+    A technical model slug and optional effort can be synthesized by the
+    private ChatGPT converter, but the published source has one plain caption.
+    Neither model identity nor speaker role is inferred from caption text.
+    """
+    if block.get('t') != 'Para' or any(n.get('t') not in {'Str', 'Space'} for n in block['c']):
+        return None
+    value = plain_text(block)
+    if not value.startswith('— ') or len(value) > 320:
+        return None
+    label = value[2:]
+    if (not label or label != label.strip() or len(label) > 310
+            or any(ord(char) < 32 for char in label)
+            or label.casefold() in {'assistant', 'author', 'user'}
+            or ' · ' in label or 'Model:' in label or 'Thinking effort:' in label):
+        return None
+    return {'label': label}
+
+
+def _turn_boundary(kind, identifier='', speaker='', caption=None):
+    attrs = ([['data-press-speaker', speaker], ['data-press-attribution', caption['label']]]
+             if kind == 'start' else [])
+    return {'t': 'Div', 'c': [[identifier, ['press-reviewed-turn-' + kind], attrs], []]}
+
+
+def anchor_block(block):
+    details = anchor_details(block)
+    return details[0] if details else None
 
 
 def load_gfm_record(path: Path, *, root=None):
@@ -177,20 +219,69 @@ def parse_gfm_record(source, *, policy=None):
     ast = parse_pandoc(body, reader=FORMAT.replace('+yaml_metadata_block', '-yaml_metadata_block'))
     metadata_anchor = None
     if fields:
-        metadata_anchor = anchor_block(ast['blocks'][0]) if ast['blocks'] else None
-        if not metadata_anchor:
-            raise AssetError('supporting metadata requires its own explicit anchor after the front matter')
+        metadata_details = anchor_details(ast['blocks'][0]) if ast['blocks'] else None
+        if not metadata_details or metadata_details[1] is not None:
+            raise AssetError('supporting metadata requires its own unannotated explicit anchor after the front matter')
+        metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
+    # Only an outermost responder quotation followed by an unquoted credit
+    # is an attributed turn. Each child is flattened to retain its own citable
+    # anchor; publisher-only sentinels preserve the figure's exact boundaries.
+    expanded = []
+    index = 0
+    while index < len(ast['blocks']):
+        block = ast['blocks'][index]
+        details = anchor_details(block)
+        if details and details[1] is not None:
+            if index + 2 >= len(ast['blocks']) or ast['blocks'][index + 1].get('t') != 'BlockQuote':
+                raise AssetError('speaker annotation requires an outermost responder blockquote')
+            identifier, speaker = details
+            quote = ast['blocks'][index + 1]['c']
+            caption = _turn_caption(ast['blocks'][index + 2])
+            if not quote or caption is None or caption['label'].casefold() in {'user', 'author'}:
+                raise AssetError('responder blockquote requires anchored content and an external-speaker credit')
+            if any(anchor_details(child) and anchor_details(child)[1] is not None for child in quote):
+                raise AssetError('speaker annotations cannot nest within a quoted turn')
+            if not any(anchor_details(child) for child in quote):
+                raise AssetError('responder blockquote requires individually anchored content')
+            expanded.append(_turn_boundary('start', identifier, speaker, caption))
+            expanded.extend(quote)
+            expanded.append(_turn_boundary('end'))
+            index += 3
+            continue
+        if block.get('t') == 'BlockQuote' and block['c']:
+            # No implicit role recognition inside nested ordinary quotations.
+            if any(anchor_details(child) and anchor_details(child)[1] is not None
+                   for child in block['c']):
+                raise AssetError('nested speaker annotations are not supported')
+        expanded.append(block)
+        index += 1
+    ast['blocks'] = expanded
     if ast.get('meta'):
         raise AssetError('unexpected supporting parser metadata')
     blocks, anchors, pending = [], {}, None
     headers = []
     for block in ast['blocks']:
-        identifier = anchor_block(block)
-        if identifier:
+        if block.get('t') == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
+            identifier = block['c'][0][0]
+            if pending or identifier in anchors:
+                raise AssetError('duplicate or unattached supporting turn anchor')
+            anchors[identifier] = len(blocks)
+            blocks.append(block)
+            continue
+        if block.get('t') == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
+            if pending:
+                raise AssetError('unattached anchor inside supporting turn')
+            blocks.append(block)
+            continue
+        details = anchor_details(block)
+        if details:
+            identifier, explicit_speaker = details
             if pending or identifier in anchors:
                 raise AssetError('duplicate or unattached supporting anchor')
+            if explicit_speaker is not None:
+                raise AssetError('speaker annotation must precede a top-level responder quotation')
             pending = identifier
             continue
         if any(n.get('t') in {'RawBlock', 'RawInline', 'Note'} for n in walk(block)):
@@ -277,12 +368,38 @@ def append_gfm(root, relative, slug):
     else:
         result.append(provenance)
     first_passage = True
+    turn_start = None
     for index, block in enumerate(ast['blocks'][1:], 1):
         if block['t'] == 'Div' and 'press-document-metadata' in block['c'][0][1]:
             continue
         anchor = by_index.get(index)
+        if block['t'] == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
+            speaker = dict(block['c'][0][2])['data-press-speaker']
+            turn_start, turn_index = block, index
+            result.append({'t':'RawBlock','c':['html',
+                '<figure class="press-turn" id="' + anchor + '" data-press-speaker="' + speaker + '">']})
+            result.append({'t':'RawBlock','c':['html', '<blockquote class="press-turn-quotation">']})
+            continue
+        if block['t'] == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
+            # The paired opening marker provides the exact reviewed caption.
+            details = dict(turn_start['c'][0][2])
+            caption = details['data-press-attribution']
+            turn_anchor = by_index[turn_index]
+            result.append({'t':'RawBlock','c':['html', '</blockquote><figcaption class="press-turn-attribution">']})
+            permalink = {'t':'Link','c':[['', ['press-permalink'],
+                [['data-press-passage',turn_anchor],
+                 ['aria-label','Permalink to attributed turn '+turn_anchor], ['lang','en']]],
+                 [{'t':'Str','c':'¶'}], ['press-passage:'+turn_anchor,'']]}
+            credit = {'t':'Span', 'c':[['', ['press-turn-credit'], []],
+                [{'t':'Str','c':'—'}, {'t':'Space'}, {'t':'Str','c':caption}]]}
+            # One entity credit and one permalink; no role or technical-field
+            # line is added by the publisher. The reviewed GFM owns the text.
+            result.append({'t':'Para','c':[credit, {'t':'Space'}, permalink]})
+            result.append({'t':'RawBlock','c':['html', '</figcaption></figure>']})
+            turn_start = None
+            continue
         if block['t'] == 'Header':
-            if block['c'][0] == 2:
+            if block['c'][0] == 2 and turn_start is None:
                 block['c'][1][1].append('press-passage-heading')
                 if first_passage:
                     block['c'][1][1].append('press-first-passage')

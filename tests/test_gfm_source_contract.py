@@ -49,6 +49,94 @@ class SourceContractTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.parse(document('<a name="list"></a>\n\n- <a name="nested"></a>\n\n  Nested anchor\n'))
 
+    def test_author_is_plain_and_only_external_quotations_are_credited(self):
+        source = document('<a name="author-entry"></a>\n\nThe author writes ordinarily.\n\n'
+            '<a name="author-section"></a>\n\n## Actual section\n\n'
+            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> <a name="response-body"></a>\n>\n> A quoted response.\n\n'
+            '— Correspondent\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual({'document', 'author-entry', 'author-section', 'response', 'response-body'},set(anchors))
+        self.assertEqual('Para', ast['blocks'][anchors['author-entry']]['t'])
+        self.assertEqual('Header', ast['blocks'][anchors['author-section']]['t'])
+        self.assertFalse(any('data-press-speaker' in dict(node['c'][1][2]) for node in walk(ast['blocks'])
+                             if node['t']=='Header'))
+        self.assertEqual('Div', ast['blocks'][anchors['response']]['t'])
+        attrs = dict(ast['blocks'][anchors['response']]['c'][0][2])
+        self.assertEqual({'data-press-speaker':'responder', 'data-press-attribution':'Correspondent'},attrs)
+
+        for bad in (
+            '<a name="voice" data-press-speaker="user"></a>\n\nAuthorial text.\n',
+            '<a name="voice" data-press-speaker="author"></a>\n\nAuthorial text.\n',
+            '<a name="voice" data-press-speaker="assistant"></a>\n\n## Heading\n',
+            '<a name="voice" data-press-speaker="responder"></a>\n\n'
+                '> <a name="part"></a>\n>\n> Quoted text.\n',
+            '<a name="voice" data-press-speaker="responder"></a>\n\n'
+                '> <a name="part"></a>\n>\n> Quoted text.\n\n— Author\n',
+            '<a name="voice" data-press-speaker="responder" style="color:red"></a>\n\n'
+                '> <a name="part"></a>\n>\n> Quoted text.\n\n— Correspondent\n',
+            '> <a name="voice" data-press-speaker="responder"></a>\n>\n> Text.\n',
+        ):
+            with self.subTest(source=bad[:80]), self.assertRaises(AssetError):
+                self.parse(document(bad))
+
+    def test_responder_quote_preserves_nested_quotation_and_source_ids(self):
+        source=document('<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> <a name="paragraph"></a>\n>\n> Answer.\n>\n'
+            '> <a name="inner-quote"></a>\n>\n> > Another quoted passage.\n>\n'
+            '> <a name="code"></a>\n>\n> ```python\n> print(1)\n> ```\n\n'
+            '— Correspondent\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual({'document','response','paragraph','inner-quote','code'},set(anchors))
+        self.assertEqual('Div',ast['blocks'][anchors['response']]['t'])
+        self.assertEqual('BlockQuote',ast['blocks'][anchors['inner-quote']]['t'])
+        self.assertEqual('CodeBlock',ast['blocks'][anchors['code']]['t'])
+        for bad in (
+            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> <a name="part"></a>\n>\n> A response.\n\n— Author\n',
+            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> <a name="part"></a>\n>\n> A response.\n\n**— Correspondent**\n',
+            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> A response.\n\n— Correspondent\n',
+            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '> <a name="part" data-press-speaker="responder"></a>\n>\n> Text.\n\n— Correspondent\n',
+        ):
+            with self.subTest(source=bad),self.assertRaises(AssetError):self.parse(document(bad))
+
+    def test_external_credit_is_one_reviewed_entity_not_a_field_list(self):
+        def reviewed(credit, speaker='responder'):
+            return document('<a name="response" data-press-speaker="' + speaker + '"></a>\n\n'
+                            '> <a name="part"></a>\n>\n> Quoted response.\n\n' + credit + '\n')
+        valid = (
+            '— Correspondent',
+            '— gpt-6-thinking',
+            '— Unidentified AI model',
+            '— Unidentified AI model (high effort)',
+            '— gpt-6-thinking (max effort)',
+            '— model/path.v2+experimental (extra_high effort)',
+        )
+        for source_credit in valid:
+            with self.subTest(credit=source_credit):
+                ast, anchors, *_ = self.parse(reviewed(source_credit))
+                attrs = dict(ast['blocks'][anchors['response']]['c'][0][2])
+                self.assertEqual({'data-press-speaker': 'responder',
+                                  'data-press-attribution': source_credit[2:]}, attrs)
+        # A visible credit is editorially reviewed. Role labels and structured
+        # technical-field lists are no longer valid external attributions.
+        invalid = (
+            '— Assistant', '— User', '— Author',
+            '— Assistant · Model: gpt-6-thinking',
+            '— gpt-6-thinking · Thinking effort: max',
+            '— Model: gpt-6-thinking',
+            '— gpt-6-thinking (max effort) · Model: forged',
+            '— gpt-6-thinking <script>alert(1)</script>',
+            '— ' + 'x' * 315,
+            '**— gpt-6-thinking (max effort)**',
+        )
+        for source_credit in invalid:
+            with self.subTest(credit=source_credit), self.assertRaises(AssetError):
+                self.parse(reviewed(source_credit, 'assistant'))
+
     def test_semantic_time_is_exact_bounded_and_has_no_extra_attributes(self):
         values = {'2026-11-05': '5 Nov 2026',
                   '2026-11-05T14:37:03.123456789Z': '5 Nov 2026 · 14:37:03.123456789 UTC',
@@ -171,6 +259,52 @@ class ElementPublicationTests(EditionTests):
         changed=copy.deepcopy(manifest);self.rewrite(swapped,changed)
         with self.assertRaisesRegex(AssetError,'element'):
             verify_edition(self.output)
+
+    def test_only_responder_is_quoted_and_source_bound_in_published_html(self):
+        folder = self.repo / 'works/sample/supporting'; folder.mkdir()
+        source = document('<a name="user-turn"></a>\n\nAn ordinary authorial question.\n\n'
+            '<a name="reply" data-press-speaker="responder"></a>\n\n'
+            '> <a name="reply-text"></a>\n>\n> An attributed answer.\n\n'
+            '— Correspondent\n\n'
+            '<a name="plain"></a>\n\n## Actual notebook section\n\n'
+            '<a name="plain-text"></a>\n\nUnattributed prose stays authorial.')
+        (folder / 'voices.md').write_text(source)
+        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
+            stream.write('\n[Question](supporting/voices.md#user-turn), '
+                         '[answer](supporting/voices.md#reply), '
+                         '[neutral](supporting/voices.md#plain).\n')
+        self.git('add', 'works'); self.git('commit', '-qm', 'Review explicit source speaker roles')
+        self.commit = self.git('rev-parse', 'HEAD')
+        manifest = self.build()
+        entry, = manifest['supporting_documents']
+        html = (self.output / manifest['canonical_artifact']).read_bytes()
+        markup = html.split(b'</style>', 1)[1]
+        self.assertNotIn(b'data-press-speaker="author"', markup)
+        self.assertNotIn(b'data-press-speaker="user"', markup)
+        self.assertEqual(1, markup.count(b'data-press-speaker="responder"'))
+        self.assertEqual(1, markup.count(b'<figure class="press-turn"'))
+        self.assertEqual(1, markup.count(b'<blockquote class="press-turn-quotation">'))
+        self.assertEqual(1, markup.count(b'<figcaption class="press-turn-attribution">'))
+        self.assertIn('— Correspondent'.encode(), markup)
+        self.assertRegex(markup, rb'<figure\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
+        self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['reply-text'].encode() + rb'"')
+        self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['user-turn'].encode() + rb'"')
+        self.assertNotIn(b'>Author</h3>', markup)
+        self.assertNotIn(b'>Correspondent</h3>', markup)
+        self.assertEqual(manifest, verify_edition(self.output))
+        # The figure role, caption, and quotation are source-bound; editing
+        # them after publication fails even when the HTML checksums are reset.
+        head, sep, markup = html.partition(b'</style>')
+        self.assertTrue(sep)
+        for changed in (
+            markup.replace(b'data-press-speaker="responder"', b'data-press-speaker="assistant"', 1),
+            markup.replace('— Correspondent'.encode(), '— Impostor'.encode(), 1),
+            markup.replace(b'class="press-turn-quotation"', b'class="ordinary-quote"', 1),
+        ):
+            self.assertNotEqual(changed, markup)
+            revised = copy.deepcopy(manifest); self.rewrite(head + sep + changed, revised)
+            with self.assertRaisesRegex(AssetError, 'element'):
+                verify_edition(self.output)
 
     def test_dashed_document_and_fragment_names_have_distinct_namespaces(self):
         folder=self.repo/'works/sample/supporting';folder.mkdir()

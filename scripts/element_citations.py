@@ -35,16 +35,24 @@ def element_fingerprints(raw: bytes, identifiers: set[str]) -> dict:
             if tag in VOID:
                 self.save(tag, identifier, start, start + len(self.get_starttag_text()))
             else:
-                stack.append((tag, identifier, start))
+                # The source-anchored figure represents a responder turn; its
+                # exact opening bytes also bind every citable quoted child.
+                # A renamed/moved quotation cannot be laundered by rehashing
+                # the outer HTML and its checksum alone.
+                turn_tag = self.get_starttag_text() if tag == 'figure' and \
+                    'press-turn' in attrs.get('class', '').split() else ''
+                stack.append((tag, identifier, start, turn_tag))
 
         def save(self, tag, identifier, start, end):
             if identifier in identifiers:
-                found[identifier] = {'tag': tag, 'sha256': hashlib.sha256(text[start:end].encode()).hexdigest()}
+                context = ''.join(entry[3] for entry in stack if entry[3])
+                found[identifier] = {'tag': tag, 'sha256': hashlib.sha256(
+                    (context + text[start:end]).encode()).hexdigest()}
 
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)
             if tag not in VOID:
-                saved_tag, identifier, start = stack.pop()
+                saved_tag, identifier, start, _context = stack.pop()
                 self.save(saved_tag, identifier, start, self.position() + len(self.get_starttag_text()))
 
         def handle_endtag(self, tag):
@@ -52,7 +60,7 @@ def element_fingerprints(raw: bytes, identifiers: set[str]) -> dict:
                 return
             if not stack or stack[-1][0] != tag:
                 raise AssetError('malformed HTML element nesting')
-            saved_tag, identifier, start = stack.pop()
+            saved_tag, identifier, start, _context = stack.pop()
             self.save(saved_tag, identifier, start, text.index('>', self.position()) + 1)
 
     parser = Elements(convert_charrefs=True)

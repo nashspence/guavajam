@@ -51,7 +51,8 @@ class ReviewedGFMPublicationTests(EditionTests):
         self.assertIn('<strong>reviewed claim</strong>',page)
         self.assertIn('Café',page);self.assertIn('Δ',page)
         self.assertIn('&lt;script&gt;literal()&lt;/script&gt;',page)
-        self.assertIn('<time datetime="2026-11-06T05:07:11.125Z">',page)
+        self.assertNotIn('<time datetime="2026-11-06T05:07:11.125Z">',page)
+        self.assertIn('<figcaption class="press-turn-attribution">',page)
         for omitted in ('Synthetic unselected private content','Unreviewed replacement','uncited.md','conversations-001.json'):
             self.assertNotIn(omitted,page)
         self.assertEqual({manifest['canonical_artifact'],'provenance.json','SHA256SUMS'},

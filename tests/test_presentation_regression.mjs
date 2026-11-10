@@ -6,8 +6,8 @@ import test from 'node:test';
 import {chromium} from 'playwright';
 import {presentationSnapshot, assertPresentation} from './presentation_snapshot.mjs';
 
-const directory = process.env.PRESS_LANTERN_TEST_DIR;
-assert.ok(directory, 'Use make test-browser to build the reviewed Lantern edition');
+const directory = process.env.PRESS_APPEARANCE_TEST_DIR;
+assert.ok(directory, 'Use make test-browser to build the reviewed ordinary GFM edition');
 const manifest = JSON.parse(await readFile(path.join(directory, 'provenance.json'), 'utf8'));
 const baseline = JSON.parse(await readFile(new URL('./fixtures/presentation/gfm-appearance.json', import.meta.url), 'utf8'));
 const url = pathToFileURL(path.join(directory, manifest.canonical_artifact)).href;

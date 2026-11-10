@@ -73,23 +73,113 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
-    def test_attribution_is_a_subtitle_and_missing_metadata_is_not_invented(self):
+    def test_display_math_survives_list_and_quote_context_for_each_speaker(self):
+        expression = 'a=b+c'
+        sources = (
+            '- First item.\n\n  \\[\n  a=b+c\n  \\]\n\n- Last item.\n',
+            '- \\[\n  a=b+c\n  \\]\n',
+            '1. \\[\n   a=b+c\n   \\]\n',
+            '- Outer.\n  - \\[\n    a=b+c\n    \\]\n',
+            '> Nested statement.\n>\n> \\[\n> a=b+c\n> \\]\n',
+            'A paragraph \\[a=b+c\\] continues.',
+        )
+        for speaker in ('author', 'assistant'):
+            for text in sources:
+                with self.subTest(speaker=speaker, text=text):
+                    record = {'title':'Mathematics', 'scope':'Synthetic review', 'passages':[
+                        {'id':'m-math', 'label':'Reviewed speaker', 'speaker':speaker, 'text':text}]}
+                    data, _ = review_gfm(record)
+                    with tempfile.TemporaryDirectory() as scratch:
+                        source = Path(scratch)/'review.md'; source.write_bytes(data)
+                        ast, anchors, *_ = load_gfm_record(source)
+                    self.assertIn('m-math', anchors)
+                    self.assertEqual([('DisplayMath', expression)], [
+                        (n['c'][0]['t'], n['c'][1].strip()) for n in walk(ast['blocks']) if n['t']=='Math'])
+
+    def test_setext_looking_tex_remains_exact_for_author_and_responder(self):
+        expression = '\\begin{aligned}\na+b\n=\nc+d\n\\end{aligned}'
+        for speaker in ('author', 'assistant'):
+            with self.subTest(speaker=speaker):
+                record = {'title':'Mathematics', 'scope':'Synthetic review', 'passages':[
+                    {'id':'m-math', 'label':'Reviewed speaker', 'speaker':speaker,
+                     'text':'\\[\n'+expression+'\n\\]\n'}]}
+                data, _ = review_gfm(record)
+                with tempfile.TemporaryDirectory() as scratch:
+                    source=Path(scratch)/'review.md'; source.write_bytes(data)
+                    ast, _, *_=load_gfm_record(source)
+                self.assertEqual([expression], [n['c'][1].strip() for n in walk(ast['blocks']) if n['t']=='Math'])
+
+    def test_only_responder_has_a_trailing_credit_not_per_turn_metadata(self):
         msg = self.record['mapping']['tip']['message']
         msg.update(create_time=1577836800.125)
         msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
         data, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertIn(b'## Assistant\n', data)
-        self.assertIn(b'<time datetime="2020-01-01T00:00:00.125Z">1 Jan 2020', data)
-        self.assertIn(' · Model: gpt-6-thinking · Thinking effort: max*'.encode(), data)
-        self.assertIn(b'## User\n\n', data)
-        self.assertNotIn(b'## Assistant (', data)
-        self.assertNotIn(b'Pro', data)
-        msg.pop('create_time')
-        msg['metadata'].clear()
-        data, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertIn(b'data-press-speaker="assistant"', data)
+        self.assertNotIn('— Assistant'.encode(), data)
+        self.assertNotIn(b'## Assistant', data)
+        self.assertNotIn(b'## User', data)
+        self.assertNotIn(b'data-press-speaker="user"', data)
+        self.assertNotIn(b'<time ', data)
+        self.assertIn('— gpt-6-thinking (max effort)'.encode(), data)
         self.assertNotIn(b'Model:', data)
         self.assertNotIn(b'Thinking effort:', data)
-        self.assertNotIn(b'2020-', data)
+        msg.pop('create_time'); msg['metadata'].clear()
+        later, _ = review_gfm(transcript(self.record, 'tip'))
+        self.assertEqual(data.replace('— gpt-6-thinking (max effort)'.encode(),
+                                      '— Unidentified AI model'.encode()), later)
+        self.assertNotIn(b'Model:', later)
+        self.assertNotIn(b'Thinking effort:', later)
+
+    def test_credit_uses_only_explicit_message_metadata_and_preserves_code(self):
+        from chat_gfm import _normalize_quote_blank_markers
+        record = transcript(self.record, 'tip')
+        record['passages'][-1].update(model='gpt-6-thinking', thinking_effort='max')
+        source, _ = review_gfm(record)
+        self.assertIn('— gpt-6-thinking (max effort)'.encode(), source)
+        self.assertNotIn('— User'.encode(), source)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'review.md';path.write_bytes(source)
+            ast, anchors, *_ = load_gfm_record(path)
+        details=[dict(node['c'][0][2]) for node in ast['blocks'] if node['t']=='Div' and
+                 'press-reviewed-turn-start' in node['c'][0][1]]
+        self.assertEqual([{'data-press-speaker':'assistant',
+                           'data-press-attribution':'gpt-6-thinking (max effort)'}], details)
+        record['passages'][-1].pop('model')
+        effort_only, _ = review_gfm(record)
+        self.assertIn('— Unidentified AI model (max effort)'.encode(), effort_only)
+        record['passages'][-1]['model'] = 'gpt-6-thinking'
+        record['passages'][-1].pop('thinking_effort')
+        model_only, _ = review_gfm(record)
+        self.assertIn('— gpt-6-thinking'.encode(), model_only)
+        self.assertNotIn(b'Unidentified AI model', model_only)
+        record['passages'][-1]['label'] = 'Assistant · Model: forged'
+        with self.assertRaisesRegex(AssetError, 'speaker label'):
+            review_gfm(record)
+        self.assertEqual(_normalize_quote_blank_markers('> \n> > \n> text  \n> ```\n> code  \n> ```'),
+                         '>\n> >\n> text  \n> ```\n> code  \n> ```')
+
+    def test_review_gfm_quotes_only_external_responders_regardless_of_label(self):
+        record = transcript(self.record, 'tip')
+        source, _ = review_gfm(record)
+        self.assertNotIn(b'data-press-speaker="user"', source)
+        self.assertIn(b'data-press-speaker="assistant"', source)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'review.md'; path.write_bytes(source)
+            ast, anchors, *_ = load_gfm_record(path)
+        self.assertEqual(['assistant'], [dict(n['c'][0][2])['data-press-speaker']
+            for n in ast['blocks'] if n['t'] == 'Div' and 'press-reviewed-turn-start' in n['c'][0][1]])
+        self.assertTrue(all(key in anchors for key in [p['id'] for p in record['passages']]))
+        # Neither a forged label nor an absent role can create attribution.
+        alternate = copy.deepcopy(record)
+        alternate['passages'][0]['label'] = 'Assistant'
+        alternate['passages'][0]['speaker'] = 'user'
+        alternate['passages'][1].pop('speaker')
+        text, _ = review_gfm(alternate)
+        self.assertEqual(text.count(b'data-press-speaker='), 0)
+        for value in ({'forged': True}, 'system', 'ASSISTANT', '', 2, ['user']):
+            bad = copy.deepcopy(record); bad['passages'][0]['speaker'] = value
+            with self.subTest(value=str(value)), self.assertRaises(AssetError):
+                review_gfm(bad)
 
     def test_dividers_split_nested_wrappers_and_lists_but_remain_literal_in_code(self):
         tag = '<divider color="subtle"/>'
@@ -140,7 +230,7 @@ class GFMImportTests(ExtractTests):
         draft,diagnostics=review_gfm(record)
         self.assertEqual((draft,diagnostics),review_gfm(record))
         self.assertIn(b'\\(literal\\)',draft)
-        self.assertIn(b'$`x=x`$',draft)
+        self.assertIn(b'$x=x$',draft)
         self.assertIn('unresolved-chatgpt-citation',diagnostics)
         self.assertIn('raw-markup-as-literal-code',diagnostics)
         self.assertIn('unsupported-message-content-omitted',diagnostics)
