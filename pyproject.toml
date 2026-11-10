@@ -6,3 +6,6 @@ dependencies = ["PyYAML==6.0.3", "Pillow==13.0.0"]
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = ["PyMuPDF==1.26.5"]
