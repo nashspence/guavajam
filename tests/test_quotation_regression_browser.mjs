@@ -63,7 +63,8 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
             const blocks = [...quote.children].filter(node => node.id);
             const pick = predicate => {const node = blocks.find(predicate); if (!node) throw new Error('Missing quotation target type'); return node.id;};
             return {heading: pick(node => /^H[3-6]$/.test(node.tagName)),
-              paragraph: pick(node => node.tagName === 'DIV' && node.firstElementChild?.tagName === 'P'),
+              paragraph: pick(node => node.tagName === 'DIV' && node.firstElementChild?.tagName === 'P'
+                && node.textContent.replace(/\s+/g, ' ').includes('An independently citable paragraph.')),
               math: pick(node => node.querySelector('math[display="block"]')),
               code: pick(node => node.querySelector('pre')),
               table: pick(node => node.querySelector('.press-table-scroll table')),

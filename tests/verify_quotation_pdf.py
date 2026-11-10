@@ -13,8 +13,17 @@ def verify_pdf(raw, cases):
         assert len(document) >= 3, 'quotation must span several printed pages'
         packed = re.sub(r'\s+', '', ''.join(page.get_text() for page in document))
         assert 'QUOTE-END' in packed, 'missing authorial closing after the quotation'
-        for credit in cases['credits'].values():
-            assert re.sub(r'\s+', '', credit) in packed, 'missing printed source credit'
+        sections = cases.get('sections', {})
+        keys = list(cases['credits'])
+        for n, (key, credit) in enumerate(cases['credits'].items()):
+            region = packed
+            if sections:
+                assert sections[key] in packed, 'missing printed quotation boundary'
+                start = packed.index(sections[key])
+                end = packed.index(sections[keys[n + 1]]) if n + 1 < len(keys) else packed.index('QUOTE-END')
+                assert end > start, 'printed quotation order changed'
+                region = packed[start:end]
+            assert re.sub(r'\s+', '', credit) in region, 'missing printed source credit in its own quotation'
         for n in range(cases['paragraphs']):
             assert f'QUOTE-PARAGRAPH-{n:03d}' in packed, 'missing printed quotation paragraph'
         rail_pages = 0

@@ -24,6 +24,7 @@ CASES = (
     ('m-long', 'assistant', 'Reviewed reply', {'model': 'long-reply-model'}, 'long-reply-model'),
 )
 CREDITS = {identifier: '— ' + credit for identifier, _, _, _, credit in CASES}
+SECTIONS = {case[0]: f'QUOTE-CASE-{n:02d}' for n, case in enumerate(CASES)}
 
 
 def reviewed_source():
@@ -37,7 +38,7 @@ def reviewed_source():
                  'text': 'Ordinary authorial opening without an inferred quotation.'}]
     passages.extend({'id': identifier, 'speaker': speaker, 'label': label, **details,
                      'timestamp': '2030-01-01T00:00:00Z',
-                     'text': long if identifier == 'm-long' else 'A reviewed external contribution.'}
+                     'text': SECTIONS[identifier] + '\n\n' + (long if identifier == 'm-long' else 'A reviewed external contribution.')}
                     for identifier, speaker, label, details, _ in CASES)
     passages.append({'id': 'm-end', 'label': 'Unannotated author', 'text': 'QUOTE-END Authorial closing.'})
     return review_gfm({'title': 'Quotation regression', 'scope': 'Synthetic reviewed source', 'passages': passages})[0]
@@ -72,7 +73,7 @@ def quotation_fixture():
     fixture = QuotationPublicationTests('test_source_credits_and_authored_boundaries_survive_verified_publication')
     try:
         fixture.setUp(); fixture.source(); fixture.build(); verify_edition(fixture.output)
-        yield fixture.output, {'credits': CREDITS, 'paragraphs': PARAGRAPHS}
+        yield fixture.output, {'credits': CREDITS, 'paragraphs': PARAGRAPHS, 'sections': SECTIONS}
         verify_edition(fixture.output)
     finally:
         fixture.doCleanups()

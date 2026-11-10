@@ -9,6 +9,7 @@ class QuotationPDFTests(unittest.TestCase):
         document = fitz.open()
         for n in range(3):
             page = document.new_page()
+            page.insert_text((54, 25), f'QUOTE-CASE-{n}')
             rail = fitz.Rect(40, 40, 43, 140)
             page.draw_rect(rail, color=None, fill=(.4, .4, .4))
             for offset in range(2):
@@ -32,3 +33,9 @@ class QuotationPDFTests(unittest.TestCase):
     def test_missing_source_text_fails(self):
         with self.assertRaisesRegex(AssertionError, 'missing printed quotation paragraph'):
             verify_pdf(self.sample(omit_paragraph=True), {'credits': {}, 'paragraphs': 6})
+
+    def test_a_credit_in_another_quotation_cannot_satisfy_the_missing_credit(self):
+        cases = {'credits': {'first': 'Model credit', 'last': 'Model credit'}, 'paragraphs': 6,
+                 'sections': {'first': 'QUOTE-CASE-0', 'last': 'QUOTE-CASE-2'}}
+        with self.assertRaisesRegex(AssertionError, 'credit in its own quotation'):
+            verify_pdf(self.sample(), cases)
