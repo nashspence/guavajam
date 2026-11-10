@@ -209,7 +209,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > Our primary relationship is:
 >
-> <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-9cb945b8c61a0663494a4270a34e9a26aa84c6f74e4c943852c103d835a6e56c-1"></a>
+> <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-e1e736c846a90067762a504e0e130e1fe91ba5778f24befe1aa6bf47dbf19ae1-1"></a>
 >
 > $$
 > x=\text{elapsed seconds},\qquad y=\text{observed count}
@@ -319,7 +319,7 @@ Continue to stage 2
 >
 > We model the observed count $y_i$ as a linear function of elapsed time $x_i$:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-c456c68fecea90fc0641ca0f27057f88632a1a1d0975e6aa86de90cb876a948c-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-911e65b0b147911750e5768e0823dda16a4583c7d2e2cb35a09e1a4446f0b996-1"></a>
 >
 > $$
 > y_i=\beta_0+\beta_1x_i+\varepsilon_i
@@ -347,7 +347,7 @@ Continue to stage 2
 >
 > Our five observations are:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-0bafabd8e5c3301b85a2d7e1b8a21af9c0288c92f4e803f987387e6896df4989-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-09116000f2eed4c725dd8f9924d05da1d59e66868af71c4f64635be73b527e2b-1"></a>
 >
 > $$
 > \begin{aligned}
@@ -360,13 +360,13 @@ Continue to stage 2
 >
 > The mean observed count is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-2490a6a9cdae8bb1a3336b98d2e5548a5d086eca9c63c4d41e6f0c3bb96211d2-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-ba4e474233b4178b84edf2b51fd7ad2e2e9ed066371f90fb7b4617785b79af4a-1"></a>
 >
 > $$
 > \bar y=\frac{2+3+5+4+8}{5}
 > $$
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-a1e9ad347aa4d3222c400cef3c704c965d1f2abb9d611b029b739d3bdc9f181a-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-533da08f7ccd59645ef86e6f8febbc4392c0e9d192ed7c61a1b6abfaed70c5ac-1"></a>
 >
 > $$
 > \boxed{\bar y=4.4}
@@ -376,7 +376,7 @@ Continue to stage 2
 >
 > The mean elapsed time is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-c2857fd3a6364659ff8562ce3b88b33a9403bce988335c6e6b8dce9bc195e242-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-ccd0d81551ba3b6d72032ee14dc7f66eb58eaabf045c97668dbc9f9a214fa622-1"></a>
 >
 > $$
 > \bar x=\frac{0+1+2+3+4}{5}=2
@@ -394,7 +394,7 @@ Continue to stage 2
 >
 > The design matrix $X$ and response vector $\mathbf y$ are:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-1ec078285359d29d66791bd0270adaa2280fb7fbc662c5e51c79791b547c489c-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-bd6b4fddd86cb80e2d8d4a12b95ac8f6876a386b5a765b3741497a5a3474c11a-1"></a>
 >
 > $$
 > X=
@@ -416,7 +416,7 @@ Continue to stage 2
 >
 > The coefficient vector is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-b20a4c5a4e72396ddc6d71fba125e195b3dbdab5653c01177a56e733f01bc61e-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-8503302af39390929669c4690060930d541e34b259b841ad02b0eeb3ecc324fe-1"></a>
 >
 > $$
 > \boldsymbol\beta=
@@ -430,7 +430,7 @@ Continue to stage 2
 >
 > OLS minimizes:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-071021cef0770745bb78840def2cab542e98ce872250ddb49ee08825a30f2894-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-489a74297f09c7c17e5cc72b432a2d27a5e38de3c556b285697fbdd4167a7611-1"></a>
 >
 > $$
 > S(\boldsymbol\beta)=
@@ -442,7 +442,7 @@ Continue to stage 2
 >
 > Since $X$ has full column rank, the unique OLS solution is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-f58df8bbe4c712a8683bce1cd09a20ab9c7aca55e78cacfaf68e90b7e23c8544-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-66c5e9a29731ec64896cd46e241de8348689162abefd16579aab5644bdfd9932-1"></a>
 >
 > $$
 > \hat{\boldsymbol\beta}
@@ -457,7 +457,7 @@ Continue to stage 2
 >
 > First compute:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-4cb2fb42e08d9735e39f7f18f0455b30696e8854cad13d70a1f8ffb8f0f7fd68-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-2e71e3441f1329fd9eb6dbe5a6b5376007fb326ad140414b0d216e3d8adf33dc-1"></a>
 >
 > $$
 > X^TX=
@@ -471,7 +471,7 @@ Continue to stage 2
 >
 > and:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-c5cc99d20613112552ee21dbfb9eb43c1a8afe2ae9fe48faa39a7a955d7a4e98-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-3c873b25e89f7424e885ddb46f461b69525d15c4580a517a637ca921254b03eb-1"></a>
 >
 > $$
 > X^T\mathbf y=
@@ -485,7 +485,7 @@ Continue to stage 2
 >
 > The inverse is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-340720eb79c0af1ac83fb16763762dbd7e85576113c7897a441f6f24155fb13f-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-ea1324486cd69bef1c99c80e3b38f254f0cf210164fe8ff68fe116bdd4736a97-1"></a>
 >
 > $$
 > (X^TX)^{-1}=
@@ -500,7 +500,7 @@ Continue to stage 2
 >
 > Multiplying gives:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-7c33c46562b43233fa3c77e802359451b06c5a3dae38cae9b72ce0c4c3e214b7-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-1157e63bf0f2db2a536b2056f357e0c5b3abcdf79cb8d765f41d378b8efe43ab-1"></a>
 >
 > $$
 > \hat{\boldsymbol\beta}
@@ -522,7 +522,7 @@ Continue to stage 2
 >
 > Therefore, our fitted regression line is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-caa12ff0a7a5d71a9ad91b3fb89d409f9c06b1598644a3fd0fa8a614960d60ac-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-2c6b4ee7ae1b71bbdc5d2ca6642d29f841ddc7cd735c2ef14485f101c96bd6be-1"></a>
 >
 > $$
 > \boxed{\hat y=1.8+1.3x}
@@ -540,7 +540,7 @@ Continue to stage 2
 >
 > For each time $x_i$, we compute the fitted value:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-6ee1c670ed59e59bf039ac0cdd079d50a516b2b520ca22b2356d574559604ac5-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-6476828776a6682eff745edf86bf07ace3f0bb6685a3378aa676e4478c00f809-1"></a>
 >
 > $$
 > \hat y_i=1.8+1.3x_i
@@ -550,7 +550,7 @@ Continue to stage 2
 >
 > The residual is the observed count minus the fitted count:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-98e8dd9c76b0710c1dbf6b3a2e8825bc4cb357c231f8f574f037140fa426e158-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-c9e445888876e24c343f3ca199840dbda231a8a8078dd1b422cfaecf3fb74848-1"></a>
 >
 > $$
 > e_i=y_i-\hat y_i
@@ -582,7 +582,7 @@ Continue to stage 2
 >
 > For an OLS regression with an intercept, the residuals sum to zero (up to numerical precision):
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-aa36379b244e22e8089b864d03cf69ba7f9292dd31b979e88abf0d4074945256-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-4a68b0dcf9938f1be5073d26dc245516058a745dbeaf85ece90255a824896550-1"></a>
 >
 > $$
 > \sum e_i=0.2-0.1+0.6-1.7+1.0=0
@@ -592,7 +592,7 @@ Continue to stage 2
 >
 > The residual sum of squares is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-86b2ed030751578702f5f36866a02b7527fc7c7ea69530508534dbdbf6a99542-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-b16f5002eb0f56b5aa123f8592f8198ef4405f7a8dad8e12b3241956b5994dd2-1"></a>
 >
 > $$
 > \begin{aligned}
@@ -606,7 +606,7 @@ Continue to stage 2
 >
 > The total sum of squares around the mean is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-8b1d89b33d4c408518553515ed5d910b4dcb9083317823a40c1e5fa22a31e5c6-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-7325d1115d3b406ccde3736ea6a16d6e854b10231ce25c7bea4d885926572c84-1"></a>
 >
 > $$
 > SST=\sum_{i=1}^5(y_i-4.4)^2=21.2
@@ -616,7 +616,7 @@ Continue to stage 2
 >
 > So the coefficient of determination is:
 >
-> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-56005abd2b76e9f4f99fdf1acd3264bcd657453962371385511b9ddef1b80295-1"></a>
+> <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-2bcaaebd6a6b3714369fd23123cca6fbc28179c871fdca4b5cfbf4e9def0ef94-1"></a>
 >
 > $$
 > R^2=1-\frac{4.3}{21.2}
@@ -845,7 +845,7 @@ Continue to stage 3
 >
 > **OLS calculation.** Rather than relying on an external numerical package, the program uses the equivalent centered formulas:
 >
-> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-1c641b264d4e0161d55dc271eef9c240c44aa1ead5058eb70419f452a8d9f56c-1"></a>
+> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-f7c128018450c54c90066931a577ecad4cfa13ca1d699323219a5d4bf83f984e-1"></a>
 >
 > $$
 > \hat\beta_1=
@@ -853,7 +853,7 @@ Continue to stage 3
 > {\sum_i(x_i-\bar x)^2}
 > $$
 >
-> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-05a3c1dbd0093f7af6bdf0a67d439e742fa773eb850c2acfa0a0b1c0fd91ab18-1"></a>
+> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-4356c3ba6c182803683ea02f85e4fa3af089fcb5fb502d9567b8b6c485070b79-1"></a>
 >
 > $$
 > \hat\beta_0=\bar y-\hat\beta_1\bar x
@@ -951,7 +951,7 @@ Continue to stage 3
 >
 > The fitted equation remains:
 >
-> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-caa12ff0a7a5d71a9ad91b3fb89d409f9c06b1598644a3fd0fa8a614960d60ac-1"></a>
+> <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-2c6b4ee7ae1b71bbdc5d2ca6642d29f841ddc7cd735c2ef14485f101c96bd6be-1"></a>
 >
 > $$
 > \boxed{\hat y=1.8+1.3x}
@@ -1061,7 +1061,7 @@ Continue to stage 4
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-8d94c8886c39e3aa4186d48ef268dc6013cbcef4972a6b7b098dc2e2b3415962-1"></a>
 >
-> ``` text
+> ```
 > observer said "slightly brighter"
 > ```
 >
@@ -1089,7 +1089,7 @@ Continue to stage 4
 >
 > For our straight-line model, this objective is:
 >
-> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-ad9290221040c6436499d691a3ce5a8e563c87611b2b7fe3bd477f6f63ce47be-1"></a>
+> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-5b45794b2e6552788870394b343e6abffac452831467100e4bd49362b64128fc-1"></a>
 >
 > $$
 > \min_{\beta_0,\beta_1}
@@ -1101,7 +1101,7 @@ Continue to stage 4
 >
 > NIST provides the same slope and intercept formulas implemented in Stage 3:
 >
-> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-0c6fdfbb0cac03d3f77e23c7c88184c82654f00d282fa2067094fd308b022567-1"></a>
+> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-0aabc402f821cc6b1254df35888b9dbad82de47430138ff5d020eb4a36606651-1"></a>
 >
 > $$
 > \hat\beta_1=
@@ -1109,7 +1109,7 @@ Continue to stage 4
 > {\sum(x_i-\bar x)^2}
 > $$
 >
-> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-05a3c1dbd0093f7af6bdf0a67d439e742fa773eb850c2acfa0a0b1c0fd91ab18-1"></a>
+> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-4356c3ba6c182803683ea02f85e4fa3af089fcb5fb502d9567b8b6c485070b79-1"></a>
 >
 > $$
 > \hat\beta_0=\bar y-\hat\beta_1\bar x
@@ -1119,7 +1119,7 @@ Continue to stage 4
 >
 > Applied to our fictional observations, these give:
 >
-> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-caa12ff0a7a5d71a9ad91b3fb89d409f9c06b1598644a3fd0fa8a614960d60ac-1"></a>
+> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-2c6b4ee7ae1b71bbdc5d2ca6642d29f841ddc7cd735c2ef14485f101c96bd6be-1"></a>
 >
 > $$
 > \boxed{\hat y=1.8+1.3x}
@@ -1179,7 +1179,7 @@ Continue to stage 4
 >
 > Our calculation produced:
 >
-> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-a787e2c7cfef5f8852f12bd16299e228d266b79799ec1ca73e7a9c6d5b79e0dc-1"></a>
+> <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-efc1da1610f1f9db6e81e44f08b9222856d3a81f2af72e6c65c5e132a0698cb8-1"></a>
 >
 > $$
 > R^2=1-\frac{4.3}{21.2}\approx0.7972
@@ -1355,7 +1355,7 @@ Continue to stage 5
 >
 > Its fitted equation is:
 >
-> <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-caa12ff0a7a5d71a9ad91b3fb89d409f9c06b1598644a3fd0fa8a614960d60ac-1"></a>
+> <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-2c6b4ee7ae1b71bbdc5d2ca6642d29f841ddc7cd735c2ef14485f101c96bd6be-1"></a>
 >
 > $$
 > \boxed{\hat y=1.8+1.3x}
@@ -1527,7 +1527,7 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 >
 > **Results:**
 >
-> <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-caa12ff0a7a5d71a9ad91b3fb89d409f9c06b1598644a3fd0fa8a614960d60ac-1"></a>
+> <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-2c6b4ee7ae1b71bbdc5d2ca6642d29f841ddc7cd735c2ef14485f101c96bd6be-1"></a>
 >
 > $$
 > \boxed{\hat y=1.8+1.3x}

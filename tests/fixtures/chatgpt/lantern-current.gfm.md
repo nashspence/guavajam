@@ -209,7 +209,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > Our primary relationship is:
 >
-> <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-9cb945b8c61a0663494a4270a34e9a26aa84c6f74e4c943852c103d835a6e56c-1"></a>
+> <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-e1e736c846a90067762a504e0e130e1fe91ba5778f24befe1aa6bf47dbf19ae1-1"></a>
 >
 > $$
 > x=\text{elapsed seconds},\qquad y=\text{observed count}
@@ -336,7 +336,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The mean count is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-f1f149b0133b0ebd2cb5e7d06480dbc071e297e3964642591dfc6e5ad84b71ba-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-80adf5681dcc9d37af6155e649e72f75f3f316a77fc16483da16bc55d985b20c-1"></a>
 >
 > $$
 > \bar y=\frac{2+3+5+4}{4}=\boxed{3.5}
@@ -346,7 +346,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The mean elapsed time is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-5d4f368436a5109f0f9bf9c810c770ad86f0d2d86c9b718bed77f09b1914e90d-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-d605f3bfd4506b1b1695d2f2ec2747cb30f2c76b8e97cb138ac0e6fe255715ef-1"></a>
 >
 > $$
 > \bar x=\frac{0+1+2+3}{4}=1.5
@@ -360,7 +360,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > We fit a linear model with an intercept:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-c456c68fecea90fc0641ca0f27057f88632a1a1d0975e6aa86de90cb876a948c-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-911e65b0b147911750e5768e0823dda16a4583c7d2e2cb35a09e1a4446f0b996-1"></a>
 >
 > $$
 > y_i=\beta_0+\beta_1x_i+\varepsilon_i
@@ -380,7 +380,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > Ordinary least squares selects coefficients that minimize the sum of squared residuals:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-cce56af277d5388b11721a017513d7044e8ff557f5a2a80260e8eceb00359d7d-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-b1b010f248eb7ef5dc4bdc430f35fc224c1b387f6d85a5c8e4b85e9a87c8b057-1"></a>
 >
 > $$
 > \min_{\beta_0,\beta_1}\sum_{i=1}^{4}(y_i-\beta_0-\beta_1x_i)^2
@@ -394,7 +394,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > Writing the model in matrix form:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-a11d4a03d5c5fb82c8d7c77b925361b5e6059066caad234d7fe9ae99e86366f4-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-9bf97768cb61922bdc5c544768b212974ea9e26d8d5da8061c912038f33e7cf7-1"></a>
 >
 > $$
 > \mathbf y=X\boldsymbol\beta+\boldsymbol\varepsilon
@@ -404,7 +404,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The design matrix and response vector are:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-bcd9de7c32a694f68082d052a52dbd6c682f9612e62ebe176a1552aaf0ee12cc-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-3056077f182ac9d3f7e1e3945d38b8480cbe3f0e286ff728bd021a14bf65a04c-1"></a>
 >
 > $$
 > X=
@@ -429,7 +429,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The least-squares solution is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-773033d33edbed4c0965c699df67acb54722a08ac30d4f4157c44456987c9c34-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-9fb0c61a3dee5f806e266e4085f7b1280d212b9f9d8711f84cf9fd646b491f78-1"></a>
 >
 > $$
 > \hat{\boldsymbol\beta}
@@ -440,7 +440,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > For our observations:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-0c9733cd001e0de3313af4a325a95dba5b1206de2043cd18b84fa2a931d71482-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-0a47a23bfd1acf754d91282cf8b7e91a4759cc63cb7d87d22de15ed34a99d4e7-1"></a>
 >
 > $$
 > X^\mathsf{T}X=
@@ -459,7 +459,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > Therefore:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-bccc6636f73194c179fcf1f6c1845060f8bfcea7d560b932abe5d418a7b8b6de-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-201c158382d8413110b3c6fffe726c41b1739958f518f21dfd089956099aca54-1"></a>
 >
 > $$
 > \begin{aligned}
@@ -482,7 +482,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > Our fitted regression equation is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-3da5262d7311dd1f7683745d03bc3533b57b3c13177ed0d5e5c4d0c30174f2a4-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-3c7f23d91ef6d234b67217c9b4803af912e92621236c714b9d075e8c2904d9a2-1"></a>
 >
 > $$
 > \boxed{\hat y=2.3+0.8x}
@@ -517,7 +517,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > As a check, the residuals sum to zero:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-bcc8b52436fdb6739d83c0499275987b9e25e6d4fa7aadb33332f5c3aa08e7c0-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-72dbb0da1146a45fc1c31dfca78d04f335dcd60bb96945c691b76a335dc647a6-1"></a>
 >
 > $$
 > -0.3-0.1+1.1-0.7=0
@@ -527,7 +527,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The residual sum of squares is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-2fd03673df2c62fefaf1e81e4e2115c690049160d01b1ebe1773481681e4a495-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-fa7598d5d70870176a281ba2fc0a26319f58adcfeca894b849b0502826d65f2d-1"></a>
 >
 > $$
 > \begin{aligned}
@@ -541,7 +541,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > The coefficient of determination is:
 >
-> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-4fc18020cd36fd9eea7a950fc9ff918e8fa71fd1a5581c1b2075de54c462b57f-1"></a>
+> <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-a36b71a26ae67c7c2be905d8abcc156b36c17613f430698de333ec19c645b4e6-1"></a>
 >
 > $$
 > R^2=1-\frac{\mathrm{SSE}}{\sum(y_i-\bar y)^2}
@@ -744,7 +744,7 @@ Continue to stage 3
 >
 > **Regression:** The program calculates the slope and intercept using the centered least-squares formulas:
 >
-> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-663d3d8ce0021da413ae1b0067163163e9559b0c38657e16f4744087dce03b73-1"></a>
+> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-91d4455aaf3b88eb92df21e4f8d82a2d3e8068895df4fe9436058a45001a4dc1-1"></a>
 >
 > $$
 > \hat\beta_1 =
@@ -752,7 +752,7 @@ Continue to stage 3
 > {\sum_i(x_i-\bar x)^2}
 > $$
 >
-> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-05a3c1dbd0093f7af6bdf0a67d439e742fa773eb850c2acfa0a0b1c0fd91ab18-1"></a>
+> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-4356c3ba6c182803683ea02f85e4fa3af089fcb5fb502d9567b8b6c485070b79-1"></a>
 >
 > $$
 > \hat\beta_0=\bar y-\hat\beta_1\bar x
@@ -793,7 +793,7 @@ Continue to stage 3
 >
 > The program reproduces the Stage 2 fitted line:
 >
-> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-3da5262d7311dd1f7683745d03bc3533b57b3c13177ed0d5e5c4d0c30174f2a4-1"></a>
+> <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-3c7f23d91ef6d234b67217c9b4803af912e92621236c714b9d075e8c2904d9a2-1"></a>
 >
 > $$
 > \boxed{\hat y=2.3+0.8x}
@@ -901,7 +901,7 @@ Continue to stage 4
 >
 > <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-8d94c8886c39e3aa4186d48ef268dc6013cbcef4972a6b7b098dc2e2b3415962-1"></a>
 >
-> ``` text
+> ```
 > observer said "slightly brighter"
 > ```
 >
@@ -929,7 +929,7 @@ Continue to stage 4
 >
 > For a straight-line model,
 >
-> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-c456c68fecea90fc0641ca0f27057f88632a1a1d0975e6aa86de90cb876a948c-1"></a>
+> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-911e65b0b147911750e5768e0823dda16a4583c7d2e2cb35a09e1a4446f0b996-1"></a>
 >
 > $$
 > y_i=\beta_0+\beta_1x_i+\varepsilon_i
@@ -939,7 +939,7 @@ Continue to stage 4
 >
 > the fitted coefficients are:
 >
-> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-63e6f27bf5a09eda427a55f87c76ea67ae1a1ce7d82274db1ecc5e80bdd7722e-1"></a>
+> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-b01f99d0f50b03f82132c910173f7c16fd9d390161452961e7ae4cd8f18b6b5d-1"></a>
 >
 > $$
 > \hat\beta_1=
@@ -957,7 +957,7 @@ Continue to stage 4
 >
 > Applying them to the four retained observations gives:
 >
-> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-3da5262d7311dd1f7683745d03bc3533b57b3c13177ed0d5e5c4d0c30174f2a4-1"></a>
+> <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-3c7f23d91ef6d234b67217c9b4803af912e92621236c714b9d075e8c2904d9a2-1"></a>
 >
 > $$
 > \boxed{\hat y=2.3+0.8x}
@@ -1226,7 +1226,7 @@ Continue to stage 6
 >
 > The attached CSV contains the original time-count pairs:
 >
-> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-d52dc9aa25bca80a1b3f44292a725796ac98978b0db0375de0ebf6b8f286a7ad-1"></a>
+> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-8d4b171332087c98fcb0cac03ff5ceda2ad400aa673db8f43d910fea5767a58e-1"></a>
 >
 > $$
 > (0,2),\ (1,3),\ (2,5),\ (3,4),\ (4,8)
@@ -1248,7 +1248,7 @@ Continue to stage 6
 >
 > The attached chart displays five observations and labels its fitted line:
 >
-> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-d83e244e6d0d3225cfb18b8bcbd052927aa505e3268f11c26ea560a9a5dc339a-1"></a>
+> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-6a83139561eee97cda14f3765cc57ca8ef2eb208a5e9a86b53aa3f32a84d7d9b-1"></a>
 >
 > $$
 > \hat y=1.8+1.3x
@@ -1262,7 +1262,7 @@ Continue to stage 6
 >
 > Our revised analysis requires:
 >
-> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-3da5262d7311dd1f7683745d03bc3533b57b3c13177ed0d5e5c4d0c30174f2a4-1"></a>
+> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-3c7f23d91ef6d234b67217c9b4803af912e92621236c714b9d075e8c2904d9a2-1"></a>
 >
 > $$
 > \boxed{\hat y=2.3+0.8x}
@@ -1316,7 +1316,7 @@ Continue to stage 6
 >
 > The fitted regression equation is:
 >
-> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-a3989637863eeb2943be8b4b43b57ca03ae1d693f4ea3214bcfab463670227ec-1"></a>
+> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-9669ae86d16edd4cf44a1c2a71abe5c2955c7898f122ee614fab4b0c58e5f185-1"></a>
 >
 > $$
 > \boxed{\widehat{\text{count}}=2.3+0.8(\text{second})}
@@ -1326,7 +1326,7 @@ Continue to stage 6
 >
 > The residuals are:
 >
-> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-bfe192d727a7ae67cf530b40ace86baa0e2e676ba8c2dea4cec0c6c4241651a6-1"></a>
+> <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-10eff695d3240f7d1f1af989d9218e7095cde2d0d803caa21b032ffcb3efcdea-1"></a>
 >
 > $$
 > (-0.3,\,-0.1,\,1.1,\,-0.7)

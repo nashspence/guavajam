@@ -122,13 +122,6 @@ class LanternConversionTests(unittest.TestCase):
             for tip, count in zip(TIPS, (45, 61)):
                 with self.subTest(tip=tip):
                     record, data, diagnostics = converted(tip)
-                    if FIXTURE.with_name(GFM_FIXTURES[tip]).read_bytes() != data:
-                        # TEMPORARY pinned-toolchain diagnostics for deterministic
-                        # fixture regeneration; removed before merge.
-                        encoded = json.dumps(data.decode('utf-8'), ensure_ascii=True)
-                        for index in range(0, len(encoded), 2000):
-                            print('PRESS_FIXTURE_PART', tip, index // 2000,
-                                  json.dumps(encoded[index:index + 2000]), flush=True)
                     self.assertEqual(FIXTURE.with_name(GFM_FIXTURES[tip]).read_bytes(), data,
                                      'committed GitHub review fixtures must match the converter output')
                     # GitHub's native GFM reading surface now distinguishes
