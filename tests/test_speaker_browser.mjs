@@ -31,16 +31,17 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
             'quotation contents must not acquire synthetic speaker headings');
           assert.equal(await page.locator('article .press-passage-datetime').count(), 0,
             'private message timestamps do not take space in the published document');
-          const technical = page.locator('article figure.press-turn > figcaption .press-turn-details');
-          assert.equal(await technical.count(), await turns.count(), 'Lantern responses must retain reviewed model/effort tokens');
-          assert.ok((await technical.allTextContents()).every(x =>
-            x.includes('Model: gpt-6-thinking') && x.includes('Thinking effort: max')));
-          const captionGeometry = await technical.first().evaluate(el => ({
-            style: getComputedStyle(el).display,
-            color: getComputedStyle(el).color,
+          const captionLabels = page.locator('article figure.press-turn > figcaption .press-turn-credit');
+          assert.equal(await captionLabels.count(), await turns.count(),
+            'Each quoted turn has one reviewed, source-backed entity credit');
+          assert.ok((await captionLabels.allTextContents()).every(x =>
+            x === '— gpt-6-thinking (max effort)'));
+          assert.equal(await page.locator('article figure.press-turn .press-turn-details').count(), 0);
+          const captionGeometry = await captionLabels.first().evaluate(el => ({
+            fontWeight: getComputedStyle(el).fontWeight,
             pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
           }));
-          assert.equal(captionGeometry.style, 'block');
+          assert.equal(captionGeometry.fontWeight, '500');
           assert.equal(captionGeometry.pageOverflow, false);
 
           const reader = await page.evaluate(() => {
@@ -68,7 +69,8 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           assert.deepEqual([reader.figureTag, reader.quoteTag, reader.captionTag], ['FIGURE', 'BLOCKQUOTE', 'FIGCAPTION']);
           assert.equal(reader.speaker, 'assistant');
           assert.ok(reader.figID && reader.passageID);
-          assert.ok(reader.caption.trim().startsWith('— Assistant'));
+          assert.ok(reader.caption.trim().startsWith('— gpt-6-thinking (max effort)'));
+          assert.ok(!reader.caption.includes('Assistant') && !reader.caption.includes('Model:'));
           assert.ok(reader.captionLink?.endsWith('#' + reader.figID));
           assert.ok(reader.authorshipIsPlain && reader.authoredElementHasID);
           assert.equal(reader.border, 'solid');

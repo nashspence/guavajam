@@ -101,7 +101,7 @@ def verify(directory):
                     assert f'<a name="{identifier}" data-press-speaker="assistant"></a>' in text
                 else:
                     assert f'<a name="{identifier}"></a>' in text
-            assert '— Assistant' in text and '> ' in text
+            assert '— ' in text and '> ' in text and '— Assistant' not in text
             assert 'data-press-speaker="user"' not in text
             assert '## User' not in text and '## Assistant' not in text
             assert '<time datetime=' not in text

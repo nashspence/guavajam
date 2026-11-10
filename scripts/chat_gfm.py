@@ -450,11 +450,15 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             identifier = block_id if quoted or turn else passage['id']
             turn.extend([anchor(identifier), block])
         if quoted:
-            credit = '— ' + passage['label']
-            if 'model' in passage:
-                credit += ' · Model: ' + passage['model']
-            if 'thinking_effort' in passage:
-                credit += ' · Thinking effort: ' + passage['thinking_effort']
+            # Credit the source entity, not its generic chat role. An exported
+            # model slug is preserved verbatim rather than promoted to a
+            # possibly invented product name; the effort is a configuration,
+            # not a second visible metadata field. Never infer a model ID.
+            model = passage.get('model')
+            effort = passage.get('thinking_effort')
+            identity = (model or ('Unidentified AI model' if speaker == 'assistant' or effort
+                                  else passage['label']))
+            credit = '— ' + identity + (f' ({effort} effort)' if effort else '')
             # The credit stays a native, unquoted GFM paragraph after the
             # blockquote; only the reviewed message's exact tokens are used.
             blocks.extend([anchor(passage['id'], speaker),

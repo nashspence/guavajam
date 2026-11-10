@@ -323,10 +323,9 @@ figure.press-turn > figcaption.press-turn-attribution {
   font: .78rem/1.45 system-ui, sans-serif;
 }
 figure.press-turn > figcaption.press-turn-attribution p { margin: 0; }
-/* The visible speaker remains the primary credit; optional technical evidence
-   follows on a quieter line, never as a tag, badge, or model-derived claim. */
-.press-turn-credit { font-weight: 600; }
-.press-turn-details { display: block; font: .82rem/1.5 system-ui, sans-serif; overflow-wrap: anywhere; }
+/* The complete, reviewed source entity is one unobtrusive line. Its
+   technical slug remains literal, with a short effort qualifier if recorded. */
+.press-turn-credit { font-weight: 500; overflow-wrap: anywhere; }
 figure.press-turn:target > blockquote.press-turn-quotation { border-inline-start-color: var(--press-link); }
 figure.press-turn:target > figcaption.press-turn-attribution { color: var(--press-link); }
 /* A cited interior block overlays the native border with the ordinary

@@ -129,19 +129,20 @@ class PresentationStyleTests(unittest.TestCase):
             path.write_text('<a name="document"></a>\n\n# Evidence\n\n'
                             '<a name="response" data-press-speaker="assistant"></a>\n\n'
                             '> <a name="quoted"></a>\n>\n> Exact quote.\n\n'
-                            '— Assistant · Model: gpt-6-thinking · Thinking effort: max\n')
+                            '— gpt-6-thinking (max effort)\n')
             blocks, anchors, _, _ = append_gfm(root, relative, 'quote')
             opening=next(b for b in blocks if b['t']=='RawBlock' and '<figcaption' in b['c'][1])
             caption=blocks[blocks.index(opening)+1]
         self.assertEqual('Para',caption['t'])
         spans=[node for node in caption['c'] if node['t']=='Span']
-        self.assertEqual([['press-turn-credit'],['press-turn-details']],
+        self.assertEqual([['press-turn-credit']],
                          [node['c'][0][1] for node in spans])
-        self.assertEqual(['—','Assistant'],[x['c'] for x in spans[0]['c'][1] if x['t']=='Str'])
-        self.assertIn('gpt-6-thinking',[x['c'] for x in spans[1]['c'][1] if x['t']=='Str'])
-        self.assertIn('max',[x['c'] for x in spans[1]['c'][1] if x['t']=='Str'])
-        self.assertIn('press-turn-details { display: block; font: .82rem/1.5 system-ui, sans-serif;',
-                      (ROOT/'styles/edition-v1.css').read_text())
+        self.assertEqual('— gpt-6-thinking (max effort)',
+                         ''.join(x['c'] if x['t']=='Str' else ' '
+                                 for x in spans[0]['c'][1]))
+        css=(ROOT/'styles/edition-v1.css').read_text()
+        self.assertIn('press-turn-credit { font-weight: 500; overflow-wrap: anywhere;', css)
+        self.assertNotIn('press-turn-details', css)
 
     def test_quoted_responder_uses_the_native_blockquote_rail(self):
         css=(ROOT/'styles/edition-v1.css').read_text()

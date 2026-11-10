@@ -164,39 +164,28 @@ def anchor_details(block):
 
 
 def _turn_caption(block):
-    """A plain, review-owned end credit. Never infer technical labels from prose.
+    """Accept a single reviewed source-entity credit, not a metadata list.
 
-    The only accepted order is speaker, optional Model, optional Thinking effort;
-    no markup, timestamps, HTML or arbitrary extra credit attributes are allowed.
+    A technical model slug and optional effort can be synthesized by the
+    private ChatGPT converter, but the published source has one plain caption.
+    Neither model identity nor speaker role is inferred from caption text.
     """
     if block.get('t') != 'Para' or any(n.get('t') not in {'Str', 'Space'} for n in block['c']):
         return None
     value = plain_text(block)
-    if not value.startswith('— ') or len(value) > 450:
+    if not value.startswith('— ') or len(value) > 320:
         return None
-    parts = value[2:].split(' · ')
-    label = parts.pop(0)
-    if (not label or len(label) > 160 or label != label.strip()
-            or any(ord(char) < 32 for char in label)):
+    label = value[2:]
+    if (not label or label != label.strip() or len(label) > 310
+            or any(ord(char) < 32 for char in label)
+            or label.casefold() in {'assistant', 'author', 'user'}
+            or ' · ' in label or 'Model:' in label or 'Thinking effort:' in label):
         return None
-    details = {'label': label}
-    for index, item in enumerate(parts):
-        if item.startswith('Model: ') and 'model' not in details and 'thinking_effort' not in details:
-            key, token = 'model', item[len('Model: '):]
-        elif item.startswith('Thinking effort: ') and 'thinking_effort' not in details and not parts[index + 1:]:
-            key, token = 'thinking_effort', item[len('Thinking effort: '):]
-        else:
-            return None
-        if not ATTRIBUTION_TOKEN.fullmatch(token):
-            return None
-        details[key] = token
-    return details
+    return {'label': label}
 
 
 def _turn_boundary(kind, identifier='', speaker='', caption=None):
     attrs = ([['data-press-speaker', speaker], ['data-press-attribution', caption['label']]]
-             + ([['data-press-model', caption['model']]] if 'model' in caption else [])
-             + ([['data-press-thinking-effort', caption['thinking_effort']]] if 'thinking_effort' in caption else [])
              if kind == 'start' else [])
     return {'t': 'Div', 'c': [[identifier, ['press-reviewed-turn-' + kind], attrs], []]}
 
@@ -403,16 +392,9 @@ def append_gfm(root, relative, slug):
                  [{'t':'Str','c':'¶'}], ['press-passage:'+turn_anchor,'']]}
             credit = {'t':'Span', 'c':[['', ['press-turn-credit'], []],
                 [{'t':'Str','c':'—'}, {'t':'Space'}, {'t':'Str','c':caption}]]}
-            content = [credit, {'t':'Space'}, permalink]
-            facts = []
-            for key, label in (('data-press-model', 'Model'), ('data-press-thinking-effort', 'Thinking effort')):
-                if key in details:
-                    if facts:
-                        facts.extend([{'t':'Space'}, {'t':'Str','c':'·'}, {'t':'Space'}])
-                    facts.extend([{'t':'Str','c':label + ':'}, {'t':'Space'}, {'t':'Str','c':details[key]}])
-            if facts:
-                content.extend([{'t':'Space'}, {'t':'Span','c':[['',['press-turn-details'],[]],facts]}])
-            result.append({'t':'Para','c':content})
+            # One entity credit and one permalink; no role or technical-field
+            # line is added by the publisher. The reviewed GFM owns the text.
+            result.append({'t':'Para','c':[credit, {'t':'Space'}, permalink]})
             result.append({'t':'RawBlock','c':['html', '</figcaption></figure>']})
             turn_start = None
             continue

@@ -294,7 +294,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > Reply **“Continue to stage 2”** when ready.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-ac711c71ed72c8e4006eb0b2d13c1f6e5f340ec06cb605b3b3fbad936b0de581"></a>
 
@@ -612,7 +612,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 >
 > Reply **“Continue to stage 3”** when ready.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-d6d9f0e1829f36a98c4c69e66041f8e245d3fc7f7fd60d56dca2029e732714e2"></a>
 
@@ -625,7 +625,7 @@ Continue to stage 3
 >
 > I’ll use the original five-row CSV as input, exclude the final reading from the fit, and run a standard-library Python script to verify both the calculations and the CSV parsing.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de" data-press-speaker="assistant"></a>
 
@@ -840,7 +840,7 @@ Continue to stage 3
 >
 > Reply **“Continue to stage 4”** when ready.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-300a2c6e0feb82ce533af8f86d5085aedb068e082df4f5bf049cb61ca87f96d8"></a>
 
@@ -1063,7 +1063,7 @@ Continue to stage 4
 >
 > Reply **“Continue to stage 5”** when ready.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-930f457c9f10cb1a913e98d5a19104c7d2c5291f47e1fb20f64fbc7e5727e225"></a>
 
@@ -1076,7 +1076,7 @@ Continue to stage 5
 >
 > I’ll create the original five-row CSV, a UTF-8 summary of the four-row analysis, and a PNG showing only the retained readings and fitted line. I’ll also check that the CSV round-trips without changing its Unicode or quoted text.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5" data-press-speaker="assistant"></a>
 
@@ -1168,7 +1168,7 @@ Continue to stage 5
 >
 > I will inspect the actual uploaded files, compare their contents with the original observations and calculated regression, identify any discrepancies, and complete the technical notebook summary.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-8263e25981466ef756e3a4e41be6124f69446a2de9e9d97e72079ac3441004b3"></a>
 
@@ -1181,7 +1181,7 @@ Continue to stage 6
 >
 > I’ll inspect the CSV and chart you attached, compare them with the original observations and the four-reading regression, then summarize any discrepancies and the notebook’s final findings.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a" data-press-speaker="assistant"></a>
 
@@ -1190,7 +1190,7 @@ Continue to stage 6
 >
 > The uploaded file paths aren’t opening in the calculation environment, although both attachments are listed. I’m checking the attachments through the conversation’s file reader so the review is based on what you uploaded, not the earlier generated copies.
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)
 
 <a name="m-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104" data-press-speaker="assistant"></a>
 
@@ -1364,4 +1364,4 @@ Continue to stage 6
 >
 > **Stage 6 complete.**
 
-— Assistant · Model: gpt-6-thinking · Thinking effort: max
+— gpt-6-thinking (max effort)

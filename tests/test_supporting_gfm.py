@@ -79,16 +79,18 @@ class GFMImportTests(ExtractTests):
         msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
         data, _ = review_gfm(transcript(self.record, 'tip'))
         self.assertIn(b'data-press-speaker="assistant"', data)
-        self.assertIn('— Assistant'.encode(), data)
+        self.assertNotIn('— Assistant'.encode(), data)
         self.assertNotIn(b'## Assistant', data)
         self.assertNotIn(b'## User', data)
         self.assertNotIn(b'data-press-speaker="user"', data)
         self.assertNotIn(b'<time ', data)
-        self.assertIn('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(), data)
+        self.assertIn('— gpt-6-thinking (max effort)'.encode(), data)
+        self.assertNotIn(b'Model:', data)
+        self.assertNotIn(b'Thinking effort:', data)
         msg.pop('create_time'); msg['metadata'].clear()
         later, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertEqual(data.replace('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(),
-                                      '— Assistant'.encode()), later)
+        self.assertEqual(data.replace('— gpt-6-thinking (max effort)'.encode(),
+                                      '— Unidentified AI model'.encode()), later)
         self.assertNotIn(b'Model:', later)
         self.assertNotIn(b'Thinking effort:', later)
 
@@ -97,19 +99,23 @@ class GFMImportTests(ExtractTests):
         record = transcript(self.record, 'tip')
         record['passages'][-1].update(model='gpt-6-thinking', thinking_effort='max')
         source, _ = review_gfm(record)
-        self.assertIn('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(), source)
+        self.assertIn('— gpt-6-thinking (max effort)'.encode(), source)
         self.assertNotIn('— User'.encode(), source)
         with tempfile.TemporaryDirectory() as root:
             path=Path(root)/'review.md';path.write_bytes(source)
             ast, anchors, *_ = load_gfm_record(path)
         details=[dict(node['c'][0][2]) for node in ast['blocks'] if node['t']=='Div' and
                  'press-reviewed-turn-start' in node['c'][0][1]]
-        self.assertEqual([{'data-press-speaker':'assistant', 'data-press-attribution':'Assistant',
-                           'data-press-model':'gpt-6-thinking','data-press-thinking-effort':'max'}], details)
-        for field in ('model', 'thinking_effort'):
-            record['passages'][-1].pop(field)
-            data, _ = review_gfm(record)
-            self.assertNotIn(('Model:' if field == 'model' else 'Thinking effort:').encode(), data)
+        self.assertEqual([{'data-press-speaker':'assistant',
+                           'data-press-attribution':'gpt-6-thinking (max effort)'}], details)
+        record['passages'][-1].pop('model')
+        effort_only, _ = review_gfm(record)
+        self.assertIn('— Unidentified AI model (max effort)'.encode(), effort_only)
+        record['passages'][-1]['model'] = 'gpt-6-thinking'
+        record['passages'][-1].pop('thinking_effort')
+        model_only, _ = review_gfm(record)
+        self.assertIn('— gpt-6-thinking'.encode(), model_only)
+        self.assertNotIn(b'Unidentified AI model', model_only)
         record['passages'][-1]['label'] = 'Assistant · Model: forged'
         with self.assertRaisesRegex(AssetError, 'speaker label'):
             review_gfm(record)
