@@ -176,13 +176,13 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-a46728e3ede2aa4a4b62d6f16e245904be0d688a823e12f80554a6dde2193d31-1"></a>
 >
-> | Second | Count | Station | Note                              |
-> |-------:|------:|---------|-----------------------------------|
-> |      0 |     2 | Café    | baseline, lamp steady             |
-> |      1 |     3 | Café    | no change                         |
-> |      2 |     5 | Δ       | observer said "slightly brighter" |
-> |      3 |     4 | Δ       | brief cloud                       |
-> |      4 |     8 | Café    | final reading                     |
+> | Second | Count | Station | Note |
+> | ---: | ---: | --- | --- |
+> | 0 | 2 | Café | baseline, lamp steady |
+> | 1 | 3 | Café | no change |
+> | 2 | 5 | Δ | observer said "slightly brighter" |
+> | 3 | 4 | Δ | brief cloud |
+> | 4 | 8 | Café | final reading |
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-a553321bb6dcc3b73db9b388621c33efda82441054c20ab548a20be3bb405d6c-1"></a>
 >
@@ -198,12 +198,12 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-23fe1e1e471e0ca43a3c3d327a125f48f413d3139e692de563ee9c8705db3143-1"></a>
 >
-> | Variable  | Type    | Role                      |
-> |-----------|---------|---------------------------|
-> | `second`  | Numeric | Explanatory variable, $x$ |
-> | `count`   | Numeric | Response variable, $y$    |
-> | `station` | Text    | Contextual information    |
-> | `note`    | Text    | Contextual information    |
+> | Variable | Type | Role |
+> | --- | --- | --- |
+> | `second` | Numeric | Explanatory variable, $x$ |
+> | `count` | Numeric | Response variable, $y$ |
+> | `station` | Text | Contextual information |
+> | `note` | Text | Contextual information |
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-16246efd485e2195c20307caca07a61bb116ffa149307425d21b4c4a482c8e36-1"></a>
 >
@@ -559,12 +559,12 @@ Continue to stage 2
 > <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-46b821350f8e4deeb9616b92c70a2d90633942b79eb964649905a878d4287f31-1"></a>
 >
 > | Second $x_i$ | Observed $y_i$ | Fitted $\hat y_i$ | Residual $e_i$ |
-> |-------------:|---------------:|------------------:|---------------:|
-> |            0 |              2 |               1.8 |           +0.2 |
-> |            1 |              3 |               3.1 |           −0.1 |
-> |            2 |              5 |               4.4 |           +0.6 |
-> |            3 |              4 |               5.7 |           −1.7 |
-> |            4 |              8 |               7.0 |           +1.0 |
+> | ---: | ---: | ---: | ---: |
+> | 0 | 2 | 1.8 | +0.2 |
+> | 1 | 3 | 3.1 | −0.1 |
+> | 2 | 5 | 4.4 | +0.6 |
+> | 3 | 4 | 5.7 | −1.7 |
+> | 4 | 8 | 7.0 | +1.0 |
 >
 > <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-ee4311c831965941d2f11cba01c77b9b6698a95915e0151661af76c01a62076e-1"></a>
 >
@@ -657,14 +657,14 @@ Continue to stage 2
 >
 > <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-d0f328ef6263eb06b9aa9c1dc5361b0f3ed265172b70e6704570806b2594e39e-1"></a>
 >
-> | Quantity                      | Result |
-> |-------------------------------|-------:|
-> | Number of observations        |      5 |
-> | Mean count                    |    4.4 |
-> | Intercept $\hat\beta_0$       |    1.8 |
-> | Slope $\hat\beta_1$           |    1.3 |
-> | Residual sum of squares (SSE) |   4.30 |
-> | $R^2$                         | 0.7972 |
+> | Quantity | Result |
+> | --- | ---: |
+> | Number of observations | 5 |
+> | Mean count | 4.4 |
+> | Intercept $\hat\beta_0$ | 1.8 |
+> | Slope $\hat\beta_1$ | 1.3 |
+> | Residual sum of squares (SSE) | 4.30 |
+> | $R^2$ | 0.7972 |
 >
 > <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-9288d8ff3c5d02c05ed6ef21a0bce72b370dcd0babd85e36bcac334b62720310-1"></a>
 >
@@ -935,13 +935,13 @@ Continue to stage 3
 >
 > <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-a47ef93c907b20e71b41b98acc375725cc5993bf68b2ae4144e7e0ef538d1c38-1"></a>
 >
-> | Quantity   | Stage 2 mathematics | Executed Python |
-> |------------|--------------------:|----------------:|
-> | Mean count |                 4.4 |             4.4 |
-> | Intercept  |                 1.8 |             1.8 |
-> | Slope      |                 1.3 |             1.3 |
-> | SSE        |                 4.3 |             4.3 |
-> | $R^2$      |              0.7972 |          0.7972 |
+> | Quantity | Stage 2 mathematics | Executed Python |
+> | --- | ---: | ---: |
+> | Mean count | 4.4 | 4.4 |
+> | Intercept | 1.8 | 1.8 |
+> | Slope | 1.3 | 1.3 |
+> | SSE | 4.3 | 4.3 |
+> | $R^2$ | 0.7972 | 0.7972 |
 >
 > <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-63a99f890997223878948d8de3c06ffe913d9bed7bb8d0e5da1689021d689cd8-1"></a>
 >
@@ -1151,13 +1151,13 @@ Continue to stage 4
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-446e5765598f4de8560011f1b81d79170c0493399951757fecc9dc992d23d3bb-1"></a>
 >
-> | Consideration           | Assessment                                                             |
-> |-------------------------|------------------------------------------------------------------------|
-> | Linear relationship     | Plausible descriptive approximation; not established as a physical law |
-> | Independent errors      | Unknown                                                                |
-> | Constant error variance | Not established                                                        |
-> | Normality of errors     | Cannot be meaningfully assessed with so few observations               |
-> | Unmodeled effects       | Station and environmental conditions may matter                        |
+> | Consideration | Assessment |
+> | --- | --- |
+> | Linear relationship | Plausible descriptive approximation; not established as a physical law |
+> | Independent errors | Unknown |
+> | Constant error variance | Not established |
+> | Normality of errors | Cannot be meaningfully assessed with so few observations |
+> | Unmodeled effects | Station and environmental conditions may matter |
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-3d9722618a25475246d52cb1b848020494489df53cdcb58ec54c95beca3e701b-1"></a>
 >
@@ -1199,15 +1199,15 @@ Continue to stage 4
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-4ac4cc62e21617d17946c05edfde7d717103db94c5330f2dc4528dffc1ec1a33-1"></a>
 >
-> | Statement                                            | Basis                           |
-> |------------------------------------------------------|---------------------------------|
-> | Python handles quoted CSV fields and Unicode text    | Official Python documentation   |
-> | OLS minimizes squared residuals                      | NIST methodology                |
-> | The fitted slope is 1.3 counts per second            | Calculation from fictional data |
-> | Counts generally increase over the recorded interval | Descriptive interpretation      |
-> | A cloud caused the reading at second 3 to fall       | Not established                 |
-> | Time causes the count to increase                    | Not established                 |
-> | The model predicts future counts reliably            | Not established                 |
+> | Statement | Basis |
+> | --- | --- |
+> | Python handles quoted CSV fields and Unicode text | Official Python documentation |
+> | OLS minimizes squared residuals | NIST methodology |
+> | The fitted slope is 1.3 counts per second | Calculation from fictional data |
+> | Counts generally increase over the recorded interval | Descriptive interpretation |
+> | A cloud caused the reading at second 3 to fall | Not established |
+> | Time causes the count to increase | Not established |
+> | The model predicts future counts reliably | Not established |
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-9d5df4ff14a33b43185b553b70fb59da5bffe459d846c25fae3aa6339a723735-1"></a>
 >
@@ -1227,13 +1227,13 @@ Continue to stage 4
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-1ee2395b2b250eba0a92754a38d94b757e69b2d0ed8a5a10d11b843627ff5927-1"></a>
 >
-> | Quantity         |  Value |
-> |------------------|-------:|
-> | Mean count       |    4.4 |
-> | Fitted intercept |    1.8 |
-> | Fitted slope     |    1.3 |
-> | SSE              |    4.3 |
-> | $R^2$            | 0.7972 |
+> | Quantity | Value |
+> | --- | ---: |
+> | Mean count | 4.4 |
+> | Fitted intercept | 1.8 |
+> | Fitted slope | 1.3 |
+> | SSE | 4.3 |
+> | $R^2$ | 0.7972 |
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-2958b65c5069960f8009f25414dcdea3a6bff3d8f3fe8715a71bbd73b7b1db7c-1"></a>
 >
@@ -1371,18 +1371,18 @@ Continue to stage 5
 >
 > <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-081a9bbbd8c6459757efe0c6aeb37b74ef415b74a0f8570c674a1858d41ee965-1"></a>
 >
-> | Check                              | Result |
-> |------------------------------------|--------|
-> | CSV contains five observations     | Passed |
-> | Unicode `Café` and `Δ` preserved   | Passed |
+> | Check | Result |
+> | --- | --- |
+> | CSV contains five observations | Passed |
+> | Unicode `Café` and `Δ` preserved | Passed |
 > | Comma inside quoted note preserved | Passed |
 > | Embedded quotation marks preserved | Passed |
-> | Mean count = 4.4                   | Passed |
-> | Intercept = 1.8                    | Passed |
-> | Slope = 1.3                        | Passed |
-> | SSE = 4.3                          | Passed |
-> | $R^2\approx0.7972$                 | Passed |
-> | PNG generated and readable         | Passed |
+> | Mean count = 4.4 | Passed |
+> | Intercept = 1.8 | Passed |
+> | Slope = 1.3 | Passed |
+> | SSE = 4.3 | Passed |
+> | $R^2\approx0.7972$ | Passed |
+> | PNG generated and readable | Passed |
 >
 > <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-bb1b5c840ec6a267c75832250d22b857ec690b6ac3c8385b691a6494a800c4a0-1"></a>
 >
@@ -1457,16 +1457,16 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 >
 > <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-7cef1b9be477b22c473a1fbfb926bebe043ab2cfe4ce924b58c80789c2faf390-1"></a>
 >
-> | Check                   | Finding                           |
-> |-------------------------|-----------------------------------|
-> | Image format            | Valid PNG                         |
-> | Observed points         | (0,2), (1,3), (2,5), (3,4), (4,8) |
-> | Fitted regression line  | $\hat y=1.8+1.3x$                 |
-> | Fitted endpoints        | (0,1.8) and (4,7.0)               |
-> | Chart title             | Present                           |
-> | Axis labels             | Present and correct               |
-> | Legend                  | Present                           |
-> | Numerical discrepancies | None visible                      |
+> | Check | Finding |
+> | --- | --- |
+> | Image format | Valid PNG |
+> | Observed points | (0,2), (1,3), (2,5), (3,4), (4,8) |
+> | Fitted regression line | $\hat y=1.8+1.3x$ |
+> | Fitted endpoints | (0,1.8) and (4,7.0) |
+> | Chart title | Present |
+> | Axis labels | Present and correct |
+> | Legend | Present |
+> | Numerical discrepancies | None visible |
 >
 > <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-dd925e3f2eeca6e6d136894aae2e1806da4dcf2ec7e663671fea0ede551f2f2c-1"></a>
 >
@@ -1535,14 +1535,14 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 >
 > <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-c0884fb3de0281b8797c2677fd59faf6aef5e9b61850b4f37ecfe4b689336a0e-1"></a>
 >
-> | Statistic               |             Value |
-> |-------------------------|------------------:|
-> | Observations            |                 5 |
-> | Mean count              |               4.4 |
-> | Intercept               |               1.8 |
-> | Slope                   | 1.3 counts/second |
-> | Residual sum of squares |               4.3 |
-> | $R^2$                   |            0.7972 |
+> | Statistic | Value |
+> | --- | ---: |
+> | Observations | 5 |
+> | Mean count | 4.4 |
+> | Intercept | 1.8 |
+> | Slope | 1.3 counts/second |
+> | Residual sum of squares | 4.3 |
+> | $R^2$ | 0.7972 |
 >
 > <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-75c2cf39a8f7c93f1966d5f43d8b5b74cfea6be2a824da1ef1624e4469bd53a6-1"></a>
 >

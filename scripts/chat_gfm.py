@@ -26,6 +26,113 @@ def _normalize_quote_blank_markers(text: str) -> str:
         for line in text.split('\n'))
 
 
+def _write_math_gfm(blocks: list[dict]) -> tuple[list[dict], dict[str, tuple[str, str]]]:
+    """Use neutral writer tokens for math, never Pandoc's version-specific math markup.
+
+    GFM writers differ in their math spelling (some write math as fenced code).
+    Only original Pandoc Math nodes become unique alphanumeric placeholders;
+    restoring them *after* the GFM writer leaves authored code untouched.
+    Re-parsing and byte-by-byte math/code checks below remain mandatory.
+    """
+    prefix = 'PRESSMATHTOKEN' + hashlib.sha256(json.dumps(
+        blocks, ensure_ascii=True, sort_keys=True).encode()).hexdigest()[:20].upper()
+    mapping: dict[str, tuple[str, str]] = {}
+
+    def hide(node):
+        if isinstance(node, list):
+            return [hide(part) for part in node]
+        if not isinstance(node, dict):
+            return node
+        if node.get('t') == 'Math':
+            token = prefix + 'N' + str(len(mapping)) + 'X'
+            kind = node['c'][0]['t']
+            mapping[token] = (kind, node['c'][1])
+            return {'t': 'Str', 'c': token}
+        return {key: hide(value) for key, value in node.items()}
+
+    return hide(blocks), mapping
+
+
+def _restore_math_gfm(text: str, mapping: dict[str, tuple[str, str]]) -> str:
+    for token, (kind, source) in mapping.items():
+        if text.count(token) != 1:
+            raise AssetError('GFM math placeholder missing or duplicated')
+        if kind == 'InlineMath':
+            text = text.replace(token, '$' + source + '$')
+            continue
+        if kind != 'DisplayMath':
+            raise AssetError('unexpected mathematics type in GFM conversion')
+        # GFM text places a display formula in a paragraph on its own line.
+        # Restore the exact quote nesting prefix, leaving other lines alone.
+        match = re.search(r'(?m)^(?P<prefix>(?:[ ]*>[ ]?)*)(?P<token>' + token + r')[ ]*$', text)
+        if not match:
+            raise AssetError('GFM display math is not an isolated block')
+        prefix = match['prefix']
+        lines = source.strip('\n').split('\n')
+        replacement = '\n'.join(prefix + item for item in ['$$', *lines, '$$'])
+        text = text[:match.start()] + replacement + text[match.end():]
+    return text
+
+
+def _normalize_gfm_pipe_tables(text: str) -> str:
+    """Canonicalize pipe-table padding after writer-version-dependent widths.
+
+    This changes only horizontal padding around cells and delimiter widths;
+    source cell content, column alignment and quoted nesting are untouched.
+    Pandoc writes these from structured Table nodes, never from raw markup.
+    Fenced code (including tables in code) is not rewritten.
+    """
+    lines = text.split('\n')
+    result = []
+    index = 0
+    fence = None
+
+    def row(line):
+        match = re.fullmatch(r'(?P<prefix>(?:[ ]*>[ ]?)*)(?P<cells>\|.*\|)[ \t]*', line)
+        if not match:
+            return None
+        pieces = re.split(r'(?<!\\)\|', match['cells'])
+        if not (pieces[0] == pieces[-1] == '' and len(pieces) >= 3):
+            return None
+        return match['prefix'], [part.strip() for part in pieces[1:-1]]
+
+    def separator(parts):
+        return all(re.fullmatch(r':?-{3,}:?', cell) for cell in parts)
+
+    while index < len(lines):
+        line = lines[index]
+        stripped = re.sub(r'^(?:[ ]*>[ ]?)*', '', line).lstrip()
+        marker = re.match(r'^(\x60{3,}|~{3,})', stripped)
+        if marker:
+            if fence is None:
+                fence = marker.group(1)
+            elif marker.group(1)[0] == fence[0] and len(marker.group(1)) >= len(fence):
+                fence = None
+        if fence is None and index + 1 < len(lines):
+            head, rule = row(lines[index]), row(lines[index + 1])
+            if (head and rule and head[0] == rule[0]
+                    and len(head[1]) == len(rule[1]) and separator(rule[1])):
+                prefix = head[0]
+                def emit(parts):
+                    return prefix + '| ' + ' | '.join(parts) + ' |'
+                result.append(emit(head[1]))
+                normalized_rules = [':' + '-'*3 + ':' if r.startswith(':') and r.endswith(':')
+                    else ':' + '-'*3 if r.startswith(':')
+                    else '-'*3 + ':' if r.endswith(':') else '-'*3 for r in rule[1]]
+                result.append(emit(normalized_rules))
+                index += 2
+                while index < len(lines):
+                    item = row(lines[index])
+                    if not item or item[0] != prefix or len(item[1]) != len(head[1]):
+                        break
+                    result.append(emit(item[1]))
+                    index += 1
+                continue
+        result.append(line)
+        index += 1
+    return '\n'.join(result)
+
+
 def _text(value, *, single_line=False):
     if not isinstance(value, str) or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]", value):
         return False
@@ -365,12 +472,13 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         for node in walk(quote):
             if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
                 node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
+    writer_blocks, math_tokens = _write_math_gfm(writer_blocks)
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
         '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({
             'pandoc-api-version':api,'meta':{},'blocks':writer_blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    rendered = _normalize_quote_blank_markers(result.stdout.rstrip()) + '\n'
+    rendered = _normalize_gfm_pipe_tables(_restore_math_gfm(_normalize_quote_blank_markers(result.stdout.rstrip()), math_tokens)) + '\n'
     if metadata:
         from supporting_metadata import metadata_frontmatter
         rendered = metadata_frontmatter(metadata) + '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered
