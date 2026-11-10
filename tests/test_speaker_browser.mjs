@@ -125,8 +125,10 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
           const print = await turns.first().evaluate(el => ({
             border: getComputedStyle(el.querySelector('blockquote')).borderInlineStartStyle,
             captionDisplay: getComputedStyle(el.querySelector('figcaption')).display,
+            railInsidePage: el.querySelector('blockquote').getBoundingClientRect().left >= document.body.getBoundingClientRect().left - .5,
           }));
           assert.equal(print.border, 'solid');
+          assert.equal(print.railInsidePage, true, 'print rail must remain inside the page content area');
           assert.notEqual(print.captionDisplay, 'none');
           assert.equal(await page.locator('#' + reader.passageID).evaluate(el =>
             getComputedStyle(el, '::before').content), 'none');

@@ -400,9 +400,9 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
 }
 
 @media print {
-  /* Native blockquote borders repeat across pages. Allow a lengthy quoted
-     response to break; ordinary short quotations keep their usual treatment. */
-  figure.press-turn, figure.press-turn > blockquote.press-turn-quotation { break-inside: auto; }
+  /* Keep the quote rail inside the printable content area. Screen-only
+     negative margins can otherwise be clipped at the paper's page margin. */
+  figure.press-turn > blockquote.press-turn-quotation { margin-inline-start: 0; }
   .press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   :root {
     color-scheme: light;
