@@ -16,6 +16,7 @@ from test_asset_downloads import DownloadPublicationTests
 from test_preview_site import PreviewTests
 from test_lantern_gfm import LanternPublicationTests
 from test_supporting_metadata import MetadataPublicationTests
+from test_quotation_regression import quotation_fixture
 from issuance import authorization
 from preview_site import preview_server
 from public_record import EDITION_RECORDS, WORK_RECORDS, write_records
@@ -162,5 +163,10 @@ if __name__=='__main__':
         if result:
             raise SystemExit(result)
     with lantern_fixture() as directory, metadata_fixture() as metadata, presentation_fixture() as presentation:
-        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_speaker_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
-            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata), 'PRESS_APPEARANCE_TEST_DIR':str(presentation)}).returncode)
+        result = subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_speaker_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
+            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata), 'PRESS_APPEARANCE_TEST_DIR':str(presentation)}).returncode
+        if result:
+            raise SystemExit(result)
+    with quotation_fixture() as (directory, cases):
+        raise SystemExit(subprocess.run(['node', '--test', 'tests/test_quotation_regression_browser.mjs'], cwd=ROOT,
+            env={**os.environ, 'PRESS_QUOTATION_TEST_DIR':str(directory), 'PRESS_QUOTATION_CASES':json.dumps(cases), 'PRESS_BROWSER_PYTHON':sys.executable}).returncode)
