@@ -62,14 +62,23 @@ def _restore_math_gfm(text: str, mapping: dict[str, tuple[str, str]]) -> str:
             continue
         if kind != 'DisplayMath':
             raise AssetError('unexpected mathematics type in GFM conversion')
-        # GFM text places a display formula in a paragraph on its own line.
-        # Restore the exact quote nesting prefix, leaving other lines alone.
-        match = re.search(r'(?m)^(?P<prefix>(?:[ ]*>[ ]?)*)(?P<token>' + token + r')[ ]*$', text)
+        # Keep quote/list nesting when the writer puts a formula on its own
+        # line. List markers occur only on the first delimiter line; subsequent
+        # lines keep their indentation and any enclosing quote markers.
+        layout = r'(?:[ \t]*(?:>[ \t]?|(?:[-+*]|[0-9]+[.)])[ \t]+))*[ \t]*'
+        match = re.search(r'(?m)^(?P<prefix>' + layout + r')' + token + r'[ \t]*$', text)
         if not match:
-            raise AssetError('GFM display math is not an isolated block')
+            if '\n' in source:
+                raise AssetError('GFM display math is not an isolated block')
+            # Pandoc also permits a single-line display formula within a
+            # paragraph. Retain that mathematical type without splitting prose.
+            text = text.replace(token, '$$' + source + '$$')
+            continue
         prefix = match['prefix']
+        continuation = re.sub(r'(?<!\S)(?:[-+*]|[0-9]+[.)])(?=[ \t])',
+                              lambda marker: ' ' * len(marker[0]), prefix)
         lines = source.strip('\n').split('\n')
-        replacement = '\n'.join(prefix + item for item in ['$$', *lines, '$$'])
+        replacement = prefix + '$$\n' + '\n'.join(continuation + item for item in [*lines, '$$'])
         text = text[:match.start()] + replacement + text[match.end():]
     return text
 
@@ -466,16 +475,13 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
                 {'t': 'Para', 'c': [{'t': 'Str', 'c': credit}]}])
         else:
             blocks.extend(turn)
-    # CommonMark treats a standalone '=' inside a quoted $$ expression as
-    # a Setext heading. Indent only such mathematical lines in a *writer copy*:
-    # GFM strips those four spaces when it parses the original math verbatim.
+    # CommonMark can treat standalone '=' or '-' in $$ as Setext syntax in
+    # authorial text as well as quotations. Protect only those mathematical
+    # lines in a writer copy; the strict math/code round-trip remains decisive.
     writer_blocks = copy.deepcopy(blocks)
-    for quote in writer_blocks:
-        if quote.get('t') != 'BlockQuote':
-            continue
-        for node in walk(quote):
-            if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
-                node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
+    for node in walk(writer_blocks):
+        if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
+            node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
     writer_blocks, math_tokens = _write_math_gfm(writer_blocks)
     result = subprocess.run(['pandoc','--fail-if-warnings','--from=json',
         '--to=gfm+tex_math_dollars','--wrap=none'],input=json.dumps({

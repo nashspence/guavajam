@@ -73,6 +73,42 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
+    def test_display_math_survives_list_and_quote_context_for_each_speaker(self):
+        expression = 'a=b+c'
+        sources = (
+            '- First item.\n\n  \\[\n  a=b+c\n  \\]\n\n- Last item.\n',
+            '- \\[\n  a=b+c\n  \\]\n',
+            '1. \\[\n   a=b+c\n   \\]\n',
+            '- Outer.\n  - \\[\n    a=b+c\n    \\]\n',
+            '> Nested statement.\n>\n> \\[\n> a=b+c\n> \\]\n',
+            'A paragraph \\[a=b+c\\] continues.',
+        )
+        for speaker in ('author', 'assistant'):
+            for text in sources:
+                with self.subTest(speaker=speaker, text=text):
+                    record = {'title':'Mathematics', 'scope':'Synthetic review', 'passages':[
+                        {'id':'m-math', 'label':'Reviewed speaker', 'speaker':speaker, 'text':text}]}
+                    data, _ = review_gfm(record)
+                    with tempfile.TemporaryDirectory() as scratch:
+                        source = Path(scratch)/'review.md'; source.write_bytes(data)
+                        ast, anchors, *_ = load_gfm_record(source)
+                    self.assertIn('m-math', anchors)
+                    self.assertEqual([('DisplayMath', expression)], [
+                        (n['c'][0]['t'], n['c'][1].strip()) for n in walk(ast['blocks']) if n['t']=='Math'])
+
+    def test_setext_looking_tex_remains_exact_for_author_and_responder(self):
+        expression = '\\begin{aligned}\na+b\n=\nc+d\n\\end{aligned}'
+        for speaker in ('author', 'assistant'):
+            with self.subTest(speaker=speaker):
+                record = {'title':'Mathematics', 'scope':'Synthetic review', 'passages':[
+                    {'id':'m-math', 'label':'Reviewed speaker', 'speaker':speaker,
+                     'text':'\\[\n'+expression+'\n\\]\n'}]}
+                data, _ = review_gfm(record)
+                with tempfile.TemporaryDirectory() as scratch:
+                    source=Path(scratch)/'review.md'; source.write_bytes(data)
+                    ast, _, *_=load_gfm_record(source)
+                self.assertEqual([expression], [n['c'][1].strip() for n in walk(ast['blocks']) if n['t']=='Math'])
+
     def test_only_responder_has_a_trailing_credit_not_per_turn_metadata(self):
         msg = self.record['mapping']['tip']['message']
         msg.update(create_time=1577836800.125)

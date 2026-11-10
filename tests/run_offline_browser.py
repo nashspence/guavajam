@@ -125,6 +125,25 @@ def lantern_fixture():
 
 
 @contextmanager
+def presentation_fixture():
+    # The approved baseline protects ordinary reviewed GFM independently of
+    # the source-backed quotation design exercised by the Lantern tests.
+    fixture = MetadataPublicationTests('test_fields_are_document_scoped_escaped_and_never_become_edition_metadata')
+    try:
+        fixture.setUp()
+        folder = fixture.repo / 'works/sample/supporting'; folder.mkdir()
+        shutil.copyfile(ROOT / 'tests/fixtures/presentation/ordinary-gfm.md', folder / 'ordinary.md')
+        with (fixture.repo / 'works/sample/manuscript.md').open('a') as manuscript:
+            manuscript.write('\n[Ordinary supporting document](supporting/ordinary.md).\n')
+        fixture.git('add', 'works'); fixture.git('commit', '-qm', 'Review ordinary GFM presentation')
+        fixture.commit = fixture.git('rev-parse', 'HEAD')
+        fixture.build(); verify_edition(fixture.output)
+        yield fixture.output
+    finally:
+        fixture.doCleanups()
+
+
+@contextmanager
 def metadata_fixture():
     fixture = MetadataPublicationTests('test_fields_are_document_scoped_escaped_and_never_become_edition_metadata')
     try:
@@ -142,6 +161,6 @@ if __name__=='__main__':
             'PRESS_OFFLINE_TEST_DIR':str(directory), 'PRESS_SITE_TESTS':json.dumps(sites)}).returncode
         if result:
             raise SystemExit(result)
-    with lantern_fixture() as directory, metadata_fixture() as metadata:
+    with lantern_fixture() as directory, metadata_fixture() as metadata, presentation_fixture() as presentation:
         raise SystemExit(subprocess.run(['node', '--test', 'tests/test_lantern_browser.mjs', 'tests/test_speaker_browser.mjs', 'tests/test_presentation_regression.mjs', 'tests/test_supporting_metadata_browser.mjs'], cwd=ROOT,
-            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata)}).returncode)
+            env={**os.environ, 'PRESS_LANTERN_TEST_DIR':str(directory), 'PRESS_METADATA_TEST_DIR':str(metadata), 'PRESS_APPEARANCE_TEST_DIR':str(presentation)}).returncode)
