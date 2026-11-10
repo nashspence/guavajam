@@ -6,7 +6,7 @@
 
 Reviewed documentary text with stable presentation.
 
-<a name="first-section"></a>
+<a name="section-one"></a>
 
 ## First section
 
@@ -36,7 +36,7 @@ $$
 print("Literal code")
 ```
 
-<a name="later-section"></a>
+<a name="section-two"></a>
 
 ## Later section
 
