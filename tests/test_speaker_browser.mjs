@@ -31,6 +31,18 @@ for (const [engineName, engine] of Object.entries({chromium, firefox, webkit})) 
             'quotation contents must not acquire synthetic speaker headings');
           assert.equal(await page.locator('article .press-passage-datetime').count(), 0,
             'private message timestamps do not take space in the published document');
+          const technical = page.locator('article figure.press-turn > figcaption .press-turn-details');
+          assert.equal(await technical.count(), await turns.count(), 'Lantern responses must retain reviewed model/effort tokens');
+          assert.ok((await technical.allTextContents()).every(x =>
+            x.includes('Model: gpt-6-thinking') && x.includes('Thinking effort: max')));
+          const captionGeometry = await technical.first().evaluate(el => ({
+            style: getComputedStyle(el).display,
+            color: getComputedStyle(el).color,
+            pageOverflow: document.documentElement.scrollWidth > innerWidth + 1,
+          }));
+          assert.equal(captionGeometry.style, 'block');
+          assert.equal(captionGeometry.pageOverflow, false);
+
           const reader = await page.evaluate(() => {
             const figure = document.querySelector('article figure.press-turn');
             const quote = figure.querySelector(':scope > blockquote');

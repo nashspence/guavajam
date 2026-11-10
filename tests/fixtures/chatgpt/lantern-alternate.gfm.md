@@ -294,7 +294,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 >
 > Reply **“Continue to stage 2”** when ready.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-38c68b54d3070172de72816657338cbe7639e025970d6410317d57b5b5c3a5b0"></a>
 
@@ -686,7 +686,7 @@ Continue to stage 2
 >
 > Reply **“Continue to stage 3”** when ready.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-d11a24b4662632dbabbad00499a92045f3d9a8d53103e26fb2643acfd2bde6f0"></a>
 
@@ -996,7 +996,7 @@ Continue to stage 3
 >
 > Reply **“Continue to stage 4”** when ready.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-de1f634a0574cd4475998c7e472b28db3f3907498869e577a28d0ceb3fa02bca"></a>
 
@@ -1255,7 +1255,7 @@ Continue to stage 4
 >
 > Reply **“Continue to stage 5”** when ready.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-dbcfc05781294723e01bd017ef662a0de965c7aa2c8f16fe9fe9774b971fc994"></a>
 
@@ -1268,7 +1268,7 @@ Continue to stage 5
 >
 > I’ll create the three files, then check that the CSV preserves the original text and that the chart matches the fitted line from Stage 2.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067" data-press-speaker="assistant"></a>
 
@@ -1413,7 +1413,7 @@ Continue to stage 5
 >
 > In Stage 6, I will inspect the actual uploaded artifacts, compare them with the original data and calculated regression results, identify any discrepancies, and write the final notebook summary.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-bf82d077d7f3e1e69775ee148662fce598adf52002c8f1249129b24edf32436b"></a>
 
@@ -1426,7 +1426,7 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 >
 > I’ll review the PNG you attached against the original observations and fitted values. Since the CSV was not attached, I’ll report that gap explicitly and create a fresh CSV download link.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max
 
 <a name="m-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587" data-press-speaker="assistant"></a>
 
@@ -1560,4 +1560,4 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 >
 > This completes the six-stage technical notebook, with the CSV upload verification gap explicitly documented.
 
-— Assistant
+— Assistant · Model: gpt-6-thinking · Thinking effort: max

@@ -116,6 +116,33 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertEqual('Para', ast['blocks'][anchors['body']]['t'])
         self.assertEqual(1, len([b for b in ast['blocks'] if b['t']=='Header']))
 
+    def test_end_attribution_preserves_source_model_and_effort_without_badges(self):
+        from supporting_gfm import append_gfm
+        from tempfile import TemporaryDirectory
+        import json
+        import subprocess
+        with TemporaryDirectory() as directory:
+            root=Path(directory)
+            relative=Path('works/demo/supporting/quote.md')
+            path=root/relative
+            path.parent.mkdir(parents=True)
+            path.write_text('<a name="document"></a>\n\n# Evidence\n\n'
+                            '<a name="response" data-press-speaker="assistant"></a>\n\n'
+                            '> <a name="quoted"></a>\n>\n> Exact quote.\n\n'
+                            '— Assistant · Model: gpt-6-thinking · Thinking effort: max\n')
+            blocks, anchors, _, _ = append_gfm(root, relative, 'quote')
+            opening=next(b for b in blocks if b['t']=='RawBlock' and '<figcaption' in b['c'][1])
+            caption=blocks[blocks.index(opening)+1]
+        self.assertEqual('Para',caption['t'])
+        spans=[node for node in caption['c'] if node['t']=='Span']
+        self.assertEqual([['press-turn-credit'],['press-turn-details']],
+                         [node['c'][0][1] for node in spans])
+        self.assertEqual(['—','Assistant'],[x['c'] for x in spans[0]['c'][1] if x['t']=='Str'])
+        self.assertIn('gpt-6-thinking',[x['c'] for x in spans[1]['c'][1] if x['t']=='Str'])
+        self.assertIn('max',[x['c'] for x in spans[1]['c'][1] if x['t']=='Str'])
+        self.assertIn('press-turn-details { display: block; font: .82rem/1.5 system-ui, sans-serif;',
+                      (ROOT/'styles/edition-v1.css').read_text())
+
     def test_quoted_responder_uses_the_native_blockquote_rail(self):
         css=(ROOT/'styles/edition-v1.css').read_text()
         for token in ('figure.press-turn > blockquote.press-turn-quotation {','margin: 0 0 0 -.35rem;',

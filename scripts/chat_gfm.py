@@ -6,14 +6,25 @@ import re
 import subprocess
 from pathlib import Path
 import html
-from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, valid_timestamp
+from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, ATTRIBUTION_TOKEN, valid_timestamp
 
 from asset_policy import AssetError
 from identifier_schema import SLUG
 from chat_references import citation_inlines, component_inlines
 from render_profile import plain_text, walk
 
-ATTRIBUTION_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z")
+
+def _normalize_quote_blank_markers(text: str) -> str:
+    """Remove Pandoc's trailing spaces only on empty GFM quote-marker lines.
+
+    Pandoc 3.12.1 may emit `> ` as a structural blank line, which strict
+    source validation rejects. Do not relax validation or touch nonblank lines:
+    authored code, mathematics, and literal whitespace remain source content.
+    """
+    return '\n'.join(
+        line.rstrip(' \t') if re.fullmatch(r'(?:>[ \t]*)+', line) else line
+        for line in text.split('\n'))
+
 
 def _text(value, *, single_line=False):
     if not isinstance(value, str) or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff]", value):
@@ -49,6 +60,8 @@ def _validate_transcript(record: dict) -> None:
         if (not _text(passage["label"], single_line=True) or len(passage["label"]) > 160
                 or not _text(passage["text"])):
             raise AssetError(f"passage {i} requires a single-line label and literal text")
+        if passage.get('speaker') in {'assistant', 'responder'} and ' · ' in passage['label']:
+            raise AssetError(f'passage {i} speaker label cannot contain technical-credit separators')
 
 PRESENTATION = re.compile(r'<(text|row|box|b|strong|i|em)(?:\s[^<>\r\n]*)?>')
 DIVIDER = re.compile(r'<divider(?:\s[^<>\r\n]*)?/\s*>')
@@ -306,9 +319,9 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             raise AssetError('ChatGPT text could not be parsed without warnings')
         ast = json.loads(result.stdout); api = ast['pandoc-api-version']
         # Only an *external responder* is quoted and explicitly credited.
-        # Author/user text is the default: no quotation, role annotation,
-        # repeated heading, timestamp, model subtitle or other attribution.
-        # Source metadata remains in the private review record.
+        # Author/user text is the default: no quotation, repeated heading, or
+        # inferred speaker. Timestamps remain in the private review; the
+        # source-backed model and thinking-effort tokens may appear at the end.
         speaker = passage.get('speaker')
         quoted = speaker in {'assistant', 'responder'}
         turn = []
@@ -330,10 +343,16 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             identifier = block_id if quoted or turn else passage['id']
             turn.extend([anchor(identifier), block])
         if quoted:
+            credit = '— ' + passage['label']
+            if 'model' in passage:
+                credit += ' · Model: ' + passage['model']
+            if 'thinking_effort' in passage:
+                credit += ' · Thinking effort: ' + passage['thinking_effort']
+            # The credit stays a native, unquoted GFM paragraph after the
+            # blockquote; only the reviewed message's exact tokens are used.
             blocks.extend([anchor(passage['id'], speaker),
                 {'t': 'BlockQuote', 'c': turn},
-                {'t': 'Para', 'c': [{'t': 'Str', 'c': '—'}, {'t': 'Space'},
-                                  {'t': 'Str', 'c': passage['label']}]}])
+                {'t': 'Para', 'c': [{'t': 'Str', 'c': credit}]}])
         else:
             blocks.extend(turn)
     # CommonMark treats a standalone '=' inside a quoted $$ expression as
@@ -351,7 +370,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             'pandoc-api-version':api,'meta':{},'blocks':writer_blocks}),capture_output=True,text=True)
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
-    rendered = result.stdout.rstrip()+'\n'
+    rendered = _normalize_quote_blank_markers(result.stdout.rstrip()) + '\n'
     if metadata:
         from supporting_metadata import metadata_frontmatter
         rendered = metadata_frontmatter(metadata) + '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered

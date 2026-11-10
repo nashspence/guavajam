@@ -84,11 +84,37 @@ class GFMImportTests(ExtractTests):
         self.assertNotIn(b'## User', data)
         self.assertNotIn(b'data-press-speaker="user"', data)
         self.assertNotIn(b'<time ', data)
-        self.assertNotIn(b'Model:', data)
-        self.assertNotIn(b'Thinking effort:', data)
+        self.assertIn('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(), data)
         msg.pop('create_time'); msg['metadata'].clear()
         later, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertEqual(data, later)
+        self.assertEqual(data.replace('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(),
+                                      '— Assistant'.encode()), later)
+        self.assertNotIn(b'Model:', later)
+        self.assertNotIn(b'Thinking effort:', later)
+
+    def test_credit_uses_only_explicit_message_metadata_and_preserves_code(self):
+        from chat_gfm import _normalize_quote_blank_markers
+        record = transcript(self.record, 'tip')
+        record['passages'][-1].update(model='gpt-6-thinking', thinking_effort='max')
+        source, _ = review_gfm(record)
+        self.assertIn('— Assistant · Model: gpt-6-thinking · Thinking effort: max'.encode(), source)
+        self.assertNotIn('— User'.encode(), source)
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'review.md';path.write_bytes(source)
+            ast, anchors, *_ = load_gfm_record(path)
+        details=[dict(node['c'][0][2]) for node in ast['blocks'] if node['t']=='Div' and
+                 'press-reviewed-turn-start' in node['c'][0][1]]
+        self.assertEqual([{'data-press-speaker':'assistant', 'data-press-attribution':'Assistant',
+                           'data-press-model':'gpt-6-thinking','data-press-thinking-effort':'max'}], details)
+        for field in ('model', 'thinking_effort'):
+            record['passages'][-1].pop(field)
+            data, _ = review_gfm(record)
+            self.assertNotIn(('Model:' if field == 'model' else 'Thinking effort:').encode(), data)
+        record['passages'][-1]['label'] = 'Assistant · Model: forged'
+        with self.assertRaisesRegex(AssetError, 'speaker label'):
+            review_gfm(record)
+        self.assertEqual(_normalize_quote_blank_markers('> \n> > \n> text  \n> ```\n> code  \n> ```'),
+                         '>\n> >\n> text  \n> ```\n> code  \n> ```')
 
     def test_review_gfm_quotes_only_external_responders_regardless_of_label(self):
         record = transcript(self.record, 'tip')

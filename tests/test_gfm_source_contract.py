@@ -103,6 +103,41 @@ class SourceContractTests(unittest.TestCase):
         ):
             with self.subTest(source=bad),self.assertRaises(AssetError):self.parse(document(bad))
 
+    def test_external_credit_carries_exact_optional_model_and_effort(self):
+        def reviewed(credit):
+            return document('<a name="response" data-press-speaker="responder"></a>\n\n'
+                            '> <a name="part"></a>\n>\n> Quoted response.\n\n' + credit + '\n')
+        valid = (
+            ('— Correspondent', {}),
+            ('— Assistant · Model: gpt-6-thinking', {'data-press-model': 'gpt-6-thinking'}),
+            ('— Assistant · Thinking effort: high', {'data-press-thinking-effort': 'high'}),
+            ('— Assistant · Model: gpt-6-thinking · Thinking effort: max',
+             {'data-press-model': 'gpt-6-thinking', 'data-press-thinking-effort': 'max'}),
+            ('— Research collaborator · Model: model/path.v2+experimental · Thinking effort: extra_high',
+             {'data-press-model': 'model/path.v2+experimental', 'data-press-thinking-effort': 'extra_high'}),
+        )
+        for source_credit, expected in valid:
+            with self.subTest(credit=source_credit):
+                ast, anchors, *_ = self.parse(reviewed(source_credit))
+                start = ast['blocks'][anchors['response']]
+                attrs = dict(start['c'][0][2])
+                self.assertEqual('responder', attrs.pop('data-press-speaker'))
+                self.assertEqual(source_credit.split(' · ')[0][2:], attrs.pop('data-press-attribution'))
+                self.assertEqual(expected, attrs)
+        invalid = (
+            '— Assistant · Model:', '— Assistant · Model: ', '— Assistant · Model: model · Model: other',
+            '— Assistant · Thinking effort: high · Model: model',
+            '— Assistant · Thinking effort: low · Thinking effort: max',
+            '— Assistant · Model: <script>', '— Assistant · Model: bad model',
+            '— Assistant · Model: model · Other: text', '— Assistant · timestamp: 2026-11-05',
+            '— Assistant · Model: model · Thinking effort: bad value',
+            '— Assistant · Model: ' + 'x' * 129,
+            '**— Assistant · Model: model**',
+        )
+        for source_credit in invalid:
+            with self.subTest(credit=source_credit), self.assertRaises(AssetError):
+                self.parse(reviewed(source_credit))
+
     def test_semantic_time_is_exact_bounded_and_has_no_extra_attributes(self):
         values = {'2026-11-05': '5 Nov 2026',
                   '2026-11-05T14:37:03.123456789Z': '5 Nov 2026 · 14:37:03.123456789 UTC',

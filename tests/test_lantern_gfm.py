@@ -131,9 +131,12 @@ class LanternConversionTests(unittest.TestCase):
                     self.assertNotIn(b'\n## Assistant\n', data)
                     self.assertNotIn(b'\n## User\n', data)
                     self.assertNotIn(b'data-press-speaker="user"', data)
-                    self.assertNotIn(b'Model:', data)
-                    self.assertNotIn(b'Thinking effort:', data)
-                    self.assertIn(b'\n\n\xe2\x80\x94 Assistant\n', data)
+                    credits = sum(p.get('speaker') == 'assistant' for p in record['passages'])
+                    self.assertEqual(credits, data.count(b'Model: gpt-6-thinking'))
+                    self.assertEqual(credits, data.count(b'Thinking effort: max'))
+                    self.assertEqual(credits, data.count(
+                        '— Assistant · Model: gpt-6-thinking · Thinking effort: max\n'.encode()))
+                    self.assertNotIn('— User'.encode(), data)
                     # Setext-looking TeX within quoted $$ stays mathematical,
                     # not a spurious Markdown heading. Its AST is compared below.
                     if tip == TIPS[1]:
