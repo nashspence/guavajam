@@ -14,7 +14,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from asset_policy import AssetError
 from build_edition import build_edition
 from chat_gfm import review_gfm
-from render_profile import walk
+from render_profile import plain_text, walk
 from extract_chatgpt import transcript
 from supporting_gfm import load_gfm_record
 from validate_sources import git_sources, validate_repository
@@ -73,6 +73,86 @@ class GFMSourceTests(unittest.TestCase):
 
 
 class GFMImportTests(ExtractTests):
+    def test_imported_heading_ancestry_is_compacted_and_each_level_change_is_disclosed(self):
+        outlines = (
+            ([1, 2, 3, 2, 1], [2, 3, 4, 3, 2]),
+            ([3, 4, 6, 4, 2, 5], [2, 3, 4, 3, 2, 3]),
+            ([1, 3, 4, 2, 6, 6, 1], [2, 3, 4, 3, 4, 4, 2]),
+            ([1, 2, 3, 4, 5, 6], [2, 3, 4, 5, 5, 5]),
+            ([6], [2]),
+        )
+        for speaker in ('author', 'assistant'):
+            for original, expected in outlines:
+                with self.subTest(speaker=speaker, levels=original):
+                    record = {'title': 'Outline', 'scope': 'Synthetic review', 'passages': [
+                        {'id': 'm-outline', 'label': 'Reviewed speaker', 'speaker': speaker,
+                         'text': '\n\n'.join('#' * level + ' Heading ' + str(i)
+                                             for i, level in enumerate(original))}]}
+                    unchanged = copy.deepcopy(record)
+                    data, diagnostics = review_gfm(record)
+                    self.assertEqual(unchanged, record, 'the captured source is never rewritten')
+                    self.assertEqual((data, diagnostics), review_gfm(record))
+                    with tempfile.TemporaryDirectory() as scratch:
+                        path = Path(scratch) / 'review.md'; path.write_bytes(data)
+                        ast, anchors, *_ = load_gfm_record(path)
+                    headings = [node for node in ast['blocks'] if node['t'] == 'Header']
+                    self.assertEqual([1, *expected], [node['c'][0] for node in headings])
+                    self.assertEqual(['Outline', *('Heading ' + str(i) for i in range(len(original)))],
+                                     [plain_text(node['c'][2]) for node in headings])
+                    self.assertIn('m-outline', anchors)
+                    changes = {}
+                    for before, after in zip(original, expected):
+                        if before != after:
+                            key = f'heading-level-h{before}-to-h{after}'
+                            changes[key] = changes.get(key, 0) + 1
+                    self.assertEqual(changes, {key: value for key, value in diagnostics.items()
+                                               if key.startswith('heading-level-h')})
+                    self.assertEqual(sum(changes.values()), diagnostics.get('heading-level-adjusted', 0))
+
+    def test_imported_author_outline_continues_across_independent_responder_outlines(self):
+        record = {'title': 'Outline', 'scope': 'Synthetic review', 'passages': [
+            {'id': 'm-author', 'label': 'Author', 'speaker': 'author',
+             'text': '# Author\n\n## Author detail'},
+            {'id': 'm-reply', 'label': 'Correspondent', 'speaker': 'responder',
+             'text': '### Quoted\n\n##### Quoted detail'},
+            {'id': 'm-continuation', 'label': 'Author', 'speaker': 'author',
+             'text': '### Author continuation'},
+            {'id': 'm-second-reply', 'label': 'Assistant', 'speaker': 'assistant',
+             'text': '#### New reply\n\n##### New detail'},
+            {'id': 'm-sibling', 'label': 'Author', 'speaker': 'author',
+             'text': '## Author sibling'},
+        ]}
+        data, _ = review_gfm(record)
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / 'review.md'; path.write_bytes(data)
+            ast, anchors, *_ = load_gfm_record(path)
+        self.assertEqual([1, 2, 3, 2, 3, 4, 2, 3, 3],
+                         [node['c'][0] for node in ast['blocks'] if node['t'] == 'Header'])
+        self.assertTrue({passage['id'] for passage in record['passages']} <= set(anchors))
+
+    def test_all_live_capture_branches_import_with_the_original_heading_words(self):
+        capture = json.loads((ROOT / 'tests/fixtures/capture/live-shape.json').read_text())['native']
+        unchanged = copy.deepcopy(capture)
+        for tip in ('original-answer', 'regenerated-answer', 'edited-answer'):
+            with self.subTest(tip=tip):
+                record = transcript(capture, tip)
+                data, diagnostics = review_gfm(record, identity=capture['conversation_id'])
+                with tempfile.TemporaryDirectory() as scratch:
+                    path = Path(scratch) / 'review.md'; path.write_bytes(data)
+                    ast, anchors, *_ = load_gfm_record(path)
+                self.assertTrue({passage['id'] for passage in record['passages']} <= set(anchors))
+                headings = [node for node in ast['blocks'] if node['t'] == 'Header']
+                self.assertEqual([1, 2] if tip == 'edited-answer' else [1],
+                                 [node['c'][0] for node in headings])
+                if tip == 'edited-answer':
+                    self.assertIn('### Edited branch', record['passages'][-1]['text'])
+                    self.assertEqual('Edited branch', plain_text(headings[-1]['c'][2]))
+                    self.assertEqual(1, diagnostics['heading-level-h3-to-h2'])
+                    self.assertEqual(1, diagnostics['heading-level-adjusted'])
+                else:
+                    self.assertNotIn('heading-level-adjusted', diagnostics)
+        self.assertEqual(unchanged, capture)
+
     def test_display_math_survives_list_and_quote_context_for_each_speaker(self):
         expression = 'a=b+c'
         sources = (
