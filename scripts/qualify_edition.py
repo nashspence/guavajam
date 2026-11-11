@@ -125,6 +125,21 @@ def qualify_edition(directory, output, *, runner=subprocess.run):
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
         report["failures"].append(str(exc))
     finally:
+        # The browser updates this small sidecar before each operation so a
+        # timeout identifies its last phase without changing the candidate.
+        progress = output / "progress.json"
+        try:
+            if progress.is_file() and progress.stat().st_size <= 4096:
+                checkpoint = json.loads(progress.read_text())
+                if (isinstance(checkpoint, dict)
+                        and checkpoint.get("schema") == "press.candidate-progress.v1"
+                        and checkpoint.get("html_sha256") == request["html_sha256"]
+                        and checkpoint.get("provenance_sha256") == request["provenance_sha256"]
+                        and isinstance(checkpoint.get("phase"), str)
+                        and 0 < len(checkpoint["phase"]) <= 120):
+                    report["last_browser_phase"] = checkpoint["phase"]
+        except (OSError, ValueError):
+            pass  # Diagnostics must not hide the original qualification error.
         # A successful second verification alone is insufficient: changed bytes
         # could carry newly generated checksums. Compare every original file too.
         try:
@@ -138,7 +153,8 @@ def qualify_edition(directory, output, *, runner=subprocess.run):
         report["status"] = "failed" if report["failures"] else "passed"
         (output / "report.json").write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
     if report["failures"]:
-        raise AssetError("candidate qualification failed; review " + str(output / "report.json") +
+        phase = " (last browser phase: " + report["last_browser_phase"] + ")" if "last_browser_phase" in report else ""
+        raise AssetError("candidate qualification failed" + phase + "; review " + str(output / "report.json") +
                          ": " + "; ".join(report["failures"][:4]))
     return report
 

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile, rename, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {chromium} from 'playwright';
@@ -155,12 +155,24 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
   const uri = pathToFileURL(request.file).href;
   const report = {schema: 'press.candidate-browser.v1', html_sha256: request.html_sha256, provenance_sha256: request.provenance_sha256,
     engine: 'chromium', failures: [], screens: {}, print: {}, math_tokens: []};
+  const phase = async name => {
+    // Leave a small, candidate-bound checkpoint even if the parent terminates
+    // a stalled browser. This evidence stays outside the reviewed package.
+    const progress = path.join(request.output, 'progress.json');
+    await writeFile(progress + '.tmp', JSON.stringify({schema: 'press.candidate-progress.v1',
+      html_sha256: request.html_sha256, provenance_sha256: request.provenance_sha256, phase: name}) + '\n');
+    await rename(progress + '.tmp', progress);
+  };
+  await phase('launch browser');
   const browser = await engine.launch({headless: true});
   report.browser_version = browser.version();
   const attempt = async (label, operation) => {
     try { return await operation(); } catch (error) { report.failures.push(label + ': ' + String(error.message).slice(0, 1800)); }
   };
-  const context = await browser.newContext({offline: true, javaScriptEnabled: false,
+  // The verified edition's CSP blocks document scripts. Keep the JS engine
+  // available for trusted DevTools instrumentation: axe and Playwright polling
+  // need asynchronous callbacks, which javaScriptEnabled:false also disables.
+  const context = await browser.newContext({offline: true, bypassCSP: false,
     serviceWorkers: 'block', viewport: {width: 1280, height: 900}});
   context.setDefaultTimeout(10000);
   const unexpected = [];
@@ -173,7 +185,9 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   try {
+    await phase('open candidate');
     await page.goto(uri, {waitUntil: 'load', timeout: 30000});
+    await phase('inspect structure');
     const structure = await inspectStructure(page, request.canonical_url);
     report.structure = structure;
     report.math_tokens = structure.math_tokens;
@@ -184,40 +198,57 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
       {label: 'mobile-dark', width: 320, color: 'dark'},
       {label: 'mobile-enlarged', width: 320, color: 'light', enlarged: true},
     ]) await attempt(scenario.label, async () => {
+      await phase(scenario.label + ': load');
       await page.setViewportSize({width: scenario.width, height: 900});
       await page.emulateMedia({media: 'screen', colorScheme: scenario.color});
       await page.goto(uri);
+      await phase(scenario.label + ': fonts');
       await page.evaluate(() => document.fonts.ready);
       if (scenario.enlarged) {
         const size = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
         await page.addStyleTag({content: `html {font-size:${size * 2}px !important;letter-spacing:.12em !important;word-spacing:.16em !important} * {line-height:1.5 !important} p {margin-block-end:2em !important}`});
       }
+      await phase(scenario.label + ': reflow');
       const result = await inspectScreen(page);
       report.screens[scenario.label] = result;
       report.failures.push(...result.failures.map(message => scenario.label + ': ' + message));
+      await phase(scenario.label + ': keyboard');
       result.keyboard_checked = await checkKeyboard(page, result.samples);
+      await phase(scenario.label + ': fragments');
       await checkTargets(page, structure.targets);
-      if (scenario.label === 'mobile') result.accessibility_review = reviewSummary(await assertCandidateAccessible(page));
+      if (scenario.label === 'mobile') {
+        await phase(scenario.label + ': accessibility');
+        result.accessibility_review = reviewSummary(await assertCandidateAccessible(page));
+      }
       await page.evaluate(() => { location.hash = ''; window.scrollTo(0, 0); });
       // Retain a bounded first-screen proof; full-page captures can be enormous.
+      await phase(scenario.label + ': screenshot');
       await page.screenshot({path: path.join(request.output, scenario.label + '.png')});
     });
     for (const [paper, size] of Object.entries(PAPERS)) await attempt(paper, async () => {
+      await phase(paper + ': load');
       const width = Math.floor((size.width - 24) * 96 / 25.4);
       await page.setViewportSize({width, height: 900});
       await page.emulateMedia({media: 'print', colorScheme: 'light'});
       await page.goto(uri);
+      await phase(paper + ': fonts');
       await page.evaluate(() => document.fonts.ready);
+      await phase(paper + ': print geometry');
       const result = await inspectPrint(page, width);
       report.print[paper] = result;
       report.failures.push(...result.failures.map(message => paper + ': ' + message));
+      await phase(paper + ': PDF');
       await page.pdf({path: path.join(request.output, paper + '.pdf'), format: paper, scale: 1,
         printBackground: true, displayHeaderFooter: false, preferCSSPageSize: false,
         margin: {top: '12mm', right: '12mm', bottom: '12mm', left: '12mm'}, timeout: 30000});
     });
     if (unexpected.length) report.failures.push('Candidate attempted ' + unexpected.length + ' unexpected network/resource requests');
     if (errors.length) report.failures.push('Candidate browser errors: ' + errors.slice(0, 3).join('; '));
-  } finally { await context.close(); await browser.close(); }
+  } finally {
+    await phase('close browser');
+    await context.close(); await browser.close();
+  }
+  await phase('complete');
   return report;
 }
 

@@ -126,11 +126,31 @@ class CandidateQualificationTests(unittest.TestCase):
                 qualify_edition(self.package, output, runner=Mock())
 
     def test_timeout_leaves_failed_evidence_and_rechecks_the_package(self):
-        runner = Mock(side_effect=subprocess.TimeoutExpired("node", 240))
-        with self.assertRaisesRegex(AssetError, "timed out"):
+        def runner(command, **kwargs):
+            request = json.loads(kwargs["input"])
+            (self.output / "progress.json").write_text(json.dumps({
+                "schema": "press.candidate-progress.v1", "html_sha256": request["html_sha256"],
+                "provenance_sha256": request["provenance_sha256"], "phase": "mobile: accessibility"}))
+            raise subprocess.TimeoutExpired(command, 240)
+        with self.assertRaisesRegex(AssetError, "last browser phase: mobile: accessibility.*timed out"):
             qualify_edition(self.package, self.output, runner=runner)
         self.assertEqual(2, self.verify.call_count)
-        self.assertEqual("failed", json.loads((self.output / "report.json").read_text())["status"])
+        report = json.loads((self.output / "report.json").read_text())
+        self.assertEqual("failed", report["status"])
+        self.assertEqual("mobile: accessibility", report["last_browser_phase"])
+        self.assertTrue(report["package_unchanged"])
+
+    def test_timeout_diagnostic_cannot_be_taken_from_another_candidate(self):
+        def runner(command, **kwargs):
+            request = json.loads(kwargs["input"])
+            (self.output / "progress.json").write_text(json.dumps({
+                "schema": "press.candidate-progress.v1", "html_sha256": "f" * 64,
+                "provenance_sha256": request["provenance_sha256"], "phase": "incorrect proof"}))
+            raise subprocess.TimeoutExpired(command, 240)
+        with self.assertRaisesRegex(AssetError, "timed out") as raised:
+            qualify_edition(self.package, self.output, runner=runner)
+        self.assertNotIn("incorrect proof", str(raised.exception))
+        self.assertNotIn("last_browser_phase", json.loads((self.output / "report.json").read_text()))
 
 
 class CandidateWorkflowTests(unittest.TestCase):

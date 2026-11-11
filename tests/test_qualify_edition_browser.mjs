@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import {chromium} from 'playwright';
-import {assertCandidateAccessible, inspectPrint, inspectScreen, inspectStructure} from '../scripts/qualify_edition.mjs';
+import {assertCandidateAccessible, inspectPrint, inspectScreen, inspectStructure, qualifyCandidate} from '../scripts/qualify_edition.mjs';
 import {assertAccessible} from './browser_accessibility.mjs';
 
 const css = await readFile(new URL('../styles/edition-v1.css', import.meta.url), 'utf8');
 const canonical = 'https://press.example.org/works/sample/v1.0.0/read';
-function document(body) {
+function document(body, head = '') {
   return '<!doctype html><html lang="en"><meta charset="utf-8"><title>Qualification fixture</title>' +
-    '<style>' + css + '</style><body><main><article class="press-edition"><h1 id="title">Candidate</h1>' +
+    head + '<style>' + css + '</style><body><main><article class="press-edition"><h1 id="title">Candidate</h1>' +
     body + '</article></main></body></html>';
 }
 
@@ -73,4 +76,32 @@ test('candidate print gate detects wide and hidden mathematical content before p
     await page.addStyleTag({content: 'math {display:none !important}'});
     assert.match((await inspectPrint(page, 702)).failures.join('\n'), /Mathematics is hidden/);
   } finally { await browser.close(); }
+});
+
+test('whole candidate qualification completes while its shipped CSP blocks document scripts', {timeout: 45000}, async () => {
+  const base = await mkdtemp(path.join(tmpdir(), 'press-qualification-'));
+  try {
+    const template = await readFile(new URL('../templates/edition-v1.html', import.meta.url), 'utf8');
+    const policy = template.match(/<meta http-equiv="Content-Security-Policy"[^>]+>/)?.[0];
+    assert.ok(policy, 'Use the actual shipped edition policy');
+    const source = document('<h2 id="csp-sentinel">Policy proof</h2>' +
+      '<p><a href="#csp-sentinel">Read the proof</a>. Equation <math><mi>x</mi><mo>=</mo><mn>1</mn></math>.</p>' +
+      '<script>document.getElementById("csp-sentinel").id = "document-script-ran";</script>', policy);
+    const file = path.join(base, 'candidate.html'), output = path.join(base, 'qualification');
+    await writeFile(file, source);
+    await mkdir(output);
+    const request = {file, output, canonical_url: canonical, provenance_sha256: 'a'.repeat(64),
+      html_sha256: createHash('sha256').update(source).digest('hex')};
+    const report = await qualifyCandidate(request);
+    assert.deepEqual(report.failures, []);
+    assert.deepEqual(report.structure.targets, ['csp-sentinel'], 'The inline document script must remain blocked');
+    assert.deepEqual(Object.keys(report.screens), ['desktop', 'mobile', 'mobile-dark', 'mobile-enlarged']);
+    assert.ok(Array.isArray(report.screens.mobile.accessibility_review), 'The asynchronous axe scan must complete');
+    assert.deepEqual(Object.keys(report.print), ['A4', 'Letter']);
+    for (const paper of Object.keys(report.print)) assert.ok((await readFile(path.join(output, paper + '.pdf'))).length > 0);
+    assert.equal((await readFile(file, 'utf8')), source, 'Qualification must not rewrite its candidate');
+    assert.deepEqual(JSON.parse(await readFile(path.join(output, 'progress.json'), 'utf8')), {
+      schema: 'press.candidate-progress.v1', html_sha256: request.html_sha256,
+      provenance_sha256: request.provenance_sha256, phase: 'complete'});
+  } finally { await rm(base, {recursive: true, force: true}); }
 });
