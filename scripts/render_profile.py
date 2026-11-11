@@ -164,7 +164,8 @@ def _contents_blocks(blocks: list[dict]) -> list[dict]:
     ]
 
 
-def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
+def prepare_presentation_ast(ast: dict, record_url: str | None = None, *,
+                             byline: str | None = None, edition: str | None = None) -> dict:
     """Move each explicit author-provided anchor onto its section heading.
 
     This gives published editions permanent anchor IDs, independently of
@@ -224,14 +225,29 @@ def prepare_presentation_ast(ast: dict, record_url: str | None = None) -> dict:
         i += 1
 
     contents = _contents_blocks(new)
-    if contents:
+    identity = []
+    if byline is not None or edition is not None:
+        if not isinstance(byline, str) or not byline or not isinstance(edition, str) or not edition:
+            raise AssetError("edition identity requires reviewed authors and an edition version")
+        identity = [{"t": "Div", "c": [
+            ["", ["press-edition-identity"], [["data-press-field", "edition-identity"]]],
+            [{"t": "Para", "c": [
+                {"t": "Span", "c": [["", [], [["data-press-field", "byline"]]],
+                                     [{"t": "Str", "c": byline}]]},
+                {"t": "Space"}, {"t": "Str", "c": "·"}, {"t": "Space"},
+                {"t": "Span", "c": [["", [], [["data-press-field", "edition-version"], ["lang", "en"]]],
+                                     [{"t": "Str", "c": "Edition " + edition}]]},
+            ]}],
+        ]}]
+    if identity or contents:
         # Keep the title first. H2-only navigation never duplicates theorem,
         # footnote, MathML or supporting-passage output.
         title_index = next((j for j, block in enumerate(new) if block.get("t") == "Header"
                             and block["c"][0] == 1), None)
         if title_index is None:
-            raise AssetError("reader contents require a manuscript title")
-        new[title_index + 1:title_index + 1] = contents
+            raise AssetError("reader identity and contents require a manuscript title")
+        new[title_index + 1:title_index + 1] = identity + contents
+    if contents:
         ast.setdefault("meta", {})["press_has_contents"] = {"t": "MetaBool", "c": True}
     # Give wide tables and display mathematics an actual scroll container.
     # Pandoc Div blocks preserve table semantics, and the explicit tab stop lets

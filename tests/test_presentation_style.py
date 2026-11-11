@@ -191,6 +191,19 @@ class PresentationStyleTests(unittest.TestCase):
         self.assertIn('role="doc-noteref"><sup>1</sup></a>', preview)
         self.assertIn('class="footnote-back" role="doc-backlink"', preview)
 
+    def test_preview_identity_is_visible_with_the_title_and_uses_readable_type(self):
+        css = (ROOT / 'styles/edition-v1.css').read_text()
+        style = css.split('.press-edition-identity {', 1)[1].split('}', 1)[0]
+        self.assertIn('font: .94rem/1.55 system-ui, sans-serif;', style)
+        self.assertIn('overflow-wrap: anywhere;', style)
+        self.assertIn('break-after: avoid;', style)
+        for path in (ROOT / 'tests/fixtures/presentation').glob('*preview.html'):
+            with self.subTest(preview=path.name):
+                page = path.read_text()
+                self.assertRegex(page, r'</h1>\s*<div class="press-edition-identity"')
+                self.assertIn('data-press-field="byline">Nash Spence</span>', page)
+                self.assertIn('data-press-field="edition-version" lang="en">Edition v1.0.0</span>', page)
+
     def test_navigation_preview_uses_exact_css_and_semantic_anchors(self):
         css = (ROOT / "styles/edition-v1.css").read_text()
         preview = (ROOT / "tests/fixtures/presentation/navigation-preview.html").read_text()

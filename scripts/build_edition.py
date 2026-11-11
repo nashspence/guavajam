@@ -26,7 +26,7 @@ from identifier_schema import TAG, edition_record_url
 from supporting_gfm import append_supporting_records
 from element_citations import bind_elements
 from validate_sources import parse_document, plain_text, validate_front_matter, validate_repository, walk
-from bibliography import ordered_authors
+from bibliography import author_text, ordered_authors
 from edition_package import stage_supplements, checksums, write_bundle
 
 COMMIT = re.compile(r"[0-9a-f]{40}\Z")
@@ -166,7 +166,12 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
         # read for embedding. Pandoc gets data URIs, so it has no resource to fetch.
         (build / "document.json").write_text(json.dumps(ast), encoding="utf-8")
         record_url = edition_record_url(root, tag)
-        embedded = prepare_presentation_ast(copy.deepcopy(ast), record_url)
+        facts, _, _, _ = validate_front_matter(manuscript, (root / manuscript).read_text(encoding="utf-8"))
+        citation = {key: facts[key] for key in ("title", "author", "author_orcid", "authors", "language",
+                                               "abstract", "schema_type") if key in facts}
+        authors = ordered_authors(citation)
+        embedded = prepare_presentation_ast(copy.deepcopy(ast), record_url,
+                                             byline=author_text(authors), edition=version)
         embedded_size = 0
         for node in walk(embedded["blocks"]):
             if node.get("t") == "Image":
@@ -177,10 +182,6 @@ def build_edition(repo: Path, commit: str, tag: str, output: Path, *, fetcher=fe
                 check_html_size(embedded_size)
                 raw = local.read_bytes()
                 node["c"][2][0] = "data:" + MIME[extension] + ";base64," + base64.b64encode(raw).decode("ascii")
-        facts, _, _, _ = validate_front_matter(manuscript, (root / manuscript).read_text(encoding="utf-8"))
-        citation = {key: facts[key] for key in ("title", "author", "author_orcid", "authors", "language",
-                                               "abstract", "schema_type") if key in facts}
-        authors = ordered_authors(citation)
         work_ids = {key: plain_text(node) for key, node in
                     ast["meta"].get("identifiers", {}).get("c", {}).items()}
         registration = Path("registrations/works") / (slug + ".json")

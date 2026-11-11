@@ -25,6 +25,34 @@ function publisherPage(repository, path, method) {
                {method, redirect: 'manual', cf: {cacheTtl: 0}});
 }
 
+function replicaUnavailable(failure) {
+  // R2 documents numeric codes at the end of Workers API error messages:
+  // https://developers.cloudflare.com/r2/api/error-codes/
+  // Retry only service, rate-limit, bucket-availability or authorization failures.
+  // Body/checksum errors, aborted requests and unknown exceptions stay fail-closed.
+  if (failure?.name === 'AbortError' || typeof failure?.message !== 'string') return false;
+  return /\((?:10001|10002|10003|10006|10042|10043|10058)\)$/.test(failure.message);
+}
+
+async function releaseDownload(download, method, size) {
+  const transfer = {method, redirect: 'manual',
+                    headers: {'User-Agent': 'Press-edition-reader', 'Accept-Encoding': 'identity'}};
+  let response = await fetch(download, transfer);
+  if ([301, 302, 303, 307, 308].includes(response.status)) {
+    await response.body?.cancel().catch(() => {});
+    const location = new URL(response.headers.get('Location'));
+    if (location.protocol !== 'https:' || location.username || location.password || location.port ||
+        !['release-assets.githubusercontent.com', 'objects.githubusercontent.com'].includes(location.hostname)) return null;
+    response = await fetch(location.href, transfer);
+  }
+  if (response.status !== 200 || response.headers.get('Content-Length') !== String(size) ||
+      ![null, 'identity'].includes(response.headers.get('Content-Encoding'))) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
+  return response;
+}
+
 async function githubEdition(request, env, repository, tag, slug, version, reading) {
   const filename = slug + '-' + version + '.html';
   const options = {redirect: 'manual', headers: {'User-Agent': 'Press-edition-reader',
@@ -78,22 +106,24 @@ async function githubEdition(request, env, repository, tag, slug, version, readi
       download.hash || decodeURIComponent(download.pathname) !== repository + '/releases/download/' + tag + '/' + filename) {
     return error(502);
   }
-  const transfer = {method: request.method, redirect: 'manual',
-                    headers: {'User-Agent': 'Press-edition-reader', 'Accept-Encoding': 'identity'}};
-  let response = await fetch(download.href, transfer);
-  if ([301, 302, 303, 307, 308].includes(response.status)) {
-    const location = new URL(response.headers.get('Location'));
-    if (location.protocol !== 'https:' || location.username || location.password || location.port ||
-        !['release-assets.githubusercontent.com', 'objects.githubusercontent.com'].includes(location.hostname)) return error(502);
-    response = await fetch(location.href, transfer);
-  }
-  if (response.status !== 200 || response.headers.get('Content-Length') !== String(asset.size) ||
-      ![null, 'identity'].includes(response.headers.get('Content-Encoding'))) return error(502);
+  let response = await releaseDownload(download.href, request.method, asset.size);
+  if (!response) return error(502);
   if (bucket && request.method === 'GET') {
     // R2 verifies the full streamed body against the receipt before committing it.
     // Concurrent first reads may race. Only the first put creates the immutable key.
-    await bucket.put(key, response.body, {sha256: record.artifact_sha256, onlyIf: new Headers({'If-None-Match': '*'})});
-    return await replicaResponse(bucket, key, record.artifact_sha256, 'GET', Number(env.MAX_HTML_BYTES)) || error(502);
+    try {
+      await bucket.put(key, response.body, {sha256: record.artifact_sha256, onlyIf: new Headers({'If-None-Match': '*'})});
+      return await replicaResponse(bucket, key, record.artifact_sha256, 'GET', Number(env.MAX_HTML_BYTES)) || error(502);
+    } catch (failure) {
+      if (!replicaUnavailable(failure)) return error(502);
+      // Either the upload or its readback can encounter an operational failure.
+      // The original stream may already be consumed/cancelled. Reopen the same
+      // immutable release asset and revalidate its redirect and headers.
+      // Do not retain a clone/tee: the edition can exceed Worker memory limits.
+      await response.body?.cancel().catch(() => {});
+      response = await releaseDownload(download.href, request.method, asset.size);
+      if (!response) return error(502);
+    }
   }
   return new Response(response.body, {headers: {...readingHeaders, 'X-Press-Reading-Source': 'release'}});
 }

@@ -85,6 +85,12 @@ for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
         ]);
         await page.waitForURL(url => url.pathname === site.record + '/read');
         assert.equal(createHash('sha256').update(await readerResponse.body()).digest('hex'), site.htmlSHA256);
+        const identity = page.locator('article > h1 + .press-edition-identity');
+        assert.equal(await identity.count(), 1, 'Edition identity must follow the title');
+        assert.equal(await identity.locator('[data-press-field="byline"]').textContent(), 'Nash Spence');
+        assert.equal(await identity.locator('[data-press-field="edition-version"]').textContent(),
+          'Edition ' + site.record.split('/').at(-1));
+        assert.equal(await identity.isVisible(), true);
         assert.equal(await noPageOverflow(page), true);
         await keyboardFollow(page, page.locator('#press-edition-status'));
         await page.waitForURL(url => url.origin === new URL(site.recordURL).origin && url.pathname === site.record);

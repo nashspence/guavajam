@@ -152,6 +152,8 @@ class EditionBibliographyTests(RenderContractTests):
         self.assertEqual((ABSTRACT, "ScholarlyArticle"), (manifest["abstract"], manifest["schema_type"]))
         parser = EditionHTML(manifest["presentation_profile"]); parser.feed(self.page().read_text())
         self.assertEqual([a["name"] for a in AUTHORS], parser.authors)
+        self.assertEqual('; '.join(a['name'] for a in AUTHORS), ' '.join(''.join(parser.byline).split()))
+        self.assertEqual('Edition v1.0.0', ''.join(parser.identity_version))
         self.assertEqual([ABSTRACT], parser.descriptions)
         self.assertIn("Zoë <Z>", "".join(parser.authorship))
         self.assertIn("李 *literal*", " ".join("".join(parser.authorship).split()))
@@ -175,6 +177,30 @@ class EditionBibliographyTests(RenderContractTests):
             self.assertNotIn(field, manifest)
         self.assertEqual("Nash Spence", manifest["author"])
         self.assertNotIn("description", Metadata(self.page().read_bytes()).meta)
+        parser = EditionHTML(manifest['presentation_profile']); parser.feed(self.page().read_text())
+        self.assertEqual('Nash Spence', ''.join(parser.byline))
+        self.assertEqual('Edition v1.0.0', ''.join(parser.identity_version))
+
+    def test_title_identity_is_provenance_bound_and_stays_immediately_after_the_h1(self):
+        import re
+        self.reviewed_facts(); self.build(); raw = self.page().read_bytes()
+        identity = re.search(rb'<div class="press-edition-identity"[^>]*>.*?</div>', raw, re.S).group()
+        self.assertRegex(raw, rb'</h1>\s*<div class="press-edition-identity"')
+        self.assertLess(raw.index(identity), raw.index(b'<nav id="press-contents"'))
+        self.assertEqual(1, raw.count(b'<h1'))
+        changed = (
+            raw.replace(identity, identity.replace(b'Zo\xc3\xab', b'Someone else')),
+            raw.replace(identity, identity.replace(b'Edition v1.0.0', b'Edition v9.0.0')),
+            raw.replace(identity, b''),
+            raw.replace(identity, identity + identity),
+            raw.replace(identity, b'').replace(b'</article>', identity + b'</article>'),
+            raw.replace(identity, identity.replace(b'<div ', b'<div hidden ', 1)),
+        )
+        for page in changed:
+            with self.subTest(change=changed.index(page)):
+                self._repack(html=page)
+                with self.assertRaisesRegex(AssetError, 'identity'):
+                    verify_edition(self.output)
 
     def test_offline_verifier_rejects_changed_author_order_visible_pairing_and_abstract(self):
         self.reviewed_facts(); manifest = self.build(); raw = self.page().read_bytes()
