@@ -1,11 +1,12 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test test-browser image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-gfm build preview preview-build verify check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: help setup check check-source check-assets test test-browser image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-gfm build preview preview-build verify qualify edition-status check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
 export CONVERSATION TIP OUTPUT METADATA PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
 export ASSET_TARGET
+export ONLINE STATUS_JSON
 
 help: ## Show this help.
 	@printf '%s\n\n' 'Usage: make <target> [NAME=value]'
@@ -31,6 +32,8 @@ test: ## Run the Python and asset gateway test suites.
 test-browser: ## Check reader journeys and accessibility in three engines, plus the real Chrome capture extension and imports. First run npm ci --ignore-scripts and npx playwright install chromium firefox webkit; browser runtime libraries must be available.
 	@$(PYTHON) tests/run_offline_browser.py
 	@$(PYTHON) tests/run_capture_browser.py
+	@mise exec -- node --test tests/test_qualify_edition_browser.mjs
+	@$(PYTHON) tests/run_qualify_edition.py
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) scripts/prepare_asset.py -- "$${FILE:?Set FILE to the asset path}"
@@ -70,6 +73,14 @@ preview-build: ## TAG=works/essay/v1.0.0 OUTPUT=../preview  Build a simulated si
 verify: ## DIR=edition-directory-or-complete.zip [REGISTRATION=trusted.json]  Verify all issued bytes offline; a complete ZIP includes its canonical HTML and verification files. A trusted registration also checks authorization.
 	@set --; if [ -n "$$REGISTRATION" ]; then set -- "--registration=$$REGISTRATION"; fi; \
 		$(PYTHON) scripts/verify_edition.py "$$@" -- "$${DIR:?Set DIR to the edition directory}"
+
+qualify: ## DIR=edition OUTPUT=../qualification  Check the exact verified package in Chromium and A4/Letter print; save hash-bound evidence outside the package. Requires the browser setup shown by test-browser.
+	@$(PYTHON) scripts/qualify_edition.py --output "$${OUTPUT:?Set OUTPUT to a new external directory}" -- "$${DIR:?Set DIR to the edition directory}"
+
+edition-status: ## TAG=works/essay/v1.0.0 [ONLINE=1] [STATUS_JSON=1]  Read committed edition state and its next step; ONLINE reads visible GitHub state but cannot confirm draft absence. Never advances publication.
+	@set --; if [ "$$ONLINE" = 1 ]; then set -- "$$@" --online; fi; \
+		if [ "$$STATUS_JSON" = 1 ]; then set -- "$$@" --json; fi; \
+		$(PYTHON) scripts/edition_status.py "$$@" -- "$${TAG:?Set TAG to the intended edition tag}"
 
 authorization: ## DIR=path/to/edition [STAGED_RUN_ID=id]  Recompute the staging authorization or print an offline proof without its run ID.
 	@set --; if [ -n "$$STAGED_RUN_ID" ]; then set -- "--staged-run-id=$$STAGED_RUN_ID"; fi; \

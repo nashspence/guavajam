@@ -49,6 +49,45 @@ class SourceContractTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.parse(document('<a name="list"></a>\n\n- <a name="nested"></a>\n\n  Nested anchor\n'))
 
+    def test_supporting_heading_skips_name_the_anchor_and_expected_level(self):
+        for level in (3, 4, 5):
+            with self.subTest(level=level), self.assertRaisesRegex(
+                    AssetError, f'heading #deep skips H1 → H{level} in document outline; use H2'):
+                self.parse(document('<a name="deep"></a>\n\n' + '#' * level + ' Deep heading\n'))
+        source = document('<a name="section-anchor"></a>\n\n## Section\n\n'
+                          '<a name="detail-anchor"></a>\n\n### Detail\n\n'
+                          '<a name="next"></a>\n\n## Next section\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual([1, 2, 3, 2], [b['c'][0] for b in ast['blocks'] if b['t'] == 'Header'])
+        self.assertEqual({'document', 'section-anchor', 'detail-anchor', 'next'}, set(anchors))
+
+    def test_quotation_heading_scopes_reset_without_changing_the_author_outline(self):
+        def quote(headings):
+            return ('<a name="reply" data-press-speaker="responder"></a>\n\n' +
+                    '\n>\n'.join('> <a name="quoted-' + str(i) + '"></a>\n>\n> ' + '#' * level + ' Quoted heading'
+                                 for i, level in enumerate(headings)) + '\n\n— Correspondent\n')
+        author = ('<a name="section-anchor"></a>\n\n## Section\n\n'
+                  '<a name="detail-anchor"></a>\n\n### Detail\n\n'
+                  '<a name="subdetail-anchor"></a>\n\n#### Subdetail\n\n')
+        source = document(author + quote([2, 3]) + '\n<a name="continue-anchor"></a>\n\n#### Continue\n')
+        ast, anchors, *_ = self.parse(source)
+        self.assertEqual([1, 2, 3, 4, 2, 3, 4], [b['c'][0] for b in ast['blocks'] if b['t'] == 'Header'])
+        self.assertTrue({'reply', 'quoted-0', 'quoted-1', 'continue-anchor'} <= set(anchors))
+        for levels, previous, target in (([4], 1, 4), ([2, 4], 2, 4)):
+            with self.subTest(levels=levels), self.assertRaisesRegex(
+                    AssetError, f'skips H{previous} → H{target} in quotation #reply'):
+                self.parse(document(author + quote(levels)))
+        # A quotation cannot supply a missing parent in the author's own outline.
+        with self.assertRaisesRegex(AssetError, 'heading #continue-anchor skips H1 → H3 in document outline'):
+            self.parse(document(quote([2]) + '\n<a name="continue-anchor"></a>\n\n### Continue\n'))
+
+    def test_both_reviewed_lantern_branches_keep_their_heading_levels_and_anchors(self):
+        for path in sorted((ROOT / 'tests/fixtures/chatgpt').glob('*.gfm.md')):
+            with self.subTest(branch=path.name):
+                ast, anchors, *_ = load_gfm_record(path)
+                self.assertGreater(len(anchors), 100)
+                self.assertEqual(1, sum(b['t'] == 'Header' and b['c'][0] == 1 for b in ast['blocks']))
+
     def test_author_is_plain_and_only_external_quotations_are_credited(self):
         source = document('<a name="author-entry"></a>\n\nThe author writes ordinarily.\n\n'
             '<a name="author-section"></a>\n\n## Actual section\n\n'

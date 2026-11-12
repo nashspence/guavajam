@@ -44,6 +44,14 @@ class EditionHTML(html.parser.HTMLParser):
         self.descriptions = []
         self.authorship = None
         self.citation = None
+        self.in_article = False
+        self.awaiting_identity = False
+        self.identity = None
+        self.identity_stack = []
+        self.identity_elements = []
+        self.identity_field = None
+        self.byline = None
+        self.identity_version = None
         self.in_citation = False
         self.in_authorship = False
         self.orcid_links = []
@@ -63,6 +71,27 @@ class EditionHTML(html.parser.HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
+        field = attributes.get("data-press-field")
+        after_title = self.awaiting_identity
+        if self.awaiting_identity:
+            self.awaiting_identity = False
+            if field != "edition-identity":
+                self.errors.append("edition identity must immediately follow the manuscript title")
+        if field == "edition-identity":
+            if self.identity is not None or tag != "div" or not self.in_article or not after_title:
+                self.errors.append("edition identity requires one block immediately after the manuscript title")
+            self.identity = []
+        if self.identity_stack or field == "edition-identity":
+            self.identity_elements.append(("start", tag, attributes))
+            self.identity_stack.append(tag)
+            if field in {"byline", "edition-version"}:
+                self.identity_field = field
+                if field == "byline":
+                    self.byline = []
+                else:
+                    self.identity_version = []
+        elif field in {"byline", "edition-version"}:
+            self.errors.append("edition byline and version must belong to the title identity block")
         if 'data-press-source' in attributes:
             self.supporting_sources.append((attributes['data-press-source'], attributes.get('data-press-sha256')))
         if self.in_rights:
@@ -104,6 +133,7 @@ class EditionHTML(html.parser.HTMLParser):
         if tag == "main":
             self.main_count += 1
         if tag == "article":
+            self.in_article = True
             self.article_count += 1
             self.document_profile = (attributes.get("data-press-profile") == self.profile
                                      and attributes.get("class") == "press-edition")
@@ -183,6 +213,19 @@ class EditionHTML(html.parser.HTMLParser):
             self.images[digest] = (raw, match[1])
 
     def handle_endtag(self, tag):
+        if self.identity_stack:
+            self.identity_elements.append(("end", tag))
+            if self.identity_stack[-1] != tag:
+                self.errors.append("edition identity has malformed element nesting")
+            else:
+                self.identity_stack.pop()
+            if tag == "span":
+                self.identity_field = None
+        if tag == "h1" and self.in_article:
+            self.awaiting_identity = True
+        if tag == "article":
+            self.in_article = False
+            self.awaiting_identity = False
         if tag in {"h2", "h3", "h4", "h5", "h6"}:
             self.current_heading = None
         if tag == "style":
@@ -198,6 +241,15 @@ class EditionHTML(html.parser.HTMLParser):
             self.in_rights = False
 
     def handle_data(self, data):
+        if self.awaiting_identity and data.strip():
+            self.errors.append("edition identity must immediately follow the manuscript title")
+            self.awaiting_identity = False
+        if self.identity_stack:
+            self.identity.append(data)
+            if self.identity_field == "byline":
+                self.byline.append(data)
+            elif self.identity_field == "edition-version":
+                self.identity_version.append(data)
         if self.in_citation:
             self.citation.append(data)
         if self.in_authorship:
@@ -269,6 +321,19 @@ def verify_edition(directory: Path, *, commit: str | None = None, tag: str | Non
     if parser.authors != [author["name"] for author in authors] or parser.html_lang != language:
         raise AssetError("edition attribution or language differs from provenance")
     collapse = lambda value: re.sub(r"[ \t\r\n\f]+", " ", value).strip()
+    identity_elements = [
+        ("start", "div", {"class": "press-edition-identity", "data-press-field": "edition-identity"}),
+        ("start", "p", {}),
+        ("start", "span", {"data-press-field": "byline"}), ("end", "span"),
+        ("start", "span", {"data-press-field": "edition-version", "lang": "en"}), ("end", "span"),
+        ("end", "p"), ("end", "div"),
+    ]
+    byline, edition_version = author_text(authors), "Edition " + tag_match[2]
+    if (parser.identity_stack or parser.identity_elements != identity_elements
+            or parser.byline is None or collapse("".join(parser.byline)) != collapse(byline)
+            or parser.identity_version is None or collapse("".join(parser.identity_version)) != edition_version
+            or parser.identity is None or collapse("".join(parser.identity)) != collapse(byline + " · " + edition_version)):
+        raise AssetError("edition title identity differs from reviewed authorship or edition version")
     if "authors" in manifest or "author_orcid" in manifest or parser.authorship is not None:
         text = "Authors: " + author_text(authors, identifiers=True)
         if (parser.authorship is None or collapse("".join(parser.authorship)) != collapse(text)

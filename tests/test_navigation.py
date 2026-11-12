@@ -68,6 +68,21 @@ class NavigationTests(unittest.TestCase):
                 self.assertEqual([], self._contents(ast))
                 self.assertNotIn("press_has_contents", ast["meta"])
 
+    def test_reviewed_identity_follows_the_single_title_before_any_contents(self):
+        for count in (1, 3):
+            with self.subTest(sections=count):
+                ast = sample(count=count)
+                prepare_presentation_ast(ast, byline='Zoë <Z>; 李 *literal*', edition='v1.2.3')
+                self.assertEqual('Header', ast['blocks'][0]['t'])
+                identity = ast['blocks'][1]
+                self.assertEqual(['press-edition-identity'], identity['c'][0][1])
+                inlines = identity['c'][1][0]['c']
+                self.assertEqual('Zoë <Z>; 李 *literal*', inlines[0]['c'][1][0]['c'])
+                self.assertEqual('Edition v1.2.3', inlines[-1]['c'][1][0]['c'])
+                self.assertEqual(1, sum(b['t'] == 'Header' and b['c'][0] == 1 for b in ast['blocks']))
+                if count == 3:
+                    self.assertIn('<nav id="press-contents"', ast['blocks'][2]['c'][1])
+
     def test_two_sections_plus_evidence_merits_contents(self):
         ast = sample(count=2, records=1)
         prepare_presentation_ast(ast)

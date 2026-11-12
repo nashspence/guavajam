@@ -75,6 +75,29 @@ jobs:
         run: |
           python scripts/build_edition.py --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG" --output dist/edition
           python scripts/verify_edition.py dist/edition --commit "$SOURCE_COMMIT" --tag "$EDITION_TAG"
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.0
+          install: false
+      - name: Install pinned candidate qualification tools
+        run: |
+          mise install node
+          node_bin="$(mise where node)/bin"
+          export PATH="$node_bin:$PATH"
+          printf '%s\n' "$node_bin" >> "$GITHUB_PATH"
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+          python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: PyMuPDF==1.26.5
+      - name: Qualify the exact staged candidate
+        run: python scripts/qualify_edition.py dist/edition --output dist/qualification
+      - name: Retain candidate qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: edition-qualification
+          path: dist/qualification/
+          if-no-files-found: ignore
+          retention-days: 90
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: verified-edition
@@ -97,7 +120,7 @@ jobs:
       - name: Record proof for editorial review
         run: |
           digest=$(sha256sum dist/edition/provenance.json | cut -d ' ' -f 1)
-          printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n\nCandidate qualification: passed for these exact bytes. Review `edition-qualification/report.json`, screen proofs and A4/Letter PDFs.\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
 
   recover:
     if: github.ref == 'refs/heads/main' && inputs.publish && inputs.proof_source == 'rebuild'

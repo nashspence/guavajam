@@ -44,6 +44,17 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
+/* Reviewed identity belongs with the title, including in saved reading copies. */
+.press-edition-identity {
+  margin: -.25rem 0 1.7rem;
+  color: var(--press-muted);
+  font: .94rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.press-edition-identity p { margin: 0; }
+
 /* Preserve link affordances even when color or a color scheme is unavailable. */
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }
@@ -477,6 +488,9 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
 <p class="preview-note">Synthetic presentation fixture. Theme controls are for testing only.</p>
 <main><article class="press-edition">
 <h1>The shape of an argument</h1>
+<div class="press-edition-identity" data-press-field="edition-identity">
+<p><span data-press-field="byline">Nash Spence</span> · <span data-press-field="edition-version" lang="en">Edition v1.0.0</span></p>
+</div>
 <p><em>A short demonstration of scholarly reading, not a published edition.</em></p>
 <p>Some ideas become clearer when the page grows quieter. A well-set document gives the argument room to unfold: each paragraph has a comfortable measure, quotations are easy to distinguish, and the mathematics remains legible without asking the reader to zoom out.</p>
 <p>This sample illustrates the typography proposed for <strong>Press</strong>—a restrained reading surface built around semantic HTML, durable section links, and the conventions of mathematical writing.<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>

@@ -101,10 +101,9 @@ test('invalid archive configuration cannot redirect readers', async () => {
   assert.equal((await worker.fetch(new Request(address), {...env, RECORD_TAG_PATTERN: undefined})).status, 503);
 });
 
-function readingArchive(t) {
+function readingArchive(t, html = '<h2 id="part">Part</h2>') {
   const tag = 'works/sample-work/v1.0.0';
   const file = 'sample-work-v1.0.0.html';
-  const html = '<h2 id="part">Part</h2>';
   const download = 'https://github.com/owner/press/releases/download/' + encodeURIComponent(tag) + '/' + file;
   const cdn = 'https://release-assets.githubusercontent.com/file?signed=example';
   const sha = createHash('sha256').update(html).digest('hex');
@@ -122,11 +121,14 @@ function readingArchive(t) {
     if (url === 'https://raw.githubusercontent.com/owner/press/refs/heads/main/registrations/editions/sample-work/v1.0.0.json') return Response.json(record);
     if (url === 'https://api.github.com/repos/owner/press/releases/tags/' + encodeURIComponent(tag)) return Response.json(release, {status: archive.apiStatus});
     if (url === download) return new Response(null, {status: 302, headers: {Location: archive.location}});
-    if (url === cdn) return new Response(options.method === 'HEAD' ? null : archive.body, {
-      headers: {'Content-Length': String(html.length), 'Content-Disposition': 'attachment', 'Set-Cookie': 'secret'}});
+    if (url === cdn) return new Response(options.method === 'HEAD' ? null :
+      (typeof archive.body === 'function' ? archive.body() : archive.body), {
+      status: archive.status ?? 200,
+      headers: {'Content-Length': String(html.length), 'Content-Disposition': 'attachment',
+                'Set-Cookie': 'secret', ...archive.headers}});
     throw new Error('unexpected URL');
   });
-  return {archive, html, record, asset, release, tag, urls, file};
+  return {archive, html, record, asset, release, tag, urls, file, download, cdn};
 }
 
 test('section citations serve only the registered immutable HTML inline, streaming the fixed public download', async t => {
@@ -175,8 +177,8 @@ test('section citations serve only the registered immutable HTML inline, streami
   assert.equal(mirror.headers.get('Location'), 'https://archive.test/backups/' + tag + '/read');
 });
 
-function replicaFixture(t) {
-  const {archive, html, record, urls} = readingArchive(t);
+function replicaFixture(t, content) {
+  const {archive, html, record, urls, download, cdn} = readingArchive(t, content);
   record.issuing = true;
   record.published_at = '2026-11-04T00:00:00Z';
   const key = 'sha256/' + record.artifact_sha256 + '.html';
@@ -198,7 +200,7 @@ function replicaFixture(t) {
   };
   const read = (method = 'GET') => worker.fetch(new Request(address + '/read', {method}),
     {...env, MAX_HTML_BYTES: '150994944', READING_COPIES: bucket});
-  return {archive, bucket, html, read, record, urls};
+  return {archive, bucket, html, read, record, urls, download, cdn};
 }
 
 test('concurrent first reads fill one digest-checked replica and warm reads bypass the Releases API', async t => {
@@ -254,6 +256,183 @@ test('R2 lookup failure still serves a verified release', async t => {
     assert.equal(await response.text(), method === 'HEAD' ? '' : html);
   }
   assert.equal(bucket.put.mock.callCount(), 0);
+});
+
+test('documented operational write failures fall back to a fresh immutable release download', async t => {
+  for (const code of [10001, 10002, 10003, 10006, 10042, 10043, 10058]) {
+    await t.test(String(code), async t => {
+      const {bucket, html, read, record, urls, download, cdn} = replicaFixture(t);
+      bucket.put = t.mock.fn(async (key, stream, options) => {
+        assert.equal(key, 'sha256/' + record.artifact_sha256 + '.html');
+        assert.equal(options.onlyIf.get('If-None-Match'), '*');
+        assert.equal(options.sha256, record.artifact_sha256);
+        throw Error(`put: Storage unavailable (${code})`);
+      });
+      const response = await read();
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('X-Press-Reading-Source'), 'release');
+      assert.equal(response.headers.get('Set-Cookie'), null);
+      assert.equal(await response.text(), html);
+      assert.equal(bucket.put.mock.callCount(), 1);
+      assert.equal(bucket.object, null);
+      assert.equal(urls.filter(url => url === download).length, 2);
+      assert.equal(urls.filter(url => url === cdn).length, 2);
+    });
+  }
+});
+
+test('replica failure after partial or complete stream consumption reopens the release', async t => {
+  for (const consumed of ['partial', 'complete']) {
+    await t.test(consumed, async t => {
+      const {archive, bucket, html, read, urls, download} = replicaFixture(t);
+      const bytes = new TextEncoder().encode(html);
+      archive.body = () => {
+        const chunks = [bytes.slice(0, 5), bytes.slice(5)];
+        return new ReadableStream({pull(controller) {
+          if (chunks.length) controller.enqueue(chunks.shift()); else controller.close();
+        }}, {highWaterMark: 0});
+      };
+      bucket.put = t.mock.fn(async (key, stream) => {
+        if (consumed === 'partial') {
+          const reader = stream.getReader();
+          assert.equal((await reader.read()).value.length, 5);
+          await reader.cancel();
+        } else {
+          assert.equal(await new Response(stream).text(), html);
+        }
+        throw Error('put: Service unavailable (10043)');
+      });
+      const response = await read();
+      assert.equal(response.status, 200);
+      assert.equal(await response.text(), html);
+      assert.equal(urls.filter(url => url === download).length, 2);
+      assert.equal(bucket.put.mock.callCount(), 1);
+    });
+  }
+});
+
+test('operational readback failure after a completed upload reopens the release once', async t => {
+  const {bucket, html, read, urls, download, cdn} = replicaFixture(t);
+  bucket.get = t.mock.fn(() => {
+    if (bucket.object) throw Error('get: Service unavailable (10043)');
+    return null;
+  });
+  const response = await read();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('X-Press-Reading-Source'), 'release');
+  assert.equal(await response.text(), html);
+  // The normal put consumed and verified the entire first stream before get failed.
+  assert.equal(bucket.object.body.toString(), html);
+  assert.equal(bucket.put.mock.callCount(), 1);
+  assert.equal(bucket.get.mock.callCount(), 2);
+  assert.equal(urls.filter(url => url === download).length, 2);
+  assert.equal(urls.filter(url => url === cdn).length, 2);
+});
+
+test('missing, damaged and unrecognized replica readback results stay fail-closed', async t => {
+  const failures = {
+    missing: () => null,
+    'missing checksum': object => ({...object, checksums: {}}),
+    'wrong checksum': object => ({...object, checksums: {sha256: new ArrayBuffer(32)}}),
+    'invalid size': object => ({...object, size: 0}),
+    'unknown error': () => { throw Error('get: R2 unavailable'); },
+    'unknown code': () => { throw Error('get: Unknown failure (99999)'); },
+    abort: () => { throw new DOMException('get: Service unavailable (10043)', 'AbortError'); },
+  };
+  for (const [name, failure] of Object.entries(failures)) {
+    await t.test(name, async t => {
+      const {bucket, html, read, urls, download, cdn} = replicaFixture(t);
+      bucket.get = t.mock.fn(() => bucket.object ? failure(bucket.object) : null);
+      const response = await read();
+      assert.equal(response.status, 502);
+      assert.equal(await response.text(), '');
+      assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
+      assert.equal(response.headers.get('X-Press-Reading-Source'), null);
+      assert.equal(bucket.object.body.toString(), html);
+      assert.equal(bucket.put.mock.callCount(), 1);
+      assert.equal(bucket.get.mock.callCount(), 2);
+      assert.equal(urls.filter(url => url === download).length, 1);
+      assert.equal(urls.filter(url => url === cdn).length, 1);
+    });
+  }
+});
+
+test('fallback revalidates the redirect and every release response header', async t => {
+  const invalid = {
+    redirect: archive => { archive.location = 'https://untrusted.test/edition'; },
+    length: archive => { archive.headers = {'Content-Length': '1'}; },
+    encoding: archive => { archive.headers = {'Content-Encoding': 'gzip'}; },
+    status: archive => { archive.status = 503; },
+  };
+  for (const [name, change] of Object.entries(invalid)) {
+    await t.test(name, async t => {
+      const {archive, bucket, read, urls, download} = replicaFixture(t);
+      bucket.put = t.mock.fn(async (key, stream) => {
+        await new Response(stream).arrayBuffer();
+        change(archive);
+        throw Error('put: Rate limit exceeded (10058)');
+      });
+      const response = await read();
+      assert.equal(response.status, 502);
+      assert.equal(await response.text(), '');
+      assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
+      assert.equal(urls.filter(url => url === download).length, 2);
+      assert.ok(!urls.includes('https://untrusted.test/edition'));
+    });
+  }
+});
+
+test('body, checksum, abort and unrecognized write failures never fall back', async t => {
+  const failures = [
+    Error('put: Incomplete body (10013)'), Error('put: Invalid digest (10014)'),
+    Error('put: Bad digest (10037)'), Error('put: Missing content length (10033)'),
+    Error('R2 unavailable'), Error('put: Unknown failure (99999)'),
+    Error('put: Bad digest (10037), earlier service error (10043) is unrelated'),
+    new DOMException('put: Service unavailable (10043)', 'AbortError'),
+  ];
+  for (const failure of failures) {
+    await t.test(failure.message, async t => {
+      const {bucket, read, urls, download} = replicaFixture(t);
+      bucket.put = t.mock.fn(async () => { throw failure; });
+      const response = await read();
+      assert.equal(response.status, 502);
+      assert.equal(await response.text(), '');
+      assert.equal(response.headers.get('Cache-Control'), 'no-store, no-transform');
+      assert.equal(urls.filter(url => url === download).length, 1);
+      assert.equal(bucket.object, null);
+    });
+  }
+});
+
+test('fallback streams large editions without cloning, teeing or reading ahead', async t => {
+  const {archive, bucket, html, read, record} = replicaFixture(t, '<p>' + 'x'.repeat(2 * 1024 * 1024) + '</p>');
+  const bytes = new TextEncoder().encode(html);
+  const streams = [];
+  archive.body = () => {
+    const state = {offset: 0, cancelled: false};
+    streams.push(state);
+    return new ReadableStream({
+      pull(controller) {
+        if (state.offset === bytes.length) { controller.close(); return; }
+        const end = Math.min(state.offset + 64 * 1024, bytes.length);
+        controller.enqueue(bytes.subarray(state.offset, end));
+        state.offset = end;
+      },
+      cancel() { state.cancelled = true; },
+    }, {highWaterMark: 0});
+  };
+  t.mock.method(Response.prototype, 'clone', () => { throw Error('Edition responses must not be cloned'); });
+  t.mock.method(ReadableStream.prototype, 'tee', () => { throw Error('Edition streams must not be teed'); });
+  bucket.put = t.mock.fn(async () => { throw Error('put: Service unavailable (10043)'); });
+  const response = await read();
+  assert.equal(response.status, 200);
+  assert.equal(streams.length, 2);
+  assert.equal(streams[0].cancelled, true);
+  assert.equal(streams[1].offset, 0);
+  const digest = createHash('sha256');
+  for await (const chunk of response.body) digest.update(chunk);
+  assert.equal(digest.digest('hex'), record.artifact_sha256);
+  assert.equal(streams[1].offset, bytes.length);
 });
 
 test('unpublished and abandoned claims cannot consume or seed replica objects', async t => {

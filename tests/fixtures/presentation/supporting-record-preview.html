@@ -42,6 +42,17 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
+/* Reviewed identity belongs with the title, including in saved reading copies. */
+.press-edition-identity {
+  margin: -.25rem 0 1.7rem;
+  color: var(--press-muted);
+  font: .94rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.press-edition-identity p { margin: 0; }
+
 /* Preserve link affordances even when color or a color scheme is unavailable. */
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }
@@ -445,6 +456,9 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
 </style></head><body>
 <header class="press-status">Press · Supporting record presentation fixture</header>
 <main><article class="press-edition"><h1 id="supporting-evidence">Supporting evidence</h1>
+<div class="press-edition-identity" data-press-field="edition-identity">
+<p><span data-press-field="byline">Nash Spence</span> · <span data-press-field="edition-version" lang="en">Edition v1.0.0</span></p>
+</div>
 <p>Supporting record layout preview. The notebook and conversation below
 are synthetic examples.</p>
 <p><a href="#record-md-8-notebook">Jump to notebook</a></p>

@@ -35,6 +35,17 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
+/* Reviewed identity belongs with the title, including in saved reading copies. */
+.press-edition-identity {
+  margin: -.25rem 0 1.7rem;
+  color: var(--press-muted);
+  font: .94rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.press-edition-identity p { margin: 0; }
+
 /* Preserve link affordances even when color or a color scheme is unavailable. */
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }

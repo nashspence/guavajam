@@ -47,6 +47,17 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
+/* Reviewed identity belongs with the title, including in saved reading copies. */
+.press-edition-identity {
+  margin: -.25rem 0 1.7rem;
+  color: var(--press-muted);
+  font: .94rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+  break-after: avoid;
+}
+.press-edition-identity p { margin: 0; }
+
 /* Preserve link affordances even when color or a color scheme is unavailable. */
 a { color: var(--press-link); text-underline-offset: .12em; }
 a:visited { color: var(--press-visited); }
@@ -451,6 +462,9 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
 <header class="press-status" lang="en"><a id="press-edition-status" href="https://press.example.org/works/sample-work/v1.0.0">Corrections and withdrawal status</a><a class="press-contents-link" href="#press-contents">Contents</a></header>
 <main id="press-main" tabindex="-1"><article class="press-edition" data-press-profile="press.html.v1">
 <h1 id="sample-work">Sample Work</h1>
+<div class="press-edition-identity" data-press-field="edition-identity">
+<p><span data-press-field="byline">Nash Spence</span> · <span data-press-field="edition-version" lang="en">Edition v1.0.0</span></p>
+</div>
 <p><em>Illustrative navigation fixture — not an issued edition.</em></p>
 <nav id="press-contents" class="press-contents" aria-labelledby="press-contents-label"><p id="press-contents-label" class="press-contents-label" lang="en">Contents</p>
 <ul>

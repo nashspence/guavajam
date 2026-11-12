@@ -424,6 +424,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     doc_id = 'doc-'+hashlib.sha256(identity.encode()).hexdigest()
     blocks = [anchor(doc_id),header(1,title),anchor('scope-'+doc_id),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
     api = None
+    author_headings = []
     for passage in record['passages']:
         text = passage['text']
         if '[Non-text part omitted]' in text or '[Unsupported message content omitted]' in text:
@@ -440,15 +441,25 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
         # source-backed model and thinking-effort tokens may appear at the end.
         speaker = passage.get('speaker')
         quoted = speaker in {'assistant', 'responder'}
+        heading_ancestors = [] if quoted else author_headings
         turn = []
         occurrences = {}
         for block in _divider_blocks(clean(ast['blocks'])):
             if block['t'] == 'Header':
-                # Preserve authored structural headings; a turn does not
-                # introduce an artificial heading level of its own.
-                block['c'][0] = min(5, block['c'][0] + 1)
+                # Put the actual source ancestry beneath the document title;
+                # absent parents do not justify skipped levels in the review.
+                # Each external reply has its own outline. Authorial headings
+                # continue across passages without inheriting a reply's levels.
+                source_level = block['c'][0]
+                while heading_ancestors and heading_ancestors[-1] >= source_level:
+                    heading_ancestors.pop()
+                heading_ancestors.append(source_level)
+                level = min(5, len(heading_ancestors) + 1)
+                block['c'][0] = level
                 block['c'][1] = ['', [], []]
-                report('heading-level-adjusted')
+                if level != source_level:
+                    report('heading-level-adjusted')
+                    report(f'heading-level-h{source_level}-to-h{level}')
             digest = hashlib.sha256(json.dumps(block, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
             occurrences[digest] = occurrences.get(digest, 0) + 1
             block_id = 'b-' + passage['id'][2:] + '-' + digest + '-' + str(occurrences[digest])

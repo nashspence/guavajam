@@ -262,17 +262,23 @@ def parse_gfm_record(source, *, policy=None):
         raise AssetError('unexpected supporting parser metadata')
     blocks, anchors, pending = [], {}, None
     headers = []
+    document_level, quotation_level, quotation = 0, 1, None
     for block in ast['blocks']:
         if block.get('t') == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
             identifier = block['c'][0][0]
             if pending or identifier in anchors:
                 raise AssetError('duplicate or unattached supporting turn anchor')
+            # An explicitly attributed quotation has its own heading sequence
+            # beneath the document title. It neither continues nor changes the
+            # author's outline; a new reply may legitimately begin again at H2.
+            quotation, quotation_level = identifier, 1
             anchors[identifier] = len(blocks)
             blocks.append(block)
             continue
         if block.get('t') == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
             if pending:
                 raise AssetError('unattached anchor inside supporting turn')
+            quotation = None
             blocks.append(block)
             continue
         details = anchor_details(block)
@@ -290,6 +296,16 @@ def parse_gfm_record(source, *, policy=None):
         if nested:
             if block.get('t') != 'Header' or len(nested) != 1 or not pending or block['c'][0] > 5:
                 raise AssetError('supporting headings require top-level explicit anchors and levels H1–H5')
+            level = block['c'][0]
+            previous = quotation_level if quotation is not None else document_level
+            if previous and level > previous + 1:
+                scope = 'quotation #' + quotation if quotation is not None else 'document outline'
+                raise AssetError(f'supporting heading #{pending} skips H{previous} → H{level} in {scope}; '
+                                 f'use H{previous + 1} or add the missing parent heading before this anchor')
+            if quotation is None:
+                document_level = level
+            else:
+                quotation_level = level
             headers.append(block)
         if not pending:
             raise AssetError('every top-level supporting content block requires its own explicit anchor')
