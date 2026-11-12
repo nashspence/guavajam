@@ -1,0 +1,13 @@
+[project]
+name = "guavajam"
+version = "0.1.0"
+description = "Optional standards-based HTML presentation for signed Press GFM Git revisions"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+guavajam = "guavajam.renderer:main"
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
