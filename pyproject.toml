@@ -1,13 +1,22 @@
 [project]
 name = "guavajam"
 version = "0.1.0"
-description = "Optional standards-based HTML presentation for signed Press GFM Git revisions"
-requires-python = ">=3.12"
-dependencies = []
+description = "Optional HTML views of signed GFM source revisions"
+requires-python = ">=3.12,<3.13"
+dependencies = ["PyYAML==6.0.3"]
 
 [project.scripts]
 guavajam = "guavajam.renderer:main"
 
 [build-system]
-requires = ["setuptools>=70"]
+requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["guavajam*"]
+
+[tool.setuptools.package-data]
+guavajam = ["styles/*.css"]
+
+[dependency-groups]
+dev = ["av==19.0.2", "Pillow==13.0.0", "PyMuPDF==1.26.5"]

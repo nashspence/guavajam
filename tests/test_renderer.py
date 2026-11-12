@@ -31,6 +31,9 @@ rights: all-rights-reserved
 
 See [the recording](#demonstration), [the source](supporting/note.md#claim), and [the transcript](#demo-transcript).
 
+<a id="demonstration"></a>
+## Recording
+
 ```press-media
 {
   "id": "demonstration",
@@ -167,6 +170,16 @@ class PortableViewTests(unittest.TestCase):
             self.assertIn('Signed Git publication',(self.output/'index.html').read_text())
             with self.assertRaisesRegex(RenderError,'untrusted'):
                 render(self.root,signed,'field-notes',Path(self.temporary.name)/'bad', fingerprints=['0'*40])
+
+    def test_real_ssh_publication_uses_only_external_signer_authority(self):
+        key=Path(self.temporary.name)/'fixture-key'
+        command(self.root,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
+        command(self.root,'git','config','gpg.format','ssh');command(self.root,'git','config','user.signingkey',str(key))
+        command(self.root,'git','commit','--allow-empty','-S','-m','Publish fixture','-m','Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md')
+        revision=command(self.root,'git','rev-parse','HEAD')
+        signers=Path(self.temporary.name)/'allowed-signers';signers.write_text('fixture namespaces="git" '+key.with_suffix('.pub').read_text())
+        self.assertEqual(2,render(self.root,revision,'field-notes',self.output,allowed_signers=signers))
+        self.assertIn('Signed Git publication',(self.output/'index.html').read_text())
 
 
 class ContractTests(unittest.TestCase):

@@ -1,5 +1,4 @@
-/* Press's versioned reading surface: system fonts, no runtime or remote assets.
-   Light/dark tokens are intentionally mirrored in public_record.PAGE_STYLE. */
+/* GuavaJam reading surface: system fonts and static, embedded presentation. */
 :root {
   color-scheme: light dark;
   --press-paper: #faf9f6;
@@ -255,28 +254,6 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
   margin-top: .9rem;
 }
 /* Supporting evidence: restrained archival entries, not chat bubbles or an app UI. */
-.press-record-heading { margin-top: 3rem; }
-.press-record-intro { margin: .6rem 0 1.55rem; }
-.press-record-scope { margin-bottom: .8rem; }
-.press-record-provenance {
-  display: grid;
-  grid-template-columns: 4.8rem minmax(0, 1fr);
-  gap: .22rem .8rem;
-  margin: 0;
-  padding: .65rem 0;
-  border-top: 1px solid var(--press-border);
-  border-bottom: 1px solid var(--press-border);
-  color: var(--press-muted);
-  font: .76rem/1.5 system-ui, sans-serif;
-}
-.press-record-provenance dt { font-weight: 600; }
-.press-record-provenance dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.press-record-provenance code {
-  padding: 0;
-  background: transparent;
-  font-size: .96em;
-  overflow-wrap: anywhere;
-}
 .press-document-metadata {
   margin: .6rem 0 1.2rem;
   color: var(--press-muted);
@@ -302,12 +279,6 @@ h4.press-formal-heading, h5.press-formal-heading, h6.press-formal-heading {
 }
 .press-document-metadata ul { margin: 0; padding-left: 1.2em; }
 .press-metadata-value, .press-document-metadata dt > span { white-space: pre-wrap; }
-.press-passage-heading {
-  margin: 1.25rem 0 .35rem;
-  padding-top: .8rem;
-  border-top: 1px solid var(--press-border);
-  font: 600 .94rem/1.4 system-ui, sans-serif;
-}
 .press-first-passage {
   border-top: 0;
   padding-top: 0;
@@ -341,12 +312,11 @@ figure.press-turn:target > blockquote.press-turn-quotation { border-inline-start
 figure.press-turn:target > figcaption.press-turn-attribution { color: var(--press-link); }
 /* A cited interior block overlays the native border with the ordinary
    blue citation cue. The quote's neutral rail stays at the same position. */
-.press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before {
+.press-edition blockquote.press-turn-quotation :is(h2, h3, h4, h5, h6, div, li)[id]:target::before {
   inset-inline-start: calc(-1 * (var(--press-turn-text-inset) + var(--press-turn-rail-size)));
   inline-size: calc(var(--press-turn-text-inset) + var(--press-turn-rail-size));
   border-inline-start-width: var(--press-turn-rail-size);
 }
-.press-passage-heading .press-permalink { font-size: .8rem; }
 .press-passage-datetime {
   margin: -.3rem 0 .4rem;
   color: var(--press-muted);
@@ -361,8 +331,8 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
 .press-passage-datetime > p { margin: 0; }
 @media (max-width: 36rem) {
   [id]:target, :focus-visible { scroll-margin-top: 9rem; }
-  .press-record-provenance, .press-document-metadata dl { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
-  .press-record-provenance dd, .press-document-metadata dd { margin-bottom: .35rem; }
+  .press-document-metadata dl { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+  .press-document-metadata dd { margin-bottom: .35rem; }
   /* Once stacked, never draw a second rule between a label and its value. */
   .press-document-metadata dt:not(:first-child) + dd {
     border-block-start: 0;
@@ -397,7 +367,7 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
   .press-permalink:hover { outline: 1px solid Highlight; }
   .press-permalink:focus-visible { outline: 3px solid Highlight; }
   /* In forced colors the native quote rail and system target outline remain. */
-  .press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  .press-edition blockquote.press-turn-quotation :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   blockquote.press-turn-quotation { border-inline-start-color: CanvasText; }
 }
 
@@ -405,7 +375,7 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
   /* Keep the quote rail inside the printable content area. Screen-only
      negative margins can otherwise be clipped at the paper's page margin. */
   figure.press-turn > blockquote.press-turn-quotation { margin-inline-start: 0; }
-  .press-edition blockquote.press-turn-quotation :is(h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
+  .press-edition blockquote.press-turn-quotation :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   :root {
     color-scheme: light;
     --press-paper: #fff;
@@ -420,7 +390,7 @@ figure.press-turn:target > figcaption.press-turn-attribution { color: var(--pres
   /* Keep prose and labels readable across page breaks without forcing whole
      tables or long supporting passages onto one sheet. */
   p { orphans: 3; widows: 3; }
-  h1, h2, h3, h4, h5, h6, .press-passage-heading, .press-passage-datetime,
+  h1, h2, h3, h4, h5, h6, .press-passage-datetime,
   caption { break-after: avoid-page; }
   tr { break-inside: avoid; }
   /* Keep a metadata label or value intact on paper without forcing a full

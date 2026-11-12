@@ -10,7 +10,7 @@ import re
 from urllib.parse import urlsplit
 
 SLUG = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z")
-KEY = re.compile(r"/sha256/([0-9a-f]{64})\.(mp3|mp4|vtt|png|jpg|jpeg|webp)\Z")
+KEY = re.compile(r"/sha256/([0-9a-f]{64})\.(mp3|mp4|vtt|png|jpg|jpeg|webp|svg)\Z")
 LANGUAGE = re.compile(r"[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*\Z")
 REQUIRED = frozenset({"kind", "id", "src", "title", "transcript"})
 VIDEO = frozenset({"poster", "captions", "language", "label", "sound"})
@@ -34,7 +34,7 @@ def asset(url: str, origin: str, allowed: set[str]) -> tuple[str, str]:
         raise MediaError("media URL must be a bounded string")
     parsed = urlsplit(url)
     host = urlsplit(origin)
-    if (parsed.scheme != "https" or parsed.netloc != host.netloc or parsed.username
+    if (url != origin + parsed.path or parsed.scheme != "https" or parsed.netloc != host.netloc or parsed.username
             or parsed.password or parsed.fragment or parsed.query
             or origin != f"https://{host.netloc}" or not host.hostname
             or not re.fullmatch(r"[a-z0-9.-]+", host.hostname) or parsed.port is not None):
@@ -120,8 +120,8 @@ def declarations(ast: dict, origin: str, anchors: set[str]) -> list[dict]:
         if not top or node['c'][0] != ['', ['press-media'], []]:
             raise MediaError("media fences must be exact, top-level GFM code fences")
         spec = decode(node['c'][1], origin)
-        if spec['id'] in seen or spec['id'] in anchors or spec['transcript'][1:] not in anchors:
-            raise MediaError("duplicate media id or missing transcript anchor")
+        if spec['id'] in seen or spec['id'] not in anchors or spec['transcript'][1:] not in anchors or spec['id']==spec['transcript'][1:]:
+            raise MediaError("media id and transcript require distinct explicit source anchors")
         # The transcript must be an ordinary, anchored visible prose section.
         transcript = spec['transcript'][1:]
         blocks = ast.get('blocks', [])
