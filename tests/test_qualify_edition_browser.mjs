@@ -6,7 +6,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import test from 'node:test';
 import {chromium} from 'playwright';
-import {assertCandidateAccessible, checkTargets, inspectPrint, inspectScreen, inspectStructure, qualifyCandidate} from '../scripts/qualify_edition.mjs';
+import {assertCandidateAccessible, checkScreenTargets, checkTargets, inspectPrint, inspectScreen, inspectStructure, qualifyCandidate} from '../scripts/qualify_edition.mjs';
 import {assertAccessible} from './browser_accessibility.mjs';
 
 const css = await readFile(new URL('../styles/edition-v1.css', import.meta.url), 'utf8');
@@ -130,4 +130,30 @@ test('fragment qualification re-navigates a selected target without losing enlar
     await page.addStyleTag({content: '.press-status {position:fixed;top:0;left:0;height:400px} [id]:target {scroll-margin-top:0 !important}'});
     await assert.rejects(() => checkTargets(page, ['last']), /Fragment destination is obscured at last/);
   } finally { await browser.close(); await rm(base, {recursive:true, force:true}); }
+});
+
+
+test('candidate fragment entry uses fresh matching screen scenarios and preserves the keyboard session', {timeout: 45000}, async () => {
+  const base = await mkdtemp(path.join(tmpdir(), 'press-fragment-entry-'));
+  const browser = await chromium.launch({headless:true});
+  try {
+    const file = path.join(base, 'candidate.html');
+    await writeFile(file, document('<h2 id="first">First section</h2><p style="min-height:1600px">Source.</p>' +
+      '<h2 id="last">Last section</h2><p style="min-height:1600px">Following source.</p>')
+      .replace('<body>', '<body><div class="press-status">Current editorial status</div>'));
+    const context = await browser.newContext({viewport:{width:320,height:900}});
+    const page = await context.newPage();
+    const uri = pathToFileURL(file).href;
+    await page.goto(uri + '#last');
+    await page.evaluate(() => { window.qualificationContinuity = true; window.scrollTo(0,0); });
+    const before = await page.evaluate(() => ({hash:location.hash, y:scrollY}));
+    const result = await checkScreenTargets(page, uri,
+      {label:'mobile-enlarged', width:320, color:'dark', enlarged:true}, ['first','last']);
+    assert.deepEqual(result.map(entry => entry.target), ['first','last']);
+    assert.ok(result.every(entry => entry.font_size === '34px' && entry.width === 320 &&
+      entry.color_scheme === 'dark' && entry.top >= entry.status - 1));
+    assert.deepEqual(await page.evaluate(() => ({hash:location.hash, y:scrollY})), before);
+    assert.equal(await page.evaluate(() => window.qualificationContinuity), true);
+    assert.equal(page.context().pages().length, 1, 'Fragment-entry pages must close');
+  } finally { await browser.close(); await rm(base, {recursive:true,force:true}); }
 });

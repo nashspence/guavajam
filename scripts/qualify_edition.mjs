@@ -132,6 +132,7 @@ async function checkKeyboard(page, samples) {
 }
 
 export async function checkTargets(page, targets) {
+  const checked = [];
   for (const id of targets) {
     const uri = page.url().split('#')[0];
     // A hash assignment is a no-op when that fragment is already selected.
@@ -147,11 +148,49 @@ export async function checkTargets(page, targets) {
     const result = await page.evaluate(id => {
       const node = document.getElementById(id), box = node.getBoundingClientRect();
       const status = document.querySelector('.press-status')?.getBoundingClientRect();
-      return {top: box.top, bottom: box.bottom, status: status?.bottom ?? 0, height: innerHeight};
+      return {top: box.top, bottom: box.bottom, status: status?.bottom ?? 0, height: innerHeight,
+        scroll_y: scrollY, scroll_height: document.documentElement.scrollHeight, width: innerWidth,
+        color_scheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+        font_size: getComputedStyle(document.documentElement).fontSize,
+        active_element: document.activeElement?.id || document.activeElement?.tagName,
+        fragment: location.hash};
     }, id);
     assert.ok(result.top >= result.status - 1 && result.top < result.height && result.bottom > result.status,
       'Fragment destination is obscured at ' + id + ': ' + JSON.stringify(result));
+    checked.push({target: id, ...result});
   }
+  return checked;
+}
+
+async function prepareScreen(page, uri, scenario, phase = async () => {}) {
+  await phase(scenario.label + ': load');
+  await page.setViewportSize({width: scenario.width, height: 900});
+  await page.emulateMedia({media: 'screen', colorScheme: scenario.color});
+  await page.goto(uri);
+  await phase(scenario.label + ': fonts');
+  await page.evaluate(() => document.fonts.ready);
+  if (scenario.enlarged) {
+    const size = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+    await page.addStyleTag({content: `html {font-size:${size * 2}px !important;letter-spacing:.12em !important;word-spacing:.16em !important} * {line-height:1.5 !important} p {margin-block-end:2em !important}`});
+  }
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+}
+
+export async function checkScreenTargets(page, uri, scenario, targets) {
+  const checked = [];
+  // Qualify external fragment entry independently of the keyboard-panning
+  // session's focus, scroll position and pending native scroll restoration.
+  for (const id of targets) {
+    const entry = await page.context().newPage();
+    try {
+      await prepareScreen(entry, uri, scenario);
+      checked.push(...await checkTargets(entry, [id]));
+    } finally { await entry.close(); }
+  }
+  return checked;
 }
 
 export async function qualifyCandidate(request, {engine = chromium} = {}) {
@@ -188,6 +227,7 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
   });
   const page = await context.newPage();
   const errors = [];
+  context.on('page', candidate => candidate.on('pageerror', error => errors.push(error.message)));
   page.on('pageerror', error => errors.push(error.message));
   try {
     await phase('open candidate');
@@ -203,16 +243,7 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
       {label: 'mobile-dark', width: 320, color: 'dark'},
       {label: 'mobile-enlarged', width: 320, color: 'light', enlarged: true},
     ]) await attempt(scenario.label, async () => {
-      await phase(scenario.label + ': load');
-      await page.setViewportSize({width: scenario.width, height: 900});
-      await page.emulateMedia({media: 'screen', colorScheme: scenario.color});
-      await page.goto(uri);
-      await phase(scenario.label + ': fonts');
-      await page.evaluate(() => document.fonts.ready);
-      if (scenario.enlarged) {
-        const size = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
-        await page.addStyleTag({content: `html {font-size:${size * 2}px !important;letter-spacing:.12em !important;word-spacing:.16em !important} * {line-height:1.5 !important} p {margin-block-end:2em !important}`});
-      }
+      await prepareScreen(page, uri, scenario, phase);
       await phase(scenario.label + ': reflow');
       const result = await inspectScreen(page);
       report.screens[scenario.label] = result;
@@ -220,7 +251,7 @@ export async function qualifyCandidate(request, {engine = chromium} = {}) {
       await phase(scenario.label + ': keyboard');
       result.keyboard_checked = await checkKeyboard(page, result.samples);
       await phase(scenario.label + ': fragments');
-      await checkTargets(page, structure.targets);
+      result.fragments_checked = await checkScreenTargets(page, uri, scenario, structure.targets);
       if (scenario.label === 'mobile') {
         await phase(scenario.label + ': accessibility');
         result.accessibility_review = reviewSummary(await assertCandidateAccessible(page));
