@@ -21,7 +21,8 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12.12'
-      - run: python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: -r requirements-ci.txt
+      - run: |
+          python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: -r requirements-ci.txt
       - uses: pandoc/actions/setup@86321b6dd4675f5014c611e05088e10d4939e09e # v1
         with:
           version: 3.12.1
