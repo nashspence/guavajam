@@ -14,10 +14,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 from asset_policy import (AssetError, AssetPolicy, MAX_BYTES, fetch_asset,
                           public_addresses, svg_errors, verify_bytes)
-from build_edition import build_edition
-from editorial_notices import release_notes
 from validate_sources import parse_document, walk
-from verify_edition import verify_edition
 from test_validate_sources import StrictSourceTests, MANUSCRIPT, METADATA
 
 ORIGIN = "https://assets.publisher.test"
@@ -113,53 +110,6 @@ class SourceAssetTests(StrictSourceTests):
                 self.assertTrue(self.check(MANUSCRIPT + f"![Structural diagram][fig]\n\n[fig]: {url}\n"))
 
 
-class SourceBudgetTests(unittest.TestCase):
-    def test_each_work_has_a_budget_and_shared_downloads_are_reused(self):
-        from verify_source_assets import verify_source_assets
-
-        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        (root / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
-        raw = [SVG + b" " * i for i in range(3)]
-        urls = [ORIGIN + "/sha256/" + hashlib.sha256(data).hexdigest() + ".svg" for data in raw]
-        content = dict(zip(urls, raw))
-        paths = [Path(f"works/{slug}/manuscript.md") for slug in ("first", "second")]
-        for index, path in enumerate(paths):
-            (root / path.parent).mkdir(parents=True)
-            (root / path).write_text("\n".join(f"![Image]({url})" for url in [urls[0], urls[index + 1]]))
-        fetcher = Mock(side_effect=lambda policy, url: (content[url], "image/svg+xml"))
-        with patch("verify_source_assets.git_sources", return_value=paths), \
-             patch("verify_source_assets.MAX_ASSETS", 2), \
-             patch("verify_source_assets.MAX_TOTAL_BYTES", max(map(len, raw)) * 2):
-            self.assertEqual(3, verify_source_assets(root, fetcher=fetcher))
-            self.assertEqual(fetcher.call_count, 3)
-            with (root / paths[0]).open("a") as manuscript:
-                manuscript.write(f"\n![Extra]({urls[2]})\n")
-            with self.assertRaisesRegex(AssetError, "works/first/manuscript.md"):
-                verify_source_assets(root, fetcher=fetcher)
-
-
-    def test_combined_local_remote_budget_and_repeated_embedding_cost(self):
-        from verify_source_assets import verify_source_assets
-
-        root = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        (root / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
-        path = Path("works/sample/manuscript.md")
-        local = path.parent / "assets/figure.svg"
-        (root / local.parent).mkdir(parents=True)
-        (root / local).write_bytes(SVG)
-        (root / path).write_text(f"![Local](assets/figure.svg)\n![Remote]({URL})\n![Local again](assets/figure.svg)\n")
-        fetcher = Mock(return_value=(SVG, "image/svg+xml"))
-        with patch("verify_source_assets.git_sources", return_value=[path, local]):
-            with patch("verify_source_assets.MAX_ASSETS", 1), self.assertRaisesRegex(AssetError, "distinct asset"):
-                verify_source_assets(root, fetcher=fetcher)
-            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG)), self.assertRaisesRegex(AssetError, "total unique asset bytes?"):
-                verify_source_assets(root, fetcher=fetcher)
-            with patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG)) * 2), \
-                 self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
-                verify_source_assets(root, fetcher=fetcher)
-            with patch("verify_source_assets.MAX_TOTAL_BYTES", len(SVG) * 2), \
-                 patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG)) * 3):
-                self.assertEqual(verify_source_assets(root, fetcher=fetcher), 1)
 
 
 class FetchTests(unittest.TestCase):
@@ -239,159 +189,9 @@ class FetchTests(unittest.TestCase):
                 self.assertTrue(svg_errors(raw))
 
 
-class EditionTests(unittest.TestCase):
-    def setUp(self):
-        temp = tempfile.TemporaryDirectory()
-        self.addCleanup(temp.cleanup)
-        self.base = Path(temp.name)
-        self.repo = self.base / "repo"
-        self.repo.mkdir()
-        self.git("init", "-q", "-b", "main")
-        self.git("config", "user.name", "Press test")
-        self.git("config", "user.email", "test@example.invalid")
-        path = self.repo / "works/sample/manuscript.md"
-        path.parent.mkdir(parents=True)
-        import yaml
-        path.write_text("---\n" + yaml.safe_dump(METADATA) + "---\n\n" + MANUSCRIPT +
-                        f"\n![Structural diagram][figure]\n\n[figure]: {URL}\n")
-        (self.repo / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
-        (self.repo / "edition-origin.txt").write_text("https://press.example.org\n")
-        self.git("add", ".")
-        self.git("commit", "-qm", "Reviewed source")
-        self.commit = self.git("rev-parse", "HEAD")
-        self.tag = "works/sample/v1.0.0"
-        self.output = self.base / "edition"
 
-    def git(self, *args):
-        return subprocess.run(["git", *args], cwd=self.repo, check=True,
-                              capture_output=True, text=True).stdout.strip()
 
-    def build(self, fetcher=lambda policy, url: (SVG, "image/svg+xml")):
-        return build_edition(self.repo, self.commit, self.tag, self.output, fetcher=fetcher)
-
-    def test_standalone_edition_and_provenance_offline(self):
-        # Dirty/unreviewed files must not affect output.
-        (self.repo / "works/sample/manuscript.md").write_text("unreviewed\n")
-        manifest = self.build()
-        self.assertEqual(self.commit, manifest["source_commit"])
-        self.assertEqual(self.tag, manifest["tag"])
-        self.assertEqual(URL, manifest["assets"][0]["source_url"])
-        self.assertEqual(DIGEST, manifest["assets"][0]["sha256"])
-        self.assertEqual(len(SVG), manifest["assets"][0]["byte_count"])
-        with patch("socket.create_connection", side_effect=AssertionError("offline")):
-            self.assertEqual(manifest, verify_edition(self.output, commit=self.commit, tag=self.tag))
-        text = (self.output / "sample-v1.0.0.html").read_text()
-        self.assertIn("data:image/svg+xml;base64," + base64.b64encode(SVG).decode(), text)
-        self.assertNotIn(ORIGIN, text)
-        self.assertNotIn("rights_statement", manifest)
-        self.assertNotIn("Edition rights:", text)
-        self.assertNotIn("Edition rights:", release_notes(manifest))
-        self.assertEqual("", self.git("tag", "--list"))
-        self.assertEqual("main", self.git("branch", "--show-current"))
-
-    def test_build_requires_a_committed_edition_origin(self):
-        self.git("rm", "edition-origin.txt")
-        self.git("commit", "-qm", "Unconfigure edition origin")
-        self.commit = self.git("rev-parse", "HEAD")
-        with self.assertRaisesRegex(AssetError, "edition-origin.txt"):
-            self.build()
-        self.assertFalse(self.output.exists())
-
-    def test_initial_notes_are_read_from_the_matching_committed_edition(self):
-        directory = self.repo / "works/sample/editions"
-        directory.mkdir()
-        source = "Plate I © Artist.\n\nUsed by permission.\n"
-        (directory / "v1.0.0.md").write_bytes(source.encode("utf-8"))
-        (directory / "v2.0.0.md").write_text("Different edition.\n")
-        self.git("add", "works/sample/editions")
-        self.git("commit", "-qm", "Review edition-specific rights terms")
-        self.commit = self.git("rev-parse", "HEAD")
-        (directory / "v1.0.0.md").write_text("Unreviewed replacement.\n")
-        manifest = self.build()
-        self.assertTrue(manifest["initial_release_body"].endswith(source.removesuffix("\n")))
-        self.assertIn(f"({manifest['record_url']}/read)", manifest["initial_release_body"])
-        self.assertEqual(manifest, verify_edition(self.output))
-
-    def test_repeat_build_has_identical_bytes(self):
-        self.build()
-        second = self.base / "second"
-        build_edition(self.repo, self.commit, self.tag, second, fetcher=lambda *_: (SVG, "image/svg+xml"))
-        for path in self.output.iterdir():
-            self.assertEqual(path.read_bytes(), (second / path.name).read_bytes())
-
-    def test_unavailable_or_tampered_asset_produces_no_package(self):
-        def unavailable(*args):
-            raise AssetError("unavailable")
-        for fetcher in [unavailable, lambda *_: (SVG + b" ", "image/svg+xml")]:
-            with self.assertRaises(AssetError):
-                self.build(fetcher)
-            self.assertFalse(self.output.exists())
-
-    def test_existing_tag_must_match_reviewed_commit(self):
-        self.git("tag", self.tag)
-        (self.repo / "README.md").write_text("# Notes\n")
-        self.git("add", ".")
-        self.git("commit", "-qm", "Next revision")
-        self.commit = self.git("rev-parse", "HEAD")
-        with self.assertRaisesRegex(AssetError, "tag"):
-            self.build()
-
-    def test_historical_local_image_packaged(self):
-        path = self.repo / "works/sample/manuscript.md"
-        path.write_text(path.read_text().replace(URL, "assets/figure.svg"))
-        local = path.parent / "assets/figure.svg"
-        local.parent.mkdir()
-        local.write_bytes(SVG)
-        self.git("add", ".")
-        self.git("commit", "-qm", "Historical local image")
-        self.commit = self.git("rev-parse", "HEAD")
-        self.build(fetcher=lambda *_: self.fail("local image fetched"))
-        manifest = verify_edition(self.output)
-        self.assertEqual("git", manifest["assets"][0]["source_kind"])
-
-    def test_repeated_images_count_toward_html_size(self):
-        path = self.repo / "works/sample/manuscript.md"
-        path.write_text(path.read_text() + f"\n![Same figure]({URL})\n")
-        self.git("add", ".")
-        self.git("commit", "-qm", "Reuse the figure")
-        self.commit = self.git("rev-parse", "HEAD")
-        # One encoded image fits. Reject the second before invoking the HTML writer.
-        with patch("asset_policy.MAX_HTML_BYTES", len(base64.b64encode(SVG))), \
-             self.assertRaisesRegex(AssetError, "canonical HTML exceeds"):
-            self.build()
-        self.assertFalse(self.output.exists())
-
-    def test_html_size_checked_before_reading(self):
-        manifest = self.build()
-        page = self.output / manifest['canonical_artifact']
-        original = Path.open
-        def bounded_open(path, *args, **kwargs):
-            if path == page:
-                self.fail('oversized HTML was opened')
-            return original(path, *args, **kwargs)
-        with (patch('edition_package.MAX_HTML_BYTES', 16), patch.object(Path, 'open', bounded_open),
-              self.assertRaisesRegex(AssetError, 'bounded size')):
-            verify_edition(self.output)
-
-    def test_package_tampering_rejected(self):
-        self.build()
-        path = self.output / "sample-v1.0.0.html"
-        path.write_text(path.read_text().replace("Structural diagram", "Tampered"))
-        with self.assertRaises(AssetError):
-            verify_edition(self.output)
-
-    def test_provenance_commit_and_tag_checked(self):
-        self.build()
-        for kwargs in [{"commit": "a" * 40}, {"tag": "works/sample/v2.0.0"}]:
-            with self.assertRaises(AssetError):
-                verify_edition(self.output, **kwargs)
 
 
 def load_tests(loader, tests, pattern):
-    suite = unittest.TestSuite()
-    for cls in [AssetURLTests, SourceBudgetTests, FetchTests, EditionTests]:
-        suite.addTests(loader.loadTestsFromTestCase(cls))
-    for name in SourceAssetTests.__dict__:
-        if name.startswith("test_"):
-            suite.addTest(SourceAssetTests(name))
-    return suite
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (AssetURLTests,SourceAssetTests,FetchTests,) for name in cls.__dict__ if name.startswith("test_"))

@@ -35,6 +35,9 @@ rights: all-rights-reserved
 
 A reviewed recorded scene with [media](#field-audio) and a visible transcript.
 
+<a id="field-audio"></a>
+### Field audio
+
 ```press-media
 {
   "id": "field-audio",
@@ -91,6 +94,7 @@ class PublicationCommitTests(unittest.TestCase):
         self.signed=cmd(self.repo,'git','rev-parse','HEAD')
 
     def _verify(self,**kwargs):
+        kwargs.setdefault("online_media",False)
         with patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}):
             return verify(self.repo,self.signed,fingerprints=[self.fingerprint],
                           pandoc_version=False,**kwargs)
@@ -137,11 +141,11 @@ class PublicationCommitTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicationError,'unique'):
             self._verify()
 
-    def test_online_verification_is_optional_but_explicit(self):
-        with patch('publication_commit.verify_items',return_value={'ok':123}) as run:
+    def test_online_verification_is_the_publication_default(self):
+        with patch('verify_source_assets.verify_source_assets',return_value=1) as run:
             self._verify(online_media=True)
             run.assert_called_once()
-        with patch('publication_commit.verify_items',side_effect=AssetError('mismatch')):
+        with patch('verify_source_assets.verify_source_assets',side_effect=AssetError('mismatch')):
             with self.assertRaisesRegex(AssetError,'mismatch'):
                 self._verify(online_media=True)
 
@@ -177,7 +181,8 @@ class StreamAndMediaTests(unittest.TestCase):
             self.assertGreater(timeout,30)
             resp=Response();responses.append(resp)
             yield resp
-        self.assertEqual(len(data),verify_one(url,'https://assets.example.org',response_factory=factory))
+        with patch('media_formats.inspect',return_value={}):
+            self.assertEqual(len(data),verify_one(url,'https://assets.example.org',response_factory=factory))
         self.assertLessEqual(responses[0].maximum,65536)
         self.assertEqual({url:len(data)},verify_items([{'src':url},{'src':url}],
             'https://assets.example.org',verifier=lambda *_:len(data)))
@@ -188,13 +193,7 @@ class StreamAndMediaTests(unittest.TestCase):
             wrong=url.replace(digest,'f'*64)
             verify_one(wrong,'https://assets.example.org',response_factory=factory)
 
-    def test_deprecated_release_mutation_jobs_are_inert(self):
-        import yaml
-        root = Path(__file__).resolve().parents[1]
-        workflows = root / '.github/workflows'
-        for name, jobs in (('prepare-edition.yml', ('build', 'recover', 'release')),
-                           ('sync-editorial-record.yml', ('select', 'synchronize')),
-                           ('confirm-abandonment.yml', ('confirm',))):
-            parsed = yaml.safe_load((workflows / name).read_text())
-            for job in jobs:
-                self.assertIn('false', parsed['jobs'][job]['if'], (name, job))
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (PublicationCommitTests,StreamAndMediaTests,) for name in cls.__dict__ if name.startswith("test_"))

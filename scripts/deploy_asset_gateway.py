@@ -53,52 +53,36 @@ def upload_worker(source, account, name, token, bindings):
 
 
 def deploy(root, *, apply=False):
-    policy = load_policy(root)
-    if policy is None:
-        raise AssetError("approved asset origin required")
-    values = {}
-    required = ['CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','CLOUDFLARE_ZONE_ID']
-    if not os.environ.get('ASSET_TARGET'):
-        required.append('B2_PUBLIC_BASE')
-    for name in required:
-        if not os.environ.get(name):
-            raise AssetError("missing operator variable: " + name)
-        values[name] = os.environ[name]
-    parsed = urlsplit(values.get('B2_PUBLIC_BASE',''))
-    if os.environ.get('ASSET_TARGET'):
-        from deploy_record_gateway import target_base
-        values['B2_PUBLIC_BASE'] = target_base(os.environ['ASSET_TARGET'])
-    elif (parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".backblazeb2.com")
-            or parsed.netloc != parsed.hostname or parsed.query or parsed.fragment
-            or not re.fullmatch(r"/file/[A-Za-z0-9][A-Za-z0-9.-]*", parsed.path)):
-        raise AssetError("B2_PUBLIC_BASE must be a public B2 HTTPS download origin plus /file/<bucket>")
-    if not all(re.fullmatch(r"[a-f0-9]{32}", values[name])
-               for name in ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ZONE_ID"]):
-        raise AssetError("invalid Cloudflare deployment identifiers")
-    hostname = urlsplit(policy.origin).hostname
+    from cloudflare import cloudflare_values
+    from asset_storage import credentials,B2
+    policy=load_policy(root)
+    if policy is None:raise AssetError('approved asset origin required')
+    hostname=urlsplit(policy.origin).hostname
+    worker=os.environ.get('ASSET_WORKER') or 'press-assets'
+    if not re.fullmatch('[a-z0-9][a-z0-9-]{1,61}',worker):raise AssetError('invalid Worker name')
     if not apply:
-        print("Plan: upload storage/worker.js as press-assets and attach " + hostname)
-        print("Bindings: ASSET_HOST (approved hostname), B2_PUBLIC_BASE (operator configuration)")
+        print('Plan: deploy exact-version authenticated S3 reads at '+policy.origin)
+        print('Private digest-version sidecars share the configured B2 bucket; no API writes or credential reads')
         return
-    account, token = values["CLOUDFLARE_ACCOUNT_ID"], values["CLOUDFLARE_API_TOKEN"]
-    domains = cf_request(account, "domains", token)
-    if any(domain["hostname"] == hostname and domain["service"] != "press-assets" for domain in domains):
-        raise AssetError("approved hostname is already attached to another Worker")
-    settings = cf_request(account, "scripts/press-assets/settings", token, missing_ok=True)
+    account,token=cloudflare_values()
+    store=B2(credentials(root),operation='pin')
+    domains=cf_request(account,'domains',token)
+    existing=next((d for d in domains if d['hostname']==hostname),None)
+    if existing and existing['service']!=worker:raise AssetError('approved hostname belongs to another Worker')
+    zone=existing['zone_id'] if existing else os.environ.get('CLOUDFLARE_ZONE_ID')
+    if not zone or not re.fullmatch('[a-f0-9]{32}',zone):raise AssetError('new Custom Domain requires CLOUDFLARE_ZONE_ID')
+    settings=cf_request(account,'scripts/'+worker+'/settings',token,missing_ok=True)
     if settings is not None:
-        bindings = {item["name"]: item for item in settings.get("bindings", [])}
-        if bindings.get("ASSET_HOST", {}).get("text") != hostname:
-            raise AssetError("existing press-assets Worker belongs to a different hostname")
-    bindings = [
-        {"name": "ASSET_HOST", "type": "plain_text", "text": hostname},
-        {"name": "B2_PUBLIC_BASE", "type": "plain_text", "text": values["B2_PUBLIC_BASE"]},
-    ]
-    upload_worker(root / "storage/worker.js", account, "press-assets", token, bindings)
-    cf_request(account, "domains", token, method="PUT", body=json.dumps({
-        "hostname": hostname, "service": "press-assets", "environment": "production",
-        "zone_id": values["CLOUDFLARE_ZONE_ID"],
-    }).encode())
-    print("Asset gateway deployed: " + policy.origin)
+        previous={item['name']:item for item in settings.get('bindings',[])}
+        if previous.get('ASSET_HOST',{}).get('text')!=hostname:raise AssetError('existing Worker belongs to a different approved host')
+    bindings=[{'name':'ASSET_HOST','type':'plain_text','text':hostname},
+              {'name':'B2_S3_ENDPOINT','type':'plain_text','text':store.s3_endpoint},
+              {'name':'B2_BUCKET_NAME','type':'plain_text','text':store.bucket_name},
+              {'name':'B2_APPLICATION_KEY_ID','type':'secret_text','text':store.key_id},
+              {'name':'B2_APPLICATION_KEY','type':'secret_text','text':store.key}]
+    upload_worker(root/'storage/worker.js',account,worker,token,bindings)
+    cf_request(account,'domains',token,method='PUT',body=json.dumps({'hostname':hostname,'service':worker,'environment':'production','zone_id':zone}).encode())
+    print('Exact-version asset gateway deployed: '+policy.origin)
 
 
 def main():

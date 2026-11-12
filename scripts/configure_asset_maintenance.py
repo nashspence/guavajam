@@ -9,7 +9,7 @@ from pathlib import Path
 
 from asset_policy import AssetError
 from manage_assets import pages, repository
-from publish_edition import api, gh
+from github import api, gh
 
 RULESET_NAME = "Retire branches through asset maintenance"
 

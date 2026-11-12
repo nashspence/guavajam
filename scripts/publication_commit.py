@@ -14,12 +14,12 @@ import re
 import subprocess
 import sys
 
-from press_media import SLUG
-from verify_media_sources import media_items, verify_items
+from trusted_git import verifier_arguments
+from verify_media_sources import media_items
 
 OID = re.compile(r'[0-9a-f]{40}\Z')
-GPG_FPR = re.compile(r'[0-9A-F]{40,64}\Z')
-PUBLICATION = re.compile(r'works/([a-z][a-z0-9]*(?:-[a-z0-9]+)*)/manuscript\.md\Z')
+GPG_FPR = re.compile(r'(?:[0-9A-F]{40}|[0-9A-F]{64})\Z')
+PUBLICATION = re.compile(r'works/([a-z0-9]+(?:-[a-z0-9]+)*)/manuscript\.md\Z')
 IDENT = re.compile(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z')
 
 
@@ -40,6 +40,7 @@ def commit_identity(repo: Path, sha: str):
         raise PublicationError('a full lowercase 40-character SHA-1 commit identity is required')
     if git(repo, 'rev-parse', '--verify', sha + '^{commit}').strip().decode() != sha:
         raise PublicationError('revision is not an exact commit identity')
+    git(repo,'fsck','--strict','--no-reflogs','--no-dangling',sha)
     raw = git(repo, 'cat-file', '-p', sha)
     try:
         header, message = raw.split(b'\n\n', 1)
@@ -48,6 +49,10 @@ def commit_identity(repo: Path, sha: str):
         raise PublicationError('commit has no valid UTF-8 publication message') from exc
     if b'\ngpgsig ' not in b'\n' + header:
         raise PublicationError('publication commit must contain a signature')
+    parents=re.findall(rb'^parent ([0-9a-f]{40})$',header,re.M)
+    tree=re.search(rb'^tree ([0-9a-f]{40})$',header,re.M)
+    if len(parents)!=1 or tree is None or git(repo,'rev-parse',parents[0].decode()+'^{tree}').strip()!=tree[1]:
+        raise PublicationError('publication must be an empty, single-parent commit preserving reviewed content')
     rows = message.strip().splitlines()
     marker = [line for line in rows if line.startswith('Press-Publication:')]
     works = [line for line in rows if line.startswith('Press-Work:')]
@@ -75,14 +80,14 @@ def signature(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None):
         trusted = {f.upper() for f in fingerprints}
         if any(not GPG_FPR.fullmatch(f) for f in trusted):
             raise PublicationError('trusted GPG fingerprints must be full uppercase hex')
-        args = ['git', '--no-replace-objects', '-c', 'gpg.format=openpgp', 'verify-commit', '--raw', sha]
+        args = ['git','--no-replace-objects',*verifier_arguments(repo,'openpgp'),'verify-commit','--raw',sha]
     else:
         path = Path(allowed_signers).expanduser().resolve(strict=True)
         if path.is_relative_to(repo.resolve()):
             raise PublicationError('SSH allowed-signers authority cannot come from the publication repository')
         if not path.is_file() or path.stat().st_size > 65536:
             raise PublicationError('invalid external SSH allowed-signers file')
-        args = ['git', '--no-replace-objects', '-c', 'gpg.format=ssh',
+        args = ['git','--no-replace-objects',*verifier_arguments(repo,'ssh'),
                 '-c', 'gpg.ssh.allowedSignersFile=' + str(path), 'verify-commit', sha]
     p = subprocess.run(args, cwd=repo, capture_output=True, check=False)
     if p.returncode:
@@ -96,33 +101,14 @@ def signature(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None):
 
 
 def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
-           online_media=False, validate_tree=True, pandoc_version=True):
+           online_media=True, validate_tree=True, pandoc_version=True, require_retention=False):
     repo = Path(repo).resolve()
     work, source = commit_identity(repo, sha)
     signer = signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
     # Validate the committed object graph, not the mutable checkout or HEAD.
-    from tempfile import TemporaryDirectory
-    import tarfile
-    import io
+    from source_snapshot import snapshot
     from validate_sources import validate_repository
-    with TemporaryDirectory(prefix='press-commit-') as directory:
-        root = Path(directory)
-        tar = git(repo, 'archive', '--format=tar', sha)
-        if len(tar) > 256 * 1024 * 1024:
-            raise PublicationError('source Git snapshot exceeds archival validation limit')
-        files = []
-        with tarfile.open(fileobj=io.BytesIO(tar)) as archive:
-            for member in archive.getmembers():
-                target = Path(member.name)
-                if (target.is_absolute() or '..' in target.parts or not member.isfile()
-                        or member.size > 20 * 1024 * 1024):
-                    if member.isdir():
-                        continue
-                    raise PublicationError('unsafe or oversized object in published Git tree')
-                files.append(target)
-                destination = root / target
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(archive.extractfile(member).read())
+    with snapshot(repo,sha) as (root,files):
         if work not in {str(file) for file in files}:
             raise PublicationError('committed publication manuscript is missing')
         if validate_tree:
@@ -132,16 +118,24 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
         from asset_policy import load_policy
         policy = load_policy(root)
         items = media_items(root, Path(work))
-        if online_media and items:
-            if policy is None:
-                raise PublicationError('online media requires an asset policy')
-            verify_items(items, policy.origin)
+        if online_media:
+            from verify_source_assets import verify_source_assets
+            verify_source_assets(root, paths=[f for f in files if f.is_relative_to(Path(work).parent)], require_retention=require_retention)
+        from supporting_gfm import record_path,load_gfm_record
+        documents={}
+        for relative in files:
+            if relative.parent==Path(work).parent/'supporting' and record_path(relative):
+                _,positions,*_=load_gfm_record(root/relative,root=root);documents[str(relative)]=sorted(positions)
         if (root / work).read_text(encoding='utf-8') != source:
             raise PublicationError('Git snapshot did not reproduce publication source')
-    anchors = set(re.findall(r'^<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>$', source, re.M))
-    anchors.update(item['id'] for item in items)
+    from validate_sources import validate_front_matter, inspect_manuscript_syntax
+    _, body, line, _ = validate_front_matter(Path(work),source)
+    info, _ = inspect_manuscript_syntax(Path(work),body,line)
+    anchors = info['anchors'];documents[work]=sorted(anchors)
     return {
         'anchors': sorted(anchors),
+        'documents': documents,
+        'assets_verified': online_media,
         'media_verified': (not items or online_media),
         'schema': 'press.citation.v1',
         'hash_algorithm': 'sha1',
@@ -153,12 +147,14 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
     }
 
 
-def citation(record, anchor=None):
-    if anchor is not None and (not IDENT.fullmatch(anchor) or anchor not in record.get('anchors', [])):
-        raise PublicationError('citation fragment must identify an existing stable source anchor')
-    result = {key: record[key] for key in ('schema', 'hash_algorithm', 'revision', 'manuscript')}
-    if anchor:
-        result['anchor'] = anchor
+def citation(record, anchor=None, document=None):
+    document=document or record['manuscript']
+    if document not in record.get('documents',{record['manuscript']:record.get('anchors',[])}):raise PublicationError('citation document must be a reviewed source within the published work')
+    anchors=record.get('documents',{}).get(document,record.get('anchors',[]))
+    if anchor is not None and (not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*',anchor) or anchor not in anchors):raise PublicationError('citation fragment must identify an existing stable source anchor')
+    result={key:record[key] for key in ('schema','hash_algorithm','revision','manuscript')}
+    if document!=record['manuscript']:result['document']=document
+    if anchor:result['anchor']=anchor
     return result
 
 
@@ -169,14 +165,15 @@ def main(argv=None):
     trust = parser.add_mutually_exclusive_group(required=True)
     trust.add_argument('--trusted-gpg-fingerprint', action='append', dest='fingerprints')
     trust.add_argument('--ssh-allowed-signers')
-    parser.add_argument('--online-media', action='store_true')
+    parser.add_argument('--offline', action='store_true', help='inspect signature and source only; cannot qualify publication assets')
     parser.add_argument('--anchor')
+    parser.add_argument('--document',help='full reviewed supporting-document path in the published work')
     args = parser.parse_args(argv)
     try:
         result = verify(Path(args.repo), args.revision,
                         fingerprints=args.fingerprints or (), allowed_signers=args.ssh_allowed_signers,
-                        online_media=args.online_media)
-        result['citation'] = citation(result, args.anchor)
+                        online_media=not args.offline)
+        result['citation'] = citation(result,args.anchor,args.document)
         print(json.dumps(result, indent=2, ensure_ascii=False, sort_keys=True))
     except (PublicationError, ValueError, OSError, subprocess.SubprocessError) as exc:
         print('Publication verification failed: ' + str(exc), file=sys.stderr)

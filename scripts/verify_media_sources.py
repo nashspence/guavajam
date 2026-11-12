@@ -7,6 +7,7 @@ existing HTTPS verifier. A recording is validated at issuance, not per play.
 """
 from __future__ import annotations
 import hashlib
+import io
 from pathlib import Path
 
 from asset_policy import AssetError, load_policy, public_response, response_chunks
@@ -58,9 +59,10 @@ def references(items):
                 yield item[name]
 
 
-def verify_one(url, origin, *, response_factory=public_response):
+def verify_one(url, origin, *, response_factory=public_response, sound=None):
     digest, extension = asset(url, origin, set(MIME))
     ceiling = MAX_MEDIA_BYTES if extension in {'mp3', 'mp4'} else MAX_SMALL_BYTES
+    small=io.BytesIO() if extension not in {'mp3','mp4'} else None
     with response_factory(url, MIME[extension], timeout=1800) as response:
         if response.status != 200:
             raise AssetError('media full-object verification requires HTTP 200')
@@ -72,16 +74,28 @@ def verify_one(url, origin, *, response_factory=public_response):
         for chunk in response_chunks(response, ceiling):
             count += len(chunk)
             hasher.update(chunk)
+            if small is not None:small.write(chunk)
         if count == 0 or hasher.hexdigest() != digest:
             raise AssetError('media full-object SHA-256 does not match committed reference')
+        from media_formats import inspect
+        if small is not None:inspect(small,extension)
+        else:
+            from media_ranges import VerifiedRangeFile
+            with VerifiedRangeFile(url,MIME[extension],count,response.getheader('X-Press-Asset-Version'),response_factory) as probe:
+                inspect(probe,extension,sound=sound)
         return count
 
 
 def verify_items(items, origin, *, verifier=verify_one):
-    sizes, total = {}, 0
+    sizes, total, profiles = {}, 0, {}
+    for item in items:
+        if item.get('kind')=='video':
+            profile=item.get('sound','present')
+            if item['src'] in profiles and profiles[item['src']]!=profile:raise AssetError('the same recording has conflicting sound declarations')
+            profiles[item['src']]=profile
     for url in references(items):
         if url not in sizes:
-            size = verifier(url, origin)
+            size = verifier(url, origin, sound=profiles[url]) if url in profiles else verifier(url, origin)
             if type(size) is not int or size <= 0:
                 raise AssetError('media verifier failed to establish object size')
             total += size

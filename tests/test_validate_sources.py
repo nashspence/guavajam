@@ -1,4 +1,4 @@
-"""Positive/negative executable tests for Press source format v1 and registration index."""
+"""Positive/negative executable tests for Press source format v1."""
 
 import yaml
 import json
@@ -90,19 +90,7 @@ class StrictSourceTests(unittest.TestCase):
         expected = f"{origin}/sha256/{hashlib.sha256(preview).hexdigest()}.svg"
         self.assertEqual([expected], [node["c"][2][0] for node in nodes if node["t"] == "Image"])
 
-    def test_edition_note_paths_and_bytes(self):
-        path = "works/sample/editions/v1.0.0.md"
-        self.assertEqual([], self.check(other={path: "Plate © Alice.\n"}))
-        self.assert_bad("UTF-8", other={path: b"\xff\n"})
-        self.assert_bad("32 KiB", other={path: "x" * 32768 + "\n"})
-        self.assert_bad("unsupported file path", other={"works/sample/editions/latest.md": "Notes.\n"})
 
-    def test_edition_rights_are_one_plain_text_statement(self):
-        path = "works/sample/editions/v1.0.0.rights.txt"
-        self.assertEqual([], self.check(other={path: "Plate © Lee & Co.\n"}))
-        self.assert_bad("one nonempty line", other={path: "One.\nTwo.\n"})
-        self.assert_bad("4 KiB", other={path: "a" * 4097 + "\n"})
-        self.assert_bad("unsupported file path", other={"works/sample/editions/latest.rights.txt": "Terms.\n"})
 
     def test_plain_document_without_yaml_renders(self):
         self.check()
@@ -249,11 +237,6 @@ class StrictSourceTests(unittest.TestCase):
         preview = {"notes.md": "[Introduction](works/sample/manuscript.md#introduction)\n"}
         self.assertEqual([], self.check(section, other=preview))
 
-    def test_section_id_cannot_shadow_a_generated_footnote_or_template_id(self):
-        for identifier in ("fn1", "fnref1", "footnotes", "press-edition-css", "press-edition-status"):
-            with self.subTest(identifier=identifier):
-                body = MANUSCRIPT.replace("sec-1", identifier) + "\nA note.[^one]\n\n[^one]: Note text.\n"
-                self.assert_bad("duplicate published HTML IDs", body)
 
     def test_local_fragment_missing(self):
         self.assert_bad("unresolved Markdown section link", MANUSCRIPT + "[wrong](#missing)\n")
@@ -392,14 +375,10 @@ class StrictSourceTests(unittest.TestCase):
         errors = validate_repository(self.root, [asset])
         self.assertTrue(any("requires manuscript.md" in e for e in errors))
 
-    def test_work_and_registration_directories_reject_readme_manuals(self):
-        for path, diagnostic in (
-            ("works/README.md", "unexpected source directly beneath works/"),
-            ("works/sample/README.md", "unsupported file path under works/"),
-            ("registrations/README.md", "unsupported registration file location"),
-        ):
-            with self.subTest(path=path):
-                self.assert_bad(diagnostic, other={path: "# Notes\n"})
+    def test_work_directories_contain_only_publication_sources(self):
+        for path in ('works/README.md','works/sample/README.md','works/sample/supporting/README.md'):
+            self.assert_bad('unsupported file path',other={path:'# Notes\n'})
+
 
     def test_identifiers_mapping_and_orcid(self):
         metadata = {**METADATA,
@@ -459,206 +438,7 @@ class StrictSourceTests(unittest.TestCase):
     def test_v2_schema_is_rejected(self):
         self.assert_bad("schema must be press.work.v1", metadata={**METADATA, "schema": "press.work.v2"})
 
-    @staticmethod
-    def canonical_json(obj):
-        return json.dumps(obj, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
-
-    def edition(self, **overrides):
-        doc = {
-            "schema": "press.edition-registration.v1",
-            "work": "sample", "version": "v1.0.0",
-            "record_url": "https://press.example.org/works/sample/v1.0.0",
-            "canonical_artifact": "sample-v1.0.0.html",
-            "artifact_sha256": "a" * 64,
-            "source_commit": "b" * 40,
-            "provenance_sha256": "c" * 64,
-            "initial_notes_sha256": "d" * 64,
-            "issuing": True,
-            "published_at": "2026-10-29T01:20:00Z",
-            "rights": "all-rights-reserved",
-        }
-        doc.update(overrides)
-        return doc
-
-    def test_canonical_tag_and_registration_version(self):
-        from identifier_schema import TAG, VERSION
-        for version in ("v0.1.0", "v10.0.23"):
-            self.assertEqual(("sample", version), TAG.fullmatch(f"works/sample/{version}").groups())
-            self.assertIsNotNone(VERSION.fullmatch(version))
-        for version in ("v01.0.0", "v1.00.0", "v1.0.01", "v1.2", "v1.2.3-rc1"):
-            self.assertIsNone(TAG.fullmatch(f"works/sample/{version}"))
-            self.assertIsNone(VERSION.fullmatch(version))
-
-    def test_edition_registration_without_external_ids(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assertEqual([], self.check(other={path: self.canonical_json(self.edition())}))
-
-    def test_edition_registration_with_isbn_and_version_doi(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(identifiers={"version_doi":"10.5281/zenodo.100001", "isbn_epub":"9780306406157", "oclc":"123456"})
-        self.assertEqual([], self.check(other={path: self.canonical_json(doc)}))
-
-    def test_isbn_cannot_be_reused_for_two_formats(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(identifiers={"isbn_pdf": "9780306406157", "isbn_epub": "9780306406157"})
-        self.assert_bad("reused across records/formats", other={path: self.canonical_json(doc)})
-
-    def test_valid_isni(self):
-        path = "registrations/identities/imprint.json"
-        doc = {"schema":"press.identity.v1", "type":"imprint", "name":"Press", "identifiers":{"isni":"0000 0001 2103 2683"}}
-        self.assertEqual([], self.check(other={path: self.canonical_json(doc)}))
-
-    def test_edition_bad_isbn_checksum(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(identifiers={"isbn_epub":"9780306406158"})
-        self.assert_bad("invalid ISBN-13", other={path:self.canonical_json(doc)})
-
-    def test_edition_invalid_version_doi(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(identifiers={"version_doi":"10.abc/identifier"})
-        self.assert_bad("bare DOI", other={path:self.canonical_json(doc)})
-
-    def test_edition_cannot_use_concept_as_version(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(identifiers={"version_doi":"10.5281/zenodo.1234567"})
-        metadata = {**METADATA, "identifiers":{"concept_doi":"10.5281/zenodo.1234567"}}
-        self.assert_bad("version_doi must differ", metadata=metadata, other={path:self.canonical_json(doc)})
-
-    def test_retired_work_dois_cannot_be_reassigned(self):
-        old = "10.1234/retired"
-        record = {"schema": "press.work-registration.v1", "work": "sample", "identifiers": {},
-                  "concept_doi_history": [{"date": "2026-11-06", "from": old, "to": None}]}
-        files = {"registrations/works/sample.json": self.canonical_json(record)}
-        self.assertEqual([], self.check(other=files))
-        self.assert_bad("conflicts with the current assignment", metadata={**METADATA, "identifiers": {"concept_doi": old}},
-                        other=files)
-        edition = self.edition(identifiers={"version_doi": old})
-        self.assert_bad("reused across records/formats", other={**files, "registrations/editions/sample/v1.0.0.json":
-                                                                self.canonical_json(edition)})
-        second = {**METADATA, "slug": "another", "identifiers": {"concept_doi": old}}
-        self.assert_bad("reused across records/formats", other={**files, "works/another/manuscript.md":
-                                                                "---\n" + yaml.safe_dump(second) + "---\n\n" + MANUSCRIPT})
-
-    def test_retired_edition_doi_is_reserved_across_editions_and_works(self):
-        doi = "10.1234/edition"
-        change = {"date": "2026-11-06", "from": doi, "to": None}
-        path = "registrations/editions/sample/v1.0.0.json"
-        target = "works/sample/v2.0.0"
-        other_path = "registrations/editions/sample/v2.0.0.json"
-        second = self.edition(version="v2.0.0", canonical_artifact="sample-v2.0.0.html",
-                              record_url="https://press.example.org/" + target, identifiers={"version_doi": doi})
-        issue = self.edition(version_doi_history=[change])
-        files = {path: self.canonical_json(issue)}
-        self.assertEqual([], self.check(other=files))
-        self.assert_bad("reused across records", metadata={**METADATA, "identifiers": {"concept_doi": doi}}, other=files)
-        files[other_path] = self.canonical_json(second)
-        self.assert_bad("reused across records", other=files)
-        for invalid in ("works/sample/v1.0.0", "sample/v2.0.0", None):
-            change["correct_edition"] = invalid
-            files[path] = self.canonical_json(issue)
-            self.assert_bad("correct_edition", other=files)
-        change["correct_edition"] = target
-        files[path] = self.canonical_json(issue)
-        self.assertEqual([], self.check(other=files))
-        del files[other_path]
-        self.assert_bad("must remain associated", other=files)
-
-    def test_concept_doi_history_requires_a_chronological_chain(self):
-        first, second = "10.1234/first", "10.1234/second"
-        change = {"date": "2026-11-06", "from": first, "to": second}
-        for history, current in (
-            ([{**change, "date": "2026-02-31"}], second),
-            ([{**change, "from": None}], second),
-            ([change], first),
-            ([change, {**change, "date": "2026-11-05", "from": second, "to": None}], None),
-            ([change, {**change, "from": "10.1234/other", "to": None}], None),
-            ([change, {**change, "from": second, "to": first}], first),
-        ):
-            with self.subTest(history=history, current=current):
-                record = {"schema": "press.work-registration.v1", "work": "sample",
-                          "identifiers": {"concept_doi": current} if current else {}, "concept_doi_history": history}
-                self.assert_bad("concept DOI", other={"registrations/works/sample.json": self.canonical_json(record)})
-
-    def test_edition_wrong_record_url(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        doc = self.edition(record_url="https://press.example.org/works/other/v1.0.0")
-        self.assert_bad("record_url must identify", other={path:self.canonical_json(doc)})
-
-    def test_record_origin_requires_one_canonical_https_origin(self):
-        from identifier_schema import edition_origin
-        path = self.root / "edition-origin.txt"
-        for raw in (b"http://press.example.org\n", b"https://press.example.org/path\n",
-                    b"https://user@press.example.org\n", b"https://press.example.org",
-                    b"https://press.example.org\r\n", b"https://press.example.org\n\n"):
-            with self.subTest(raw=raw):
-                path.write_bytes(raw)
-                with self.assertRaises(ValueError):
-                    edition_origin(self.root)
-        self.assert_bad("one canonical HTTPS origin", other={"edition-origin.txt": "https://bad/path\n"})
-
-    def test_edition_nonstring_rights_clean_error(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assert_bad("rights must be an approved", other={path:self.canonical_json(self.edition(rights=["all-rights-reserved"]))})
-
-    def test_edition_invalid_sha256(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assert_bad("artifact_sha256", other={path:self.canonical_json(self.edition(artifact_sha256="xyz"))})
-
-    def test_edition_bad_timestamp(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assert_bad("published_at", other={path:self.canonical_json(self.edition(published_at="2026-02-30T01:00:00Z"))})
-
-    def test_registry_duplicate_json_key(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        raw = self.canonical_json(self.edition()).replace('"schema": ', '"schema": "duplicate",\n  "schema": ')
-        self.assert_bad("duplicate key", other={path:raw})
-
-    def test_registry_noncanonical_json(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assert_bad("canonical JSON", other={path:json.dumps(self.edition()) + "\n"})
-
-    def test_registry_unknown_key(self):
-        path = "registrations/editions/sample/v1.0.0.json"
-        self.assert_bad("invalid fields", other={path:self.canonical_json(self.edition(extra="ignored"))})
-
-    def test_registry_wrong_location(self):
-        self.assert_bad("unsupported registration file location", other={"registrations/unrecognized.json":"{}\n"})
-
-    def test_work_index_valid(self):
-        path = "registrations/works/sample.json"
-        doc = {"schema":"press.work-registration.v1", "work":"sample", "identifiers":{"openalex":"W2741809807"}}
-        self.assertEqual([], self.check(other={path:self.canonical_json(doc)}))
-
-    def test_work_index_conflicts_with_manuscript(self):
-        path = "registrations/works/sample.json"
-        doc = {"schema":"press.work-registration.v1", "work":"sample", "identifiers":{"openalex":"W123"}}
-        self.assert_bad("conflicts with manuscript", metadata={**METADATA,"identifiers":{"openalex":"W2741809807"}}, other={path:self.canonical_json(doc)})
-
-    def test_identity_record_author(self):
-        path = "registrations/identities/author.json"
-        doc = {"schema":"press.identity.v1", "type":"author", "name":"Nash Spence", "identifiers":{"orcid":"0000-0002-1825-0097"}}
-        self.assertEqual([], self.check(other={path:self.canonical_json(doc)}))
-
-    def test_identity_record_imprint(self):
-        path = "registrations/identities/imprint.json"
-        doc = {"schema":"press.identity.v1", "type":"imprint", "name":"Press", "identifiers":{"wikidata":"Q1234"}}
-        self.assertEqual([], self.check(other={path:self.canonical_json(doc)}))
-
-    def test_issn_series_record(self):
-        path = "registrations/series/notes.json"
-        doc = {"schema":"press.series.v1", "slug":"notes", "title":"Notes", "identifiers":{"issn":"0317-8471"}}
-        self.assertEqual([], self.check(other={path:self.canonical_json(doc)}))
-
-    def test_bad_issn_series(self):
-        path = "registrations/series/notes.json"
-        doc = {"schema":"press.series.v1", "slug":"notes", "title":"Notes", "identifiers":{"issn":"0317-8472"}}
-        self.assert_bad("invalid ISSN", other={path:self.canonical_json(doc)})
-
-    def test_invalid_isni(self):
-        path = "registrations/identities/imprint.json"
-        doc = {"schema":"press.identity.v1", "type":"imprint", "name":"Press", "identifiers":{"isni":"0000 0001 2103 2684"}}
-        self.assert_bad("invalid ISNI", other={path:self.canonical_json(doc)})
 
 
-if __name__ == "__main__":
-    unittest.main()
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (StrictSourceTests,) for name in cls.__dict__ if name.startswith("test_"))

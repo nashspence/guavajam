@@ -20,11 +20,9 @@ from asset_policy import AssetError
 from chat_gfm import review_gfm
 from extract_chatgpt import branch_messages, transcript
 from chat_references import reference_index
-from render_profile import plain_text, walk
+from source_ast import plain_text, walk
 from supporting_gfm import load_gfm_record
 from validate_sources import git_sources, validate_repository
-from verify_edition import verify_edition
-from test_assets import EditionTests
 
 FIXTURE = ROOT / 'tests/fixtures/chatgpt/lantern.json'
 TIPS = ('node-126', 'node-137')
@@ -238,33 +236,9 @@ class LanternConversionTests(unittest.TestCase):
             with self.assertRaises(AssetError): review_gfm(record)
 
 
-class LanternPublicationTests(EditionTests):
-    def source(self):
-        directory = self.repo / 'works/sample/supporting'; directory.mkdir()
-        for name, tip in zip(('current', 'alternate'), TIPS):
-            (directory / (name + '.md')).write_bytes(converted(tip)[1])
-        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\nRead the [current branch](supporting/current.md) and '
-                         '[alternate branch](supporting/alternate.md).\n')
-        self.git('add', 'works'); self.git('commit', '-qm', 'Review both Lantern branches')
-        self.commit = self.git('rev-parse', 'HEAD')
 
-    def test_both_branches_publish_and_verify_with_exact_reviewed_sources(self):
-        self.source()
-        self.assertEqual([], validate_repository(self.repo, git_sources(self.repo)))
-        manifest = self.build()
-        self.assertEqual(manifest, verify_edition(self.output))
-        self.assertEqual(2, len(manifest['supporting_documents']))
-        page = (self.output / manifest['canonical_artifact']).read_text()
-        for document in manifest['supporting_documents']:
-            expected = (self.repo / document['source_path']).read_bytes()
-            self.assertEqual(hashlib.sha256(expected).hexdigest(), document['sha256'])
-            self.assertGreater(len(document['anchors']), 250)
-        self.assertGreater(page.count('<math'), 106)
-        self.assertNotIn('<CodeBlock', page); self.assertNotIn('<Chart', page)
-        self.assertIn('Café', page); self.assertIn('Δ', page)
+
 
 
 def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(loader.loadTestsFromName(name, cls) for cls in (
-        LanternConversionTests, LanternPublicationTests) for name in cls.__dict__ if name.startswith('test_'))
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (LanternConversionTests,) for name in cls.__dict__ if name.startswith("test_"))

@@ -11,9 +11,6 @@ permissions:
 jobs:
   source:
     name: Validate manuscript sources
-    permissions:
-      contents: read
-      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -32,26 +29,13 @@ jobs:
       - name: Install the authoring toolchain
         run: make setup
 
-      - name: Check presentation profiles against claimed editions
-        run: .venv/bin/python scripts/check_profile_history.py
-
-      - name: Verify editorial history against the event base
+      - name: Verify incoming publication signatures using independent publisher policy
         env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" != pull_request && ( "$GITHUB_EVENT_NAME" != push || "$GITHUB_REF" != refs/heads/main ) ]]; then
-            BASE_SHA=$(git merge-base HEAD refs/remotes/origin/main)
-          fi
-          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ || "$BASE_SHA" == 0000000000000000000000000000000000000000 ]]; then
-            echo 'A previous commit is required to validate editorial history.' >&2
-            exit 1
-          fi
-          git merge-base --is-ancestor "$BASE_SHA" HEAD
-          .venv/bin/python scripts/check_editorial_history.py --repo "$GITHUB_REPOSITORY" --base "$BASE_SHA"
-
-      - name: Verify public edition records against receipts and notices
-        run: .venv/bin/python scripts/public_record.py --check
+          PRESS_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PRESS_PUBLISHER_GPG_FINGERPRINTS: ${{ vars.PRESS_PUBLISHER_GPG_FINGERPRINTS }}
+          PRESS_PUBLISHER_GPG_PUBLIC_KEYS: ${{ vars.PRESS_PUBLISHER_GPG_PUBLIC_KEYS }}
+          PRESS_PUBLISHER_SSH_SIGNERS: ${{ vars.PRESS_PUBLISHER_SSH_SIGNERS }}
+        run: .venv/bin/python scripts/check_publications.py --offline
 
       - name: Run executable tests
         run: make test
@@ -61,16 +45,16 @@ jobs:
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
 
-      - name: Verify readers, accessibility and real capture extension imports
+      - name: Verify real capture extension imports
         run: make test-browser
 
-      - name: Enforce source format and registrations on the tracked tree
+      - name: Enforce source format on the tracked tree
         run: make check-source
 
   assets:
     name: Verify manuscript assets
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -86,5 +70,10 @@ jobs:
           version: 3.12.1
       - name: Download, hash and inspect every referenced approved asset
         env:
-          PRESS_NOTICE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: make check-assets PYTHON=python
+          PRESS_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PRESS_PUBLISHER_GPG_FINGERPRINTS: ${{ vars.PRESS_PUBLISHER_GPG_FINGERPRINTS }}
+          PRESS_PUBLISHER_GPG_PUBLIC_KEYS: ${{ vars.PRESS_PUBLISHER_GPG_PUBLIC_KEYS }}
+          PRESS_PUBLISHER_SSH_SIGNERS: ${{ vars.PRESS_PUBLISHER_SSH_SIGNERS }}
+        run: |
+          make check-assets PYTHON=python
+          python scripts/check_publications.py

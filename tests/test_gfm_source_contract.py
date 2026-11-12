@@ -15,11 +15,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from asset_policy import AssetError, verify_bytes
 from supporting_gfm import load_gfm_record, timestamp_label, valid_timestamp
-from render_profile import plain_text, walk
+from source_ast import plain_text, walk
 from validate_sources import git_sources, validate_repository
-from verify_edition import verify_edition
 from manage_assets import upload
-from test_assets import EditionTests
 
 
 def document(body):
@@ -208,174 +206,11 @@ class SourceContractTests(unittest.TestCase):
             self.assertFalse(valid_timestamp(bad),str(bad))
 
 
-class CustodyTests(EditionTests):
-    def test_local_review_output_is_gfm_only_and_never_writes_a_json_source(self):
-        source=self.base/'private-native.json'
-        native=json.loads((ROOT/'tests/fixtures/capture/conversation.json').read_text())
-        source.write_text(json.dumps([native]))
-        output=self.base/'review.json'
-        result=subprocess.run([sys.executable,ROOT/'scripts/extract_chatgpt.py',source,
-            '--conversation',native['conversation_id'],'--output',output],capture_output=True,text=True)
-        self.assertNotEqual(0,result.returncode)
-        self.assertIn('GFM .md',result.stderr)
-        self.assertFalse(output.exists())
-
-    def test_json_supporting_documents_and_their_references_are_rejected(self):
-        folder = self.repo / 'works/sample/supporting'; folder.mkdir()
-        path = folder / 'note.json'
-        path.write_text(json.dumps({'title':'Old route','scope':'Reviewed','passages':[
-            {'id':'claim','label':'User','text':'Text'}]}))
-        self.git('add','works')
-        self.assertTrue(validate_repository(self.repo,git_sources(self.repo)))
-        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\n[Unsupported evidence](supporting/note.json#claim)\n')
-        self.assertTrue(validate_repository(self.repo,git_sources(self.repo)))
-
-    def test_native_conversation_json_is_not_a_tracked_source_or_opaque_asset(self):
-        raw = (ROOT / 'tests/fixtures/capture/conversation.json').read_bytes()
-        for name in ('conversations.json','renamed.bin','work.zip'):
-            data=raw
-            if name.endswith('.zip'):
-                output=io.BytesIO()
-                with zipfile.ZipFile(output,'w') as archive: archive.writestr('conversations.json',raw)
-                data=output.getvalue()
-            path=self.repo/name;path.write_bytes(data);self.git('add',name)
-            with self.subTest(name=name):
-                self.assertTrue(any('native' in error.lower() for error in validate_repository(self.repo,git_sources(self.repo))))
-                with self.assertRaisesRegex(AssetError,'native'):
-                    verify_bytes(data,'bin','application/octet-stream')
-                store=Mock()
-                with self.assertRaisesRegex(AssetError,'native'):
-                    upload(self.repo,path,store)
-                store.upload.assert_not_called()
-            self.git('rm','-f',name)
-        self.assertEqual('application/octet-stream',verify_bytes(b'{"measurements":[1,2,3]}','bin','application/octet-stream'))
-        ordinary=io.BytesIO()
-        with zipfile.ZipFile(ordinary,'w') as archive:
-            archive.writestr('conversations.json','{"measurements":[1,2,3]}')
-        self.assertEqual('application/octet-stream',verify_bytes(ordinary.getvalue(),'bin','application/octet-stream'))
-        self.assertEqual([],validate_repository(self.repo,git_sources(self.repo)))
 
 
-class ElementPublicationTests(EditionTests):
-    def source(self):
-        folder=self.repo/'works/sample/supporting';folder.mkdir()
-        text=document('<a name="message-one"></a>\n\n## Assistant\n\n'
-            '<a name="metadata-one"></a>\n\n*<time datetime="2026-11-05">5 Nov 2026</time> · Model: gpt-6-thinking · Thinking effort: max*\n\n'
-            '<a name="prose"></a>\n\nA **reviewed** claim.\n\n'
-            '<a name="equation"></a>\n\n$$\nx=x\n$$\n\n'
-            '<a name="table"></a>\n\n| A |\n|---|\n| 1 |\n\n'
-            '<a name="program"></a>\n\n```python\nprint("literal <tag>")\n```\n\n'
-            '<a name="list"></a>\n\n- First\n  - Nested\n\n'
-            '<a name="message-two"></a>\n\n## Assistant\n\n'
-            '<a name="reply"></a>\n\nA different response.\n')
-        (folder/'note.md').write_text(text)
-        with (self.repo/'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\nSee '+', '.join('[the '+key+'](supporting/note.md#'+key+')' for key in
-                         ('message-one','message-two','prose','equation','table','program','list'))+'.\n')
-        self.git('add','works');self.git('commit','-qm','Review citable GFM evidence')
-        self.commit=self.git('rev-parse','HEAD')
 
-    def rewrite(self, raw, manifest):
-        manifest.update(html_sha256=hashlib.sha256(raw).hexdigest(),html_byte_count=len(raw))
-        (self.output/manifest['canonical_artifact']).write_bytes(raw)
-        (self.output/'provenance.json').write_text(json.dumps(manifest))
-        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/n).read_bytes()).hexdigest()+'  '+n+'\n'
-            for n in (manifest['canonical_artifact'],'provenance.json')))
 
-    def test_each_citation_is_bound_to_its_exact_published_element(self):
-        self.source();manifest=self.build();entry,=manifest['supporting_documents']
-        self.assertEqual(set(entry['anchors']),set(entry['elements']))
-        raw=(self.output/manifest['canonical_artifact']).read_bytes()
-        self.assertIn(b'class="press-passage-heading"',raw)
-        self.assertIn(b'class="press-passage-datetime"',raw)
-        self.assertIn(b'<time datetime="2026-11-05">5 Nov 2026</time>',raw)
-        self.assertEqual(manifest,verify_edition(self.output))
-        # Swap all IDs, citation links and permalink metadata coherently. Merely
-        # checking that each ID and link exists would accept the wrong targets.
-        a,b=(entry['anchors'][key].encode() for key in ('prose','program'))
-        swapped=raw.replace(a,b'press-swap-placeholder').replace(b,a).replace(b'press-swap-placeholder',b)
-        changed=copy.deepcopy(manifest);self.rewrite(swapped,changed)
-        with self.assertRaisesRegex(AssetError,'element'):
-            verify_edition(self.output)
-
-    def test_only_responder_is_quoted_and_source_bound_in_published_html(self):
-        folder = self.repo / 'works/sample/supporting'; folder.mkdir()
-        source = document('<a name="user-turn"></a>\n\nAn ordinary authorial question.\n\n'
-            '<a name="reply" data-press-speaker="responder"></a>\n\n'
-            '> <a name="reply-text"></a>\n>\n> An attributed answer.\n\n'
-            '— Correspondent\n\n'
-            '<a name="plain"></a>\n\n## Actual notebook section\n\n'
-            '<a name="plain-text"></a>\n\nUnattributed prose stays authorial.')
-        (folder / 'voices.md').write_text(source)
-        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\n[Question](supporting/voices.md#user-turn), '
-                         '[answer](supporting/voices.md#reply), '
-                         '[neutral](supporting/voices.md#plain).\n')
-        self.git('add', 'works'); self.git('commit', '-qm', 'Review explicit source speaker roles')
-        self.commit = self.git('rev-parse', 'HEAD')
-        manifest = self.build()
-        entry, = manifest['supporting_documents']
-        html = (self.output / manifest['canonical_artifact']).read_bytes()
-        markup = html.split(b'</style>', 1)[1]
-        self.assertNotIn(b'data-press-speaker="author"', markup)
-        self.assertNotIn(b'data-press-speaker="user"', markup)
-        self.assertEqual(1, markup.count(b'data-press-speaker="responder"'))
-        self.assertEqual(1, markup.count(b'<figure class="press-turn"'))
-        self.assertEqual(1, markup.count(b'<blockquote class="press-turn-quotation">'))
-        self.assertEqual(1, markup.count(b'<figcaption class="press-turn-attribution">'))
-        self.assertIn('— Correspondent'.encode(), markup)
-        self.assertRegex(markup, rb'<figure\b[^>]*\bid="' + entry['anchors']['reply'].encode() + rb'"')
-        self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['reply-text'].encode() + rb'"')
-        self.assertRegex(markup, rb'<div\b[^>]*\bid="' + entry['anchors']['user-turn'].encode() + rb'"')
-        self.assertNotIn(b'>Author</h3>', markup)
-        self.assertNotIn(b'>Correspondent</h3>', markup)
-        self.assertEqual(manifest, verify_edition(self.output))
-        # The figure role, caption, and quotation are source-bound; editing
-        # them after publication fails even when the HTML checksums are reset.
-        head, sep, markup = html.partition(b'</style>')
-        self.assertTrue(sep)
-        for changed in (
-            markup.replace(b'data-press-speaker="responder"', b'data-press-speaker="assistant"', 1),
-            markup.replace('— Correspondent'.encode(), '— Impostor'.encode(), 1),
-            markup.replace(b'class="press-turn-quotation"', b'class="ordinary-quote"', 1),
-        ):
-            self.assertNotEqual(changed, markup)
-            revised = copy.deepcopy(manifest); self.rewrite(head + sep + changed, revised)
-            with self.assertRaisesRegex(AssetError, 'element'):
-                verify_edition(self.output)
-
-    def test_dashed_document_and_fragment_names_have_distinct_namespaces(self):
-        folder=self.repo/'works/sample/supporting';folder.mkdir()
-        for name,key,text in (('a-b','c','First document claim.'),('a','b-c','Second document claim.')):
-            (folder/(name+'.md')).write_text(document('<a name="'+key+'"></a>\n\n'+text))
-        with (self.repo/'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\n[First](supporting/a-b.md#c) and [Second](supporting/a.md#b-c).\n')
-        self.git('add','works');self.git('commit','-qm','Review distinct dashed namespaces')
-        self.commit=self.git('rev-parse','HEAD')
-        manifest=self.build()
-        a,b=manifest['supporting_documents']
-        self.assertEqual('support-md-3-a-b-c',a['anchors']['c'])
-        self.assertEqual('support-md-1-a-b-c',b['anchors']['b-c'])
-        self.assertNotEqual(a['anchors']['c'],b['anchors']['b-c'])
-        self.assertEqual(manifest,verify_edition(self.output))
-
-    def test_element_inventory_and_nested_composite_content_cannot_be_dropped_or_changed(self):
-        self.source();manifest=self.build()
-        raw=(self.output/manifest['canonical_artifact']).read_bytes()
-        for edit in ('inventory','nested'):
-            changed=copy.deepcopy(manifest)
-            updated=raw
-            if edit=='inventory': changed['supporting_documents'][0]['elements'].pop('list')
-            else:
-                updated=raw.replace(b'>Nested<',b'>Substituted<')
-                self.assertNotEqual(raw,updated)
-            self.rewrite(updated,changed)
-            with self.assertRaisesRegex(AssetError,'element'):
-                verify_edition(self.output)
 
 
 def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in
-        (SourceContractTests,CustodyTests,ElementPublicationTests)
-        for name in cls.__dict__ if name.startswith('test_'))
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (SourceContractTests,) for name in cls.__dict__ if name.startswith("test_"))

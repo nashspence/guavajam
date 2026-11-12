@@ -2,3 +2,5 @@
 PyYAML==6.0.3
 # Decode downloaded raster images before publication.
 Pillow==13.0.0
+# Inspect actual audio/video containers and codecs.
+av==19.0.2

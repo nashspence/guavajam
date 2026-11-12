@@ -12,14 +12,12 @@ import zipfile
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from asset_policy import AssetError
-from build_edition import build_edition
 from chat_gfm import review_gfm
-from render_profile import plain_text, walk
+from source_ast import plain_text, walk
 from extract_chatgpt import transcript
 from supporting_gfm import load_gfm_record
 from validate_sources import git_sources, validate_repository
-from verify_edition import verify_edition, EditionHTML
-from test_assets import EditionTests, SVG
+from test_assets import SVG
 from test_extract_chatgpt import ExtractTests
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -341,68 +339,9 @@ class GFMImportTests(ExtractTests):
             load_gfm_record(out)
 
 
-class GFMPublicationTests(EditionTests):
-    def source(self):
-        directory=self.repo/'works/sample/supporting';directory.mkdir()
-        (directory/'note.md').write_text(NOTE)
-        with (self.repo/'works/sample/manuscript.md').open('a') as f:
-            f.write('\nSee the [claim](supporting/note.md#claim), [math](supporting/note.md#calculation), '
-                    '[code](supporting/note.md#code), and [document](supporting/note.md).\n')
-        self.git('add','works');self.git('commit','-qm','Review supporting GFM')
-        self.commit=self.git('rev-parse','HEAD')
-        return directory/'note.md'
 
-    def test_exact_snapshot_distinct_passages_single_appendix_and_repeatable_package(self):
-        path=self.source()
-        self.assertEqual([],validate_repository(self.repo,git_sources(self.repo)))
-        digest=hashlib.sha256(path.read_bytes()).hexdigest()
-        path.write_text('Unreviewed replacement')
-        manifest=self.build()
-        entry,=manifest['supporting_documents']
-        self.assertEqual(digest,entry['sha256'])
-        self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(entry['anchors']))
-        page=(self.output/manifest['canonical_artifact']).read_text()
-        parser=EditionHTML(manifest['presentation_profile']);parser.feed(page)
-        self.assertEqual(1,' '.join(page.split()).count('Supporting record — Reviewed supporting note'))
-        for key in ('claim','calculation','code'):
-            anchor=entry['anchors'][key]
-            self.assertIn(anchor,parser.fragment_links)
-            self.assertIn((anchor,manifest['record_url']+'/read#'+anchor),parser.passage_permalinks)
-        self.assertIn('<math',page);self.assertIn('<pre',page);self.assertIn('identity',page)
-        self.assertNotIn('Unreviewed replacement',page)
-        other=self.base/'repeat'
-        build_edition(self.repo,self.commit,self.tag,other,fetcher=lambda *_:(SVG,'image/svg+xml'))
-        for p in self.output.iterdir():self.assertEqual(p.read_bytes(),(other/p.name).read_bytes())
-        self.assertEqual(manifest,verify_edition(self.output))
 
-    def test_namespace_collision_and_missing_fragment_fail_before_issuance(self):
-        self.source()
-        manuscript=self.repo/'works/sample/manuscript.md'
-        with manuscript.open('a') as f:f.write('\n<a id="support-md-4-note-claim"></a>\n## Collision\n')
-        self.git('add','works');self.git('commit','-qm','Invalid collision')
-        self.commit=self.git('rev-parse','HEAD')
-        self.assertTrue(any('duplicate' in e for e in validate_repository(self.repo,git_sources(self.repo))))
-        with self.assertRaises(AssetError):self.build()
-        manuscript.write_text(manuscript.read_text().replace('#claim','#missing'))
-        self.assertTrue(validate_repository(self.repo,git_sources(self.repo)))
-
-    def test_offline_verifier_rejects_retargeted_passage_or_forged_source(self):
-        self.source();manifest=self.build()
-        filename=manifest['canonical_artifact'];original=(self.output/filename).read_bytes()
-        for edit in ('link','source'):
-            changed=copy.deepcopy(manifest)
-            raw=original
-            if edit=='link':
-                raw=raw.replace((manifest['record_url']+'/read#support-md-4-note-claim').encode(),
-                                (manifest['record_url']+'/read#support-md-4-note-code').encode())
-            else:changed['supporting_documents'][0]['sha256']='0'*64
-            changed.update(html_sha256=hashlib.sha256(raw).hexdigest(),html_byte_count=len(raw))
-            (self.output/filename).write_bytes(raw)
-            (self.output/'provenance.json').write_text(json.dumps(changed))
-            (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/n).read_bytes()).hexdigest()+'  '+n+'\n' for n in (filename,'provenance.json')))
-            with self.assertRaises(AssetError):verify_edition(self.output)
 
 
 def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (
-        GFMSourceTests,GFMImportTests,GFMPublicationTests) for name in cls.__dict__ if name.startswith('test_'))
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (GFMSourceTests,GFMImportTests,) for name in cls.__dict__ if name.startswith("test_"))

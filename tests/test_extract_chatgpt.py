@@ -178,3 +178,7 @@ class ExtractTests(unittest.TestCase):
                 result = subprocess.run([*cmd, json_file, *args], capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse(output.exists())
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (ExtractTests,) for name in cls.__dict__ if name.startswith("test_"))
