@@ -256,23 +256,38 @@ def _raw_git_list(repo, sha, prefix):
     return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
 
 
-def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), preview=False):
+def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False):
     repo = Path(repo).resolve(); revision(repo, sha)
     if not SLUG.fullmatch(work): raise RenderError('work must be a Press-compatible slug')
     manuscript = f'works/{work}/manuscript.md'
     source = git_blob(repo, sha, manuscript)
     raw_commit = process(['git', '--no-replace-objects', 'cat-file', '-p', sha],cwd=repo)
-    if not preview:
-        if len(fingerprints) != 1 or not re.fullmatch('[0-9A-Fa-f]{40,64}', fingerprints[0]):
-            raise RenderError('signed rendering requires one independently trusted GPG fingerprint')
+    if preview:
+        if fingerprints or allowed_signers:
+            raise RenderError('preview cannot be combined with publication trust settings')
+    else:
+        if bool(fingerprints) == bool(allowed_signers):
+            raise RenderError('signed rendering requires an external GPG fingerprint or SSH allowed signers')
         message = raw_commit.split(b'\n\n',1)[-1].decode('utf-8', 'strict').strip().splitlines()
         if message[-2:] != ['Press-Publication: 1', 'Press-Work: ' + manuscript]:
             raise RenderError('revision lacks the signed Press publication trailers for this work')
-        result = subprocess.run(['git', '--no-replace-objects','-c','gpg.format=openpgp',
-                                 'verify-commit','--raw',sha],cwd=repo,capture_output=True)
-        valid = re.findall(rb'\[GNUPG:\] VALIDSIG ([0-9A-Fa-f]{40,64})\b',result.stderr)
-        if result.returncode or len(valid)!=1 or valid[0].decode().lower()!=fingerprints[0].lower():
-            raise RenderError('untrusted or invalid publication signature')
+        if fingerprints:
+            if len(fingerprints) != 1 or not re.fullmatch('[0-9A-Fa-f]{40,64}', fingerprints[0]):
+                raise RenderError('signed rendering requires one independently trusted GPG fingerprint')
+            result = subprocess.run(['git', '--no-replace-objects', '-c','gpg.format=openpgp',
+                                     'verify-commit', '--raw', sha],cwd=repo,capture_output=True)
+            valid = re.findall(rb'\[GNUPG:\] VALIDSIG ([0-9A-Fa-f]{40,64})\b',result.stderr)
+            if result.returncode or len(valid)!=1 or valid[0].decode().lower()!=fingerprints[0].lower():
+                raise RenderError('untrusted or invalid publication signature')
+        else:
+            signers = Path(allowed_signers).expanduser().resolve(strict=True)
+            if signers.is_relative_to(repo) or not signers.is_file() or signers.stat().st_size > 65536:
+                raise RenderError('SSH allowed signers must be an external bounded authority file')
+            result = subprocess.run(['git', '--no-replace-objects', '-c', 'gpg.format=ssh',
+                                     '-c', 'gpg.ssh.allowedSignersFile=' + str(signers),
+                                     'verify-commit', sha], cwd=repo, capture_output=True)
+            if result.returncode:
+                raise RenderError('untrusted or invalid SSH publication signature')
     asset_policy = process(['git','--no-replace-objects','show',sha+':asset-policy.json'],cwd=repo,limit=32768)
     try:
         data = json.loads(asset_policy)
@@ -320,12 +335,15 @@ def main(argv=None):
     p.add_argument('--revision',required=True)
     p.add_argument('--work',required=True)
     p.add_argument('--output',required=True,type=Path)
-    p.add_argument('--trusted-gpg-fingerprint',action='append',default=[])
-    p.add_argument('--unsigned-preview',action='store_true')
+    trust=p.add_mutually_exclusive_group(required=True)
+    trust.add_argument('--trusted-gpg-fingerprint',action='append',default=[])
+    trust.add_argument('--ssh-allowed-signers',type=Path)
+    trust.add_argument('--unsigned-preview',action='store_true')
     args=p.parse_args(argv)
     try:
         number=render(args.repo,args.revision,args.work,args.output,
-                      fingerprints=args.trusted_gpg_fingerprint,preview=args.unsigned_preview)
+                      fingerprints=args.trusted_gpg_fingerprint,allowed_signers=args.ssh_allowed_signers,
+                      preview=args.unsigned_preview)
     except (RenderError,MediaError,OSError,UnicodeError,ValueError) as exc:
         print('GuavaJam rendering failed: '+str(exc),file=sys.stderr);return 1
     print(f'Wrote {number} derived HTML page(s); Git revision remains the canonical edition.')

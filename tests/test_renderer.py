@@ -132,8 +132,17 @@ class PortableViewTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
 
     def test_valid_signature_is_required_without_explicit_preview(self):
-        with self.assertRaisesRegex(RenderError,'fingerprint'):
+        with self.assertRaisesRegex(RenderError,'external GPG fingerprint or SSH'):
             render(self.root,self.rev,'field-notes',self.output)
+
+    def test_ssh_trust_file_must_be_external_and_cannot_be_a_preview_fallback(self):
+        signers=self.root/'allowed-signers'
+        signers.write_text('fixture ssh-ed25519 AABB\n')
+        with self.assertRaisesRegex(RenderError,'external bounded authority'):
+            render(self.root,self.rev,'field-notes',self.output,allowed_signers=signers)
+        with self.assertRaisesRegex(RenderError,'preview cannot be combined'):
+            render(self.root,self.rev,'field-notes',self.output,allowed_signers=signers,preview=True)
+        signers.unlink()
 
     def test_signed_revision_with_external_trust_is_rendered(self):
         if not shutil.which('gpg'):

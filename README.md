@@ -17,8 +17,8 @@ its source revision and has a strict CSP; it is **not a new release**.
 ## Render
 
 Requires Python 3.12+ and Pandoc 3.12.1 (the Press version); no Python
-third-party runtime dependencies. Given an independently trusted GPG key in your
-local keyring:
+third-party runtime dependencies. Provide a trusted GPG signing-key fingerprint in your local keyring or an
+SSH allowed-signers file outside the source repository:
 
 ```sh
 python -m guavajam --repo /path/to/any-press-compatible-repo \
@@ -27,6 +27,7 @@ python -m guavajam --repo /path/to/any-press-compatible-repo \
   --output /tmp/my-work-view
 ```
 
+To verify SSH-signed publication commits, use `--ssh-allowed-signers /path/to/independent/trust-file` instead of the GPG fingerprint.
 For local authoring previews only, replace `--trusted-gpg-fingerprint ...` with
 `--unsigned-preview`; the generated HTML is visibly marked **NOT A PUBLICATION**.
 Never serve an unsigned preview as an issued edition. A renderer does not decide
