@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   select:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && false
     runs-on: ubuntu-24.04
     outputs:
       tags: ${{ steps.editions.outputs.tags }}
@@ -44,7 +44,7 @@ jobs:
 
   synchronize:
     needs: select
-    if: needs.select.outputs.tags != '[]'
+    if: false && needs.select.outputs.tags != '[]'
     strategy:
       fail-fast: false
       matrix:

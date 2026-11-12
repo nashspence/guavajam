@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/main' && !inputs.publish
+    if: github.ref == 'refs/heads/main' && false && !inputs.publish
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -123,7 +123,7 @@ jobs:
           printf 'Staging run ID: `%s`\n\nReviewed file: `provenance.json`\n\nSHA-256: `%s`\n\nCandidate qualification: passed for these exact bytes. Review `edition-qualification/report.json`, screen proofs and A4/Letter PDFs.\n' "$GITHUB_RUN_ID" "$digest" >> "$GITHUB_STEP_SUMMARY"
 
   recover:
-    if: github.ref == 'refs/heads/main' && inputs.publish && inputs.proof_source == 'rebuild'
+    if: github.ref == 'refs/heads/main' && false && inputs.publish && inputs.proof_source == 'rebuild'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -189,7 +189,7 @@ jobs:
   release:
     needs: recover
     if: >-
-      ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.publish &&
+      ${{ !cancelled() && false && github.ref == 'refs/heads/main' && inputs.publish &&
           (inputs.proof_source == 'rebuild' && needs.recover.result == 'success' ||
            inputs.proof_source != 'rebuild' && needs.recover.result == 'skipped') }}
     runs-on: ubuntu-24.04

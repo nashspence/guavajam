@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   confirm:
     name: Confirm ${{ inputs.edition_tag }}
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && false
     environment: press-release
     # The absence check must run after any promotion already past its last main-tip check.
     concurrency:

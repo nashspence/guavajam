@@ -72,7 +72,7 @@ class SyncTests(unittest.TestCase):
         path = Path(__file__).resolve().parents[1] / ".github/workflows/sync-editorial-record.yml"
         workflow = yaml.safe_load(path.read_text())
         jobs = workflow["jobs"]
-        self.assertEqual(jobs["select"]["if"], "github.ref == 'refs/heads/main'")
+        self.assertEqual(jobs["select"]["if"], "github.ref == 'refs/heads/main' && false")
         self.assertEqual(workflow["permissions"], {"contents": "read"})
         self.assertEqual(jobs["synchronize"]["needs"], "select")
         self.assertIn("matrix.tag", jobs["synchronize"]["concurrency"]["group"])

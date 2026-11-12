@@ -1,7 +1,10 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup check check-source check-assets test test-browser image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-gfm build preview preview-build verify qualify edition-status check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
+.PHONY: publication-check help setup check check-source check-assets test test-browser image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply chat-list chat-gfm build preview preview-build verify qualify edition-status check-reader check-backup check-backup-archive archive-export editorial-checkpoint authorization receipt release-notes record gateway-plan gateway-deploy records-plan records-deploy
 
 PYTHON := mise exec -- uv run --locked python
+REV ?=
+TRUSTED_GPG_FINGERPRINT ?=
+ONLINE_MEDIA ?=
 export FILE DIR STAGED_RUN_ID TAG REGISTRATION EDITORIAL_SHA256 WORK_SHA256 ARCHIVE_ROOT ARCHIVE_COMMIT BACKUP_BASE RECORD_TARGET RECORD_WORKER READING_BUCKET
 export CONVERSATION TIP OUTPUT METADATA PACKAGE_ROOT PORT
 export B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP
@@ -52,6 +55,11 @@ assets-policy-plan: ## ASSET_APP=app-slug  Preview deletion-only branch protecti
 
 assets-policy-apply: ## ASSET_APP=app-slug  Activate the previewed branch-deletion ruleset using the operator's gh credentials.
 	@$(PYTHON) scripts/configure_asset_maintenance.py --apply
+
+publication-check: ## REV=full-sha TRUSTED_GPG_FINGERPRINT=hex [ONLINE_MEDIA=1]  Verify a signed Git publication and emit portable canonical citation JSON. Never publishes.
+	@set --; if [ "$$ONLINE_MEDIA" = 1 ]; then set -- --online-media; fi; \
+		$(PYTHON) scripts/publication_commit.py --revision "$${REV:?Set REV to the full signed Git commit SHA}" \
+		--trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set TRUSTED_GPG_FINGERPRINT to an independently trusted full fingerprint}" "$$@"
 
 chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also accepts conversations JSON.
 	@$(PYTHON) scripts/extract_chatgpt.py --list -- "$${FILE:?Set FILE to the export path}"

@@ -77,3 +77,55 @@ test('opaque content is always a bounded attachment regardless of upstream MIME'
     assert.equal(head.status,200);assert.equal(await head.text(),'');
   } finally { globalThis.fetch = original; }
 });
+
+test('typed MP4/MP3 stream full objects and exactly the requested byte ranges', async () => {
+  const old = globalThis.fetch;
+  const mp4 = 'https://assets.publisher.test/sha256/' + 'b'.repeat(64) + '.mp4';
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({url, options});
+    if (options.headers.Range === 'bytes=500-599')
+      return new Response('x'.repeat(100), {status: 206, headers: {
+        'Content-Type':'video/mp4', 'Content-Range':'bytes 500-599/60000000',
+        'Content-Length':'100','Accept-Ranges':'bytes'}});
+    return new Response('x'.repeat(32), {status: 200, headers: {
+      'Content-Type':'video/mp4','Content-Length':'60000000','Accept-Ranges':'bytes'}});
+  };
+  try {
+    const part=await worker.fetch(new Request(mp4,{headers:{Range:'bytes=500-599'}}),env);
+    assert.equal(part.status,206);
+    assert.equal(part.headers.get('Content-Range'),'bytes 500-599/60000000');
+    assert.equal(part.headers.get('Content-Length'),'100');
+    assert.equal(part.headers.get('Accept-Ranges'),'bytes');
+    assert.equal(part.headers.get('Access-Control-Allow-Origin'),'*');
+    assert.equal(await part.text(),'x'.repeat(100));
+    assert.equal(calls[0].options.headers.Range,'bytes=500-599');
+    assert.equal('cf' in calls[0].options,false,'range requests must not trigger whole-object cache fill');
+    const response=await worker.fetch(new Request(mp4,{method:'HEAD'}),env);
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('Content-Length'),'60000000');
+    assert.equal(response.headers.get('Accept-Ranges'),'bytes');
+    assert.equal(await response.text(),'');
+  } finally {globalThis.fetch=old;}
+});
+
+test('media upstream range failures and invalid partial metadata fail closed', async () => {
+  const old=globalThis.fetch;
+  const url='https://assets.publisher.test/sha256/'+'b'.repeat(64)+'.mp4';
+  try {
+    for(const [upstream,code] of [
+      [new Response('whole', {status:200,headers:{'Content-Type':'video/mp4'}}),502],
+      [new Response('x', {status:206,headers:{'Content-Type':'video/mp4','Content-Range':'bytes 1-1/100','Content-Length':'1'}}),502],
+      [new Response('xxx', {status:206,headers:{'Content-Type':'video/mp4','Content-Range':'bytes 10-12/100','Content-Length':'2'}}),502],
+      [new Response(null, {status:416,headers:{'Content-Range':'bytes */100'}}),416],
+    ]){
+      globalThis.fetch=async()=>upstream;
+      const received=await worker.fetch(new Request(url,{headers:{Range:'bytes=10-12'}}),env);
+      assert.equal(received.status,code);
+      if(code===416)assert.equal(received.headers.get('Content-Range'),'bytes */100');
+    }
+    globalThis.fetch=async()=>{throw new Error('unexpected fetch')};
+    assert.equal((await worker.fetch(new Request(url,{headers:{Range:'bytes=10-12,20-30'}}),env)).status,416);
+    assert.equal((await worker.fetch(new Request(url.replace('.mp4','.bin'),{headers:{Range:'bytes=1-2'}}),env)).status,416);
+  } finally {globalThis.fetch=old;}
+});

@@ -698,6 +698,19 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                     expected_raw.extend([f'<a id="{match.group(1)}">', '</a>'])
             if sorted(raw_nodes) != sorted(expected_raw):
                 errors.append(issue(rel, "raw HTML is prohibited except standalone stable section anchors"))
+            # A media declaration is an ordinary GFM code fence. Validate it as
+            # data without authorizing raw HTML or source-versioned HTML views.
+            media_specs = []
+            try:
+                from press_media import declarations as media_declarations
+                if asset_policy is None:
+                    if any(n.get("t") == "CodeBlock" and "press-media" in n["c"][0][1]
+                           for n in walk(ast.get("blocks", []))):
+                        raise ValueError("media requires asset-policy.json")
+                else:
+                    media_specs = media_declarations(ast, asset_policy.origin, explicit)
+            except ValueError as exc:
+                errors.append(issue(rel, str(exc)))
             maths = [node for node in walk(ast.get("blocks", [])) if node["t"] == "Math"]
             # Tokenize TeX control words/symbols so escaped backslashes and percent
             # signs are distinct from commands and comments, respectively.
@@ -724,7 +737,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
                 continue
         rendered_ids, render_errors = render_html(ast, rel, expected_math, manuscript)
         if manuscript:
-            published_ids[rel] = rendered_ids
+            published_ids[rel] = rendered_ids | {item['id'] for item in media_specs}
         errors.extend(render_errors)
 
     for rel, ast in asts.items():
