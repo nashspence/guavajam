@@ -22,10 +22,10 @@ def video(path,*,audio=True,codec='libx264'):
     return Path(path).read_bytes()
 
 
-def audio(path,*,frames=20):
+def audio(path):
     with av.open(str(path),'w',format='mp3') as output:
         stream=output.add_stream('libmp3lame',rate=44100);stream.layout='mono'
-        for i in range(frames):
+        for i in range(20):
             frame=av.AudioFrame(format='fltp',layout='mono',samples=1152);frame.sample_rate=44100;frame.pts=i*1152
             for plane in frame.planes:plane.update(bytes(plane.buffer_size))
             for packet in stream.encode(frame):output.mux(packet)
