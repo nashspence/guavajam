@@ -3,9 +3,10 @@ import {createHash} from 'node:crypto';
 import {mkdir, mkdtemp, readFile, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+import {pathToFileURL} from 'node:url';
 import test from 'node:test';
 import {chromium} from 'playwright';
-import {assertCandidateAccessible, inspectPrint, inspectScreen, inspectStructure, qualifyCandidate} from '../scripts/qualify_edition.mjs';
+import {assertCandidateAccessible, checkTargets, inspectPrint, inspectScreen, inspectStructure, qualifyCandidate} from '../scripts/qualify_edition.mjs';
 import {assertAccessible} from './browser_accessibility.mjs';
 
 const css = await readFile(new URL('../styles/edition-v1.css', import.meta.url), 'utf8');
@@ -104,4 +105,29 @@ test('whole candidate qualification completes while its shipped CSP blocks docum
       schema: 'press.candidate-progress.v1', html_sha256: request.html_sha256,
       provenance_sha256: request.provenance_sha256, phase: 'complete'});
   } finally { await rm(base, {recursive: true, force: true}); }
+});
+
+
+test('fragment qualification re-navigates a selected target without losing enlarged text and still rejects obscured targets', {timeout: 45000}, async () => {
+  const base = await mkdtemp(path.join(tmpdir(), 'press-fragment-qualification-'));
+  const browser = await chromium.launch({headless: true});
+  try {
+    const file = path.join(base, 'candidate.html');
+    const source = document('<h2 id="first">First section</h2><p style="min-height:1600px">Source text.</p>' +
+      '<h2 id="last">Last section</h2><p style="min-height:1600px">Following material.</p>')
+      .replace('<body>', '<body><div class="press-status">Current editorial status</div>');
+    await writeFile(file, source);
+    const page = await browser.newPage({viewport: {width: 320, height: 900}});
+    const uri = pathToFileURL(file).href;
+    await page.goto(uri + '#last');
+    await page.addStyleTag({content: 'html {font-size:34px !important}'});
+    await page.evaluate(() => { window.qualificationContinuity = true; window.scrollTo(0, 0); });
+    assert.ok(await page.locator('#last').evaluate(node => node.getBoundingClientRect().top > innerHeight));
+    await checkTargets(page, ['last', 'first', 'last']);
+    assert.equal(await page.evaluate(() => window.qualificationContinuity), true, 'Fragment checks must not reload the candidate');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), '34px',
+      'The enlarged-text scenario must survive every fragment navigation');
+    await page.addStyleTag({content: '.press-status {position:fixed;top:0;left:0;height:400px} [id]:target {scroll-margin-top:0 !important}'});
+    await assert.rejects(() => checkTargets(page, ['last']), /Fragment destination is obscured at last/);
+  } finally { await browser.close(); await rm(base, {recursive:true, force:true}); }
 });

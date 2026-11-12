@@ -131,9 +131,14 @@ async function checkKeyboard(page, samples) {
   return checked;
 }
 
-async function checkTargets(page, targets) {
+export async function checkTargets(page, targets) {
   for (const id of targets) {
-    await page.evaluate(id => { location.hash = id; }, id);
+    const uri = page.url().split('#')[0];
+    // A hash assignment is a no-op when that fragment is already selected.
+    // Navigate from an empty fragment and await the browser's native navigation
+    // before measuring. These same-document moves retain enlarged-text styles.
+    if (page.url() !== uri + '#') await page.goto(uri + '#', {waitUntil: 'load'});
+    await page.goto(uri + '#' + encodeURIComponent(id), {waitUntil: 'load'});
     await page.waitForFunction(id => {
       const box = document.getElementById(id).getBoundingClientRect();
       const status = document.querySelector('.press-status')?.getBoundingClientRect().bottom ?? 0;
