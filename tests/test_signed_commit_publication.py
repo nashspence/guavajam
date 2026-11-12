@@ -100,6 +100,8 @@ class PublicationCommitTests(unittest.TestCase):
         self.assertEqual(self.signed,record['revision'])
         self.assertEqual('sha1',record['hash_algorithm'])
         self.assertEqual('works/recorded-notes/manuscript.md',record['manuscript'])
+        self.assertFalse(record['media_verified'])
+        self.assertIn('field-audio',record['anchors'])
         self.assertEqual('audio',record['media'][0]['kind'])
         self.assertEqual('#transcript',record['media'][0]['transcript'])
         self.assertEqual({'schema':'press.citation.v1','hash_algorithm':'sha1',
@@ -121,6 +123,8 @@ class PublicationCommitTests(unittest.TestCase):
             signature(self.repo,self.signed)
         with self.assertRaises(PublicationError):
             citation(self._verify(),'../other')
+        with self.assertRaisesRegex(PublicationError, 'existing stable source anchor'):
+            citation(self._verify(), 'nonexistent-passage')
 
     def test_publication_trailers_are_exact_and_unique(self):
         self._sign('Press-Publication: 1\nPress-Work: works/another/manuscript.md')

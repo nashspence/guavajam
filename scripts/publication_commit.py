@@ -138,7 +138,11 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
             verify_items(items, policy.origin)
         if (root / work).read_text(encoding='utf-8') != source:
             raise PublicationError('Git snapshot did not reproduce publication source')
+    anchors = set(re.findall(r'^<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>$', source, re.M))
+    anchors.update(item['id'] for item in items)
     return {
+        'anchors': sorted(anchors),
+        'media_verified': (not items or online_media),
         'schema': 'press.citation.v1',
         'hash_algorithm': 'sha1',
         'revision': sha,
@@ -150,8 +154,8 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
 
 
 def citation(record, anchor=None):
-    if anchor is not None and not IDENT.fullmatch(anchor):
-        raise PublicationError('citation fragment must be a stable source anchor')
+    if anchor is not None and (not IDENT.fullmatch(anchor) or anchor not in record.get('anchors', [])):
+        raise PublicationError('citation fragment must identify an existing stable source anchor')
     result = {key: record[key] for key in ('schema', 'hash_algorithm', 'revision', 'manuscript')}
     if anchor:
         result['anchor'] = anchor
