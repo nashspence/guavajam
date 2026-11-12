@@ -136,12 +136,15 @@ class PortableViewTests(unittest.TestCase):
             render(self.root,self.rev,'field-notes',self.output)
 
     def test_ssh_trust_file_must_be_external_and_cannot_be_a_preview_fallback(self):
+        command(self.root,'git','commit','--allow-empty','-m','Publish Field Notes', '-m',
+                'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md')
+        candidate=command(self.root,'git','rev-parse','HEAD')
         signers=self.root/'allowed-signers'
         signers.write_text('fixture ssh-ed25519 AABB\n')
         with self.assertRaisesRegex(RenderError,'external bounded authority'):
-            render(self.root,self.rev,'field-notes',self.output,allowed_signers=signers)
+            render(self.root,candidate,'field-notes',self.output,allowed_signers=signers)
         with self.assertRaisesRegex(RenderError,'preview cannot be combined'):
-            render(self.root,self.rev,'field-notes',self.output,allowed_signers=signers,preview=True)
+            render(self.root,candidate,'field-notes',self.output,allowed_signers=signers,preview=True)
         signers.unlink()
 
     def test_signed_revision_with_external_trust_is_rendered(self):
