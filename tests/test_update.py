@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from discovery_fixture import Publisher
-from guavajam.update import update, locked_root
+from guavajam.update import update, locked_root, atomic
 from guavajam.catalog import CatalogError, encoded
 from guavajam.renderer import render
 from guavajam.publication_protocol import discover
@@ -121,12 +121,63 @@ class PeriodicUpdateTests(unittest.TestCase):
         with patch('guavajam.view_cache.render',wraps=render) as called:
             self.assertTrue(self.update(rebuild=True)['changed']);self.assertEqual(1,called.call_count)
 
+    def test_signer_rotation_reverifies_history_and_invalidates_cached_views(self):
+        self.update()
+        subprocess.run(['gpg', '--batch', '--pinentry-mode', 'loopback', '--passphrase', '',
+                        '--quick-generate-key', 'Rotated Fixture <rotation@example.org>',
+                        'ed25519', 'sign', '0'], env=self.p.env, check=True, capture_output=True)
+        listing = subprocess.check_output(['gpg', '--with-colons', '--list-keys',
+                                          'rotation@example.org'], env=self.p.env).decode()
+        rotated = next(row.split(':')[9] for row in listing.splitlines()
+                       if row.startswith('fpr:'))
+        self.p.git('config', 'user.signingkey', rotated)
+        revision = self.p.publish('2026-11-14')
+        trusted = [self.p.fingerprint, rotated]
+        with patch('guavajam.view_cache.render', wraps=render) as called:
+            result = update(self.p.repo, self.output, no_fetch=True, fingerprints=trusted)
+        self.assertTrue(result['changed'])
+        self.assertEqual(2, called.call_count)
+        self.assertIn(revision, (self.output / 'current/CATALOG.json').read_text())
+        selected = self.selected()
+        with patch('guavajam.view_cache.render', side_effect=AssertionError('no-op must reuse views')):
+            self.assertFalse(update(self.p.repo, self.output, no_fetch=True,
+                                    fingerprints=trusted)['changed'])
+        with self.assertRaisesRegex(ValueError, 'untrusted'):
+            update(self.p.repo, self.output, no_fetch=True, fingerprints=[rotated])
+        self.assertEqual(selected, self.selected())
+
     def test_never_overwrites_unmanaged_site_or_recovers_by_discarding_baseline(self):
         self.output.mkdir();(self.output/'index.html').write_text('Existing website')
         with self.assertRaisesRegex(ValueError,'not an updater-managed'):self.update()
         self.assertEqual('Existing website',(self.output/'index.html').read_text())
         shutil.rmtree(self.output);self.update();(self.output/'current').unlink()
         with self.assertRaisesRegex(ValueError,'baseline'):self.update()
+
+    def test_first_switch_state_failure_cannot_reset_the_catalog_baseline(self):
+        self.p.settings['editions'] = {self.revision: {'doi': '10.1234/original'}}
+        self.p.amend_settings()
+
+        def fail_last_record(path, data):
+            if path.name == '.last.json':
+                raise OSError('synthetic state-write failure after the switch')
+            return atomic(path, data)
+
+        with patch('guavajam.update.atomic', side_effect=fail_last_record):
+            with self.assertRaisesRegex(OSError, 'state-write failure'):
+                self.update()
+        self.assertTrue((self.output / 'current').is_symlink())
+        self.assertFalse((self.output / '.last.json').exists())
+        selected = self.selected()
+        self.p.settings['editions'][self.revision]['doi'] = '10.1234/rebound'
+        self.p.amend_settings()
+        with self.assertRaisesRegex(ValueError, 'rebound'):
+            self.update()
+        self.assertEqual(selected, self.selected())
+        (self.output / 'current').unlink()
+        with self.assertRaisesRegex(ValueError, 'baseline'):
+            self.update()
+        self.assertFalse((self.output / 'current').exists())
+        self.assertEqual(1, len(list((self.output / 'generations').iterdir())))
 
     def test_migration_baseline_preserves_existing_doi_and_requires_publisher_overrides(self):
         catalog,_=discover(self.p.repo,fingerprints=[self.p.fingerprint])
@@ -147,7 +198,7 @@ class PeriodicUpdateTests(unittest.TestCase):
         (publisher.repo/'Makefile').write_text('all:\n\ttouch SHOULD_NOT_RUN\n')
         publisher.git('add','Makefile');publisher.git('commit','-qm','An unrelated executable source file')
         root=Path(__file__).resolve().parents[1]
-        result=subprocess.run(['make','update','PYTHON='+sys.executable,
+        result=subprocess.run(['make','--no-print-directory','update','PYTHON='+sys.executable,
                                'REPO='+str(publisher.repo),'OUTPUT='+str(self.output),
                                'NO_FETCH=1','TRUSTED_GPG_FINGERPRINT='+publisher.fingerprint,
                                'SSH_ALLOWED_SIGNERS='],cwd=root,env=publisher.env,

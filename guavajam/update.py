@@ -103,7 +103,10 @@ def locked_root(output, repo):
 def current(output):
     link = output / 'current'
     if not link.is_symlink():
-        if link.exists() or (output / '.last.json').exists():
+        # The first switch may succeed before writing .last.json fails. A
+        # retained generation still represents history that must not be reset.
+        if (link.exists() or (output / '.last.json').exists()
+                or any((output / 'generations').iterdir())):
             raise CatalogError('managed current link is absent or replaced; restore it, never reset the baseline')
         return None, None
     relative = os.readlink(link)

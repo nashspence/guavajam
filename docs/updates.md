@@ -210,8 +210,11 @@ complete generation and its catalog baseline are installed together; a single
 atomic symlink replacement switches `OUTPUT/current`. Existing generations are
 retained. Errors before the switch leave the prior generation selected; a crash
 cannot select a half-built tree. If state persistence fails after a successful
-switch, inspect the complete selected generation before retrying. No additive
-upload overlay is used: explicitly unavailable reader paths disappear from the
+switch, inspect the complete selected generation before retrying. A missing or
+replaced `current` link fails closed whenever retained generations indicate an
+existing history, including when the first switch failed to persist `.last.json`.
+Restore the reviewed complete generation and its baseline before retrying.
+No additive upload overlay is used: explicitly unavailable reader paths disappear from the
 selected site, while withdrawn/superseded readers remain.
 
 This target publishes a local filesystem tree. Configure the web server once to

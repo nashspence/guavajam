@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: nashspence/press
-          ref: 3584b0a51e4e4769d4031d6911ed3b48a1a3a96f
+          ref: 27df61aa0e70216d02dbc7067c9ea719bc3f3190
           path: .upstream-press
           persist-credentials: false
       - name: Verify publisher discovery, catalog and source contracts
