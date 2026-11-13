@@ -31,14 +31,14 @@ jobs:
           if [ "${{ matrix.package }}" = core ]; then
             mise exec -- uv sync --locked --package guavajam-core --no-dev
           else
-            mise exec -- uv sync --locked --package guavajam-view --group dev
+            mise exec -- uv sync --locked --all-packages --group dev
           fi
       - name: Enforce package boundaries
         run: .venv/bin/python tools/check_boundaries.py
       - name: Verify coordinated versions
         run: .venv/bin/python tools/version.py
       - name: Run package contracts
-        run: make test-${{ matrix.package }} PYTHON=.venv/bin/python
+        run: mise exec -- make test-${{ matrix.package }} PYTHON=.venv/bin/python
       - name: Build wheel and standalone source distribution
         run: |
           mise exec -- uv build --package guavajam-core
@@ -53,9 +53,9 @@ jobs:
           mise exec -- npx playwright install --with-deps chromium firefox webkit
       - name: Qualify capture extension and importer
         if: matrix.package == 'core'
-        run: make test-capture-browser PYTHON=.venv/bin/python
+        run: mise exec -- make test-capture-browser PYTHON=.venv/bin/python
       - name: Qualify rendering, catalog, native playback, accessibility and print
         if: matrix.package == 'view'
-        run: make test-browser PYTHON=.venv/bin/python
+        run: mise exec -- make test-browser PYTHON=.venv/bin/python
       - name: Verify Python syntax
         run: .venv/bin/python -m compileall -q projects/${{ matrix.package }}
