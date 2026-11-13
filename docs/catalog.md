@@ -245,6 +245,16 @@ step. Do not aim a DOI at the registry home page or directly at a raw download.
 Render each DOI's specific work/edition landing page, then update its registrar
 record only after deployment and end-to-end checks succeed.
 
+When migrating an existing DOI site, inventory its assigned identifiers and
+current targets before the first catalog build. `--initial-catalog` cannot check
+bindings stored in a legacy registry. Preserve existing DOI/page routes or
+configure reviewed redirects to the corresponding same-item landing pages.
+Do not reinterpret a DOI for an older canonical HTML/release artifact as a DOI
+for a different signed source commit. Keep its legacy record accessible until
+an explicitly reviewed compatibility/migration plan exists; this generator
+accepts signed-source editions, not legacy release receipts. Host migration and
+changes to presentation do not authorize rebinding the identified work.
+
 The first profile bounds catalog input to 1 MiB/256 editions and generated output
 to 512 MiB/20,000 files. These are build resource bounds, **not media size limits**.
 Larger collections can be split into catalogs; supporting pages can make output
