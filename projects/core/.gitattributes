@@ -1,0 +1,8 @@
+# Consistent text interchange across development environments
+* text=auto
+*.md text eol=lf
+*.markdown text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

@@ -1,0 +1,148 @@
+{
+  "conversation_id": "12345678-1234-1234-1234-123456789abc",
+  "title": "Synthetic capture qualification",
+  "current_node": "a2",
+  "mapping": {
+    "root": {
+      "id": "root",
+      "parent": null,
+      "children": [
+        "u",
+        "edited-u"
+      ],
+      "message": null
+    },
+    "u": {
+      "id": "u",
+      "parent": "root",
+      "children": [
+        "a1",
+        "hidden"
+      ],
+      "message": {
+        "id": "u",
+        "author": {
+          "role": "user"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "Original question: use **bold**, a table, and mathematics."
+          ]
+        }
+      }
+    },
+    "a1": {
+      "id": "a1",
+      "parent": "u",
+      "children": [],
+      "message": {
+        "id": "a1",
+        "author": {
+          "role": "assistant"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "Original answer.\n\n| A | B |\n| --- | --- |\n| 1 | 2 |"
+          ]
+        }
+      }
+    },
+    "hidden": {
+      "id": "hidden",
+      "parent": "u",
+      "children": [
+        "tool"
+      ],
+      "message": {
+        "id": "hidden",
+        "author": {
+          "role": "assistant"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "SYNTHETIC HIDDEN CONTEXT"
+          ]
+        },
+        "channel": "analysis",
+        "metadata": {
+          "is_visually_hidden_from_conversation": true
+        }
+      }
+    },
+    "tool": {
+      "id": "tool",
+      "parent": "hidden",
+      "children": [
+        "a2"
+      ],
+      "message": {
+        "id": "tool",
+        "author": {
+          "role": "tool"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "SYNTHETIC TOOL OUTPUT"
+          ]
+        }
+      }
+    },
+    "a2": {
+      "id": "a2",
+      "parent": "tool",
+      "children": [],
+      "message": {
+        "id": "a2",
+        "author": {
+          "role": "assistant"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "Regenerated answer. \\(x^2\\)\n\n```python\nprint(\"fixture\")\n```"
+          ]
+        }
+      }
+    },
+    "edited-u": {
+      "id": "edited-u",
+      "parent": "root",
+      "children": [
+        "a3"
+      ],
+      "message": {
+        "id": "edited-u",
+        "author": {
+          "role": "user"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "Edited question: keep this separate from the original branch."
+          ]
+        }
+      }
+    },
+    "a3": {
+      "id": "a3",
+      "parent": "edited-u",
+      "children": [],
+      "message": {
+        "id": "a3",
+        "author": {
+          "role": "assistant"
+        },
+        "content": {
+          "content_type": "text",
+          "parts": [
+            "Edited branch answer."
+          ]
+        }
+      }
+    }
+  }
+}

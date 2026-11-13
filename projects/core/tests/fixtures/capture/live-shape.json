@@ -1,0 +1,314 @@
+{
+  "native": {
+    "conversation_id": "12345678-1234-1234-1234-123456789abc",
+    "title": "Sanitized live capture shape",
+    "current_node": "edited-answer",
+    "mapping": {
+      "root": {
+        "id": "root",
+        "parent": null,
+        "children": [
+          "original-prompt",
+          "edited-prompt"
+        ],
+        "message": null
+      },
+      "original-prompt": {
+        "id": "original-prompt",
+        "parent": "root",
+        "children": [
+          "original-recap",
+          "regenerated-recap"
+        ],
+        "message": {
+          "id": "original-prompt",
+          "author": {
+            "role": "user"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Capture rehearsal. Invent a fresh eight-character label and show it first. Follow with one short paragraph, a two-row table, a small Python example, and a simple inline mathematical identity. Use no personal information."
+            ]
+          },
+          "channel": null,
+          "metadata": {},
+          "create_time": 1577836860
+        }
+      },
+      "edited-prompt": {
+        "id": "edited-prompt",
+        "parent": "root",
+        "children": [
+          "edited-recap"
+        ],
+        "message": {
+          "id": "edited-prompt",
+          "author": {
+            "role": "user"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Capture rehearsal. Invent a fresh eight-character label and show it first. Follow with one short paragraph, a two-row table, a small Python example, and a simple inline mathematical identity. Use no personal information. Use the heading Edited branch."
+            ]
+          },
+          "channel": null,
+          "metadata": {},
+          "create_time": 1577836920
+        }
+      },
+      "original-recap": {
+        "id": "original-recap",
+        "parent": "original-prompt",
+        "children": [
+          "original-answer"
+        ],
+        "message": {
+          "id": "original-recap",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "reasoning_recap",
+            "content": "Synthetic recap."
+          },
+          "channel": null,
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577836980
+        }
+      },
+      "regenerated-recap": {
+        "id": "regenerated-recap",
+        "parent": "original-prompt",
+        "children": [
+          "regenerated-answer"
+        ],
+        "message": {
+          "id": "regenerated-recap",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "reasoning_recap",
+            "content": "Synthetic recap."
+          },
+          "channel": null,
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837040
+        }
+      },
+      "original-answer": {
+        "id": "original-answer",
+        "parent": "original-recap",
+        "children": [],
+        "message": {
+          "id": "original-answer",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "**K7M2Q9RX**\n\nThis capture rehearsal demonstrates a simple, structured output using a unique eight-character label, a short paragraph, a table, Python code, and a mathematical identity. All examples use fictional, non-personal data.\n\n| Item | Value |\n|---|---|\n| Alpha | 10 |\n| Beta | 20 |\n\n```python\nvalues = [10, 20]\ntotal = sum(values)\nprint(total)  # 30\n```\n\nMathematical identity: \\( (a+b)^2 = a^2 + 2ab + b^2 \\)"
+            ]
+          },
+          "channel": "final",
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837100
+        }
+      },
+      "regenerated-answer": {
+        "id": "regenerated-answer",
+        "parent": "regenerated-recap",
+        "children": [],
+        "message": {
+          "id": "regenerated-answer",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "**K7M4Q2ZX**\n\nThis capture rehearsal demonstrates a simple, structured output using a unique eight-character label, a short paragraph, a two-row data table, a Python example, and a mathematical identity. All content is fictional and contains no personal information.\n\n| Item | Value |\n|---|---|\n| Alpha | 12 |\n| Beta | 24 |\n\n```python\nvalues = [12, 24]\ntotal = sum(values)\nprint(total)  # 36\n```\n\nMathematical identity: \\( (a+b)^2 = a^2+2ab+b^2 \\)"
+            ]
+          },
+          "channel": "final",
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837160
+        }
+      },
+      "edited-recap": {
+        "id": "edited-recap",
+        "parent": "edited-prompt",
+        "children": [
+          "edited-answer"
+        ],
+        "message": {
+          "id": "edited-recap",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "reasoning_recap",
+            "content": "Synthetic recap."
+          },
+          "channel": null,
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837220
+        }
+      },
+      "edited-answer": {
+        "id": "edited-answer",
+        "parent": "edited-recap",
+        "children": [],
+        "message": {
+          "id": "edited-answer",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "`K7M2Q9TX`\n\n### Edited branch\n\nThis capture rehearsal demonstrates a simple, structured output using a unique eight-character label. It includes a short paragraph, a two-row table, a Python example, and a mathematical identity. All content is fictional and contains no personal information.\n\n| Step | Result |\n|---|---|\n| 1 | Capture initialized |\n| 2 | Validation successful |\n\n```python\nlabel = \"K7M2Q9TX\"\nstatus = \"Complete\"\nprint(f\"{label}: {status}\")\n```\n\nMathematical identity: \\( (a+b)^2 = a^2+2ab+b^2 \\)"
+            ]
+          },
+          "channel": "final",
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837280
+        }
+      }
+    }
+  },
+  "selected_branch_pages": [
+    {
+      "conversation_id": "12345678-1234-1234-1234-123456789abc",
+      "current_node": "edited-answer",
+      "messages": [
+        {
+          "id": "selected-system-0",
+          "author": {
+            "role": "system"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Synthetic hidden system context."
+            ]
+          },
+          "channel": null,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          }
+        },
+        {
+          "id": "edited-prompt",
+          "author": {
+            "role": "user"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Capture rehearsal. Invent a fresh eight-character label and show it first. Follow with one short paragraph, a two-row table, a small Python example, and a simple inline mathematical identity. Use no personal information. Use the heading Edited branch."
+            ]
+          },
+          "channel": null,
+          "metadata": {
+            "has_versions": true
+          },
+          "create_time": 1577836920
+        },
+        {
+          "id": "selected-system-2",
+          "author": {
+            "role": "system"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Synthetic hidden system context."
+            ]
+          },
+          "channel": null,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          }
+        },
+        {
+          "id": "selected-system-3",
+          "author": {
+            "role": "system"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Synthetic hidden system context."
+            ]
+          },
+          "channel": null,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          }
+        },
+        {
+          "id": "edited-recap",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "reasoning_recap",
+            "content": "Synthetic recap."
+          },
+          "channel": null,
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837220
+        },
+        {
+          "id": "edited-answer",
+          "author": {
+            "role": "assistant"
+          },
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "`K7M2Q9TX`\n\n### Edited branch\n\nThis capture rehearsal demonstrates a simple, structured output using a unique eight-character label. It includes a short paragraph, a two-row table, a Python example, and a mathematical identity. All content is fictional and contains no personal information.\n\n| Step | Result |\n|---|---|\n| 1 | Capture initialized |\n| 2 | Validation successful |\n\n```python\nlabel = \"K7M2Q9TX\"\nstatus = \"Complete\"\nprint(f\"{label}: {status}\")\n```\n\nMathematical identity: \\( (a+b)^2 = a^2+2ab+b^2 \\)"
+            ]
+          },
+          "channel": "final",
+          "metadata": {
+            "model_slug": "gpt-6-thinking",
+            "resolved_model_slug": "gpt-6-thinking"
+          },
+          "create_time": 1577837280
+        }
+      ],
+      "page_info": {
+        "start_cursor": "selected-system-0",
+        "end_cursor": "edited-answer",
+        "has_previous_page": false,
+        "has_next_page": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# Local editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Local build and test output
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+.venv/
+.env
+.env.*
+node_modules/
+
+# Disposable exported presentation configuration
+.build/
