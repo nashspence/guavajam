@@ -16,6 +16,14 @@ from guavajam.site import build_site
 
 def prepare(directory):
     fixture = make_catalog_fixture(directory)
+    # Exercise preservation in the real three-engine browser route suite: an
+    # older edition is withdrawn, while the latest recommendation remains.
+    first = fixture['catalog']['works'][0]['editions'][0]
+    first.update(status='withdrawn',
+                 successor_revision=fixture['revisions'][1],
+                 notices=[{'date': '2026-11-05',
+                           'text': 'Withdrawn after review. The exact original remains readable.'}])
+    fixture['catalog_path'].write_text(json.dumps(fixture['catalog'], indent=2) + '\n')
     output = Path(directory) / 'site'
     with patch.dict(os.environ, {'GNUPGHOME': str(fixture['gpg_home'])}):
         build_site(fixture['repo'], fixture['catalog_path'], output,

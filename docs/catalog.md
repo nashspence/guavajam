@@ -144,23 +144,49 @@ notices must remain verbatim and in order. This does not prevent an authorized
 operator from editing the catalog; it makes normal builds fail closed when an
 update would silently rewrite prior bindings.
 
-Statuses are `available`, `withdrawn` and `unavailable`. Non-available statuses
-require at least one explanatory notice:
+Statuses are `available`, `superseded`, `withdrawn` and `unavailable`.
+`superseded`, `withdrawn` and `unavailable` require a dated, explanatory notice;
+any later status or successor change must append a new notice, rather than
+rewrite old ones. Notices are escaped plain text; optional `url` is a reviewed
+HTTPS link to supporting details. Signed title, manuscript and author bytes are
+never changed by catalog notices.
+
+**Withdrawal and supersession never suppress historical reading access.** Their
+DOI landing pages, native reading views, supporting-source views, exact GFM
+source downloads, passage citation pages and citation JSON remain available.
+Editorial status and the dated notices appear prominently on DOI landing pages,
+reading pages and citation pages before substantive content. Textual headings
+and explanations convey the status without relying on color; warnings remain
+visible in print. Later restoration to `available` requires an appended notice.
+
+A `superseded` edition requires `successor_revision`, the full SHA-1 of a
+distinct later (or same-day) signed edition of the **same work**. A withdrawn
+edition may optionally have a successor. The DOI and reading pages link to the
+successor's exact edition record rather than choosing the latest edition
+implicitly. References are validated for existence, chronology and cycles.
+An existing successor may change only with an appended dated notice; for
+example, restoration to `available` can explicitly retire the administrative
+successor link without altering either canonical publication.
 
 ```json
 {
-  "date": "2026-11-14",
-  "text": "The publisher has withdrawn this edition. Its original identity is retained.",
-  "url": "https://publisher.example/notices/withdrawal"
+  "revision": "<40-character-commit-SHA>",
+  "published": "2026-11-01",
+  "status": "withdrawn",
+  "notices": [
+    {"date": "2026-11-14", "text": "Withdrawn following editorial review. Historical source remains available."}
+  ],
+  "successor_revision": "<different-40-character-commit-SHA>"
 }
 ```
 
-`url` is optional. Notice text is plain escaped text, not Markdown or HTML.
-Restoration is possible with an appended notice. Tombstones retain bibliographic
-metadata, DOI, original signed source identity and citation data, but emit no
-reading view or downloadable source. The original Git objects still have to be
-available for source verification. A missing source or failed signature aborts
-the build; do not deploy a partial replacement over the last good site.
+`unavailable` is deliberately different: the bibliographic page, DOI, signed
+Git identity, explanatory notices, and edition citation JSON remain, but the
+catalog does not distribute a reading copy or source download. Do **not** use
+this status as a synonym for `withdrawn` or `superseded`. Its notice must explain
+why this optional access path is restricted. The signed Git objects must still
+be present for verification, and a missing object or invalid signature aborts
+the **entire build** rather than creating an unverifiable tombstone.
 
 ## Citation and page behavior
 
@@ -245,7 +271,7 @@ CATALOG.json
 SITE.json
 ```
 
-`read/` is omitted for non-available editions. The Atom feed is omitted for an
+`read/` is retained for `available`, `superseded`, and `withdrawn`; only explicitly `unavailable` editions omit it. The Atom feed is omitted for an
 empty catalog. Feed dates are day-precision catalog dates represented at midnight
 UTC for Atom; they are not claims about an actual issuance instant. Entry URLs
 are presentation identifiers, not new publication identities. Citation helper
@@ -261,8 +287,8 @@ uses the existing native-player and CSP behavior; media files are not copied int
 the site.
 
 Publish the **entire completed tree atomically**, including deletions. Never
-upload it as an additive overlay: otherwise a withdrawn edition's old reader
-could remain public. Retain the prior catalog independently for the next build.
+upload it as an additive overlay: otherwise an explicitly unavailable edition's former reader
+could remain public. Do not remove withdrawn or superseded readers on status change. Retain the prior catalog independently for the next build.
 Keep a publisher-owned stable URL for DOI landing pages, serve each page without
 requiring login, and maintain routes across future hosting changes. The host
 should serve `.html` as HTML, `.gfm` as `text/plain; charset=utf-8`, JSON/XML with
@@ -298,7 +324,8 @@ determinism, site limits and failure behavior. `make test-browser` also runs the
 catalog journey in Chromium, Firefox and WebKit with page JavaScript disabled,
 then separate axe instrumentation with the original CSP intact. It exercises
 registry-to-work-to-edition-to-passage navigation, downloads, keyboard use, 320px
-reflow, enlarged text, light/dark modes, print styles and tombstones.
+reflow, enlarged text, light/dark modes, print styles and tombstones, retained historical readers, withdrawal/supersession notices,
+source downloads and status visibility in print.
 
 The synthetic fixture can be generated with
 `python tests/run_catalog_browser.py --prepare /tmp/catalog-fixture`. It uses

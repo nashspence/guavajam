@@ -21,6 +21,13 @@
 .guavajam-status { font: 600 .82rem/1.5 system-ui, sans-serif; }
 .guavajam-actions { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; margin: 1.3rem 0; }
 .guavajam-actions a { display: inline-block; padding: .4rem 0; }
+/* Historical warnings remain visible in the reader and on paper. Explicit
+   wording communicates the status independently of theme or color. */
+.guavajam-edition-advisory { margin: 1.25rem 0 1.5rem; border-inline-start: .22rem solid var(--press-border); padding: .2rem 0 .2rem 1rem; overflow-wrap: anywhere; }
+.guavajam-edition-advisory > h2 { font-size: 1.16rem; margin: .2rem 0 .55rem; }
+.guavajam-edition-advisory > p { margin-bottom: .7rem; }
+.guavajam-edition-advisory .guavajam-notices { margin-block: .9rem; }
+.guavajam-edition-advisory .guavajam-notices h3 { font-size: 1rem; margin-top: 0; }
 .guavajam-notices, .guavajam-citation { background: var(--press-tint); border-inline-start: 3px solid var(--press-border); padding: .9rem 1rem; margin-block: 1.3rem; overflow-wrap: anywhere; }
 .guavajam-notices h2 { margin-top: 0; font-size: 1.15rem; }
 .guavajam-citation > :last-child { margin-bottom: 0; }
@@ -29,5 +36,5 @@
 .guavajam-source-identity { overflow-wrap: anywhere; }
 @media print {
   .guavajam-navigation, .guavajam-passage-cite, .guavajam-source-guide { display: none; }
-  .guavajam-notices, .guavajam-citation, .guavajam-editions > li { break-inside: avoid; }
+  .guavajam-edition-advisory, .guavajam-notices, .guavajam-citation, .guavajam-editions > li { break-inside: avoid; }
 }

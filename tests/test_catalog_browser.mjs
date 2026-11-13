@@ -31,9 +31,12 @@ const base = `http://127.0.0.1:${server.address().port}/collection/`;
 const revision = fixture.revisions[1];
 const edition = `works/field-notes/editions/${revision}/`;
 const unavailable = `works/other-work/editions/${fixture.revisions[2]}/`;
+const withdrawn = `works/field-notes/editions/${fixture.revisions[0]}/`;
 const pages = ['index.html', 'works/field-notes/index.html', edition + 'index.html',
   edition + 'read/index.html', edition + 'read/cite.html', edition + 'read/supporting/note.html',
-  edition + 'read/supporting/note.cite.html', unavailable + 'index.html'];
+  edition + 'read/supporting/note.cite.html', unavailable + 'index.html',
+  withdrawn + 'index.html', withdrawn + 'read/index.html',
+  withdrawn + 'read/cite.html', withdrawn + 'read/supporting/note.html'];
 const results = [];
 try {
   for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
@@ -87,6 +90,30 @@ try {
           results.push({engine: name, filename, width, scheme, enlarge, overflow: false});
         }
       }
+      // A withdrawal is an editorial warning, not a request to delete an
+      // immutable historical reading or exact-source download.
+      await page.goto(base + withdrawn + 'index.html');
+      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
+      assert.equal(await page.getByText('Withdrawn after review. The exact original remains readable.').count(), 1);
+      assert.equal(await page.getByRole('link', {name: 'Read this edition', exact: true}).count(), 1);
+      await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
+      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
+      assert((await page.locator('main').evaluate(el => {
+        const warning=el.querySelector('.guavajam-edition-advisory');
+        const prose=el.querySelector('h2#opening');
+        return !!(warning && prose && warning.compareDocumentPosition(prose) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })));
+      await page.getByRole('link', {name: 'Source citations and download'}).click();
+      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
+      const withdrawnDownload = page.waitForEvent('download');
+      await page.getByRole('link', {name: 'Download exact GFM source'}).click();
+      const withdrawnFile = await withdrawnDownload;
+      assert.deepEqual(await fs.readFile(await withdrawnFile.path()),
+        await fs.readFile(path.join(root, withdrawn, 'read/source.gfm')));
+      await page.goto(base + withdrawn + 'read/index.html');
+      await page.emulateMedia({media: 'print', colorScheme: 'light'});
+      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).isVisible(), true);
+      await page.emulateMedia({media: 'screen', colorScheme: 'light'});
       await page.goto(base + unavailable + 'index.html');
       assert.equal(await page.getByRole('link', {name: 'Read this edition', exact: true}).count(), 0);
       assert.equal((await page.request.get(base + unavailable + 'read/index.html')).status(), 404);

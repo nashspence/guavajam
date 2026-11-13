@@ -95,6 +95,56 @@ class CatalogSchemaTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(CatalogError):
                 validate(candidate)
 
+    def test_supersession_requires_a_valid_same_work_successor_and_notice(self):
+        original = copy.deepcopy(self.catalog)
+        first = original['works'][0]['editions'][0]
+        for update in ({'status': 'superseded'},
+                       {'status': 'superseded', 'notices': [{'date': '2026-11-02', 'text': 'Superseded.'}]},
+                       {'successor_revision': 'b' * 40},
+                       {'successor_revision': original['works'][0]['editions'][0]['revision']},
+                       {'successor_revision': 12}):
+            candidate = copy.deepcopy(original)
+            candidate['works'][0]['editions'][0].update(update)
+            with self.subTest(update=update), self.assertRaises(CatalogError):
+                validate(candidate)
+        second_revision = 'b' * 40
+        expanded = copy.deepcopy(original)
+        expanded['works'][0]['editions'].append({
+            'revision': second_revision, 'published': '2026-11-02', 'status': 'available'})
+        old = expanded['works'][0]['editions'][0]
+        old.update(status='superseded', successor_revision=second_revision,
+                   notices=[{'date': '2026-11-02', 'text': 'Replaced by successor.'}])
+        validate(expanded)
+        with self.assertRaisesRegex(CatalogError, 'only withdrawn or superseded'):
+            candidate=copy.deepcopy(expanded)
+            candidate['works'][0]['editions'][0]['status']='available'
+            validate(candidate)
+        with self.assertRaisesRegex(CatalogError, 'cycles'):
+            candidate=copy.deepcopy(expanded)
+            candidate['works'][0]['editions'][1].update(
+                status='superseded', successor_revision=original['works'][0]['editions'][0]['revision'],
+                notices=[{'date': '2026-11-02', 'text': 'Circular metadata.'}])
+            validate(candidate)
+        moved=copy.deepcopy(expanded)
+        moved['works'][0]['editions'][0]['successor_revision'] = 'c' * 40
+        with self.assertRaises(CatalogError): validate(moved)
+
+    def test_successor_changes_require_append_only_notice_and_allow_restoration(self):
+        old=copy.deepcopy(self.catalog)
+        old['works'][0]['editions'].append({'revision': 'b'*40,'published': '2026-11-02','status':'available'})
+        old['works'][0]['editions'][0].update(
+            status='superseded', successor_revision='b'*40,
+            notices=[{'date':'2026-11-02','text':'Superseded.'}])
+        validate(old)
+        new=copy.deepcopy(old)
+        new['works'][0]['editions'][0].update(status='available')
+        new['works'][0]['editions'][0].pop('successor_revision')
+        with self.assertRaisesRegex(CatalogError,'appended'):
+            compare(old,new)
+        new['works'][0]['editions'][0]['notices'].append(
+            {'date':'2026-11-03','text':'Restored with an explanatory notice.'})
+        compare(old,new)
+
     def test_duplicate_json_fields_and_nonfinite_values_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'catalog.json'
@@ -289,18 +339,92 @@ class CatalogBuildTests(unittest.TestCase):
         for filename, digest in view['files'].items():
             self.assertEqual(digest, hashlib.sha256((self.output / root / 'read' / filename).read_bytes()).hexdigest())
 
-    def test_unavailable_and_withdrawn_records_have_no_reading_or_source_outputs(self):
-        self.catalog['works'][0]['editions'][0].update(status='withdrawn', notices=[{'date': '2026-11-02', 'text': 'Withdrawn. Original identity retained.'}])
+    def test_withdrawn_keeps_reader_passage_citations_and_original_downloads(self):
+        revision = self.fixture['revisions'][0]
+        first = self.catalog['works'][0]['editions'][0]
+        first.update(status='withdrawn',
+                     notices=[{'date': '2026-11-02', 'text': 'Withdrawn after review; historical source remains.'}],
+                     successor_revision=self.fixture['revisions'][1])
+        manifest = self.build()
+        root = self.edition_root(0)
+        record = self.page(root + '/index.html')
+        view = self.page(root + '/read/index.html')
+        note = self.page(root + '/read/supporting/note.html')
+        cite = self.page(root + '/read/cite.html')
+        note_cite = self.page(root + '/read/supporting/note.cite.html')
+        for name, html in [('landing', record), ('reading', view), ('support', note),
+                           ('citation', cite), ('support citation', note_cite)]:
+            with self.subTest(page=name):
+                self.assertIn('Withdrawn edition', html)
+                self.assertIn('Withdrawn after review; historical source remains.', html)
+                self.assertIn('role="note"', html)
+                self.assertIn('View the successor edition record', html)
+                self.assertNotIn('<script', html)
+        self.assertLess(record.index('Withdrawn edition</h2>'), record.index('>Read this edition</a>'))
+        self.assertLess(view.index('Withdrawn edition</h2>'), view.index('First observation.'))
+        self.assertLess(view.index('<h1'), view.index('Withdrawn edition</h2>'))
+        self.assertIn('Read this edition', record)
+        self.assertIn('source.gfm', record)
+        self.assertIn('Cite committed passages', record)
+        self.assertIn(revision, self.page(root + '/citation.json'))
+        self.assertEqual(self.fixture['revisions'][1], first['successor_revision'])
+        # Two revisions are retained in Git; compare to the exact *first* tree.
+        expected = subprocess.run(['git', 'show', revision + ':works/field-notes/manuscript.md'],
+                                  cwd=self.fixture['repo'], capture_output=True, check=True).stdout
+        self.assertEqual(expected, (self.output / root / 'read/source.gfm').read_bytes())
+        self.assertEqual('withdrawn', json.loads(self.page(root + '/citation.json'))['status'])
+        self.assertEqual('withdrawn', json.loads(self.page(root + '/read/cite.json'))['status'])
+        self.assertIn(root + '/read/', self.page('sitemap.xml'))
+        self.assertIn('Withdrawn', self.page('feed.xml'))
+        self.assertIn(root + '/read/index.html', manifest['files'])
+        self.assertIn(root + '/read/supporting/note.gfm', manifest['files'])
+
+    def test_superseded_keeps_reader_links_to_exact_reviewed_successor(self):
+        first = self.catalog['works'][0]['editions'][0]
+        first.update(status='superseded',
+                     successor_revision=self.fixture['revisions'][1],
+                     notices=[{'date': '2026-11-02', 'text': 'Replaced by the revised signed source.'}])
+        manifest = self.build()
+        root = self.edition_root(0)
+        target = self.edition_root(1) + '/index.html'
+        for name in ('index.html','read/index.html','read/cite.html','read/supporting/note.html'):
+            page = root + '/' + name
+            html = self.page(page)
+            self.assertIn('Superseded edition', html)
+            self.assertIn('Replaced by the revised signed source.', html)
+            self.assertIn('View the successor edition record', html)
+            self.assertIn('href="' + __import__('posixpath').relpath(target, __import__('posixpath').dirname(page)) + '"', html)
+        self.assertIn(root + '/read/index.html', manifest['files'])
+        self.assertIn(root + '/read/', self.page('sitemap.xml'))
+        self.assertIn('Superseded', self.page('feed.xml'))
+
+    def test_unavailable_remains_an_explained_tombstone_not_a_withdrawal(self):
         self.build()
-        for root in (self.edition_root(0), self.edition_root(2, 'other-work')):
-            html = self.page(root + '/index.html')
-            self.assertIn('retained bibliographic record', html)
-            self.assertFalse((self.output / root / 'read').exists())
-            self.assertNotIn('>Read this edition<', html)
-            self.assertTrue((self.output / root / 'citation.json').exists())
-        sitemap = self.page('sitemap.xml')
-        self.assertIn(self.fixture['revisions'][0], sitemap)
-        self.assertNotIn(self.edition_root(0) + '/read/', sitemap)
+        root = self.edition_root(2, 'other-work')
+        html = self.page(root + '/index.html')
+        self.assertIn('Unavailable edition', html)
+        self.assertIn('Reading distribution is unavailable', html)
+        self.assertIn('retained bibliographic record', html)
+        self.assertNotIn('>Read this edition<', html)
+        self.assertFalse((self.output / root / 'read').exists())
+        self.assertTrue((self.output / root / 'citation.json').exists())
+        self.assertNotIn(root + '/read/', self.page('sitemap.xml'))
+
+    def test_status_transition_deployment_retains_old_reader_and_notice_history(self):
+        first = self.catalog['works'][0]['editions'][0]
+        previous = self.root / 'prior-catalog.json'
+        previous.write_bytes(encoded(self.catalog))
+        first.update(status='withdrawn', notices=[{'date': '2026-11-02', 'text': 'Retired from recommendation, not erased.'}])
+        self.path.write_bytes(encoded(self.catalog))
+        build_site(self.fixture['repo'], self.path, self.output,
+                   previous_catalog=previous, fingerprints=[self.fixture['fingerprint']])
+        root = self.edition_root(0)
+        self.assertIn(root + '/read/index.html', json.loads(self.page('SITE.json'))['files'])
+        self.assertIn('Retired from recommendation, not erased.', self.page(root + '/read/index.html'))
+        with self.assertRaisesRegex(CatalogError, 'require an appended editorial notice'):
+            altered = copy.deepcopy(self.catalog)
+            altered['works'][0]['editions'][0]['status'] = 'available'
+            compare(self.catalog, altered)
 
     def test_sitemap_feed_are_valid_date_explicit_and_deployment_prefix_safe(self):
         self.build()

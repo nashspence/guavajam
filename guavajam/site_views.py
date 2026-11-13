@@ -132,13 +132,45 @@ def status(edition):
     return '<span class="guavajam-status">' + e(edition['status'].capitalize()) + '</span>'
 
 
-def notices(edition):
+def notices(edition, heading="h2"):
     items = edition.get('notices', [])
     if not items:
         return ''
-    return '<section class="guavajam-notices" aria-label="Editorial notices"><h2>Editorial notices</h2><ol>' + ''.join(
+    return '<section class="guavajam-notices" aria-label="Editorial notices"><' + heading + '>Editorial notices</' + heading + '><ol>' + ''.join(
         '<li><time datetime="' + e(n['date']) + '">' + e(n['date']) + '</time> — ' + e(n['text']) +
         (' <a href="' + e(n['url']) + '">Notice details</a>' if 'url' in n else '') + '</li>' for n in items) + '</ol></section>'
+
+
+def edition_advisory(catalog, filename, work, edition):
+    """Editorial status lives in reviewed catalog facts, never in signed source.
+
+    Withdrawn/superseded source remains independently identifiable and readable.
+    The advisory is deliberately static and present before substantive text;
+    no generated ID can collide with a signed manuscript passage anchor.
+    """
+    state = edition['status']
+    if state == 'available':
+        return notices(edition)
+    labels = {'withdrawn': 'Withdrawn edition',
+              'superseded': 'Superseded edition',
+              'unavailable': 'Unavailable edition'}
+    explanations = {
+        'withdrawn': ('This edition was withdrawn. Its historical reading copy and exact signed source '
+                      'remain accessible. Read the editorial notices before relying on or citing it.'),
+        'superseded': ('This edition has been superseded. Its original signed source and reading copy '
+                       'remain accessible for historical reference; consult the successor before citing.'),
+        'unavailable': ('This edition is not distributed in the optional reading presentation. '
+                        'Its bibliographic record and signed Git identity remain available.'),
+    }
+    body = ('<section class="guavajam-edition-advisory" role="note" aria-label="' + e(labels[state]) + '">'
+            '<h2>' + e(labels[state]) + '</h2><p>' + e(explanations[state]) + '</p>')
+    successor = edition.get('successor_revision')
+    if successor:
+        destination = edition_root(work['slug'], successor) + '/index.html'
+        body += ('<p><strong>Successor:</strong> <a href="' + e(relative(filename, destination)) +
+                 '">View the successor edition record</a>.</p>')
+    body += notices(edition, heading='h3')
+    return body + '</section>'
 
 
 def canonical_record(sha, manuscript, document=None, anchor=None):
@@ -272,7 +304,7 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     match = re.search(r'</h1>(?:\s*<p><span class="press-edition-identity">.*?</span></p>)?', html, re.S)
     if match is None:
         raise ValueError('generated reading has no H1 for its source identity')
-    context = ('<aside class="guavajam-reading-context" lang="en" aria-label="Source and citation">'
+    context = edition_advisory(catalog, filename, work, edition) + ('<aside class="guavajam-reading-context" lang="en" aria-label="Source and citation">'
                '<p>Cite the committed work or passage, not this presentation URL. '
                '<a href="' + e(relative(filename, cite)) + '">Source citations and download</a>.</p>'
                + source_identity + '</aside>')
@@ -283,7 +315,8 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
 def citation_page(catalog, filename, work, edition, facts, document, canonical, view_page):
     source_path = canonical.get('document', canonical['manuscript'])
     title = 'Cite committed source: ' + document['title']
-    body = '<h1>' + e(title) + '</h1><p>The citation identifies the exact signed source. A reading URL is only an access path.</p>'
+    body = '<h1>' + e(title) + '</h1>' + edition_advisory(catalog, filename, work, edition)
+    body += '<p>The citation identifies the exact signed source. A reading URL is only an access path.</p>'
     body += citation(catalog, facts, edition, canonical)
     body += ('<p><a href="' + e(relative(filename, view_page)) + '">Return to reading</a> · '
              '<a download href="' + e(relative(filename, source_filename(view_page))) + '">Download exact GFM source</a> · '

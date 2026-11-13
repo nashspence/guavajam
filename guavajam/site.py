@@ -18,12 +18,12 @@ import tempfile
 from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree as ET
 
-from .catalog import CatalogError, compare, encoded, read_catalog, source_url
+from .catalog import CatalogError, compare, encoded, read_catalog, source_url, READABLE_STATUSES
 from .renderer import RenderError, git_blob, render
 from .site_views import (absolute, abstract, authors, canonical_record, citation,
                          citation_data, citation_filename, citation_page,
                          decorate_reading, doi_display, e, edition_root,
-                         metadata, notices, page, relative, source_filename,
+                         edition_advisory, metadata, page, relative, source_filename,
                          source_identity, status)
 
 MAX_SITE_BYTES = 512 * 1024 * 1024
@@ -136,8 +136,8 @@ def _edition_page(catalog, work, edition, publication):
         body += '<p>No edition DOI is listed. The signed source identity is sufficient to identify this edition.</p>'
     if work.get('concept_doi'):
         body += doi_display(work['concept_doi'], 'Work across editions')
-    body += abstract(facts) + notices(edition)
-    if edition['status'] == 'available':
+    body += abstract(facts) + edition_advisory(catalog, filename, work, edition)
+    if edition['status'] in READABLE_STATUSES:
         body += ('<p class="guavajam-actions"><a href="read/index.html">Read this edition</a>'
                  '<a href="read/cite.html">Cite committed passages</a><a download href="read/source.gfm">Download exact GFM source</a></p>')
         supporting = [(path, doc) for path, doc in publication['documents'].items()
@@ -151,8 +151,7 @@ def _edition_page(catalog, work, edition, publication):
         if other:
             body += '<p><a href="' + e(other) + '">Open the pinned source in another viewer</a></p>'
     else:
-        body += ('<p class="guavajam-source-guide">This is a retained bibliographic record. This build does not distribute a reading view or source download for this '
-                 + e(edition['status']) + ' edition. Its signed source identity is unchanged.</p>')
+        body += ('<p class="guavajam-source-guide">This is a retained bibliographic record. The unavailable edition has no distributed reading view or source download in this build. Its signed source identity is unchanged.</p>')
     body += '<h2>Cite the committed source</h2>' + citation(catalog, facts, edition, canonical)
     body += '<p><a download href="citation.json">Download citation data</a></p><p class="guavajam-administration">The page URL locates a presentation; it is not the canonical source identifier.</p>'
     body += '<p>Rights: ' + e(facts['rights']) + '</p>'
@@ -276,7 +275,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 indexable.add(root + '/index.html')
                 manuscript_info = view['documents'][canonical['manuscript']]
                 writer.put(root + '/citation.json', encoded(citation_data(catalog, facts, edition, canonical, manuscript_info['anchors'])))
-                if edition['status'] == 'available':
+                if edition['status'] in READABLE_STATUSES:
                     file_hashes = {}
                     for document_path, document in sorted(view['documents'].items()):
                         filename = root + '/read/' + document['view']

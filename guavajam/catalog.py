@@ -19,7 +19,8 @@ SCHEMA = 'guavajam.catalog.v1'
 MAX_BYTES = 1024 * 1024
 MAX_EDITIONS = 256
 REVISION = re.compile(r'[0-9a-f]{40}\Z')
-STATUSES = frozenset({'available', 'withdrawn', 'unavailable'})
+STATUSES = frozenset({'available', 'superseded', 'withdrawn', 'unavailable'})
+READABLE_STATUSES = frozenset({'available', 'superseded', 'withdrawn'})
 
 
 class CatalogError(ValueError):
@@ -142,7 +143,7 @@ def validate(catalog):
             fail('each work requires at least one exact edition')
         editions = {}
         for edition in work['editions']:
-            fields(edition, {'revision', 'published', 'status'}, {'label', 'doi', 'notices'}, 'edition')
+            fields(edition, {'revision', 'published', 'status'}, {'label', 'doi', 'notices', 'successor_revision'}, 'edition')
             sha = edition['revision']
             if not isinstance(sha, str) or not REVISION.fullmatch(sha) or sha in revisions:
                 fail('each edition requires a unique full lowercase SHA-1 commit')
@@ -152,7 +153,7 @@ def validate(catalog):
             editions[sha] = edition
             day(edition['published'], 'published')
             if not isinstance(edition['status'], str) or edition['status'] not in STATUSES:
-                fail('status must be available, withdrawn or unavailable')
+                fail('status must be available, superseded, withdrawn or unavailable')
             if 'label' in edition:
                 text(edition['label'], 'label')
             notices = edition.get('notices', [])
@@ -169,7 +170,25 @@ def validate(catalog):
                 if 'url' in notice:
                     https(notice['url'], 'notice URL')
             if edition['status'] != 'available' and not notices:
-                fail('withdrawn/unavailable editions require an explanatory notice')
+                fail('superseded, withdrawn and unavailable editions require an explanatory notice')
+        for edition in work['editions']:
+            successor = edition.get('successor_revision')
+            if edition['status'] == 'superseded' and successor is None:
+                fail('superseded editions require a same-work successor_revision')
+            if successor is not None:
+                if edition['status'] not in {'withdrawn', 'superseded'}:
+                    fail('only withdrawn or superseded editions may name a successor')
+                if (not isinstance(successor, str) or successor not in editions
+                        or successor == edition['revision']
+                        or editions[successor]['published'] < edition['published']):
+                    fail('successor_revision must identify a later or same-day distinct edition of this work')
+                seen = {edition['revision']}
+                current = successor
+                while current is not None:
+                    if current in seen:
+                        fail('edition successors may not form cycles')
+                    seen.add(current)
+                    current = editions[current].get('successor_revision')
         if not isinstance(work['metadata_revision'], str) or work['metadata_revision'] not in editions:
             fail('metadata_revision must select an edition of this work')
         if 'recommended_revision' in work:
@@ -212,8 +231,8 @@ def compare(previous, current):
             newer = new.get('notices', [])
             if newer[:len(notices)] != notices:
                 fail('existing editorial notices must be retained verbatim')
-            if any(old.get(k) != new.get(k) for k in ('status', 'published', 'label')) and len(newer) <= len(notices):
-                fail('status/date/label changes require an appended editorial notice')
+            if any(old.get(k) != new.get(k) for k in ('status', 'published', 'label', 'successor_revision')) and len(newer) <= len(notices):
+                fail('status/date/label/successor changes require an appended editorial notice')
     return current
 
 
