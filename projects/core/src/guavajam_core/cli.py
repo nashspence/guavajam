@@ -10,7 +10,7 @@ COMMANDS = {
     'assets': 'manage_assets', 'asset-workflow': 'asset_workflow',
     'asset-policy': 'configure_asset_maintenance', 'asset-pin': 'asset_versions',
     'gateway': 'deploy_asset_gateway', 'archive': 'source_archive',
-    'chat': 'extract_chatgpt', 'site-export': 'export_site', 'site-import': 'import_site',
+    'chat': 'extract_chatgpt', 'site-export': 'export_site',
     'new-work': 'starters', 'resources': 'starters',
 }
 

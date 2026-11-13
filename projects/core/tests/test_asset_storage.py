@@ -341,6 +341,76 @@ class GitRetentionTests(unittest.TestCase):
         with patch("guavajam_core.manage_assets.git", side_effect=shallow), self.assertRaises(AssetError):
             retained_assets(self.root, "publisher/press")
 
+    @contextlib.contextmanager
+    def retirement(self, head):
+        original_run = subprocess.run
+        def read_ref(args, **kwargs):
+            if args[:2] == ["gh", "api"]:
+                return subprocess.CompletedProcess(args, 0, json.dumps({
+                    "ref": "refs/heads/retire-me", "object": {"sha": head}}), "")
+            return original_run(args, **kwargs)
+        pushes = []
+        def local_git(root, *args, **kwargs):
+            if "push" in args:
+                pushes.append(args)
+            args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
+            return git(root, *args, **kwargs)
+        with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
+             patch("guavajam_core.asset_workflow.pages", return_value=[]), \
+             patch("guavajam_core.asset_workflow.git", side_effect=local_git), \
+             patch("guavajam_core.asset_workflow.subprocess.run", side_effect=read_ref), \
+             contextlib.redirect_stdout(io.StringIO()):
+            yield pushes
+
+    def signed_branch(self, message):
+        key = self.temp / "signer"
+        if not key.exists():
+            subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
+                           check=True, capture_output=True)
+        self.g("config", "gpg.format", "ssh")
+        self.g("config", "user.signingkey", str(key))
+        self.g("switch", "-qc", "retire-me")
+        self.g("commit", "--allow-empty", "-S", "-qm", "Publish\n\n" + message)
+        head = self.g("rev-parse", "HEAD")
+        self.g("push", "-q", "origin", "main", "retire-me")
+        return head
+
+    def test_signed_publications_must_reach_main_before_compare_and_delete(self):
+        from guavajam_core.publication_protocol import publication_trailers
+        for label in (None, "Initial edition"):
+            with self.subTest(label=label):
+                head = self.signed_branch("\n".join(publication_trailers(
+                    "works/field-notes/manuscript.md", "2026-11-13", label)))
+                with self.retirement(head) as pushes:
+                    with self.assertRaisesRegex(AssetError, "would orphan a declared publication"):
+                        asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+                    self.assertEqual([], pushes)
+                retained = subprocess.check_output(["git", "--git-dir", str(self.origin), "rev-parse", "retire-me"]).decode().strip()
+                self.assertEqual(head, retained)
+                self.g("switch", "-q", "main")
+                self.g("merge", "--ff-only", "retire-me")
+                self.g("push", "-q", "origin", "main")
+                with self.retirement(head) as pushes:
+                    asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+                    self.assertEqual(1, len(pushes))
+                    self.assertIn("--force-with-lease=refs/heads/retire-me:" + head, pushes[0])
+                result = subprocess.run(["git", "--git-dir", str(self.origin), "show-ref", "--verify", "refs/heads/retire-me"], capture_output=True)
+                self.assertNotEqual(0, result.returncode)
+                self.g("branch", "-D", "retire-me")
+
+    def test_malformed_signed_declaration_stops_retirement_before_push(self):
+        head = self.signed_branch("Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md")
+        with self.retirement(head) as pushes:
+            with self.assertRaisesRegex(AssetError, "cannot classify a signed Press declaration"):
+                asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+            self.assertEqual([], pushes)
+
+    def test_site_checkpoint_alone_can_be_retired(self):
+        head = self.signed_branch("Press-Site: 1")
+        with self.retirement(head) as pushes:
+            asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+            self.assertEqual(1, len(pushes))
+
     def test_compare_and_delete_refuses_concurrent_branch_push(self):
         first = self.g("rev-parse", "HEAD")
         self.g("branch", "retire-me")

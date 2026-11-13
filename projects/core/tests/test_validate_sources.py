@@ -166,7 +166,7 @@ class StrictSourceTests(unittest.TestCase):
     def test_reject_arbitrary_html(self):
         self.assert_bad("raw HTML is prohibited", MANUSCRIPT + "<script>alert(1)</script>\n")
 
-    def test_reject_legacy_math(self):
+    def test_reject_unsupported_math_delimiters(self):
         self.assert_bad("not backslash math delimiters", MANUSCRIPT + r"\(x\)" + "\n")
 
     def test_equation_labels_require_a_heading_anchor(self):

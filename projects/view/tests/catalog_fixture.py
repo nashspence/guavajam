@@ -68,7 +68,8 @@ The exact, independently citable claim.
         command(repo, 'git', 'add', '-A')
         command(repo, 'git', 'commit', '-qm', 'Review ' + title)
         command(repo, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish ' + title,
-                '-m', 'Press-Publication: 1\nPress-Work: works/' + slug + '/manuscript.md', env=env)
+                '-m', 'Press-Publication: 1\nPress-Work: works/' + slug + '/manuscript.md\nPress-Published: ' +
+                ['2026-10-01', '2026-11-01', '2026-11-03'][len(revisions)], env=env)
         revisions.append(command(repo, 'git', 'rev-parse', 'HEAD'))
     catalog = {
         'schema': 'guavajam.catalog.v1', 'title': 'Collected Publications',

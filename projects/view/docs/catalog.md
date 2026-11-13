@@ -109,8 +109,8 @@ GuavaJam never fetches it. GitHub's optional form is
 `https://github.com/OWNER/REPO/blob/{revision}/{path}`.
 
 Each `slug` selects `works/<slug>/manuscript.md`. The signed-source
-conventions accept `Press-Publication: 1` with `Press-Work`, and v2 with
-explicit `Press-Published` and optional `Press-Label` trailers, a full
+conventions require `Press-Publication: 1`, `Press-Work`, explicit
+`Press-Published` and optional `Press-Label` trailers, a full
 lowercase SHA-1 commit ID, an independently trusted signature, and an empty
 single-parent publication commit preserving the reviewed parent tree. A branch,
 tag, shortened hash, unsigned draft or wrong-work commit is not accepted.
@@ -148,14 +148,14 @@ become a DOI assignment date. The current schema has no fields for a work's
 original publication date, DOI assignment history or initial editorial notes. Reviewed dated `notices`
 remain explicit editorial records with append-only history. Git timestamps,
 unstructured commit messages and catalog ordering cannot supply missing administrative facts.
-The dated v2 publication declaration described in `updates.md` is an explicit
+The v1 publication declaration described in `updates.md` is an explicit
 schema for publisher-declared edition dates, not for historical work or DOI-assignment dates.
 
 Before displaying additional historical facts, retain their independently
 reviewed records in the publisher's administrative review tree, identify the
 exact work or edition they describe, and approve an explicit schema and
 validation contract. When those records are unavailable, omit the facts and
-record that migration decision in the publisher's review. Existing DOI-to-item
+record that editorial decision in the publisher's review. Existing DOI-to-item
 bindings and notices remain protected by the catalog comparison.
 
 ## DOI scope, notices and historical bindings
@@ -329,16 +329,6 @@ Updating DOI resolver targets and notices requires a separate authorized operato
 step. Do not aim a DOI at the registry home page or directly at a raw download.
 Render each DOI's specific work/edition landing page, then update its registrar
 record only after deployment and end-to-end checks succeed.
-
-When migrating an existing DOI site, inventory its assigned identifiers and
-current targets before the first catalog build. `--initial-catalog` cannot check
-bindings stored in a legacy registry. Preserve existing DOI/page routes or
-configure reviewed redirects to the corresponding same-item landing pages.
-Do not reinterpret a DOI for an older canonical HTML/release artifact as a DOI
-for a different signed source commit. Keep its legacy record accessible until
-an explicitly reviewed compatibility/migration plan exists; this generator
-accepts signed-source editions, not legacy release receipts. Host migration and
-changes to presentation do not authorize rebinding the identified work.
 
 The first profile bounds catalog input to 1 MiB/256 editions and generated output
 to 512 MiB/20,000 files. These are build resource bounds, **not media size limits**.

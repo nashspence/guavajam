@@ -1,7 +1,7 @@
 # Publisher command recipes owned and shipped by guavajam-core.
-.PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export site-import
+.PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export
 export TITLE AUTHOR LANGUAGE
-export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG CATALOG REPO
+export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS B2_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO
 
 check: check-source check-assets ## Validate tracked sources and verify their assets online. Stage new files first.
 
@@ -70,13 +70,10 @@ asset-pin: ## KEY=sha256/digest.type [RETAIN_UNTIL=epoch-ms RETENTION_MODE=gover
 	@set --; if [ -n "$$RETAIN_UNTIL" ]; then set -- --retain-until "$$RETAIN_UNTIL" --retention-mode "$${RETENTION_MODE:?Set an explicit retention mode}"; fi; \
 	$(PYTHON) -m guavajam_core.asset_versions "$${KEY:?Set KEY}" "$$@"
 
-publication-prepare: ## REV=full-draft-sha WORK=slug [PUBLISHED=YYYY-MM-DD LABEL=edition B2_ENV=.env.assets]  Verify committed source, complete public bytes and private B2 retention before the owner manually signs an empty publication commit.
-	@$(PYTHON) -m guavajam_core.prepare_publication --revision "$${REV:?Set REV}" --work "$${WORK:?Set WORK}" $${PUBLISHED:+"--published=$$PUBLISHED"} $${LABEL:+"--label=$$LABEL"}
+publication-prepare: ## REV=full-draft-sha WORK=slug PUBLISHED=YYYY-MM-DD [LABEL=edition B2_ENV=.env.assets]  Verify committed source, complete public bytes and private B2 retention before the owner manually signs an empty publication commit.
+	@$(PYTHON) -m guavajam_core.prepare_publication --revision "$${REV:?Set REV}" --work "$${WORK:?Set WORK}" --published "$${PUBLISHED:?Set PUBLISHED to the reviewed edition date}" $${LABEL:+"--label=$$LABEL"}
 
 site-export: ## [SOURCE_REF=refs/heads/main OUTPUT=.build/guavajam/CATALOG.json] external signer trust as publication-check; emit exact GuavaJam input from signed commits and press-site.json.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.' >&2; exit 1; }
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signer trust}"; fi; \
 	$(PYTHON) -m guavajam_core.export_site $${REPO:+"--repo=$$REPO"} --ref "$${SOURCE_REF:-refs/heads/main}" --output "$${OUTPUT:-.build/guavajam/CATALOG.json}" $${PREVIOUS_CATALOG:+"--previous-catalog=$$PREVIOUS_CATALOG"} "$$@"
-
-site-import: ## CATALOG=last-deployed/CATALOG.json [OUTPUT=.build/press-site.json] Draft source-owned settings preserving existing bindings; review, commit and sign separately.
-	@$(PYTHON) -m guavajam_core.import_site --catalog "$${CATALOG:?Set the last deployed catalog}" --output "$${OUTPUT:-.build/press-site.json}"

@@ -2,8 +2,7 @@
 
 Copy templates/site.json to press-site.json, choose the publisher's real origin,
 review/commit it, then sign an empty checkpoint ending in Press-Site: 1. New
-publications use Press-Publication: 2, Press-Work and Press-Published trailers.
-Legacy v1 commits remain unchanged; give them reviewed dates in editions[SHA].
+publications use Press-Publication: 1, Press-Work and Press-Published trailers.
 Later DOI/status/notices live in that same signed publisher settings file.
 The exact downstream output is guavajam.catalog.v1; no duplicate renderer config.
 """
@@ -23,8 +22,13 @@ from guavajam_test_support.discovery_fixture import Publisher
 
 
 class DeclarationTests(unittest.TestCase):
-    def test_exact_v1_and_dated_v2_are_supported_without_tags(self):
-        self.assertEqual(1, declaration('Publish\n\nPress-Publication: 1\nPress-Work: works/essay/manuscript.md\n')['version'])
+    def test_exact_v1_requires_a_signed_date_and_accepts_an_optional_label(self):
+        unlabelled = publication_trailers('works/essay/manuscript.md', '2026-11-13')
+        self.assertEqual({'kind': 'publication', 'version': 1, 'manuscript': 'works/essay/manuscript.md',
+                          'published': '2026-11-13'}, declaration('Publish\n\n' + '\n'.join(unlabelled)))
+        for invalid in [unlabelled[:2], ['Press-Publication: 2', *unlabelled[1:]]]:
+            with self.assertRaises(ValueError):
+                declaration('Publish\n\n' + '\n'.join(invalid))
         lines = publication_trailers('works/essay/manuscript.md', '2026-11-13', 'Second edition')
         parsed = declaration('Publish\n\n' + '\n'.join(lines))
         self.assertEqual('Second edition', parsed['label'])
@@ -32,7 +36,7 @@ class DeclarationTests(unittest.TestCase):
         for bad in ['\nPress-Published: 2026-11-13', '\nPress-Site: 1', '\nPress-Unknown: value', '\nTrailing prose']:
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 declaration('Publish\n\n' + '\n'.join(lines) + bad)
-        for date in ('today', '2026-02-30', '2026-11-13T10:00:00Z'):
+        for date in (None, 'today', '2026-02-30', '2026-11-13T10:00:00Z'):
             with self.assertRaises(ValueError):
                 publication_trailers('works/essay/manuscript.md', date)
 
@@ -79,15 +83,18 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual('10.1234/example.v1', catalog['works'][0]['editions'][0]['doi'])
         self.assertEqual(original, self.p.git('cat-file', '-p', sha))
 
-    def test_v1_needs_explicit_legacy_date_and_can_be_indexed_without_resigning(self):
-        sha = self.p.publish(version=1)
-        with self.assertRaisesRegex(ValueError, 'legacy v1'):
-            self.discover()
-        self.p.settings['editions'] = {sha: {'published': '2026-10-01'}}
-        self.p.amend_settings()
+    def test_signed_date_is_required_and_corrections_require_a_notice(self):
+        sha = self.p.publish('2026-10-01')
         catalog, _ = self.discover()
-        self.assertEqual(sha, catalog['works'][0]['editions'][0]['revision'])
         self.assertEqual('2026-10-01', catalog['works'][0]['editions'][0]['published'])
+        self.p.settings['editions'] = {sha: {'published': '2026-10-02'}}
+        self.p.amend_settings()
+        with self.assertRaisesRegex(ValueError, 'explanatory notice'):
+            self.discover()
+        self.p.settings['editions'][sha]['notices'] = [{'date': '2026-11-13', 'text': 'Corrected the edition date.'}]
+        self.p.amend_settings()
+        corrected, _ = self.discover(previous=catalog)
+        self.assertEqual('2026-10-02', corrected['works'][0]['editions'][0]['published'])
 
     def test_unsigned_or_unapproved_policy_is_not_applied(self):
         self.p.publish()
@@ -113,7 +120,7 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_invalid_publication_cannot_be_skipped_or_whitelisted_by_source(self):
         self.p.publish()
-        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nPress-Publication: 2\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
+        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nPress-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
         with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
         with self.assertRaises(ValueError):
