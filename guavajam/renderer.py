@@ -258,14 +258,17 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     else:
         if bool(fingerprints) == bool(allowed_signers):
             raise RenderError('signed rendering requires an external GPG fingerprint or SSH allowed signers')
-        message = raw_commit.split(b'\n\n',1)[-1].decode('utf-8', 'strict').strip().splitlines()
-        if [line for line in message if line.startswith('Press-Publication:')]!=['Press-Publication: 1'] or len([line for line in message if line.startswith('Press-Work:')])!=1:
-            raise RenderError('publication trailers must be unique')
-        header=raw_commit.split(b'\n\n',1)[0]
-        parents=re.findall(rb'^parent ([0-9a-f]{40})$',header,re.M);tree=re.search(rb'^tree ([0-9a-f]{40})$',header,re.M)
-        if len(parents)!=1 or tree is None or process(['git','--no-replace-objects','rev-parse',parents[0].decode()+'^{tree}'],cwd=repo).strip()!=tree[1]:raise RenderError('publication must preserve its reviewed parent tree')
-        if message[-2:] != ['Press-Publication: 1', 'Press-Work: ' + manuscript]:
-            raise RenderError('revision lacks the signed Press publication trailers for this work')
+        if allowed_signers:
+            signers = Path(allowed_signers).expanduser().resolve(strict=True)
+            if signers.is_relative_to(repo) or not signers.is_file() or signers.stat().st_size > 65536:
+                raise RenderError('SSH allowed signers must be an external bounded authority file')
+        from .publication_protocol import verify_shape
+        try:
+            declared = verify_shape(repo, sha, 'publication')
+        except ValueError as exc:
+            raise RenderError('invalid publication trailers/signature shape: ' + str(exc)) from exc
+        if declared['manuscript'] != manuscript:
+            raise RenderError('revision declares a different work')
         from .trusted_git import verifier_arguments
         if fingerprints:
             if any(not re.fullmatch(r'(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64})',f) for f in fingerprints):
@@ -344,6 +347,9 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ['update']:
+        from .update import main as update_main
+        return update_main(argv[1:])
     if argv[:1] == ['site']:
         from .site import main as site_main
         return site_main(argv[1:])

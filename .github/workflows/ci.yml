@@ -26,10 +26,10 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: nashspence/press
-          ref: b64327123f239fd49d32296eb206613fcdaf7b8d
+          ref: 3584b0a51e4e4769d4031d6911ed3b48a1a3a96f
           path: .upstream-press
           persist-credentials: false
-      - name: Verify compatibility fixtures and media contract
+      - name: Verify publisher discovery, catalog and source contracts
         run: mise exec -- uv run --locked --group dev python tests/check_upstream.py .upstream-press
       - name: Verify source, signatures and independent presentation
         run: make test
@@ -38,6 +38,7 @@ jobs:
           mise exec -- uv build --wheel
           mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam --help
           mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam site --help
+          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam update --help
       - name: Install pinned browser qualification tools
         run: |
           mise exec -- npm ci --ignore-scripts
