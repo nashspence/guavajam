@@ -1,0 +1,47 @@
+name: Verify portable renderer
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify portable renderer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        with:
+          version: 2026.11.0
+          install: false
+      - run: make setup
+      - name: Check out the pinned upstream contract as test data
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: nashspence/press
+          ref: b64327123f239fd49d32296eb206613fcdaf7b8d
+          path: .upstream-press
+          persist-credentials: false
+      - name: Verify compatibility fixtures and media contract
+        run: mise exec -- uv run --locked --group dev python tests/check_upstream.py .upstream-press
+      - name: Verify source, signatures and independent presentation
+        run: make test
+      - name: Verify separately installed wheel and packaged CSS
+        run: |
+          mise exec -- uv build --wheel
+          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam --help
+      - name: Install pinned browser qualification tools
+        run: |
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install --with-deps chromium firefox webkit
+      - name: Qualify screen, keyboard, fragments, native playback, accessibility and print
+        run: make test-browser
+      - name: Verify Python syntax
+        run: mise exec -- uv run --locked --group dev python -m compileall -q guavajam tests
