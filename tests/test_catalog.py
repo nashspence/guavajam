@@ -338,6 +338,54 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertEqual(['Field Notes'], old.meta['citation_title'])
         self.assertIn('&lt;markup&gt; &amp; Unicode: Élan', self.page(root + '/index.html'))
 
+    def test_partial_catalog_does_not_establish_a_work_publication_date(self):
+        work = self.catalog['works'][0]
+        older = work['editions'].pop(0)
+        self.build()
+        partial = Page(self.page('works/field-notes/index.html'))
+        self.assertEqual(['Field Notes, Revised'], partial.meta['citation_title'])
+        self.assertEqual(['10.1234/field-notes'], partial.meta['citation_doi'])
+        for field in ('citation_publication_date', 'DC.date'):
+            self.assertNotIn(field, partial.meta)
+        baseline = self.output / 'CATALOG.json'
+        work['editions'].insert(0, older)
+        self.output = self.root / 'expanded'
+        self.build(initial_catalog=False, previous_catalog=baseline)
+        expanded = Page(self.page('works/field-notes/index.html'))
+        self.assertEqual(partial.meta, expanded.meta)
+        record = Page(self.page(self.edition_root(0) + '/index.html'))
+        self.assertEqual([older['published']], record.meta['citation_publication_date'])
+
+    def test_later_doi_assignment_preserves_publication_dates_and_source_identity(self):
+        work = self.catalog['works'][0]
+        concept = work.pop('concept_doi')
+        identifiers = [edition.pop('doi') for edition in work['editions']]
+        self.build()
+        before_work = Page(self.page('works/field-notes/index.html'))
+        before = [json.loads(self.page(self.edition_root(i) + '/citation.json'))
+                  for i in range(2)]
+        sources = [(self.output / self.edition_root(i) / 'read/source.gfm').read_bytes()
+                   for i in range(2)]
+        baseline = self.output / 'CATALOG.json'
+        work['concept_doi'] = concept
+        for edition, identifier in zip(work['editions'], identifiers):
+            edition['doi'] = identifier
+        self.output = self.root / 'with-dois'
+        self.build(initial_catalog=False, previous_catalog=baseline)
+        after_work = Page(self.page('works/field-notes/index.html'))
+        self.assertEqual({**before_work.meta, 'citation_doi': [concept],
+                          'DC.identifier': [doi_url(concept)]}, after_work.meta)
+        for i, identifier in enumerate(identifiers):
+            with self.subTest(revision=work['editions'][i]['revision']):
+                after = json.loads(self.page(self.edition_root(i) + '/citation.json'))
+                self.assertEqual({**before[i], 'bibliography': {
+                    **before[i]['bibliography'], 'doi': identifier}}, after)
+                record = Page(self.page(self.edition_root(i) + '/index.html'))
+                self.assertEqual([before[i]['bibliography']['published']],
+                                 record.meta['citation_publication_date'])
+                self.assertEqual(sources[i], (self.output / self.edition_root(i)
+                                             / 'read/source.gfm').read_bytes())
+
     def test_citation_journey_uses_full_signed_source_and_reviewed_passages(self):
         self.build()
         root = self.edition_root()
