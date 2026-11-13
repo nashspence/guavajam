@@ -233,7 +233,7 @@ def check_links(output):
 
 
 def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=None,
-               previous_catalog=None, initial_catalog=False):
+               previous_catalog=None, initial_catalog=False, view_cache=None):
     if bool(previous_catalog) == bool(initial_catalog):
         raise CatalogError('provide the last deployed catalog or explicitly select the initial catalog build')
     if bool(fingerprints) == bool(allowed_signers):
@@ -259,7 +259,12 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
             for edition in _ordered(work):
                 sha = edition['revision']
                 render_dir = temporary / 'view'
-                render(repo, sha, work['slug'], render_dir, fingerprints=fingerprints, allowed_signers=allowed_signers)
+                if view_cache is None:
+                    render(repo, sha, work['slug'], render_dir, fingerprints=fingerprints, allowed_signers=allowed_signers)
+                else:
+                    from .view_cache import cached_render
+                    cached_render(view_cache, repo, sha, work['slug'], render_dir,
+                                  fingerprints=fingerprints, allowed_signers=allowed_signers)
                 view = json.loads((render_dir / 'VIEW.json').read_text('utf-8'))
                 if view['preview'] or view['canonical']['revision'] != sha:
                     raise CatalogError('a catalog can list only exact signed publications')

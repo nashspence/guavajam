@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-browser render site
+.PHONY: help setup test test-browser render site update
 PYTHON := mise exec -- uv run --locked --group dev python
-export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG
+export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH BASELINE REBUILD
 help: ## Show commands.
 	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' Makefile
 setup: ## Install pinned project tools and dependencies.
@@ -23,3 +23,7 @@ site: ## REPO=path CATALOG=reviewed.json OUTPUT=new-directory; PREVIOUS_CATALOG=
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust}"; fi; \
 	if [ -n "$$PREVIOUS_CATALOG" ]; then set -- "$$@" --previous-catalog "$$PREVIOUS_CATALOG"; elif [ "$$INITIAL_CATALOG" = 1 ]; then set -- "$$@" --initial-catalog; else echo 'Set PREVIOUS_CATALOG or INITIAL_CATALOG=1.' >&2; exit 1; fi; \
 	$(PYTHON) -m guavajam site --repo "$${REPO:?Set REPO}" --catalog "$${CATALOG:?Set CATALOG}" --output "$${OUTPUT:?Set OUTPUT}" "$$@"
+
+update: ## [REPO=../press OUTPUT=.build/site] Fetch origin/main, verify Press conventions, reuse unchanged views, atomically select OUTPUT/current. External trust once; safe for periodic invocation.
+	@set --; if [ "$$NO_FETCH" = 1 ]; then set -- --no-fetch; fi; if [ "$$REBUILD" = 1 ]; then set -- "$$@" --rebuild; fi; \
+	$(PYTHON) -m guavajam update --repo "$${REPO:-../press}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" $${BASELINE:+"--baseline=$$BASELINE"} "$$@"

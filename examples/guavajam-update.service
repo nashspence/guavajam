@@ -1,0 +1,15 @@
+[Unit]
+Description=Refresh the optional GuavaJam presentation from signed publisher history
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=guavajam
+Group=guavajam
+WorkingDirectory=/srv/guavajam
+# Operator-created environment file: pinned mise/uv PATH and external signing trust.
+EnvironmentFile=/etc/guavajam/update.env
+ExecStart=/usr/bin/make update
+NoNewPrivileges=true
+UMask=0022

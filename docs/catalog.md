@@ -11,6 +11,9 @@ The executable contracts are `tests/test_catalog.py` and
 `tests/test_catalog_browser.mjs`. The existing single-edition `guavajam --repo …`
 invocation is unchanged; `guavajam render …` is an explicit synonym.
 
+For publisher-owned automatic discovery and periodic deployment, use
+[`make update`](updates.md). The explicit catalog workflow below remains supported.
+
 ## Build
 
 Use the pinned tools from `make setup`. The source repository must contain every
@@ -105,8 +108,9 @@ a publisher's source viewer. It is never a canonical citation identifier and
 GuavaJam never fetches it. GitHub's optional form is
 `https://github.com/OWNER/REPO/blob/{revision}/{path}`.
 
-Each `slug` selects `works/<slug>/manuscript.md`. The current signed-source
-convention is `Press-Publication: 1` with the final `Press-Work` trailer, a full
+Each `slug` selects `works/<slug>/manuscript.md`. The signed-source
+conventions accept `Press-Publication: 1` with `Press-Work`, and v2 with
+explicit `Press-Published` and optional `Press-Label` trailers, a full
 lowercase SHA-1 commit ID, an independently trusted signature, and an empty
 single-parent publication commit preserving the reviewed parent tree. A branch,
 tag, shortened hash, unsigned draft or wrong-work commit is not accepted.
@@ -143,7 +147,9 @@ the edition's publication date and signed source identity; that date does not
 become a DOI assignment date. The current schema has no fields for a work's
 original publication date, DOI assignment history or initial editorial notes. Reviewed dated `notices`
 remain explicit editorial records with append-only history. Git timestamps,
-commit messages and catalog ordering cannot supply missing administrative facts.
+unstructured commit messages and catalog ordering cannot supply missing administrative facts.
+The dated v2 publication declaration described in `updates.md` is an explicit
+schema for publisher-declared edition dates, not for historical work or DOI-assignment dates.
 
 Before displaying additional historical facts, retain their independently
 reviewed records in the publisher's administrative review tree, identify the

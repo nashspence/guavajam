@@ -1,0 +1,10 @@
+[Unit]
+Description=Check publisher history every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=guavajam-update.service
+
+[Install]
+WantedBy=timers.target
