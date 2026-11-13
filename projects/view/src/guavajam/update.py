@@ -168,15 +168,13 @@ def fetch(repo, output, *, ref='refs/heads/main', remote='origin'):
 
 
 def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
-           no_fetch=False, fingerprints=(), allowed_signers=None, baseline=None, rebuild=False):
+           no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False):
     repo = Path(repo).expanduser().resolve(strict=True)
     with locked_root(output, repo) as root:
         if root is None:
             return {'status': 'busy', 'changed': False}
         site, receipt = current(root)
-        if baseline is not None and site is not None:
-            raise CatalogError('a migration baseline is only allowed before the first managed build')
-        previous = read_catalog(site / 'CATALOG.json') if site else (read_catalog(baseline) if baseline else None)
+        previous = read_catalog(site / 'CATALOG.json') if site else None
         tip = resolve(repo, ref) if no_fetch else fetch(repo, root, ref=ref, remote=remote)
         if receipt:
             ancestor(repo, receipt['source_tip'], tip)
@@ -201,7 +199,7 @@ def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads
         if rebuild:
             namespace = digest((namespace + uuid.uuid4().hex).encode())
         elif receipt and receipt.get('renderer') == renderer and receipt.get('trust_sha256') == trusted:
-            namespace = receipt.get('cache_namespace', namespace)
+            namespace = receipt['cache_namespace']
         if not re.fullmatch(r'[a-f0-9]{64}', namespace):
             raise CatalogError('invalid retained cache namespace')
         cache = root / '.cache' / namespace
@@ -252,7 +250,6 @@ def main(argv=None):
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--remote', default='origin')
     parser.add_argument('--no-fetch', action='store_true', help='read the selected local branch, e.g. an independently refreshed mirror')
-    parser.add_argument('--baseline', type=Path, help='last deployed catalog when migrating an existing manual site')
     parser.add_argument('--rebuild', action='store_true', help='requalify views without using the private render cache')
     trust = parser.add_mutually_exclusive_group()
     trust.add_argument('--trusted-gpg-fingerprint', action='append', default=[])
@@ -268,7 +265,7 @@ def main(argv=None):
     try:
         result = update(args.repo, args.output, ref=args.ref, remote=args.remote, no_fetch=args.no_fetch,
                         fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers,
-                        baseline=args.baseline, rebuild=args.rebuild)
+                        rebuild=args.rebuild)
     except (OSError, ValueError, KeyError) as exc:
         print('GuavaJam update failed; no partial generation is selected. Inspect current before retrying: ' + str(exc), file=sys.stderr)
         return 1

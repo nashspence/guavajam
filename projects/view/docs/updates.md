@@ -83,13 +83,12 @@ when the settings blob is unchanged.
 
 ## New publications
 
-The existing v1 signed-publication contract remains valid. New automatically
-indexed publications use the explicit dated v2 trailer block:
+Publications use the v1 trailer block with a required publisher-declared date:
 
 ```text
 Publish Field Notes
 
-Press-Publication: 2
+Press-Publication: 1
 Press-Work: works/field-notes/manuscript.md
 Press-Published: 2026-11-13
 Press-Label: First edition
@@ -111,7 +110,7 @@ markers fail the update rather than disappear from the index. Preserve original
 signed publication commits during integration: rebasing/squashing would change
 their identity. Retain the full Git history independently.
 
-New v2 publications need **no catalog edit**. All editions default to available;
+New publications need **no catalog edit**. All editions default to available;
 none is automatically declared superseded. Per work, the metadata basis defaults
 to the first accepted publication in topological history, and the recommendation
 defaults to the latest available publisher-declared edition date, with accepted
@@ -151,42 +150,13 @@ For example (revision strings below are schematic, not real publications):
 Work overrides may set `concept_doi`, `metadata_revision`, and
 `recommended_revision`; null explicitly disables the default recommendation.
 Edition overrides may set `published`, `label`, `doi`, `status`, `notices`, and
-`successor_revision`. Unknown work/revision overrides fail. Changing an explicitly
-signed publication date/label requires an explanatory notice. Existing DOI
+`successor_revision`. Unknown work/revision overrides fail. A correction to a
+signed publication date/label requires an explanatory notice; the original
+declaration remains in the signed source history. Existing DOI
 bindings and append-only notices are checked against the last deployed catalog.
 Withdrawal and supersession retain historical readers, supporting pages,
 source downloads and citations. Only explicitly `unavailable` editions omit
 reader distribution. No registrar updates happen automatically.
-
-## Migration from a manual catalog or older publications
-
-Use Press's migration helper once:
-
-```sh
-make site-import CATALOG=/trusted/previous-site/CATALOG.json
-```
-
-Review `.build/press-site.json`, then place it at the source repository root,
-commit it, and sign a site checkpoint. It preserves explicit metadata basis,
-recommendations (including their intentional absence), DOIs, dates and notices.
-Every legacy v1 publication requires a reviewed `published` override because its
-signature did not declare that date. Do not resign/rewrite old publications just
-to supply it. A missing legacy date stops indexing with the exact revision that
-needs review. Discovery is complete for the selected history: formerly unlisted
-publications must be reviewed rather than silently excluded.
-
-For the **first managed deployment of an existing site**, provide the independently
-retained old catalog as well:
-
-```sh
-make update BASELINE=/trusted/previous-site/CATALOG.json
-```
-
-Subsequent runs take their baseline from the managed current generation; omit
-`BASELINE`. A new empty website can initialize without a baseline. Do not move to
-a fresh output directory to bypass rejected DOI/history updates. Existing
-legacy HTML-edition DOI bindings still need a same-item migration plan; automatic
-indexing is not authority to reinterpret them as signed-source edition DOIs.
 
 ## Efficiency, integrity and atomic publication
 
@@ -251,7 +221,7 @@ Monitor nonzero exits and logs instead of hiding failed signature/history checks
 
 The tests cover real signed commits, local-origin fetches, no-op behavior,
 per-edition cache reuse, lock contention, failed builds, rollback, missing state,
-metadata/DOI changes, migration, historical access and corruption recovery.
+metadata/DOI changes, historical access and corruption recovery.
 Pinned CI and the existing three-browser presentation suite must still pass
 before production rollout. No new browser JavaScript or presentation authority
 is introduced.

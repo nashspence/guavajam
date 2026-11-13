@@ -84,7 +84,7 @@ class PublicationCommitTests(unittest.TestCase):
         self.fingerprint=next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
         cmd(self.repo,'git','config','user.signingkey',self.fingerprint)
         cmd(self.repo,'git','config','gpg.format','openpgp')
-        self.signed_message='Press-Publication: 1\nPress-Work: works/recorded-notes/manuscript.md'
+        self.signed_message='Press-Publication: 1\nPress-Work: works/recorded-notes/manuscript.md\nPress-Published: 2026-11-13'
         self._sign(self.signed_message)
 
     def _sign(self,message):
@@ -130,14 +130,14 @@ class PublicationCommitTests(unittest.TestCase):
             citation(self._verify(), 'nonexistent-passage')
 
     def test_publication_trailers_are_exact_and_unique(self):
-        self._sign('Press-Publication: 1\nPress-Work: works/another/manuscript.md')
+        self._sign('Press-Publication: 1\nPress-Work: works/another/manuscript.md\nPress-Published: 2026-11-13')
         with self.assertRaises(PublicationError):
             self._verify()
-        self._sign('Press-Publication: 1\nPress-Work: works/recorded-notes/manuscript.md\nOther: trailer')
+        self._sign(self.signed_message+'\nOther: trailer')
         with self.assertRaisesRegex(PublicationError,'final block'):
             self._verify()
         self._sign(self.signed_message+'\nPress-Publication: 1')
-        with self.assertRaisesRegex(PublicationError,'trailers must remain unchanged'):
+        with self.assertRaisesRegex(PublicationError,'unknown publication trailer'):
             self._verify()
 
     def test_online_verification_is_the_publication_default(self):

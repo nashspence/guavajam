@@ -71,7 +71,7 @@ class AssetPolicy:
 def load_policy(root: Path) -> AssetPolicy | None:
     path = root / "asset-policy.json"
     if not path.exists():
-        return None  # Historical sources without remote images still validate.
+        return None  # Sources without remote assets do not require an asset policy.
     if path.is_symlink():
         raise AssetError("asset-policy.json must not be a symlink")
     try:

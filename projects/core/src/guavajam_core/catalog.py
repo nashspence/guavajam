@@ -211,7 +211,7 @@ def compare(previous, current):
     """Guard existing landing URLs and DOI identities; never infer prior state.
 
     The caller must supply its last deployed, independently retained catalog.
-    `--initial-catalog` is an explicit first-build choice, not a migration bypass.
+    `--initial-catalog` explicitly selects a first build with no prior deployment.
     """
     validate(previous)
     validate(current)

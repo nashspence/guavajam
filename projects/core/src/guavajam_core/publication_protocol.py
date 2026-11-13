@@ -1,7 +1,7 @@
 """Press publication/site discovery v1. Shared data-only protocol.
 
 No program, hook, signer policy or template is loaded from the indexed tree.
-Publication v1 remains valid; v2 adds publisher-declared date/optional label.
+Publication v1 requires a publisher-declared date and permits an edition label.
 A separately signed empty Press-Site commit authorizes press-site.json. That
 administrative checkpoint does not issue or alter a canonical publication.
 """
@@ -104,25 +104,20 @@ def declaration(message):
         return None
     if marked == ['Press-Site: 1']:
         result = {'kind': 'site', 'version': 1}
-    elif len(marked) >= 2 and marked[:1] in (['Press-Publication: 1'], ['Press-Publication: 2']):
+    elif len(marked) in {3, 4} and marked[0] == 'Press-Publication: 1':
         if not marked[1].startswith('Press-Work: '):
             fail('publication requires Press-Work')
         path = marked[1][len('Press-Work: '):]
         if not WORK.fullmatch(path):
             fail('publication work must use works/<slug>/manuscript.md')
-        version = int(marked[0][-1])
-        result = {'kind': 'publication', 'version': version, 'manuscript': path}
-        if version == 1:
-            if len(marked) != 2:
-                fail('v1 publication trailers must remain unchanged')
-        else:
-            if len(marked) not in {3, 4} or not marked[2].startswith('Press-Published: '):
-                fail('v2 requires an explicit Press-Published: YYYY-MM-DD')
-            result['published'] = day(marked[2][len('Press-Published: '):], 'signed publication date')
-            if len(marked) == 4:
-                if not marked[3].startswith('Press-Label: '):
-                    fail('unknown v2 trailer')
-                result['label'] = text(marked[3][len('Press-Label: '):], 'signed edition label')
+        if not marked[2].startswith('Press-Published: '):
+            fail('publication requires an explicit Press-Published: YYYY-MM-DD')
+        result = {'kind': 'publication', 'version': 1, 'manuscript': path,
+                  'published': day(marked[2][len('Press-Published: '):], 'signed publication date')}
+        if len(marked) == 4:
+            if not marked[3].startswith('Press-Label: '):
+                fail('unknown publication trailer')
+            result['label'] = text(marked[3][len('Press-Label: '):], 'signed edition label')
     else:
         fail('unknown, duplicated or mixed Press declaration')
     if lines[-len(marked):] != marked or (len(lines) > len(marked) and lines[-len(marked)-1] != ''):
@@ -130,14 +125,10 @@ def declaration(message):
     return result
 
 
-def publication_trailers(path, published=None, label=None):
+def publication_trailers(path, published, label=None):
     if not WORK.fullmatch(path):
         fail('invalid publication manuscript path')
-    if published is None:
-        if label is not None:
-            fail('labels require the v2 declared publication date')
-        return ['Press-Publication: 1', 'Press-Work: ' + path]
-    result = ['Press-Publication: 2', 'Press-Work: ' + path,
+    result = ['Press-Publication: 1', 'Press-Work: ' + path,
               'Press-Published: ' + day(published, 'publication date')]
     if label is not None:
         result.append('Press-Label: ' + text(label, 'publication label'))
@@ -277,17 +268,14 @@ def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=No
     for sha, declared in publications:
         path = declared['manuscript']; slug = WORK.fullmatch(path)[1]
         revisions.add(sha)
-        edition = {'revision': sha, 'status': 'available'}
-        for key in ('published', 'label'):
-            if key in declared:
-                edition[key] = declared[key]
+        edition = {'revision': sha, 'status': 'available', 'published': declared['published']}
+        if 'label' in declared:
+            edition['label'] = declared['label']
         override = settings.get('editions', {}).get(sha, {})
         fields(override, set(), {'published', 'label', 'doi', 'status', 'notices', 'successor_revision'}, 'edition override')
         if any(key in declared and override.get(key, declared[key]) != declared[key] for key in ('published', 'label')) and not override.get('notices'):
             fail('correcting signed date/label requires an explanatory notice')
         edition.update(copy.deepcopy(override))
-        if 'published' not in edition:
-            fail('legacy v1 publication needs a reviewed published date in press-site.json: ' + sha)
         concept = _concept_doi(blob(repo, sha, path, maximum=8 * 1024 * 1024))
         if concept:
             concepts.setdefault(slug, set()).add(concept)

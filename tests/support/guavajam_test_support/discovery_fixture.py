@@ -65,12 +65,9 @@ rights: CC-BY-4.0
         self.write_settings(); self.git('add', 'press-site.json'); self.git('commit', '-qm', 'Review site settings')
         return self.seal(signed=signed)
 
-    def publish(self, day='2026-11-13', slug='field-notes', label=None, version=2):
-        trailers = [f'Press-Publication: {version}', 'Press-Work: works/' + slug + '/manuscript.md']
-        if version == 2:
-            trailers.append('Press-Published: ' + day)
-            if label:
-                trailers.append('Press-Label: ' + label)
+    def publish(self, day='2026-11-13', slug='field-notes', label=None):
+        from guavajam_core.publication_protocol import publication_trailers
+        trailers = publication_trailers('works/' + slug + '/manuscript.md', day, label)
         self.git('commit', '--allow-empty', '-S', '-qm', 'Publish work\n\n' + '\n'.join(trailers))
         sha = self.git('rev-parse', 'HEAD'); self.revisions.append(sha)
         return sha

@@ -179,18 +179,6 @@ class PeriodicUpdateTests(unittest.TestCase):
         self.assertFalse((self.output / 'current').exists())
         self.assertEqual(1, len(list((self.output / 'generations').iterdir())))
 
-    def test_migration_baseline_preserves_existing_doi_and_requires_publisher_overrides(self):
-        catalog,_=discover(self.p.repo,fingerprints=[self.p.fingerprint])
-        catalog['works'][0]['editions'][0]['doi']='10.1234/old'
-        baseline=self.root/'old.json';baseline.write_bytes(encoded(catalog))
-        with self.assertRaisesRegex(ValueError,'rebound'):
-            self.update(baseline=baseline)
-        self.assertFalse((self.output/'current').exists())
-        self.p.settings['editions']={self.revision:{'doi':'10.1234/old'}};self.p.amend_settings()
-        self.update(baseline=baseline)
-        with self.assertRaisesRegex(ValueError,'only allowed before'):
-            self.update(baseline=baseline)
-
     def test_real_make_update_defaults_do_not_need_a_catalog_argument_or_execute_source_code(self):
         import sys
         empty_root=self.root/'empty';empty_root.mkdir()

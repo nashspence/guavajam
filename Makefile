@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup test test-core test-view test-browser test-capture-browser render site update build check-artifacts version check-boundaries
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
-export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH BASELINE REBUILD
+export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD
 help: ## Show commands.
 	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' Makefile
 setup: ## Install pinned project tools and dependencies.
@@ -30,7 +30,7 @@ site: ## REPO=path CATALOG=reviewed.json OUTPUT=new-directory; PREVIOUS_CATALOG=
 
 update: ## [REPO=../press OUTPUT=.build/site] Fetch origin/main, verify Press conventions, reuse unchanged views, atomically select OUTPUT/current. External trust once; safe for periodic invocation.
 	@set --; if [ "$$NO_FETCH" = 1 ]; then set -- --no-fetch; fi; if [ "$$REBUILD" = 1 ]; then set -- "$$@" --rebuild; fi; \
-	$(PYTHON) -m guavajam update --repo "$${REPO:-../press}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" $${BASELINE:+"--baseline=$$BASELINE"} "$$@"
+	$(PYTHON) -m guavajam update --repo "$${REPO:-../press}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" "$$@"
 
 test-capture-browser: ## Qualify the capture extension and installed import commands.
 	@$(PYTHON) projects/core/tests/run_capture_browser.py

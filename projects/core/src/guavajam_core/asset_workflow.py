@@ -13,6 +13,7 @@ from urllib.parse import quote
 from .asset_policy import AssetError
 from .manage_assets import SHA, git, pages, repository, require_action
 from .github import gh
+from .publication_protocol import declaration
 
 
 def branch_name(root, branch):
@@ -85,8 +86,13 @@ def retire(root, repo, branch, expected, token):
     for commit in git(root,'rev-list',main+'..'+expected).decode().splitlines():
         message=git(root,'show','-s','--format=%B',commit).decode('utf-8','replace')
         signed=b'\ngpgsig ' in b'\n'+git(root,'cat-file','-p',commit).split(b'\n\n',1)[0]
-        if signed and re.search(r'^Press-Publication: 1$',message,re.M):
-            raise AssetError('branch retirement would orphan a declared publication; preserve it in protected main first')
+        if signed:
+            try:
+                declared = declaration(message)
+            except ValueError as exc:
+                raise AssetError('cannot classify a signed Press declaration; preserve it in protected main before retirement') from exc
+            if declared and declared['kind'] == 'publication':
+                raise AssetError('branch retirement would orphan a declared publication; preserve it in protected main first')
     # Compare-and-delete in Git, rather than a separate API read followed by an
     # unconditional DELETE. A concurrent push makes the lease fail atomically.
     git(root, "-c", "credential.helper=", "-c", "credential.https://github.com.helper=!gh auth git-credential",

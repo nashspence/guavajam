@@ -39,7 +39,7 @@ def main():
         run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
         run('git', 'config', 'user.signingkey', str(key), cwd=repo)
         run('git', 'commit', '--allow-empty', '-S', '-m', 'Publish', '-m',
-            'Press-Publication: 2\nPress-Work: works/artifact-work/manuscript.md\nPress-Published: 2026-11-13', cwd=repo)
+            'Press-Publication: 1\nPress-Work: works/artifact-work/manuscript.md\nPress-Published: 2026-11-13', cwd=repo)
         (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'works')

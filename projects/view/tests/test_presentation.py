@@ -1,4 +1,4 @@
-"""Compatibility with actual authoring starters and reviewed ChatGPT evidence."""
+"""Presentation of actual authoring starters and reviewed ChatGPT evidence."""
 from pathlib import Path
 from html.parser import HTMLParser
 import re,json,subprocess,sys,tempfile,unittest,yaml

@@ -1,7 +1,7 @@
 """The publisher emits exactly the consumer catalog, without renderer setup.
 
 The source-owned schema is schemas/press-site-v1.schema.json; strict executable
-validation is in publication_protocol.py and site_catalog.py. This test uses
+validation is in publication_protocol.py and export_site.py. This test uses
 actual GNU make, real Git signatures and the copied authoring template.
 """
 import json
@@ -17,7 +17,6 @@ from unittest.mock import patch
 from guavajam_test_support import FIXTURES, RESOURCES
 ROOT=Path(__file__).resolve().parents[1]
 from guavajam_core.export_site import export
-from guavajam_core.import_site import convert
 from guavajam_core.publication_protocol import discover, policy
 from guavajam_core.publication_commit import commit_identity,signature
 from guavajam_core.catalog import encoded
@@ -43,22 +42,15 @@ class SiteExportTests(unittest.TestCase):
         self.assertIn('Unchanged',result.stdout)
         self.assertEqual(stamp,self.output.stat().st_mtime_ns)
 
-    def test_dated_v2_commit_is_accepted_by_existing_publication_verifier(self):
+    def test_dated_v1_commit_is_accepted_by_publication_verifier(self):
         work,source=commit_identity(self.p.repo,self.sha)
         self.assertEqual('works/field-notes/manuscript.md',work)
         self.assertIn('The first observation.',source)
         self.assertEqual(self.p.fingerprint,signature(self.p.repo,self.sha,fingerprints=[self.p.fingerprint]))
 
-    def test_template_is_minimal_and_import_preserves_existing_administrative_decisions(self):
+    def test_template_is_minimal(self):
         source=(RESOURCES / 'templates/site.json').read_bytes();policy(source)
         self.assertEqual({'schema','publisher','base_url'},set(json.loads(source)))
-        original,_=discover(self.p.repo,fingerprints=[self.p.fingerprint])
-        work=original['works'][0];work.pop('recommended_revision')
-        work['concept_doi']='10.1234/work';work['editions'][0]['doi']='10.1234/edition'
-        settings=convert(original)
-        self.p.settings=settings;self.p.amend_settings()
-        migrated,_=discover(self.p.repo,fingerprints=[self.p.fingerprint],previous=original)
-        self.assertEqual(original,migrated)
 
     def test_ci_recognizes_a_signed_site_checkpoint_using_external_public_keys(self):
         from guavajam_core.check_publications import check

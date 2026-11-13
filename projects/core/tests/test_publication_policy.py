@@ -50,6 +50,13 @@ class SourceProofTests(PublicationCommitTests):
         self.assertEqual('works/recorded-notes/supporting/note.md',result['document'])
         with self.assertRaises(PublicationError):citation(record,'missing',result['document'])
 
+    def test_owner_preparation_requires_reviewed_date_before_asset_inspection(self):
+        from guavajam_core.prepare_publication import prepare
+        with patch('guavajam_core.prepare_publication.snapshot') as inspect:
+            with self.assertRaisesRegex(ValueError, 'publication date'):
+                prepare(self.repo,self.signed,'recorded-notes',published=None)
+            inspect.assert_not_called()
+
     def test_owner_preparation_reads_actual_private_retention_and_same_public_version(self):
         from guavajam_core.prepare_publication import prepare
         from test_asset_versions import Store,KEY
@@ -67,10 +74,12 @@ class SourceProofTests(PublicationCommitTests):
         def public(*args,**kwargs):
             response=Mock(status=200);response.getheader.return_value='version_0';yield response
         with patch('guavajam_core.prepare_publication.verify_source_assets') as full,patch('guavajam_core.asset_policy.public_response',side_effect=public),patch('guavajam_core.prepare_publication.public_response',side_effect=public):
-            result=prepare(self.repo,self.signed,'recorded-notes',store=store)
+            result=prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store)
+            self.assertEqual(['Press-Publication: 1', 'Press-Work: works/recorded-notes/manuscript.md',
+                              'Press-Published: 2026-11-13'],result['publication_trailers'])
             self.assertTrue(result['retention_verified']);self.assertEqual(until,result['assets'][0]['retain_until'])
             full.assert_called_once();self.assertTrue(full.call_args.kwargs['require_retention'])
             store.info('version_0')['fileRetention']['isClientAuthorizedToRead']=False
-            with self.assertRaisesRegex(AssetError,'private B2'):prepare(self.repo,self.signed,'recorded-notes',store=store)
+            with self.assertRaisesRegex(AssetError,'private B2'):prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store)
 
 def load_tests(loader,tests,pattern):return unittest.TestSuite(loader.loadTestsFromName(n,SourceProofTests) for n in SourceProofTests.__dict__ if n.startswith('test_'))

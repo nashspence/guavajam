@@ -587,7 +587,7 @@ class CatalogBuildTests(unittest.TestCase):
         command(repository, 'git', 'add', '-A')
         command(repository, 'git', 'commit', '-qm', 'Review a changed source fixture')
         command(repository, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish source fixture',
-                '-m', 'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md')
+                '-m', 'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
         revision = command(repository, 'git', 'rev-parse', 'HEAD')
         work = self.catalog['works'][0]
         work['editions'] = [{**work['editions'][1], 'revision': revision}]

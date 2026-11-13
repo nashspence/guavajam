@@ -140,7 +140,7 @@ class PortableViewTests(unittest.TestCase):
 
     def test_ssh_trust_file_must_be_external_and_cannot_be_a_preview_fallback(self):
         command(self.root,'git','commit','--allow-empty','-m','Publish Field Notes', '-m',
-                'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md')
+                'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
         candidate=command(self.root,'git','rev-parse','HEAD')
         signers=self.root/'allowed-signers'
         signers.write_text('fixture ssh-ed25519 AABB\n')
@@ -163,7 +163,7 @@ class PortableViewTests(unittest.TestCase):
         command(self.root,'git','config','gpg.format','openpgp')
         command(self.root,'git','-c','commit.gpgSign=true','commit','--allow-empty','-S',
                 '-m','Publish Field Notes', '-m',
-                'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md',env=env)
+                'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13',env=env)
         signed=command(self.root,'git','rev-parse','HEAD')
         with patch.dict(os.environ,{'GNUPGHOME':str(home)}):
             self.assertEqual(2,render(self.root,signed,'field-notes',self.output,fingerprints=[fingerprint]))
@@ -175,7 +175,7 @@ class PortableViewTests(unittest.TestCase):
         key=Path(self.temporary.name)/'fixture-key'
         command(self.root,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
         command(self.root,'git','config','gpg.format','ssh');command(self.root,'git','config','user.signingkey',str(key))
-        command(self.root,'git','commit','--allow-empty','-S','-m','Publish fixture','-m','Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md')
+        command(self.root,'git','commit','--allow-empty','-S','-m','Publish fixture','-m','Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
         revision=command(self.root,'git','rev-parse','HEAD')
         signers=Path(self.temporary.name)/'allowed-signers';signers.write_text('fixture namespaces="git" '+key.with_suffix('.pub').read_text())
         self.assertEqual(2,render(self.root,revision,'field-notes',self.output,allowed_signers=signers))
