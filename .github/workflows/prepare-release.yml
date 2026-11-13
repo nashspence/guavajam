@@ -1,0 +1,68 @@
+name: Prepare distribution artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact coordinated version already committed in both packages
+        required: true
+        type: string
+      package:
+        description: Distribution to prepare; no tag, release or registry publication is created
+        required: true
+        type: choice
+        options: [both, core, view]
+        default: both
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: mise install
+      - name: Install selected package dependencies
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          if [ "$PACKAGE" = core ]; then
+            mise exec -- uv sync --locked --package guavajam-core --no-dev
+          else
+            mise exec -- uv sync --locked --all-packages --group dev
+          fi
+      - name: Check requested version
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          test "$(.venv/bin/python tools/version.py)" = "$EXPECTED_VERSION"
+      - name: Build and verify selected distributions
+        env:
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          mise exec -- uv build --package guavajam-core
+          if [ "$PACKAGE" != core ]; then
+            mise exec -- uv build --package guavajam-view
+          fi
+          mise exec -- .venv/bin/python tools/check_artifacts.py --package "$PACKAGE"
+          mkdir prepared
+          for package in core view; do
+            if [ "$PACKAGE" = both ] || [ "$PACKAGE" = "$package" ]; then
+              cp dist/guavajam_${package}-* prepared/
+            fi
+          done
+          cd prepared
+          sha256sum *.whl *.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: guavajam-${{ inputs.package }}-${{ inputs.version }}
+          path: prepared/
+          if-no-files-found: error

@@ -5,12 +5,11 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from chat_gfm import review_gfm
-from chat_references import component_inlines, reference_index
-from extract_chatgpt import branch_messages, transcript
-from source_ast import plain_text, walk
-from supporting_gfm import load_gfm_record
+from guavajam_core.chat_gfm import review_gfm
+from guavajam_core.chat_references import component_inlines, reference_index
+from guavajam_core.extract_chatgpt import branch_messages, transcript
+from guavajam_core.source_ast import plain_text, walk
+from guavajam_core.supporting_gfm import load_gfm_record
 
 URL = 'https://docs.python.org/3/library/csv.html?utm_source=chatgpt.com'
 REF = 'turn655023search0'

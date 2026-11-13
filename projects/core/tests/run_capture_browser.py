@@ -8,10 +8,12 @@ import sys
 import tempfile
 import zipfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tests/support'))
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
-FIXTURE = json.loads((ROOT / 'tests/fixtures/capture/conversation.json').read_text())
-LIVE_SHAPE = json.loads((ROOT / 'tests/fixtures/capture/live-shape.json').read_text())
+sys.path.insert(0, str(Path(__file__).parent))
+FIXTURE = json.loads((FIXTURES / 'capture/conversation.json').read_text())
+LIVE_SHAPE = json.loads((FIXTURES / 'capture/live-shape.json').read_text())
 AUDIT_UNAVAILABLE = {'audit-unavailable', 'stalled', 'rate-limit'}
 SUCCESS = {'happy', 'cookie-only', 'omission', 'hostile-page', 'multiple-tabs',
            'popup-close', 'live-shape'} | AUDIT_UNAVAILABLE
@@ -78,8 +80,8 @@ def verify(directory):
             conversion = command('chat-gfm', FILE=archive, CONVERSATION=fixture['conversation_id'], TIP=tip, OUTPUT=markdown)
             text = markdown.read_text()
             assert expected_text[0] in text, 'selected original or edited user wording survives GFM conversion'
-            from supporting_gfm import load_gfm_record
-            from source_ast import plain_text, walk
+            from guavajam_core.supporting_gfm import load_gfm_record
+            from guavajam_core.source_ast import plain_text, walk
             from test_lantern_gfm import native_code, native_math, fixture_tables, parsed_tables
             ast, anchors, *_ = load_gfm_record(markdown)
             assert ast['blocks'][anchors[ids[0]]]['t'] in {'Para','Header','Div'}

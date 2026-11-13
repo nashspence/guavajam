@@ -8,8 +8,8 @@ import { chromium } from 'playwright';
 import axe from 'axe-core';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const fixture = JSON.parse(await fs.readFile(new URL('./fixtures/capture/conversation.json', import.meta.url)));
-const liveShape = JSON.parse(await fs.readFile(new URL('./fixtures/capture/live-shape.json', import.meta.url)));
+const fixture = JSON.parse(await fs.readFile(new URL('../../../tests/fixtures/capture/conversation.json', import.meta.url)));
+const liveShape = JSON.parse(await fs.readFile(new URL('../../../tests/fixtures/capture/live-shape.json', import.meta.url)));
 const id = fixture.conversation_id;
 const origin = 'https://chatgpt.com';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -116,7 +116,7 @@ async function qualify(scenario) {
     await context.addCookies([{ name: 'fixture-session', value: 'synthetic-cookie', url: origin,
       httpOnly: true, secure: true, sameSite: 'Lax' }]);
     const browser = await context.browser().newBrowserCDPSession();
-    const loaded = await browser.send('Extensions.loadUnpacked', { path: path.join(root, 'tools/chatgpt-capture') });
+    const loaded = await browser.send('Extensions.loadUnpacked', { path: path.join(root, 'src/guavajam_core/resources/chatgpt-capture') });
     const page = context.pages()[0];
     await page.goto(origin + '/c/' + (scenario === 'local-url' ? 'local-chatgpt%3A' + id : id));
     page.on('download', download => downloads.push(download));

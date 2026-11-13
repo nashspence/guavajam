@@ -9,17 +9,18 @@ import unittest
 from unittest.mock import Mock, patch
 import zipfile
 
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
-from asset_policy import AssetError, verify_bytes
-from source_custody import native_conversation, native_path
-from manage_assets import upload
-from validate_sources import git_sources, validate_repository
-from verify_source_assets import verify_source_assets
+sys.path.insert(0, str(Path(__file__).parent))
+from guavajam_core.asset_policy import AssetError, verify_bytes
+from guavajam_core.source_custody import native_conversation, native_path
+from guavajam_core.manage_assets import upload
+from guavajam_core.validate_sources import git_sources, validate_repository
+from guavajam_core.verify_source_assets import verify_source_assets
 from test_assets import SVG, ORIGIN
 import hashlib
 
-NATIVE = (ROOT / 'tests/fixtures/capture/conversation.json').read_bytes()
+NATIVE = (FIXTURES / 'capture/conversation.json').read_bytes()
 ORDINARY = b'{"measurements":[1,2,3],"description":"ordinary dataset"}'
 
 
@@ -94,12 +95,12 @@ class NativeInputTests(unittest.TestCase):
             ('MAX_ARCHIVE_MEMBERS', 2, archive(('inner', archive(('a', b''), ('b', b'')))), 'member'),
         )
         for setting, limit, raw, message in cases:
-            with self.subTest(setting=setting), patch('source_custody.' + setting, limit), \
+            with self.subTest(setting=setting), patch('guavajam_core.source_custody.' + setting, limit), \
                     self.assertRaisesRegex(AssetError, message):
                 native_conversation(raw)
         # Member size/count checks happen before any decompression.
         oversized = archive(('large', b'abcd'))
-        with patch('source_custody.MAX_ARCHIVE_MEMBER_BYTES', 3), patch.object(zipfile.ZipFile, 'open') as opening, \
+        with patch('guavajam_core.source_custody.MAX_ARCHIVE_MEMBER_BYTES', 3), patch.object(zipfile.ZipFile, 'open') as opening, \
                 self.assertRaises(AssetError):
             native_conversation(oversized)
         opening.assert_not_called()
@@ -114,7 +115,7 @@ class NativeInputTests(unittest.TestCase):
             with self.assertRaisesRegex(AssetError, 'inspection'):
                 native_path(path, 4)
             path = Path(scratch) / 'large.bin'; path.write_bytes(archive(('data', ORDINARY)))
-            with patch('source_custody.MAX_ARCHIVE_BYTES', 4), self.assertRaisesRegex(AssetError, 'inspection'):
+            with patch('guavajam_core.source_custody.MAX_ARCHIVE_BYTES', 4), self.assertRaisesRegex(AssetError, 'inspection'):
                 native_path(path, 10 * 1024 * 1024)
 
 

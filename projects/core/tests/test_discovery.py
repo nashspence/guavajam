@@ -17,14 +17,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-try:
-    from guavajam.publication_protocol import discover, declaration, publication_trailers, policy, verify_shape
-    from guavajam.catalog import CatalogError
-except ModuleNotFoundError:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-    from publication_protocol import discover, declaration, publication_trailers, policy, verify_shape
-    from site_catalog import CatalogError
-from discovery_fixture import Publisher
+from guavajam_core.publication_protocol import discover, declaration, publication_trailers, policy, verify_shape
+from guavajam_core.catalog import CatalogError
+from guavajam_test_support.discovery_fixture import Publisher
 
 
 class DeclarationTests(unittest.TestCase):
@@ -159,7 +154,7 @@ class DiscoveryTests(unittest.TestCase):
             discover(self.p.repo, allowed_signers=untrusted)
         source_signers = self.p.repo / 'allowed-signers'
         source_signers.write_bytes(signers.read_bytes())
-        with self.assertRaisesRegex(ValueError, 'outside the indexed repository'):
+        with self.assertRaisesRegex(ValueError, 'outside the publication repository'):
             discover(self.p.repo, allowed_signers=source_signers)
 
     def test_missing_unknown_symlink_and_shallow_data_fail_closed(self):

@@ -12,11 +12,10 @@ import unittest
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'scripts'))
-from publication_commit import verify, commit_identity, signature, citation, PublicationError
-from press_media import decode, MediaError
-from verify_media_sources import verify_one, verify_items
-from asset_policy import AssetError
+from guavajam_core.publication_commit import verify, commit_identity, signature, citation, PublicationError
+from guavajam_core.media import decode, MediaError
+from guavajam_core.verify_media_sources import verify_one, verify_items
+from guavajam_core.asset_policy import AssetError
 
 MANUSCRIPT='''---
 schema: press.work.v1
@@ -121,7 +120,7 @@ class PublicationCommitTests(unittest.TestCase):
         with patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}):
             with self.assertRaisesRegex(PublicationError,'not in the independent trust policy'):
                 verify(self.repo,self.signed,fingerprints=['0'*40],pandoc_version=False)
-            with self.assertRaisesRegex(PublicationError,'must contain a signature'):
+            with self.assertRaisesRegex(PublicationError,'must be in a signed commit'):
                 verify(self.repo,self.draft,fingerprints=[self.fingerprint],pandoc_version=False)
         with self.assertRaises(PublicationError):
             signature(self.repo,self.signed)
@@ -135,17 +134,17 @@ class PublicationCommitTests(unittest.TestCase):
         with self.assertRaises(PublicationError):
             self._verify()
         self._sign('Press-Publication: 1\nPress-Work: works/recorded-notes/manuscript.md\nOther: trailer')
-        with self.assertRaisesRegex(PublicationError,'final two'):
+        with self.assertRaisesRegex(PublicationError,'final block'):
             self._verify()
         self._sign(self.signed_message+'\nPress-Publication: 1')
-        with self.assertRaisesRegex(PublicationError,'unique'):
+        with self.assertRaisesRegex(PublicationError,'trailers must remain unchanged'):
             self._verify()
 
     def test_online_verification_is_the_publication_default(self):
-        with patch('verify_source_assets.verify_source_assets',return_value=1) as run:
+        with patch('guavajam_core.verify_source_assets.verify_source_assets',return_value=1) as run:
             self._verify(online_media=True)
             run.assert_called_once()
-        with patch('verify_source_assets.verify_source_assets',side_effect=AssetError('mismatch')):
+        with patch('guavajam_core.verify_source_assets.verify_source_assets',side_effect=AssetError('mismatch')):
             with self.assertRaisesRegex(AssetError,'mismatch'):
                 self._verify(online_media=True)
 
@@ -181,13 +180,13 @@ class StreamAndMediaTests(unittest.TestCase):
             self.assertGreater(timeout,30)
             resp=Response();responses.append(resp)
             yield resp
-        with patch('media_formats.inspect',return_value={}):
+        with patch('guavajam_core.media_formats.inspect',return_value={}):
             self.assertEqual(len(data),verify_one(url,'https://assets.example.org',response_factory=factory))
         self.assertLessEqual(responses[0].maximum,65536)
         self.assertEqual({url:len(data)},verify_items([{'src':url},{'src':url}],
             'https://assets.example.org',verifier=lambda *_:len(data)))
         with self.assertRaisesRegex(AssetError,'byte budget'):
-            with patch('verify_media_sources.MAX_MEDIA_TOTAL',len(data)-1):
+            with patch('guavajam_core.verify_media_sources.MAX_MEDIA_TOTAL',len(data)-1):
                 verify_items([{'src':url}], 'https://assets.example.org',verifier=lambda *_:len(data))
         with self.assertRaises(AssetError):
             wrong=url.replace(digest,'f'*64)

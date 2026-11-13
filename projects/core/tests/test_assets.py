@@ -11,12 +11,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from asset_policy import (AssetError, AssetPolicy, MAX_BYTES, fetch_asset,
+from guavajam_core.asset_policy import (AssetError, AssetPolicy, MAX_BYTES, fetch_asset,
                           public_addresses, svg_errors, verify_bytes)
-from validate_sources import parse_document, walk
+from guavajam_core.validate_sources import parse_document, walk
 from test_validate_sources import StrictSourceTests, MANUSCRIPT, METADATA
 
+
+from guavajam_test_support import FIXTURES, RESOURCES
 ORIGIN = "https://assets.publisher.test"
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4"/></svg>\n'
 DIGEST = hashlib.sha256(SVG).hexdigest()
@@ -25,12 +26,16 @@ URL = ORIGIN + "/sha256/" + DIGEST + ".svg"
 
 class AssetURLTests(unittest.TestCase):
     def test_prepared_preview_url_is_embedded_in_authoring_starter(self):
-        root = Path(__file__).resolve().parents[1]
-        output = subprocess.check_output(
-            [sys.executable, "scripts/prepare_asset.py", "storage/preview.svg"], cwd=root, text=True)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['git', 'init', '-q', str(root)], check=True)
+            (root / 'asset-policy.json').write_bytes((RESOURCES / 'asset-policy.json').read_bytes())
+            output = subprocess.check_output(
+                [sys.executable, '-m', 'guavajam_core.prepare_asset', str(RESOURCES / 'storage/preview.svg')],
+                cwd=root, text=True)
         fields = dict(line.split(": ", 1) for line in output.splitlines())
         preview = Path("templates/work/manuscript.md")
-        ast, errors = parse_document(root / preview, preview)
+        ast, errors = parse_document(RESOURCES / preview, preview)
         self.assertEqual([], errors)
         targets = [node["c"][2][0] for node in walk(ast["blocks"]) if node["t"] == "Image"]
         self.assertIn(fields["URL"], targets)
@@ -73,12 +78,12 @@ class AssetURLTests(unittest.TestCase):
                           ["::1"], ["fc00::1"], ["::ffff:127.0.0.1"],
                           ["93.184.216.34", "192.168.1.1"], []]:
             records = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, 443)) for ip in addresses]
-            with self.subTest(addresses=addresses), patch("asset_policy.socket.getaddrinfo", return_value=records):
+            with self.subTest(addresses=addresses), patch("guavajam_core.asset_policy.socket.getaddrinfo", return_value=records):
                 with self.assertRaises(AssetError):
                     public_addresses("assets.publisher.test")
 
     def test_dns_error(self):
-        with patch("asset_policy.socket.getaddrinfo", side_effect=socket.gaierror):
+        with patch("guavajam_core.asset_policy.socket.getaddrinfo", side_effect=socket.gaierror):
             with self.assertRaises(AssetError):
                 public_addresses("assets.publisher.test")
 
@@ -121,8 +126,8 @@ class FetchTests(unittest.TestCase):
         response.read1.side_effect = [raw, b""]
         connection = Mock()
         connection.getresponse.return_value = response
-        with patch("asset_policy.public_addresses", return_value=["93.184.216.34"]), \
-             patch("asset_policy.PinnedHTTPSConnection", return_value=connection):
+        with patch("guavajam_core.asset_policy.public_addresses", return_value=["93.184.216.34"]), \
+             patch("guavajam_core.asset_policy.PinnedHTTPSConnection", return_value=connection):
             return fetch_asset(AssetPolicy(ORIGIN), url)
 
     def test_verified_download(self):
@@ -145,8 +150,8 @@ class FetchTests(unittest.TestCase):
                 self.fetch(raw, headers)
 
     def test_download_failure(self):
-        with patch("asset_policy.public_addresses", return_value=["93.184.216.34"]), \
-             patch("asset_policy.PinnedHTTPSConnection") as connection:
+        with patch("guavajam_core.asset_policy.public_addresses", return_value=["93.184.216.34"]), \
+             patch("guavajam_core.asset_policy.PinnedHTTPSConnection") as connection:
             connection.return_value.request.side_effect = TimeoutError
             with self.assertRaises(AssetError):
                 fetch_asset(AssetPolicy(ORIGIN), URL)

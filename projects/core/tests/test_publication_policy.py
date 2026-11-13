@@ -2,17 +2,18 @@
 import os,sys,unittest
 from pathlib import Path
 from unittest.mock import patch,Mock
-sys.path[:0]=[str(Path(__file__).resolve().parents[1]/'scripts'),str(Path(__file__).parent)]
+from guavajam_test_support import FIXTURES, RESOURCES
+sys.path.insert(0, str(Path(__file__).parent))
 from test_signed_commit_publication import PublicationCommitTests,cmd,MANUSCRIPT
-from publication_commit import PublicationError,citation
-from check_publications import check
-from verify_source_assets import verify_source_assets
+from guavajam_core.publication_commit import PublicationError,citation
+from guavajam_core.check_publications import check
+from guavajam_core.verify_source_assets import verify_source_assets
 
 class SourceProofTests(PublicationCommitTests):
     def commit_source(self):
         cmd(self.repo,'git','add','-A');cmd(self.repo,'git','commit','-qm','Review source change');self._sign(self.signed_message)
     def test_archive_export_attributes_cannot_hide_native_private_input(self):
-        (self.repo/'private.dat').write_bytes((Path(__file__).parent/'fixtures/capture/conversation.json').read_bytes())
+        (self.repo/'private.dat').write_bytes((FIXTURES/'capture/conversation.json').read_bytes())
         (self.repo/'.gitattributes').write_text('private.dat export-ignore\n')
         self.commit_source()
         with self.assertRaisesRegex(PublicationError,'native conversation'):self._verify()
@@ -34,7 +35,7 @@ class SourceProofTests(PublicationCommitTests):
             self.assertEqual([self.signed],[r['revision'] for r in check(self.repo,self.draft,online=False)])
     def test_every_source_asset_check_verifies_media_declarations(self):
         verifier=Mock(return_value={})
-        with patch('verify_source_assets.git_sources',return_value=[Path('works/recorded-notes/manuscript.md')]):
+        with patch('guavajam_core.verify_source_assets.git_sources',return_value=[Path('works/recorded-notes/manuscript.md')]):
             self.assertEqual(1,verify_source_assets(self.repo,media_verifier=verifier))
         verifier.assert_called_once();self.assertEqual('audio',verifier.call_args.args[0][0]['kind'])
 
@@ -50,14 +51,14 @@ class SourceProofTests(PublicationCommitTests):
         with self.assertRaises(PublicationError):citation(record,'missing',result['document'])
 
     def test_owner_preparation_reads_actual_private_retention_and_same_public_version(self):
-        from prepare_publication import prepare
+        from guavajam_core.prepare_publication import prepare
         from test_asset_versions import Store,KEY
-        from gateway_index import Index
-        from asset_versions import pin_key
-        from asset_policy import AssetError
+        from guavajam_core.gateway_index import Index
+        from guavajam_core.asset_versions import pin_key
+        from guavajam_core.asset_policy import AssetError
         import contextlib,io,re,time
         store=Store();until=int(time.time()*1000)+100000
-        self.enterContext(patch('gateway_index.response',side_effect=store.read));self.enterContext(patch('asset_versions.response',side_effect=store.read))
+        self.enterContext(patch('guavajam_core.gateway_index.response',side_effect=store.read));self.enterContext(patch('guavajam_core.asset_versions.response',side_effect=store.read))
         pin_key(store,Index(store),KEY,retain_until=until,mode='governance')
         source=self.repo/'works/recorded-notes/manuscript.md'
         source.write_text(re.sub(r'```press-media\n.*?\n```','![A circle](https://assets.example.org/'+KEY+')',source.read_text(),flags=re.S))
@@ -65,7 +66,7 @@ class SourceProofTests(PublicationCommitTests):
         @contextlib.contextmanager
         def public(*args,**kwargs):
             response=Mock(status=200);response.getheader.return_value='version_0';yield response
-        with patch('prepare_publication.verify_source_assets') as full,patch('asset_policy.public_response',side_effect=public),patch('prepare_publication.public_response',side_effect=public):
+        with patch('guavajam_core.prepare_publication.verify_source_assets') as full,patch('guavajam_core.asset_policy.public_response',side_effect=public),patch('guavajam_core.prepare_publication.public_response',side_effect=public):
             result=prepare(self.repo,self.signed,'recorded-notes',store=store)
             self.assertTrue(result['retention_verified']);self.assertEqual(until,result['assets'][0]['retain_until'])
             full.assert_called_once();self.assertTrue(full.call_args.kwargs['require_retention'])

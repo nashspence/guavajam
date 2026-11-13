@@ -10,12 +10,13 @@ import unittest
 import yaml
 from unittest.mock import patch
 
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
-from asset_policy import AssetError
-from supporting_gfm import load_gfm_record
-from source_ast import walk
-from validate_sources import git_sources, validate_repository
+sys.path.insert(0, str(Path(__file__).parent))
+from guavajam_core.asset_policy import AssetError
+from guavajam_core.supporting_gfm import load_gfm_record
+from guavajam_core.source_ast import walk
+from guavajam_core.validate_sources import git_sources, validate_repository
 from test_assets import SVG
 
 
@@ -119,7 +120,7 @@ class MetadataSourceTests(unittest.TestCase):
         with self.assertRaises(AssetError): self.parse(later)
 
     def test_metadata_is_optional_local_import_input_and_never_changes_default_output(self):
-        native = json.loads((ROOT/'tests/fixtures/capture/conversation.json').read_text())
+        native = json.loads((FIXTURES / 'capture/conversation.json').read_text())
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch); source = root/'capture.json'; source.write_text(json.dumps([native]))
             metadata = root/'optional fields.yml'; metadata.write_text(FIELDS)

@@ -4,11 +4,11 @@ import tempfile
 import sys
 import unittest
 from pathlib import Path
+from guavajam_test_support import RESOURCES
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 
-from table_captions import normalize_table_captions
-from validate_sources import FORMAT, parse_document, parse_pandoc
+from guavajam_core.table_captions import normalize_table_captions
+from guavajam_core.validate_sources import FORMAT, parse_document, parse_pandoc
 
 TABLE = '| Symbol | Meaning |\n|---|---|\n| S | Set |\n'
 CAPTION = ': Table 7b — Notation, © Author & Co.'
@@ -56,7 +56,7 @@ class TableCaptionTests(unittest.TestCase):
         self.assertEqual(ast, parse_pandoc(source))
 
     def test_captionless_starter_preserves_the_previous_reader_ast(self):
-        source = (Path(__file__).resolve().parents[1] / "templates/work/manuscript.md").read_text()
+        source = (RESOURCES / 'templates/work/manuscript.md').read_text()
         source = source.replace("\n: Table 1 — Notation\n", "")
         self.assertEqual(self.good(source), parse_pandoc(source))
 

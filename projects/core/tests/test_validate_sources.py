@@ -8,10 +8,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from validate_sources import parse_document, validate_repository, walk  # noqa: E402
+from guavajam_core.validate_sources import parse_document, validate_repository, walk  # noqa: E402
 
 
+
+from guavajam_test_support import FIXTURES, RESOURCES
 MANUSCRIPT = ("# On Structure and Identity\n\n"
               "<a id=\"sec-1\"></a>\n## § 1 — Foundations\n\n"
               "Let $S$ denote symbols, and consider $x \\in S$.\n\n"
@@ -60,10 +61,10 @@ class StrictSourceTests(unittest.TestCase):
         repository = Path(__file__).resolve().parents[1]
         source = Path("works/sample-work/manuscript.md")
         (self.root / source.parent).mkdir(parents=True)
-        (self.root / source).write_bytes((repository / "templates/work/manuscript.md").read_bytes())
-        (self.root / "asset-policy.json").write_bytes((repository / "asset-policy.json").read_bytes())
+        (self.root / source).write_bytes((RESOURCES / "templates/work/manuscript.md").read_bytes())
+        (self.root / "asset-policy.json").write_bytes((RESOURCES / "asset-policy.json").read_bytes())
         import shutil
-        shutil.copytree(repository/'templates/work/supporting',self.root/source.parent/'supporting')
+        shutil.copytree(RESOURCES / 'templates/work/supporting',self.root/source.parent/'supporting')
         supporting = [p.relative_to(self.root) for p in (self.root/source.parent/'supporting').iterdir()]
         self.assertEqual([], validate_repository(self.root, [source,*supporting]))
 
@@ -85,8 +86,8 @@ class StrictSourceTests(unittest.TestCase):
                          Counter(content.strip() for _, content in math_nodes))
         self.assertEqual(1, sum(kind["t"] == "DisplayMath" for kind, _ in math_nodes))
 
-        preview = (repository / "storage/preview.svg").read_bytes()
-        origin = json.loads((repository / "asset-policy.json").read_text())["origin"]
+        preview = (RESOURCES / "storage/preview.svg").read_bytes()
+        origin = json.loads((RESOURCES / "asset-policy.json").read_text())["origin"]
         expected = f"{origin}/sha256/{hashlib.sha256(preview).hexdigest()}.svg"
         self.assertEqual([expected], [node["c"][2][0] for node in nodes if node["t"] == "Image"])
 

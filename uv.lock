@@ -2,6 +2,15 @@ version = 1
 revision = 3
 requires-python = "==3.12.*"
 
+[manifest]
+members = [
+    "guavajam-core",
+    "guavajam-view",
+]
+
+[manifest.dependency-groups]
+dev = [{ name = "pymupdf", specifier = "==1.26.5" }]
+
 [[package]]
 name = "av"
 version = "19.0.2"
@@ -20,29 +29,32 @@ wheels = [
 ]
 
 [[package]]
-name = "guavajam"
+name = "guavajam-core"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "projects/core" }
 dependencies = [
+    { name = "av" },
+    { name = "pillow" },
     { name = "pyyaml" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "av" },
-    { name = "pillow" },
-    { name = "pymupdf" },
+[package.metadata]
+requires-dist = [
+    { name = "av", specifier = "==19.0.2" },
+    { name = "pillow", specifier = "==13.0.0" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+]
+
+[[package]]
+name = "guavajam-view"
+version = "0.1.0"
+source = { editable = "projects/view" }
+dependencies = [
+    { name = "guavajam-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", specifier = "==6.0.3" }]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "av", specifier = "==19.0.2" },
-    { name = "pillow", specifier = "==13.0.0" },
-    { name = "pymupdf", specifier = "==1.26.5" },
-]
+requires-dist = [{ name = "guavajam-core", editable = "projects/core" }]
 
 [[package]]
 name = "pillow"

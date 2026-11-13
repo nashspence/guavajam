@@ -2,11 +2,11 @@
 import contextlib,hashlib,io,json,os,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
-sys.path[:0]=[str(Path(__file__).resolve().parents[1]/'scripts'),str(Path(__file__).parent)]
-from source_archive import export,check
-from asset_policy import AssetError
+sys.path.insert(0, str(Path(__file__).parent))
+from guavajam_core.source_archive import export,check
+from guavajam_core.asset_policy import AssetError
 from test_signed_commit_publication import PublicationCommitTests
-from media_fixture import audio
+from guavajam_test_support.media_fixture import audio
 
 class ArchiveTests(PublicationCommitTests):
     def setUp(self):

@@ -2,11 +2,10 @@
 import contextlib,hashlib,io,sys,time,unittest
 from pathlib import Path
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from asset_policy import AssetError
-from asset_versions import pin_key
-from gateway_index import Index
-from manage_assets import candidates
+from guavajam_core.asset_policy import AssetError
+from guavajam_core.asset_versions import pin_key
+from guavajam_core.gateway_index import Index
+from guavajam_core.manage_assets import candidates
 RAW=b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4"/></svg>\n'
 KEY='sha256/'+hashlib.sha256(RAW).hexdigest()+'.svg'
 class Store:
@@ -27,7 +26,7 @@ class Store:
 class PinTests(unittest.TestCase):
     def setUp(self):
         self.store=Store();self.index=Index(self.store)
-        self.enterContext(patch('gateway_index.response',side_effect=self.store.read));self.enterContext(patch('asset_versions.response',side_effect=self.store.read))
+        self.enterContext(patch('guavajam_core.gateway_index.response',side_effect=self.store.read));self.enterContext(patch('guavajam_core.asset_versions.response',side_effect=self.store.read))
     def test_exact_version_and_sidecar_are_verified_and_locked_on_readback(self):
         until=int(time.time()*1000)+100000
         value=pin_key(self.store,self.index,KEY,retain_until=until,mode='governance')

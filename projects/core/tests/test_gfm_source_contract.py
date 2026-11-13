@@ -11,13 +11,13 @@ import unittest
 import zipfile
 from unittest.mock import Mock
 
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'scripts'))
-from asset_policy import AssetError, verify_bytes
-from supporting_gfm import load_gfm_record, timestamp_label, valid_timestamp
-from source_ast import plain_text, walk
-from validate_sources import git_sources, validate_repository
-from manage_assets import upload
+from guavajam_core.asset_policy import AssetError, verify_bytes
+from guavajam_core.supporting_gfm import load_gfm_record, timestamp_label, valid_timestamp
+from guavajam_core.source_ast import plain_text, walk
+from guavajam_core.validate_sources import git_sources, validate_repository
+from guavajam_core.manage_assets import upload
 
 
 def document(body):
@@ -80,7 +80,7 @@ class SourceContractTests(unittest.TestCase):
             self.parse(document(quote([2]) + '\n<a name="continue-anchor"></a>\n\n### Continue\n'))
 
     def test_both_reviewed_lantern_branches_keep_their_heading_levels_and_anchors(self):
-        for path in sorted((ROOT / 'tests/fixtures/chatgpt').glob('*.gfm.md')):
+        for path in sorted((FIXTURES / 'chatgpt').glob('*.gfm.md')):
             with self.subTest(branch=path.name):
                 ast, anchors, *_ = load_gfm_record(path)
                 self.assertGreater(len(anchors), 100)

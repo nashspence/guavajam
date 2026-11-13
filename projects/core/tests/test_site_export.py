@@ -13,14 +13,15 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'scripts'))
-from export_site import export
-from import_site import convert
-from publication_protocol import discover, policy
-from publication_commit import commit_identity,signature
-from site_catalog import encoded
-from discovery_fixture import Publisher
+from guavajam_core.export_site import export
+from guavajam_core.import_site import convert
+from guavajam_core.publication_protocol import discover, policy
+from guavajam_core.publication_commit import commit_identity,signature
+from guavajam_core.catalog import encoded
+from guavajam_test_support.discovery_fixture import Publisher
 
 
 class SiteExportTests(unittest.TestCase):
@@ -49,7 +50,7 @@ class SiteExportTests(unittest.TestCase):
         self.assertEqual(self.p.fingerprint,signature(self.p.repo,self.sha,fingerprints=[self.p.fingerprint]))
 
     def test_template_is_minimal_and_import_preserves_existing_administrative_decisions(self):
-        source=(ROOT/'templates/site.json').read_bytes();policy(source)
+        source=(RESOURCES / 'templates/site.json').read_bytes();policy(source)
         self.assertEqual({'schema','publisher','base_url'},set(json.loads(source)))
         original,_=discover(self.p.repo,fingerprints=[self.p.fingerprint])
         work=original['works'][0];work.pop('recommended_revision')
@@ -60,7 +61,7 @@ class SiteExportTests(unittest.TestCase):
         self.assertEqual(original,migrated)
 
     def test_ci_recognizes_a_signed_site_checkpoint_using_external_public_keys(self):
-        from check_publications import check
+        from guavajam_core.check_publications import check
         self.p.settings['title']='A reviewed site title'
         checkpoint=self.p.amend_settings()
         public=subprocess.check_output(['gpg','--armor','--export',self.p.fingerprint],env=self.p.env).decode()

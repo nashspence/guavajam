@@ -1,10 +1,10 @@
 """Real codecs and complete caption syntax are checked in addition to hashes."""
 import io,tempfile,unittest,sys
 from pathlib import Path
-sys.path[:0]=[str(Path(__file__).resolve().parents[1]/'scripts'),str(Path(__file__).parent)]
-from media_formats import inspect,captions
-from asset_policy import AssetError
-from media_fixture import video,audio
+sys.path.insert(0, str(Path(__file__).parent))
+from guavajam_core.media_formats import inspect,captions
+from guavajam_core.asset_policy import AssetError
+from guavajam_test_support.media_fixture import video,audio
 
 class MediaTests(unittest.TestCase):
     def test_real_h264_aac_mp3_and_silent_video_profiles(self):
@@ -29,7 +29,7 @@ class MediaTests(unittest.TestCase):
 
     def test_full_hash_then_bounded_exact_version_codec_ranges(self):
         import contextlib,hashlib
-        from verify_media_sources import verify_one
+        from guavajam_core.verify_media_sources import verify_one
         from unittest.mock import patch
         with tempfile.TemporaryDirectory() as directory:
             raw=video(Path(directory)/'actual.mp4')
@@ -47,4 +47,4 @@ class MediaTests(unittest.TestCase):
         url='https://assets.example.org/sha256/'+hashlib.sha256(raw).hexdigest()+'.mp4'
         self.assertEqual(len(raw),verify_one(url,'https://assets.example.org',response_factory=receive,sound='present'))
         self.assertIsNone(calls[0]);self.assertTrue(any(calls[1:]))
-        with patch('media_ranges.MAX_PROBE_BYTES',1),self.assertRaises(AssetError):verify_one(url,'https://assets.example.org',response_factory=receive)
+        with patch('guavajam_core.media_ranges.MAX_PROBE_BYTES',1),self.assertRaises(AssetError):verify_one(url,'https://assets.example.org',response_factory=receive)

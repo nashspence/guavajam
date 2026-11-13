@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
 globalThis.crypto ||= webcrypto;
-import worker,{signedRead} from '../storage/worker.js';
+import worker,{signedRead} from '../src/guavajam_core/resources/storage/worker.js';
 const digest='b'.repeat(64),key='sha256/'+digest+'.mp4',url='https://assets.publisher.test/'+key;
 const env={ASSET_HOST:'assets.publisher.test',B2_S3_ENDPOINT:'https://s3.us-west-004.backblazeb2.com',B2_BUCKET_NAME:'test-bucket',B2_APPLICATION_KEY_ID:'example-id',B2_APPLICATION_KEY:'example-secret'};
 function setup(extension='mp4',size=1000){

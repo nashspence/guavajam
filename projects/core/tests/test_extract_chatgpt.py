@@ -8,10 +8,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-sys.path.insert(0, str(SCRIPTS))
-from extract_chatgpt import export_timestamp, transcript
-from chat_gfm import review_gfm
+from guavajam_core.extract_chatgpt import export_timestamp, transcript
+from guavajam_core.chat_gfm import review_gfm
 
 
 class ExtractTests(unittest.TestCase):
@@ -135,13 +133,14 @@ class ExtractTests(unittest.TestCase):
             source = root / "conversations.json"
             source.write_text(json.dumps([self.record]), encoding="utf-8")
             checkout = root / "press"
-            scripts = shutil.copytree(SCRIPTS, checkout / "scripts")
+            checkout.mkdir()
+            subprocess.run(["git", "init", "-q", str(checkout)], check=True)
             (root / "linked").symlink_to(checkout, target_is_directory=True)
             for parent in (checkout, root / "linked"):
                 output = parent / "review.md"
-                result = subprocess.run([sys.executable, str(scripts / "extract_chatgpt.py"),
+                result = subprocess.run([sys.executable, "-m", "guavajam_core.extract_chatgpt",
                                          source, "--conversation", "selected", "--output", output],
-                                        capture_output=True, text=True)
+                                        cwd=checkout, capture_output=True, text=True)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("outside the Press checkout", result.stderr)
                 self.assertFalse(output.exists())
@@ -158,24 +157,26 @@ class ExtractTests(unittest.TestCase):
                 archive.writestr("conversations-000.json", '[{"id":"other","title":"Unrelated"}]')
                 archive.writestr("conversations-001.json", payload)
                 archive.writestr("private-attachment", "unused")
-            scripts = shutil.copytree(SCRIPTS, root / "press/scripts")
-            cmd = [sys.executable, str(scripts / "extract_chatgpt.py")]
+            checkout = root / "press"
+            checkout.mkdir()
+            subprocess.run(["git", "init", "-q", str(checkout)], check=True)
+            cmd = [sys.executable, "-m", "guavajam_core.extract_chatgpt"]
             args = ["--conversation", "selected", "--output", str(output)]
-            subprocess.run([*cmd, source, *args], check=True)
+            subprocess.run([*cmd, source, *args], cwd=checkout, check=True)
             expected = output.read_bytes()
             self.assertEqual(expected, review_gfm(transcript(self.record, "tip"), identity="selected")[0])
-            self.assertEqual(json.loads(subprocess.check_output([*cmd, json_file, "--list"])),
+            self.assertEqual(json.loads(subprocess.check_output([*cmd, json_file, "--list"], cwd=checkout)),
                              ["selected", "A question"])
-            overwrite = subprocess.run([*cmd, json_file, *args, "--tip", "other"], capture_output=True)
+            overwrite = subprocess.run([*cmd, json_file, *args, "--tip", "other"], cwd=checkout, capture_output=True)
             self.assertNotEqual(overwrite.returncode, 0)
             self.assertEqual(expected, output.read_bytes())
             output.unlink()
-            subprocess.run([*cmd, json_file, *args], check=True)
+            subprocess.run([*cmd, json_file, *args], cwd=checkout, check=True)
             self.assertEqual(expected, output.read_bytes())
             output.unlink()
             for records in ([self.record] * 2, []):
                 json_file.write_text(json.dumps(records), encoding="utf-8")
-                result = subprocess.run([*cmd, json_file, *args], capture_output=True)
+                result = subprocess.run([*cmd, json_file, *args], cwd=checkout, capture_output=True)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse(output.exists())
 

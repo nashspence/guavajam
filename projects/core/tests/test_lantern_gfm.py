@@ -14,17 +14,17 @@ import textwrap
 import unittest
 import zipfile
 
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'scripts'))
-from asset_policy import AssetError
-from chat_gfm import review_gfm
-from extract_chatgpt import branch_messages, transcript
-from chat_references import reference_index
-from source_ast import plain_text, walk
-from supporting_gfm import load_gfm_record
-from validate_sources import git_sources, validate_repository
+from guavajam_core.asset_policy import AssetError
+from guavajam_core.chat_gfm import review_gfm
+from guavajam_core.extract_chatgpt import branch_messages, transcript
+from guavajam_core.chat_references import reference_index
+from guavajam_core.source_ast import plain_text, walk
+from guavajam_core.supporting_gfm import load_gfm_record
+from guavajam_core.validate_sources import git_sources, validate_repository
 
-FIXTURE = ROOT / 'tests/fixtures/chatgpt/lantern.json'
+FIXTURE = FIXTURES / 'chatgpt/lantern.json'
 TIPS = ('node-126', 'node-137')
 GFM_FIXTURES = dict(zip(TIPS, ('lantern-current.gfm.md', 'lantern-alternate.gfm.md')))
 

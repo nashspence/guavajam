@@ -8,9 +8,8 @@ import unittest
 from unittest.mock import patch
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from asset_policy import AssetError
-from bibliography import MAX_ABSTRACT_BYTES, MAX_AUTHORS
+from guavajam_core.asset_policy import AssetError
+from guavajam_core.bibliography import MAX_ABSTRACT_BYTES, MAX_AUTHORS
 from test_validate_sources import MANUSCRIPT, METADATA, StrictSourceTests
 
 AUTHORS = [{"name": 'Zoë <Z> & "A"', "orcid": "0000-0002-1825-0097"},

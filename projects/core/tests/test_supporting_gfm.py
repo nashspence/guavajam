@@ -10,18 +10,19 @@ import tempfile
 import unittest
 import zipfile
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from asset_policy import AssetError
-from chat_gfm import review_gfm
-from source_ast import plain_text, walk
-from extract_chatgpt import transcript
-from supporting_gfm import load_gfm_record
-from validate_sources import git_sources, validate_repository
+from guavajam_core.asset_policy import AssetError
+from guavajam_core.chat_gfm import review_gfm
+from guavajam_core.source_ast import plain_text, walk
+from guavajam_core.extract_chatgpt import transcript
+from guavajam_core.supporting_gfm import load_gfm_record
+from guavajam_core.validate_sources import git_sources, validate_repository
 from test_assets import SVG
 from test_extract_chatgpt import ExtractTests
 
+
+from guavajam_test_support import FIXTURES, RESOURCES
 ROOT = Path(__file__).resolve().parents[1]
-NOTE = (ROOT/'templates/work/supporting/note.md').read_text()
+NOTE = (RESOURCES / 'templates/work/supporting/note.md').read_text()
 
 
 class GFMSourceTests(unittest.TestCase):
@@ -66,7 +67,7 @@ class GFMSourceTests(unittest.TestCase):
                 with self.subTest(bad=bad[-100:]):
                     path.write_text(bad)
                     with self.assertRaises((AssetError,ValueError)): load_gfm_record(path)
-            path.unlink();path.symlink_to(ROOT/'templates/work/supporting/note.md')
+            path.unlink();path.symlink_to(RESOURCES / 'templates/work/supporting/note.md')
             with self.assertRaises(AssetError):load_gfm_record(path)
 
 
@@ -129,7 +130,7 @@ class GFMImportTests(ExtractTests):
         self.assertTrue({passage['id'] for passage in record['passages']} <= set(anchors))
 
     def test_all_live_capture_branches_import_with_the_original_heading_words(self):
-        capture = json.loads((ROOT / 'tests/fixtures/capture/live-shape.json').read_text())['native']
+        capture = json.loads((FIXTURES / 'capture/live-shape.json').read_text())['native']
         unchanged = copy.deepcopy(capture)
         for tip in ('original-answer', 'regenerated-answer', 'edited-answer'):
             with self.subTest(tip=tip):
@@ -209,7 +210,7 @@ class GFMImportTests(ExtractTests):
         self.assertNotIn(b'Thinking effort:', later)
 
     def test_credit_uses_only_explicit_message_metadata_and_preserves_code(self):
-        from chat_gfm import _normalize_quote_blank_markers
+        from guavajam_core.chat_gfm import _normalize_quote_blank_markers
         record = transcript(self.record, 'tip')
         record['passages'][-1].update(model='gpt-6-thinking', thinking_effort='max')
         source, _ = review_gfm(record)
@@ -327,7 +328,7 @@ class GFMImportTests(ExtractTests):
             root=Path(tmp);source=root/'export.zip';out=root/'review.md'
             with zipfile.ZipFile(source,'w') as z:
                 z.writestr('conversations.json',json.dumps([self.record]))
-            command=['make','chat-gfm','FILE='+str(source),'CONVERSATION=selected','OUTPUT='+str(out)]
+            command=['make','chat-gfm','PYTHON='+sys.executable,'FILE='+str(source),'CONVERSATION=selected','OUTPUT='+str(out)]
             run=subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
             self.assertEqual(0,run.returncode,run.stderr)
             self.assertIn('selection-omissions',run.stderr)

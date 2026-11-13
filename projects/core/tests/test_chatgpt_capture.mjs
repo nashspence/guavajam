@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { captureCurrentConversation } from "../tools/chatgpt-capture/capture.mjs";
+import { captureCurrentConversation } from "../src/guavajam_core/resources/chatgpt-capture/capture.mjs";
 
 const ID = "12345678-1234-1234-1234-123456789abc";
 const singular = "/backend-api/conversation/" + ID;
@@ -233,7 +233,7 @@ test("accepts nested project /c/id routes only at the end", async () => {
   assert.equal(bad.result.ok, false);
 });
 test("manifest has temporary permissions only", async () => {
-  const manifest = JSON.parse(fs.readFileSync(new URL("../tools/chatgpt-capture/manifest.json", import.meta.url)));
+  const manifest = JSON.parse(fs.readFileSync(new URL("../src/guavajam_core/resources/chatgpt-capture/manifest.json", import.meta.url)));
   assert.equal(manifest.minimum_chrome_version, "156", "the qualified browser baseline");
   assert.deepEqual([...manifest.permissions].sort(), ["activeTab", "scripting"]);
   for (const key of ["host_permissions", "optional_host_permissions", "background", "content_scripts", "externally_connectable"]) {

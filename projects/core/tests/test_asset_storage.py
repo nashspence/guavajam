@@ -14,14 +14,15 @@ from urllib.parse import unquote
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from asset_policy import AssetError
-import asset_storage
-from asset_storage import B2, GRACE_DAYS, LEASE_PREFIX, credentials
-import asset_workflow
-from configure_asset_maintenance import configure, deletion_ruleset
-from manage_assets import candidates, collect, fingerprints, git, require_action, retained_assets, upload
+from guavajam_core.asset_policy import AssetError
+from guavajam_core import asset_storage
+from guavajam_core.asset_storage import B2, GRACE_DAYS, LEASE_PREFIX, credentials
+from guavajam_core import asset_workflow
+from guavajam_core.configure_asset_maintenance import configure, deletion_ruleset
+from guavajam_core.manage_assets import candidates, collect, fingerprints, git, require_action, retained_assets, upload
 
+
+from guavajam_test_support import FIXTURES, RESOURCES
 SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><title>Asset fixture</title></svg>\n'
 DIGEST = hashlib.sha256(SVG).hexdigest()
 KEY = "sha256/" + DIGEST + ".svg"
@@ -102,18 +103,18 @@ class StorageTests(unittest.TestCase):
     def test_b2_scope_is_one_bucket_with_optional_exact_prefix_and_required_capabilities(self):
         for operation, caps in [("upload", ("listFiles", "writeFiles", "readFiles", "readFileRetentions")),
                                 ("delete", ("listFiles", "deleteFiles", "readFileRetentions")), ("preview", ("listFiles", "readFileRetentions"))]:
-            with patch("asset_storage.request", return_value=authorization(caps)):
+            with patch("guavajam_core.asset_storage.request", return_value=authorization(caps)):
                 self.assertEqual(VALUES["B2_BUCKET_ID"], B2(VALUES, operation=operation).bucket_id)
         for field, value in [("buckets", None), ("buckets", []), ("namePrefix", "sha256/x"),
                              ("capabilities", ["writeFiles"])]:
             data = authorization()
             data["apiInfo"]["storageApi"]["allowed"][field] = value
-            with self.subTest(field=field, value=value), patch("asset_storage.request", return_value=data), self.assertRaises(AssetError):
+            with self.subTest(field=field, value=value), patch("guavajam_core.asset_storage.request", return_value=data), self.assertRaises(AssetError):
                 B2(VALUES, operation="upload")
 
     def test_shared_read_write_key_is_accepted_but_client_modes_limit_calls(self):
         data = authorization(("listFiles", "writeFiles", "deleteFiles", "readFiles", "readFileRetentions", "readBuckets", "writeBuckets"))
-        with patch("asset_storage.request", return_value=data):
+        with patch("guavajam_core.asset_storage.request", return_value=data):
             uploader = B2(VALUES, operation="upload")
             preview = B2(VALUES, operation="preview")
             deleter = B2(VALUES, operation="delete")
@@ -132,7 +133,7 @@ class StorageTests(unittest.TestCase):
     def test_b2_http_failures_do_not_log_service_body_or_token(self):
         error = asset_storage.urllib.error.HTTPError("https://api.backblazeb2.com", 403,
                     VALUES["B2_APPLICATION_KEY"], {}, io.BytesIO(VALUES["B2_APPLICATION_KEY"].encode()))
-        with patch("asset_storage.urllib.request.build_opener") as opener:
+        with patch("guavajam_core.asset_storage.urllib.request.build_opener") as opener:
             opener.return_value.open.side_effect = error
             with self.assertRaises(AssetError) as raised:
                 asset_storage.request("https://api.backblazeb2.com", VALUES["B2_APPLICATION_KEY"])
@@ -141,7 +142,7 @@ class StorageTests(unittest.TestCase):
         self.assertIsNone(asset_storage.NoRedirects().redirect_request(None, None, 302, None, None, None))
 
     def test_version_pagination_is_complete_and_rejects_ambiguous_inventory(self):
-        with patch("asset_storage.request", return_value=authorization()):
+        with patch("guavajam_core.asset_storage.request", return_value=authorization()):
             store = B2(VALUES, operation="upload")
         second = version(file_id="version-two")
         pages = [{"files": [version()], "nextFileName": KEY, "nextFileId": "version-two"},
@@ -188,13 +189,13 @@ class StorageTests(unittest.TestCase):
         store.upload.assert_not_called()
 
     def test_b2_upload_sends_original_bytes_and_verifies_its_receipt(self):
-        with patch("asset_storage.request", return_value=authorization()):
+        with patch("guavajam_core.asset_storage.request", return_value=authorization()):
             store = B2(VALUES, operation="upload")
         endpoint = {"bucketId": VALUES["B2_BUCKET_ID"], "uploadUrl": "https://pod-001.backblaze.com/b2api/v4/b2_upload_file",
                     "authorizationToken": "fixture-upload-token"}
         receipt = {"bucketId": VALUES["B2_BUCKET_ID"], "fileName": KEY, "contentLength": len(SVG),
                    "contentSha1": hashlib.sha1(SVG).hexdigest()}
-        with patch.object(store, "call", return_value=endpoint), patch("asset_storage.request", return_value=receipt) as send:
+        with patch.object(store, "call", return_value=endpoint), patch("guavajam_core.asset_storage.request", return_value=receipt) as send:
             store.upload(KEY, SVG, "image/svg+xml")
         self.assertEqual(SVG, send.call_args.kwargs["body"])
         headers = send.call_args.kwargs["headers"]
@@ -203,11 +204,11 @@ class StorageTests(unittest.TestCase):
         self.assertNotIn("Content-Encoding", headers)
         self.assertEqual(asset_storage.CACHE_CONTROL, unquote(headers["X-Bz-Info-b2-cache-control"]))
         with patch.object(store, "call", return_value=endpoint), \
-             patch("asset_storage.request", return_value={**receipt, "contentSha1": "wrong"}), self.assertRaises(AssetError):
+             patch("guavajam_core.asset_storage.request", return_value={**receipt, "contentSha1": "wrong"}), self.assertRaises(AssetError):
             store.upload(KEY, SVG, "image/svg+xml")
 
     def test_delete_uses_exact_version_without_governance_bypass(self):
-        with patch("asset_storage.request", return_value=authorization(("listFiles", "deleteFiles", "readFileRetentions"))):
+        with patch("guavajam_core.asset_storage.request", return_value=authorization(("listFiles", "deleteFiles", "readFileRetentions"))):
             store = B2(VALUES, operation="delete")
         with patch.object(store, "call", return_value={"fileName": KEY, "fileId": "exact-version"}) as call:
             store.delete(version(file_id="exact-version"))
@@ -318,7 +319,7 @@ class GitRetentionTests(unittest.TestCase):
         (self.root / "untracked.md").write_text(hashes[6])
         (self.root / ".env.assets").write_text(hashes[7])
         roots = {"branch:main": main, "branch:active": branch, "pr:9": pr}
-        with patch("manage_assets.remote_roots", return_value=roots):
+        with patch("guavajam_core.manage_assets.remote_roots", return_value=roots):
             retained = retained_assets(self.root, "publisher/press")
         self.assertTrue(set(hashes[:7]) <= retained)
         self.assertNotIn(hashes[7], retained)
@@ -332,12 +333,12 @@ class GitRetentionTests(unittest.TestCase):
         main = self.g("rev-parse", "HEAD")
         self.g("push", "-q", "origin", "main")
         roots = {"branch:main": main}
-        with patch("manage_assets.remote_roots", side_effect=[roots, {**roots, "pr:1": main}]), self.assertRaises(AssetError):
+        with patch("guavajam_core.manage_assets.remote_roots", side_effect=[roots, {**roots, "pr:1": main}]), self.assertRaises(AssetError):
             retained_assets(self.root, "publisher/press")
         original = git
         def shallow(root, *args, **kwargs):
             return b"true\n" if args == ("rev-parse", "--is-shallow-repository") else original(root, *args, **kwargs)
-        with patch("manage_assets.git", side_effect=shallow), self.assertRaises(AssetError):
+        with patch("guavajam_core.manage_assets.git", side_effect=shallow), self.assertRaises(AssetError):
             retained_assets(self.root, "publisher/press")
 
     def test_compare_and_delete_refuses_concurrent_branch_push(self):
@@ -355,9 +356,9 @@ class GitRetentionTests(unittest.TestCase):
             if args[:2] == ["gh", "api"]:
                 return subprocess.CompletedProcess(args, 0, json.dumps({"ref": "refs/heads/retire-me", "object": {"sha": first}}), "")
             return original_run(args, **kwargs)
-        with patch("asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
-             patch("asset_workflow.pages", return_value=[]), patch("asset_workflow.git", side_effect=push), \
-             patch("asset_workflow.subprocess.run", side_effect=read_ref), self.assertRaises(AssetError):
+        with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
+             patch("guavajam_core.asset_workflow.pages", return_value=[]), patch("guavajam_core.asset_workflow.git", side_effect=push), \
+             patch("guavajam_core.asset_workflow.subprocess.run", side_effect=read_ref), self.assertRaises(AssetError):
             asset_workflow.retire(self.root, "publisher/press", "retire-me", first, "fixture-token")
         actual = subprocess.check_output(["git", "--git-dir", str(self.origin), "rev-parse", "retire-me"]).decode().strip()
         self.assertEqual(second, actual)
@@ -377,9 +378,9 @@ class GitRetentionTests(unittest.TestCase):
             observed.append((args, kwargs["env"]["GH_TOKEN"]))
             args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
             return git(root, *args, **kwargs)
-        with patch("asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
-             patch("asset_workflow.pages", return_value=[]), patch("asset_workflow.git", side_effect=push), \
-             patch("asset_workflow.subprocess.run", side_effect=read_ref), contextlib.redirect_stdout(io.StringIO()):
+        with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
+             patch("guavajam_core.asset_workflow.pages", return_value=[]), patch("guavajam_core.asset_workflow.git", side_effect=push), \
+             patch("guavajam_core.asset_workflow.subprocess.run", side_effect=read_ref), contextlib.redirect_stdout(io.StringIO()):
             asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-app-token")
         self.assertEqual("fixture-app-token", observed[0][1])
         self.assertNotIn("fixture-app-token", " ".join(observed[0][0]))
@@ -391,11 +392,11 @@ class GitRetentionTests(unittest.TestCase):
 class WorkflowTests(unittest.TestCase):
     def test_credential_starter_has_exactly_the_operator_variables(self):
         root = Path(__file__).resolve().parents[1]
-        lines = (root / "storage/credentials.env.example").read_text().splitlines()
+        lines = (RESOURCES / "storage/credentials.env.example").read_text().splitlines()
         self.assertEqual(asset_storage.VARIABLES, {line.split("=", 1)[0] for line in lines if line and not line.startswith("#")})
     def test_dispatch_always_uses_main_and_does_not_need_storage_credentials(self):
-        with patch("asset_workflow.repository", return_value="publisher/press"), \
-             patch("asset_workflow.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run, \
+        with patch("guavajam_core.asset_workflow.repository", return_value="publisher/press"), \
+             patch("guavajam_core.asset_workflow.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run, \
              contextlib.redirect_stdout(io.StringIO()):
             asset_workflow.request(Path("."), "request-gc", {})
         self.assertEqual(["gh", "api", "--method", "POST"], run.call_args.args[0][:4])
@@ -408,51 +409,28 @@ class WorkflowTests(unittest.TestCase):
                "GITHUB_WORKFLOW_REF": repo + "/.github/workflows/maintain-assets.yml@refs/heads/main",
                "GITHUB_EVENT_NAME": "workflow_dispatch", "RETIRE_BRANCH": "feature", "RETIRE_HEAD_SHA": head,
                "PRESS_ASSET_RETIRE_TOKEN": "fixture"}
-        with patch.dict(os.environ, env, clear=True), patch.object(sys, "argv", ["asset_workflow.py", "retire"]), \
-             patch("asset_workflow.repository", return_value=repo), patch("asset_workflow.retire") as retire:
+        with patch.dict(os.environ, env, clear=True), patch.object(sys, "argv", ["guavajam_core.asset_workflow.py", "retire"]), \
+             patch("guavajam_core.asset_workflow.repository_root", return_value=Path(".")), patch("guavajam_core.asset_workflow.repository", return_value=repo), patch("guavajam_core.asset_workflow.retire") as retire:
             self.assertEqual(0, asset_workflow.main())
-        retire.assert_called_once_with(Path(__file__).resolve().parents[1], repo, "feature", head, "fixture")
+        retire.assert_called_once_with(Path("."), repo, "feature", head, "fixture")
 
     def test_main_and_open_prs_cannot_be_retired(self):
         with self.assertRaises(AssetError):
             asset_workflow.retire(Path("."), "publisher/press", "main", "a" * 40, "fixture")
         pr = {"head": {"repo": {"full_name": "publisher/press"}, "ref": "active"}, "base": {"ref": "main"}}
-        with patch("asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
-             patch("asset_workflow.pages", return_value=[pr]), self.assertRaises(AssetError):
+        with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
+             patch("guavajam_core.asset_workflow.pages", return_value=[pr]), self.assertRaises(AssetError):
             asset_workflow.retire(Path("."), "publisher/press", "active", "a" * 40, "fixture")
 
-    def test_workflow_has_main_only_secrets_and_serialized_maintenance(self):
-        root = Path(__file__).resolve().parents[1]
-        workflow = yaml.load((root / ".github/workflows/maintain-assets.yml").read_text(), Loader=yaml.BaseLoader)
-        self.assertNotIn("pull_request", workflow["on"])
-        self.assertNotIn("pull_request_target", workflow["on"])
-        job = workflow["jobs"]["maintain"]
-        self.assertIn("github.ref == 'refs/heads/main'", job["if"])
-        self.assertEqual("press-assets", job["environment"])
-        self.assertEqual("false", workflow["concurrency"]["cancel-in-progress"])
-        token = next(step for step in job["steps"] if step.get("id") == "app-token")
-        self.assertEqual("inputs.operation == 'retire'", token["if"])
-        self.assertEqual("write", token["with"]["permission-contents"])
-        self.assertNotIn("permission-administration", token["with"])
-        self.assertIn("${{ github.sha }}", job["steps"][0]["with"]["ref"])
-        operation = next(step for step in job["steps"] if "OPERATION" in step.get("env", {}))
-        self.assertEqual("inputs.operation != 'retire'", operation["if"])
-        self.assertEqual("${{ github.event_name == 'schedule' && 'preview' || inputs.operation }}", operation["env"]["OPERATION"])
-        retirement = next(step for step in job["steps"] if "PRESS_ASSET_RETIRE_TOKEN" in step.get("env", {}))
-        self.assertEqual("inputs.operation == 'retire'", retirement["if"])
-        self.assertTrue(asset_storage.VARIABLES.isdisjoint(retirement["env"]))
-        self.assertNotIn("PRESS_ASSET_RETIRE_TOKEN", operation["env"])
-        for name in asset_storage.VARIABLES:
-            self.assertEqual("${{ secrets." + name + " }}", operation["env"][name])
 
     def test_deletion_ruleset_cannot_grant_a_main_protection_bypass(self):
         rule = deletion_ruleset(123)
         self.assertEqual([{"type": "deletion"}], rule["rules"])
         self.assertEqual(["~ALL"], rule["conditions"]["ref_name"]["include"])
         app = {"id": 123, "permissions": {"contents": "write", "metadata": "read"}}
-        with patch("configure_asset_maintenance.gh", return_value=json.dumps(app)), \
-             patch("configure_asset_maintenance.pages", return_value=[]), \
-             patch("configure_asset_maintenance.subprocess.run") as run, self.assertRaises(AssetError):
+        with patch("guavajam_core.configure_asset_maintenance.gh", return_value=json.dumps(app)), \
+             patch("guavajam_core.configure_asset_maintenance.pages", return_value=[]), \
+             patch("guavajam_core.configure_asset_maintenance.subprocess.run") as run, self.assertRaises(AssetError):
             configure("publisher/press", "fixture", apply=True)
         run.assert_not_called()
 

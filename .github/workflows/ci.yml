@@ -1,4 +1,4 @@
-name: Verify portable renderer
+name: Verify packages
 
 on:
   push:
@@ -8,42 +8,54 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Verify portable renderer
+  packages:
+    name: Verify ${{ matrix.package }} distribution
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [core, view]
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
         with:
           version: 2026.11.0
           install: false
-      - run: make setup
-      - name: Check out the pinned upstream contract as test data
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: nashspence/press
-          ref: 27df61aa0e70216d02dbc7067c9ea719bc3f3190
-          path: .upstream-press
-          persist-credentials: false
-      - name: Verify publisher discovery, catalog and source contracts
-        run: mise exec -- uv run --locked --group dev python tests/check_upstream.py .upstream-press
-      - name: Verify source, signatures and independent presentation
-        run: make test
-      - name: Verify separately installed wheel and packaged CSS
+      - run: mise install
+      - name: Install only this package and its dependencies
         run: |
-          mise exec -- uv build --wheel
-          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam --help
-          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam site --help
-          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam update --help
-      - name: Install pinned browser qualification tools
+          if [ "${{ matrix.package }}" = core ]; then
+            mise exec -- uv sync --locked --package guavajam-core --no-dev
+          else
+            mise exec -- uv sync --locked --package guavajam-view --group dev
+          fi
+      - name: Enforce package boundaries
+        run: .venv/bin/python tools/check_boundaries.py
+      - name: Verify coordinated versions
+        run: .venv/bin/python tools/version.py
+      - name: Run package contracts
+        run: make test-${{ matrix.package }} PYTHON=.venv/bin/python
+      - name: Build wheel and standalone source distribution
+        run: |
+          mise exec -- uv build --package guavajam-core
+          if [ "${{ matrix.package }}" = view ]; then
+            mise exec -- uv build --package guavajam-view
+          fi
+      - name: Verify isolated installed artifacts
+        run: mise exec -- .venv/bin/python tools/check_artifacts.py --package ${{ matrix.package }}
+      - name: Install browser qualification tools
         run: |
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
-      - name: Qualify reader and catalog journeys, citations, native playback, accessibility and print
-        run: make test-browser
+      - name: Qualify capture extension and importer
+        if: matrix.package == 'core'
+        run: make test-capture-browser PYTHON=.venv/bin/python
+      - name: Qualify rendering, catalog, native playback, accessibility and print
+        if: matrix.package == 'view'
+        run: make test-browser PYTHON=.venv/bin/python
       - name: Verify Python syntax
-        run: mise exec -- uv run --locked --group dev python -m compileall -q guavajam tests
+        run: .venv/bin/python -m compileall -q projects/${{ matrix.package }}
