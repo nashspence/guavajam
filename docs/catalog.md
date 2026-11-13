@@ -129,6 +129,29 @@ is currently the interface language; manuscript/supporting source languages and
 Unicode names/content are retained. Bibliographic facts cannot be overridden by
 catalog HTML or inferred from presentation order.
 
+### Provenance of historical facts
+
+`metadata_revision` selects signed title, authorship, abstract, language and
+rights. It does not establish when the work was first published. A catalog may
+list only part of a work's history, so neither its earliest listed edition nor
+the metadata edition supplies an original publication date for the work. Work
+records omit publication date metadata and a dated work-level citation; edition records
+and citations retain their explicitly reviewed edition dates.
+
+DOI fields record current bindings. Adding a previously unassigned DOI preserves
+the edition's publication date and signed source identity; that date does not
+become a DOI assignment date. The current schema has no fields for a work's
+original publication date, DOI assignment history or initial editorial notes. Reviewed dated `notices`
+remain explicit editorial records with append-only history. Git timestamps,
+commit messages and catalog ordering cannot supply missing administrative facts.
+
+Before displaying additional historical facts, retain their independently
+reviewed records in the publisher's administrative review tree, identify the
+exact work or edition they describe, and approve an explicit schema and
+validation contract. When those records are unavailable, omit the facts and
+record that migration decision in the publisher's review. Existing DOI-to-item
+bindings and notices remain protected by the catalog comparison.
+
 ## DOI scope, notices and historical bindings
 
 A work DOI identifies the work across editions; its page enumerates those
