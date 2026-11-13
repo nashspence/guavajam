@@ -11,8 +11,9 @@ from asset_storage import B2,credentials
 from gateway_index import Index
 
 
-def prepare(repo,revision,work,*,store=None):
+def prepare(repo,revision,work,*,store=None,published=None,label=None):
     from publication_commit import PUBLICATION
+    from publication_protocol import publication_trailers
     manuscript='works/'+work+'/manuscript.md'
     if not PUBLICATION.fullmatch(manuscript):raise AssetError('work must use its reviewed source slug')
     with snapshot(repo,revision) as (root,files):
@@ -41,12 +42,12 @@ def prepare(repo,revision,work,*,store=None):
     return {'schema':'press.publication-preparation.v1','revision':revision,
             'source_tree':git(repo,'rev-parse',revision+'^{tree}').strip().decode(),'manuscript':manuscript,
             'assets_verified':True,'retention_verified':True,'assets':assets,
-            'publication_trailers':['Press-Publication: 1','Press-Work: '+manuscript]}
+            'publication_trailers':publication_trailers(manuscript,published,label)}
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--revision',required=True);parser.add_argument('--work',required=True);args=parser.parse_args()
-    try:result=prepare(Path(__file__).resolve().parents[1],args.revision,args.work)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--revision',required=True);parser.add_argument('--work',required=True);parser.add_argument('--published');parser.add_argument('--label');args=parser.parse_args()
+    try:result=prepare(Path(__file__).resolve().parents[1],args.revision,args.work,published=args.published,label=args.label)
     except (AssetError,OSError,ValueError,KeyError,TypeError) as exc:print('Publication preparation failed: '+str(exc),file=sys.stderr);return 1
     print(json.dumps(result,indent=2,sort_keys=True));return 0
 if __name__=='__main__':sys.exit(main())

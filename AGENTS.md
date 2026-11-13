@@ -5,6 +5,7 @@ The [tests](tests/) are authoritative for enforceable behavior. Change tests and
 - Developers: [required CI](.github/workflows/validate-source.yml) and [tests](tests/).
 - Capture developers: load [the extension](tools/chatgpt-capture/) unpacked in Chrome; [browser qualification](tests/test_chatgpt_capture_browser.mjs) exercises its real permissions and downloads.
 - Submitters: [manuscript starter](templates/work/manuscript.md), [supporting GFM starter](templates/work/supporting/note.md), [manuscript contract](tests/test_validate_sources.py), and [evidence contract](tests/test_gfm_source_contract.py), and [metadata contract](tests/test_supporting_metadata.py).
+- Indexers: [discovery contract](tests/test_discovery.py), [export tests](tests/test_site_export.py), and [site settings schema](schemas/press-site-v1.schema.json).
 - Publishers: [signed publication contract](tests/test_signed_commit_publication.py) and [publication checker](scripts/publication_commit.py). Supply signer trust independently of the source repository.
 - Asset operators: [credential template](storage/credentials.env.example), [storage contract](tests/test_asset_storage.py), and [maintenance workflow](.github/workflows/maintain-assets.yml).
 
