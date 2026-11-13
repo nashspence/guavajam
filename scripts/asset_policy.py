@@ -23,34 +23,16 @@ from urllib.parse import urlsplit
 MAX_BYTES = 10 * 1024 * 1024
 MAX_ASSETS = 128
 MAX_TOTAL_BYTES = 100 * 1024 * 1024
-# Allows the full unique-image budget after base64 expansion, plus manuscript text.
-MAX_HTML_BYTES = 144 * 1024 * 1024
-# Public record pages contain text; edition HTML may also embed large images.
-MAX_RECORD_BYTES = 4 * 1024 * 1024
 TIMEOUT = 30
 MIME = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
         "webp": "image/webp", "svg": "image/svg+xml"}
-ASSET_PATH = re.compile(r"/sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin)\Z")
+ASSET_PATH = re.compile(r"/sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)\Z")
 HOST = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\Z")
 
 
 class AssetError(ValueError):
     pass
 
-
-def base64_size(size: int) -> int:
-    return 4 * ((size + 2) // 3)
-
-
-def check_html_size(size: int) -> None:
-    if size > MAX_HTML_BYTES:
-        raise AssetError(f"canonical HTML exceeds {MAX_HTML_BYTES // (1024 * 1024)} MiB size limit")
-
-
-def bounded_record(raw: bytes) -> bytes:
-    if len(raw) > MAX_RECORD_BYTES:
-        raise AssetError(f"public record exceeds the {MAX_RECORD_BYTES}-byte size limit")
-    return raw
 
 
 @dataclass(frozen=True)
@@ -227,7 +209,7 @@ class PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 
 @contextmanager
-def public_response(url: str, accept: str, *, timeout=TIMEOUT):
+def public_response(url: str, accept: str, *, timeout=TIMEOUT, method="GET", range_value=None):
     """One unauthenticated HTTPS GET with DNS pinning, a deadline and no redirects."""
     parsed = urlsplit(url)
     host = parsed.hostname
@@ -252,8 +234,9 @@ def public_response(url: str, accept: str, *, timeout=TIMEOUT):
     watchdog.daemon = True
     watchdog.start()
     try:
-        connection.request("GET", parsed.path or "/", headers={
-            "Accept": accept, "Accept-Encoding": "identity", "User-Agent": "Press-archive-verifier/1"})
+        if range_value is not None and not re.fullmatch(r'bytes=(?:[0-9]+-[0-9]*|-[1-9][0-9]*)',range_value):raise AssetError('invalid internal range request')
+        connection.request(method, parsed.path or "/", headers={
+            "Accept": accept, "Accept-Encoding": "identity", "User-Agent": "Press-source-verifier/1", **({"Range":range_value} if range_value else {})})
         yield connection.getresponse()
         if time.monotonic() >= deadline:
             raise AssetError("public download deadline exceeded")
@@ -280,11 +263,8 @@ def response_chunks(response, limit):
         raise AssetError("response is truncated")
 
 
-def fetch_asset(policy: AssetPolicy, url: str, *, base=None) -> tuple[bytes, str]:
+def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
     digest, extension = policy.parse(url)
-    if base is not None:
-        from deploy_record_gateway import target_base
-        url = target_base(base) + '/sha256/' + digest + '.' + extension
     with public_response(url, MIME.get(extension, 'application/octet-stream')) as response:
         if response.status != 200:
             raise AssetError(f"asset fetch requires HTTP 200 (received {response.status}); redirects prohibited")
@@ -300,19 +280,3 @@ def fetch_asset(policy: AssetPolicy, url: str, *, base=None) -> tuple[bytes, str
         return raw, media_type
 
 
-def download_bytes(manifest, *, base=None, fetcher=None):
-    """Verify external objects against trusted provenance, optionally on standby."""
-    policy = AssetPolicy(manifest['asset_origin']) if manifest.get('asset_origin') else None
-    for record in manifest.get('assets', []):
-        if record.get('role') != 'download':
-            continue
-        if policy is None:
-            raise AssetError('download requires its approved asset origin')
-        url = record['source_url']
-        digest, extension = policy.parse(url)
-        raw, content_type = fetcher(policy,url) if fetcher else fetch_asset(policy,url,base=base)
-        media_type = verify_bytes(raw, extension, content_type)
-        if (hashlib.sha256(raw).hexdigest() != digest or len(raw) != record['byte_count']
-                or media_type != record['media_type']):
-            raise AssetError('external asset differs from the trusted edition inventory')
-        yield url, raw, media_type

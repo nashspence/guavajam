@@ -60,7 +60,7 @@ class MemoryB2:
         self.records = [i for i in self.records if i["fileId"] != item["fileId"]]
 
 
-def authorization(caps=("listFiles", "writeFiles")):
+def authorization(caps=("listFiles", "writeFiles", "readFiles", "readFileRetentions")):
     return {"authorizationToken": "fixture-access-token", "apiInfo": {"storageApi": {
         "apiUrl": "https://api001.backblazeb2.com", "downloadUrl": "https://f001.backblazeb2.com",
         "allowed": {"buckets": [{"id": VALUES["B2_BUCKET_ID"], "name": VALUES["B2_BUCKET_NAME"]}],
@@ -99,12 +99,12 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             credentials(self.root, {})
 
-    def test_b2_scope_is_one_bucket_exact_prefix_with_required_capabilities(self):
-        for operation, caps in [("upload", ("listFiles", "writeFiles")),
-                                ("delete", ("listFiles", "deleteFiles")), ("preview", ("listFiles",))]:
+    def test_b2_scope_is_one_bucket_with_optional_exact_prefix_and_required_capabilities(self):
+        for operation, caps in [("upload", ("listFiles", "writeFiles", "readFiles", "readFileRetentions")),
+                                ("delete", ("listFiles", "deleteFiles", "readFileRetentions")), ("preview", ("listFiles", "readFileRetentions"))]:
             with patch("asset_storage.request", return_value=authorization(caps)):
                 self.assertEqual(VALUES["B2_BUCKET_ID"], B2(VALUES, operation=operation).bucket_id)
-        for field, value in [("buckets", None), ("buckets", []), ("namePrefix", None), ("namePrefix", "sha256/x"),
+        for field, value in [("buckets", None), ("buckets", []), ("namePrefix", "sha256/x"),
                              ("capabilities", ["writeFiles"])]:
             data = authorization()
             data["apiInfo"]["storageApi"]["allowed"][field] = value
@@ -112,7 +112,7 @@ class StorageTests(unittest.TestCase):
                 B2(VALUES, operation="upload")
 
     def test_shared_read_write_key_is_accepted_but_client_modes_limit_calls(self):
-        data = authorization(("listFiles", "writeFiles", "deleteFiles", "readFiles", "readBuckets", "writeBuckets"))
+        data = authorization(("listFiles", "writeFiles", "deleteFiles", "readFiles", "readFileRetentions", "readBuckets", "writeBuckets"))
         with patch("asset_storage.request", return_value=data):
             uploader = B2(VALUES, operation="upload")
             preview = B2(VALUES, operation="preview")
@@ -207,7 +207,7 @@ class StorageTests(unittest.TestCase):
             store.upload(KEY, SVG, "image/svg+xml")
 
     def test_delete_uses_exact_version_without_governance_bypass(self):
-        with patch("asset_storage.request", return_value=authorization(("listFiles", "deleteFiles"))):
+        with patch("asset_storage.request", return_value=authorization(("listFiles", "deleteFiles", "readFileRetentions"))):
             store = B2(VALUES, operation="delete")
         with patch.object(store, "call", return_value={"fileName": KEY, "fileId": "exact-version"}) as call:
             store.delete(version(file_id="exact-version"))
@@ -373,6 +373,7 @@ class GitRetentionTests(unittest.TestCase):
             return original_run(args, **kwargs)
         observed = []
         def push(root, *args, **kwargs):
+            if "push" not in args:return git(root,*args,**kwargs)
             observed.append((args, kwargs["env"]["GH_TOKEN"]))
             args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
             return git(root, *args, **kwargs)
@@ -458,3 +459,7 @@ class WorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (StorageTests,CollectionTests,GitRetentionTests,WorkflowTests,) for name in cls.__dict__ if name.startswith("test_"))

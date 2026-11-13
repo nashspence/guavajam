@@ -8,8 +8,8 @@ ATTRIBUTE = re.compile(r"""\s+([a-z]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|(\{[^{}]*\})
 
 
 def _https(value):
-    from validate_sources import valid_edition_link
-    return isinstance(value, str) and value.startswith('https://') and valid_edition_link(value)
+    from validate_sources import valid_source_link
+    return isinstance(value, str) and value.startswith('https://') and valid_source_link(value)
 
 
 def reference_index(messages):

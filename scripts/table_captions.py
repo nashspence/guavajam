@@ -10,7 +10,7 @@ import copy
 import hashlib
 import re
 
-from render_profile import walk
+from source_ast import walk
 
 CANDIDATE = re.compile(r"^[ \t]*\\*:")
 TABLE_LIKE = re.compile(r"^[ \t]*\\*:+[ \t*_`\\]*table\b", re.I)

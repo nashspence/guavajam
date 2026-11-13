@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 from asset_policy import AssetError
 from manage_assets import SHA, git, pages, repository, require_action
-from publish_edition import gh
+from github import gh
 
 
 def branch_name(root, branch):
@@ -78,6 +78,14 @@ def retire(root, repo, branch, expected, token):
     actual = json.loads(result.stdout)
     if actual.get("ref") != ref or actual.get("object", {}).get("sha") != expected:
         raise AssetError("branch tip differs from the requested SHA; review it before retiring")
+    main="refs/remotes/origin/main"
+    git(root,"fetch","--no-tags","--no-write-fetch-head","origin","refs/heads/main:"+main,expected)
+    # All declared publications must survive branch retirement in protected main.
+    for commit in git(root,'rev-list',main+'..'+expected).decode().splitlines():
+        message=git(root,'show','-s','--format=%B',commit).decode('utf-8','replace')
+        signed=b'\ngpgsig ' in b'\n'+git(root,'cat-file','-p',commit).split(b'\n\n',1)[0]
+        if signed and re.search(r'^Press-Publication: 1$',message,re.M):
+            raise AssetError('branch retirement would orphan a declared publication; preserve it in protected main first')
     # Compare-and-delete in Git, rather than a separate API read followed by an
     # unconditional DELETE. A concurrent push makes the lease fail atomically.
     git(root, "-c", "credential.helper=", "-c", "credential.https://github.com.helper=!gh auth git-credential",

@@ -2,7 +2,7 @@
 import unicodedata
 
 from asset_policy import AssetError
-from identifier_schema import LANGUAGE, identifier_error
+from identifiers import LANGUAGE, identifier_error
 
 MAX_AUTHORS = 32
 MAX_ABSTRACT_BYTES = 4096

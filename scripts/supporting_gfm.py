@@ -8,8 +8,8 @@ from pathlib import Path
 from datetime import date, datetime
 
 from asset_policy import AssetError
-from identifier_schema import SLUG
-from render_profile import plain_text, walk
+from identifiers import SLUG
+from source_ast import plain_text, walk
 from supporting_metadata import split_frontmatter, metadata_block
 
 MAX_RECORD_BYTES = 8 * 1024 * 1024
@@ -59,23 +59,7 @@ def record_path(relative: Path) -> bool:
     return (len(parts) == 4 and parts[0] == "works" and bool(SLUG.fullmatch(parts[1]))
             and parts[2] == "supporting" and relative.suffix == ".md" and bool(SLUG.fullmatch(relative.stem)))
 
-def _heading(level: int, anchor: str, title: str, cls: str) -> list[dict]:
-    return [
-        {"t": "RawBlock", "c": ["html", f'<a id="{anchor}"></a>']},
-        {"t": "Header", "c": [level, ["", [cls], []], [{"t": "Str", "c": title}]]},
-    ]
 
-def _provenance(scope: str, path: str, sha256: str) -> dict:
-    # A definition list makes the reviewed source and full digest easy to find,
-    # select, and print without making a raw SHA dominate the reading experience.
-    return {"t": "RawBlock", "c": ["html", (
-        '<div class="press-record-intro">'
-        '<p class="press-record-scope">' + html.escape(scope) + '</p>'
-        '<dl class="press-record-provenance">'
-        '<dt>Source</dt><dd><code>' + html.escape(path) + '</code></dd>'
-        '<dt>SHA-256</dt><dd><code>' + sha256 + '</code></dd>'
-        '</dl></div>'
-    )]}
 
 
 TOOLTIP = re.compile(r"""<span title=(?:"([^"<>]*)"|'([^'<>]*)')>\Z""")
@@ -214,7 +198,7 @@ def load_gfm_record(path: Path, *, root=None):
 
 
 def parse_gfm_record(source, *, policy=None):
-    from validate_sources import FORMAT, parse_pandoc, valid_edition_link
+    from validate_sources import FORMAT, parse_pandoc, valid_source_link
     fields, body = split_frontmatter(source)
     ast = parse_pandoc(body, reader=FORMAT.replace('+yaml_metadata_block', '-yaml_metadata_block'))
     metadata_anchor = None
@@ -337,7 +321,7 @@ def parse_gfm_record(source, *, policy=None):
             if target.startswith('#'):
                 if target[1:] not in anchors:
                     raise AssetError('supporting link requires an existing explicit anchor: ' + target)
-            elif not valid_edition_link(target):
+            elif not valid_source_link(target):
                 raise AssetError('supporting links require an explicit local fragment, HTTPS or mailto URL')
         if node.get('t') == 'Image' and not node['c'][2][0].startswith('https://'):
             raise AssetError('supporting images require the approved HTTPS asset origin')
@@ -345,132 +329,3 @@ def parse_gfm_record(source, *, policy=None):
     return ast, anchors
 
 
-def append_gfm(root, relative, slug):
-    ast, positions, digest, size = load_gfm_record(root / relative, root=root)
-    record_id = f'record-md-{len(slug)}-{slug}'
-    anchors = {key: record_id if index == 0 else f'support-md-{len(slug)}-{slug}-{key}'
-               for key, index in positions.items()}
-    by_index = {index: anchors[key] for key, index in positions.items()}
-    title = plain_text(ast['blocks'][0]['c'][2])
-    result = _heading(2, record_id, 'Supporting record — ' + title, 'press-record-heading')
-    provenance = _provenance('Reviewed supporting Markdown.', relative.as_posix(), digest)
-    provenance['c'][1] = provenance['c'][1].replace('<div ', '<div data-press-source="' +
-        html.escape(relative.as_posix()) + '" data-press-sha256="' + digest + '" ', 1)
-    for node in walk(ast['blocks']):
-        if node.get('t') == 'Span' and {'data-press-metadata-key', 'data-press-metadata-value'} & dict(node['c'][0][2]).keys():
-            # Escape trusted literal AST text and its whitespace before the HTML
-            # writer can insert formatting newlines into machine-readable values.
-            literal = html.escape(node['c'][1][0]['c']).replace(' ', '&#32;').replace('\r', '&#13;').replace('\n', '&#10;').replace('\t', '&#9;')
-            node['c'][1] = [{'t':'RawInline','c':['html', literal]}]
-        if node.get('t') == 'Span' and 'data-press-datetime' in dict(node['c'][0][2]):
-            instant = dict(node['c'][0][2])['data-press-datetime']
-            node.clear()
-            node.update(t='RawInline', c=['html', '<time datetime="'+instant+'">'+html.escape(timestamp_label(instant))+'</time>'])
-        if node.get('t') == 'Link' and node['c'][2][0].startswith('#'):
-            node['c'][2][0] = '#' + anchors[node['c'][2][0][1:]]
-    if len(ast['blocks']) > 1 and ast['blocks'][1]['t'] == 'Div' and 'press-document-metadata' in ast['blocks'][1]['c'][0][1]:
-        block = ast['blocks'][1]
-        anchor = by_index[1]
-        block['c'][0][0] = anchor
-        block['c'][0][2].extend([['data-press-document', record_id], ['role', 'group'], ['aria-label', 'Document metadata']])
-        block['c'][1].insert(0, {'t':'Para','c':[{'t':'Str','c':'Document metadata'}, {'t':'Space'},
-            {'t':'Link','c':[['', ['press-permalink'], [['data-press-passage',anchor], ['aria-label','Permalink to document metadata'], ['lang','en']]],
-                           [{'t':'Str','c':'¶'}], ['press-passage:'+anchor,'']]}]})
-        # Keep publisher-generated source provenance first. The following
-        # document-scoped fields are reviewed source content, not publisher
-        # metadata; their original key order and values remain unchanged.
-        result.append(provenance)
-        result.append(block)
-    else:
-        result.append(provenance)
-    first_passage = True
-    turn_start = None
-    for index, block in enumerate(ast['blocks'][1:], 1):
-        if block['t'] == 'Div' and 'press-document-metadata' in block['c'][0][1]:
-            continue
-        anchor = by_index.get(index)
-        if block['t'] == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
-            speaker = dict(block['c'][0][2])['data-press-speaker']
-            turn_start, turn_index = block, index
-            result.append({'t':'RawBlock','c':['html',
-                '<figure class="press-turn" id="' + anchor + '" data-press-speaker="' + speaker + '">']})
-            result.append({'t':'RawBlock','c':['html', '<blockquote class="press-turn-quotation">']})
-            continue
-        if block['t'] == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
-            # The paired opening marker provides the exact reviewed caption.
-            details = dict(turn_start['c'][0][2])
-            caption = details['data-press-attribution']
-            turn_anchor = by_index[turn_index]
-            result.append({'t':'RawBlock','c':['html', '</blockquote><figcaption class="press-turn-attribution">']})
-            permalink = {'t':'Link','c':[['', ['press-permalink'],
-                [['data-press-passage',turn_anchor],
-                 ['aria-label','Permalink to attributed turn '+turn_anchor], ['lang','en']]],
-                 [{'t':'Str','c':'¶'}], ['press-passage:'+turn_anchor,'']]}
-            credit = {'t':'Span', 'c':[['', ['press-turn-credit'], []],
-                [{'t':'Str','c':'—'}, {'t':'Space'}, {'t':'Str','c':caption}]]}
-            # One entity credit and one permalink; no role or technical-field
-            # line is added by the publisher. The reviewed GFM owns the text.
-            result.append({'t':'Para','c':[credit, {'t':'Space'}, permalink]})
-            result.append({'t':'RawBlock','c':['html', '</figcaption></figure>']})
-            turn_start = None
-            continue
-        if block['t'] == 'Header':
-            if block['c'][0] == 2 and turn_start is None:
-                block['c'][1][1].append('press-passage-heading')
-                if first_passage:
-                    block['c'][1][1].append('press-first-passage')
-                    first_passage = False
-            block['c'][0] += 1
-            block['c'][1][0] = ''
-            result.extend([{'t':'RawBlock','c':['html',f'<a id="{anchor}"></a>']}, block])
-        elif anchor:
-            metadata = (block['t'] == 'Para' and len(block['c']) == 1 and block['c'][0]['t'] == 'Emph'
-                        and (any(n.get('t') == 'RawInline' and n['c'][1].startswith('<time ') for n in walk(block))
-                             or plain_text(block).startswith(('Model: ', 'Thinking effort: '))))
-            if metadata:
-                block['c'] = block['c'][0]['c']
-            cls = 'press-passage-datetime' if metadata else 'press-supporting-element'
-            permalink = {'t':'Link','c':[['', ['press-permalink'],
-                    [['data-press-passage',anchor],['aria-label','Permalink to passage '+anchor],['lang','en']]],
-                    [{'t':'Str','c':'¶'}],['press-passage:'+anchor,'']]}
-            children = [block]
-            if block['t'] in {'Para', 'Plain'}:
-                block['c'].extend([{'t':'Space'}, permalink])
-            else:
-                children.append({'t':'Para','c':[permalink]})
-            result.append({'t':'Div','c':[[anchor,[cls],[]],children]})
-        else:
-            result.append(block)
-    inventory = {'source_path':relative.as_posix(), 'sha256':digest, 'byte_count':size, 'anchors':anchors}
-    return result, anchors, record_id, inventory
-
-
-def append_supporting_records(ast: dict, root: Path, manuscript: Path, tracked: set[Path]) -> list[dict]:
-    selector = re.compile(rf'supporting/({SLUG.pattern})\.md(?:#({SLUG.pattern}))?\Z')
-    selected = {}
-    for node in walk(ast['blocks']):
-        if node.get('t') != 'Link' or not node['c'][2][0].startswith('supporting/'):
-            continue
-        match = selector.fullmatch(node['c'][2][0])
-        if not match:
-            raise AssetError('supporting citations require reviewed GFM .md sources: '+node['c'][2][0])
-        slug, fragment = match.groups()
-        selected.setdefault(slug, []).append((node, fragment))
-    if len(selected) > 128:
-        raise AssetError('too many supporting documents')
-    inventory, total = [], 0
-    for slug, citations in selected.items():
-        relative = manuscript.parent / 'supporting' / (slug+'.md')
-        if relative not in tracked:
-            raise AssetError('supporting source is missing or untracked: '+str(relative))
-        total += (root/relative).stat().st_size
-        if total > 100*1024*1024:
-            raise AssetError('supporting source inventory exceeds 100 MiB')
-        blocks, anchors, record_id, entry = append_gfm(root, relative, slug)
-        for node, fragment in citations:
-            if fragment and fragment not in anchors:
-                raise AssetError('unknown explicit supporting anchor: '+node['c'][2][0])
-            node['c'][2][0] = '#'+(anchors[fragment] if fragment else record_id)
-        ast['blocks'].extend(blocks)
-        inventory.append(entry)
-    return inventory

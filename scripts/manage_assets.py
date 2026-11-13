@@ -19,7 +19,7 @@ from urllib.parse import unquote
 from asset_policy import ASSET_PATH, AssetError, fetch_asset, load_policy
 from asset_storage import B2, GRACE_DAYS, LEASE_PREFIX, PREFIX, credentials
 from prepare_asset import prepare_image
-from publish_edition import gh
+from github import gh
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 FINGERPRINT = re.compile(r"(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])")
@@ -45,7 +45,7 @@ def operator_lock(root):
         yield
 
 
-def upload(root, image, store, *, fetcher=fetch_asset):
+def upload(root, image, store, *, fetcher=fetch_asset, index=None):
     policy = load_policy(root)
     if policy is None:
         raise AssetError("no approved asset origin configured")
@@ -67,6 +67,9 @@ def upload(root, image, store, *, fetcher=fetch_asset):
     # corrupt or missing bytes at the origin. Never overwrite a conflicting key.
     store.verify(key, raw, media_type)
     url = policy.origin + "/" + key
+    if index is not None:
+        from asset_versions import pin_key
+        pin_key(store,index,key)
     received, received_type = fetcher(policy, url)
     if received != raw or received_type != media_type:
         raise AssetError("public asset read-back differs from the original image")
@@ -213,7 +216,11 @@ def retained_assets(root, repo):
 
 
 def asset_key(name):
-    candidate = PREFIX + name[len(LEASE_PREFIX):] if name.startswith(LEASE_PREFIX) else name
+    from gateway_index import PIN_PREFIX
+    if name.startswith(PIN_PREFIX) and name.endswith('.json'):
+        candidate=PREFIX+name[len(PIN_PREFIX):-5]
+    else:
+        candidate = PREFIX + name[len(LEASE_PREFIX):] if name.startswith(LEASE_PREFIX) else name
     return candidate if ASSET_PATH.fullmatch("/" + candidate) else None
 
 
@@ -226,13 +233,24 @@ def groups(versions):
     return result
 
 
+def retained_until(item):
+    retention=item.get('fileRetention')
+    if retention is None:return 0
+    if not isinstance(retention,dict) or not retention.get('isClientAuthorizedToRead'):raise AssetError('cleanup requires readable file retention state')
+    value=retention.get('value') or {}
+    until=value.get('retainUntilTimestamp')
+    if until is not None and (type(until) is not int or until<=0):raise AssetError('invalid file retention time')
+    return until or 0
+
+
 def candidates(versions, retained, now):
     cutoff = (now - GRACE_DAYS * 86400) * 1000
     result = {}
     for key, items in groups(versions).items():
         digest = ASSET_PATH.fullmatch("/" + key)[1]
         if (digest not in retained and all(item["uploadTimestamp"] < cutoff for item in items)
-                and all(item["action"] in {"upload", "hide"} for item in items)):
+                and all(item["action"] in {"upload", "hide"} for item in items)
+                and all(not retained_until(item)>now*1000 for item in items)):
             result[key] = items
     return result
 
@@ -288,10 +306,17 @@ def main():
         with operator_lock(root):
             if args.command == "upload":
                 # Validate before requesting a credential or touching storage.
-                prepare_image(args.image)
-                state, url = upload(root, args.image, B2(credentials(root), operation="upload"))
+                typed=args.image.suffix in {'.mp3','.mp4','.vtt'}
+                if not typed:prepare_image(args.image)
+                from gateway_index import Index
+                store=B2(credentials(root),operation='upload')
+                index=Index(store)
+                if typed:
+                    from ingest_asset import upload_media
+                    state,url=upload_media(root,args.image,store,index)
+                else:state, url = upload(root, args.image, store,index=index)
                 print(f"{state} and verified: {url}")
-                print(f"![Describe the image]({url})")
+                print(f'[Download media]({url})' if typed else f'![Describe the image]({url})')
             else:
                 repo = repository(root)
                 if args.apply:

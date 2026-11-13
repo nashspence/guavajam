@@ -79,7 +79,7 @@ def verify(directory):
             text = markdown.read_text()
             assert expected_text[0] in text, 'selected original or edited user wording survives GFM conversion'
             from supporting_gfm import load_gfm_record
-            from render_profile import plain_text, walk
+            from source_ast import plain_text, walk
             from test_lantern_gfm import native_code, native_math, fixture_tables, parsed_tables
             ast, anchors, *_ = load_gfm_record(markdown)
             assert ast['blocks'][anchors[ids[0]]]['t'] in {'Para','Header','Div'}

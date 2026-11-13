@@ -13,11 +13,10 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'scripts'), str(ROOT / 'tests')]
 from asset_policy import AssetError
-from supporting_gfm import append_gfm, load_gfm_record
-from render_profile import walk
+from supporting_gfm import load_gfm_record
+from source_ast import walk
 from validate_sources import git_sources, validate_repository
-from verify_edition import verify_edition
-from test_assets import EditionTests, SVG
+from test_assets import SVG
 
 
 BODY = '<a name="document"></a>\n\n# Body title\n\n<a name="claim"></a>\n\nReviewed claim.\n'
@@ -77,21 +76,13 @@ class MetadataSourceTests(unittest.TestCase):
             self.assertEqual({'document','claim'}, set(anchors))
             self.assertFalse(any(n['t'] == 'DefinitionList' for n in walk(ast['blocks'])))
 
-    def test_provenance_precedes_submitter_fields_without_readdressing_passages(self):
-        # The source SHA is a publisher assertion; arbitrary values such as
-        # "Source" and "Status" are only document-scoped assertions.
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch)
-            relative = Path('works/demo/supporting/note.md')
-            path = root / relative
-            path.parent.mkdir(parents=True)
-            path.write_text(document('Source: A submitter claim\nStatus: In review\n'))
-            blocks, anchors, _, inventory = append_gfm(root, relative, 'note')
-        self.assertEqual(['RawBlock', 'Header', 'RawBlock', 'Div'], [node['t'] for node in blocks[:4]])
-        self.assertIn('data-press-source="works/demo/supporting/note.md"', blocks[2]['c'][1])
-        self.assertIn('press-document-metadata', blocks[3]['c'][0][1])
-        self.assertEqual('support-md-4-note-details', anchors['details'])
-        self.assertEqual(str(relative), inventory['source_path'])
+    def test_metadata_keeps_source_anchor_and_literal_author_assertions(self):
+        ast,anchors,*_=self.parse(document('Source: A submitter claim\nStatus: In review\n'))
+        self.assertIn('details',anchors)
+        metadata=ast['blocks'][anchors['details']]
+        self.assertIn('press-document-metadata',metadata['c'][0][1])
+        self.assertIn('A submitter claim',str(metadata))
+
 
     def test_dense_metadata_retains_64_ordered_fields_and_no_implicit_semantics(self):
         source = document(''.join(f'field-{n:02d}: "Value {n:02d} — Café"\n' for n in range(64)))
@@ -151,60 +142,9 @@ class MetadataSourceTests(unittest.TestCase):
             self.assertNotIn('private-sentinel',bad.stdout+bad.stderr)
 
 
-class MetadataPublicationTests(EditionTests):
-    def source(self):
-        folder = self.repo/'works/sample/supporting'; folder.mkdir()
-        for name, value in [('first','metadata-token-one'),('second','metadata-token-two')]:
-            fields = FIELDS + 'record_note: "'+value+'"\n' + '"Long ' + 'label-'*20 + '": "' + 'CaféΔ-'*80 + '"\n'
-            fields += yaml.safe_dump({'Quoted \"label\" · Café': 'Δ & <literal>  \t spaced', 'Empty list': [], 'Whitespace controls': 'CR:\r\nTab:\t'}, allow_unicode=True, sort_keys=False)
-            if name == 'second':
-                # An actual 20-field document exercises the mobile/desktop
-                # grouping rules in pinned browser qualification.
-                fields += ''.join(f'Additional-{n}: "Synthetic review context {n}"\n' for n in range(3))
-            (folder/(name+'.md')).write_text(document(fields))
-        with (self.repo/'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\n[First metadata](supporting/first.md#details), '
-                         '[second metadata](supporting/second.md#details) and '
-                         '[claim](supporting/first.md#claim).\n')
-        self.git('add','works'); self.git('commit','-qm','Review arbitrary document metadata')
-        self.commit = self.git('rev-parse','HEAD')
 
-    def test_fields_are_document_scoped_escaped_and_never_become_edition_metadata(self):
-        self.source(); self.assertEqual([],validate_repository(self.repo,git_sources(self.repo)))
-        manifest = self.build(); raw = (self.output/manifest['canonical_artifact']).read_bytes()
-        page = raw.decode(); head = page.split('</head>',1)[0]
-        for private_to_document in ('Supporting metadata title','Example User','<script>literal()</script>','Do not discard this field'):
-            self.assertNotIn(private_to_document,head)
-        self.assertNotIn('<script',page); self.assertIn('&lt;script&gt;literal()&lt;/script&gt;',page)
-        for entry in manifest['supporting_documents']:
-            relative = Path(entry['source_path']); slug = relative.stem
-            self.assertIn('data-press-document="record-md-'+str(len(slug))+'-'+slug+'"',page)
-            self.assertEqual(hashlib.sha256((self.repo/relative).read_bytes()).hexdigest(),entry['sha256'])
-            self.assertIn('details',entry['elements'])
-            self.assertIn('href="'+manifest['record_url']+'/read#'+entry['anchors']['details']+'"',page)
-            # Semantic source/provenance authority comes before document metadata,
-            # without rewriting any original field, fragment or record digest.
-            source_at = page.index('data-press-source="' + relative.as_posix() + '"')
-            metadata_at = page.index('data-press-document="record-md-' + str(len(slug)) + '-' + slug + '"')
-            self.assertLess(source_at, metadata_at)
-        other = self.base/'repeat'
-        from build_edition import build_edition
-        build_edition(self.repo,self.commit,self.tag,other,fetcher=lambda *_:(SVG,'image/svg+xml'))
-        self.assertEqual({p.name:p.read_bytes() for p in self.output.iterdir()}, {p.name:p.read_bytes() for p in other.iterdir()})
-        with patch('socket.create_connection',side_effect=AssertionError('offline')):
-            self.assertEqual(manifest,verify_edition(self.output))
 
-    def test_metadata_tampering_is_rejected_after_outer_hashes_are_recomputed(self):
-        self.source(); manifest = self.build(); name = manifest['canonical_artifact']
-        raw = (self.output/name).read_bytes().replace(b'metadata-token-one',b'metadata-token-new')
-        changed = copy.deepcopy(manifest)
-        changed.update(html_sha256=hashlib.sha256(raw).hexdigest(),html_byte_count=len(raw))
-        (self.output/name).write_bytes(raw); (self.output/'provenance.json').write_text(json.dumps(changed))
-        (self.output/'SHA256SUMS').write_text(''.join(hashlib.sha256((self.output/n).read_bytes()).hexdigest()+'  '+n+'\n'
-                                                   for n in (name,'provenance.json')))
-        with self.assertRaisesRegex(AssetError,'element'): verify_edition(self.output)
 
 
 def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(loader.loadTestsFromName(name, cls) for cls in (MetadataSourceTests,MetadataPublicationTests)
-                             for name in cls.__dict__ if name.startswith('test_'))
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (MetadataSourceTests,) for name in cls.__dict__ if name.startswith("test_"))

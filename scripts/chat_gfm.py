@@ -9,9 +9,9 @@ import html
 from supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, ATTRIBUTION_TOKEN, valid_timestamp
 
 from asset_policy import AssetError
-from identifier_schema import SLUG
+from identifiers import SLUG
 from chat_references import citation_inlines, component_inlines
-from render_profile import plain_text, walk
+from source_ast import plain_text, walk
 
 
 def _normalize_quote_blank_markers(text: str) -> str:
@@ -387,8 +387,8 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             report('unsupported-block-format-as-literal-code')
             return {'t':'CodeBlock','c':[['',[],[]],plain_text(value)]}
         if kind == 'Link':
-            from validate_sources import valid_edition_link
-            if not valid_edition_link(value['c'][2][0]) or value['c'][2][0].startswith('#'):
+            from validate_sources import valid_source_link
+            if not valid_source_link(value['c'][2][0]) or value['c'][2][0].startswith('#'):
                 report('unresolved-or-unsafe-link-as-text')
                 return {'t':'Str','c':plain_text(value['c'][1])+' ['+value['c'][2][0]+']'}
         if kind == 'Str':

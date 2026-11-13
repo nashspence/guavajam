@@ -163,3 +163,7 @@ class TableCaptionTests(unittest.TestCase):
                 self.assertIsNone(result)
                 self.assertTrue(any(f'{PATH}:5:' in e for e in errors), errors)
                 self.assertEqual(raw, snapshot)
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (TableCaptionTests,) for name in cls.__dict__ if name.startswith("test_"))

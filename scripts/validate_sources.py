@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Strict, offline, fail-closed validator for Press source format v1.
 
-Pandoc is a required dependency: parser warnings and HTML render warnings fail CI.
+Pandoc is a required dependency; parser warnings fail CI.
 Git tracks the allowed source set; a public branch must be protected separately.
 """
 
 from __future__ import annotations
 
-import html.parser
 import json
 import yaml
 import re
@@ -17,11 +16,10 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from editorial_notices import check_initial_notes, check_rights_statement
-from identifier_schema import RIGHTS, SLUG, VERSION, WORK_IDS, check_identifier_map, edition_origin, validate_registrations
+from identifiers import RIGHTS, SLUG, WORK_IDS, check_identifier_map
 from asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
-from render_profile import TEMPLATE_PATH, plain_text, prepare_code_focus, prepare_presentation_ast, walk
-from supporting_gfm import append_supporting_records, load_gfm_record, record_path
+from source_ast import plain_text, walk
+from supporting_gfm import load_gfm_record, record_path
 from table_captions import normalize_table_captions
 from bibliography import check_optional_bibliography, ordered_authors, reviewed_language
 
@@ -258,67 +256,6 @@ def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
     return ast, []
 
 
-class HtmlCheck(html.parser.HTMLParser):
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.h1 = 0
-        self.math = 0
-        self.scripts = 0
-        self.bad_imgs = 0
-        self.ids = set()
-        self.duplicate_ids = set()
-
-    def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
-        identifier = attributes.get("id")
-        if identifier:
-            if identifier in self.ids:
-                self.duplicate_ids.add(identifier)
-            self.ids.add(identifier)
-        if tag == "h1":
-            self.h1 += 1
-        if tag == "math":
-            self.math += 1
-        if tag == "script":
-            self.scripts += 1
-        if tag == "img" and not attributes.get("alt"):
-            self.bad_imgs += 1
-
-
-def render_html(ast: dict, relative: Path, expected_math: int, manuscript: bool) -> tuple[set[str], list[str]]:
-    if manuscript:
-        try:
-            prepare_presentation_ast(ast)
-        except AssetError as exc:
-            return set(), [issue(relative, str(exc))]
-        # Use the edition shell so its own IDs and Pandoc-generated footnotes are counted.
-        template = Path(__file__).resolve().parents[1] / TEMPLATE_PATH
-        args = ["--template=" + str(template)]
-    else:
-        args = ["--metadata=pagetitle:Press"]
-    result = subprocess.run([
-        "pandoc", "--fail-if-warnings", "--from=json", "--to=html5", "--standalone",
-        "--mathml", *args], input=json.dumps(ast), capture_output=True, text=True, check=False)
-    if result.returncode:
-        return set(), [issue(relative, "Pandoc HTML5/MathML render failed or warned: " + result.stderr.strip())]
-    parser = HtmlCheck()
-    try:
-        parser.feed(prepare_code_focus(result.stdout) if manuscript else result.stdout)
-    except AssetError as exc:
-        return set(), [issue(relative, str(exc))]
-    errors = []
-    if manuscript and parser.h1 != 1:
-        errors.append(issue(relative, f"rendered HTML must contain exactly one H1, found {parser.h1}"))
-    if parser.scripts:
-        errors.append(issue(relative, "rendered HTML contains executable script"))
-    if parser.bad_imgs:
-        errors.append(issue(relative, "rendered HTML contains image without alt text"))
-    if manuscript and parser.math != expected_math:
-        errors.append(issue(relative, f"rendered MathML count {parser.math} differs from source math count {expected_math}"))
-    if manuscript and parser.duplicate_ids:
-        errors.append(issue(relative, "duplicate published HTML IDs: " + ", ".join(sorted(parser.duplicate_ids))))
-    return parser.ids, errors
-
 
 def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str, int, list[str]]:
     """Parse scalar fields, the identifiers map and an ordered authors list only."""
@@ -464,7 +401,7 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
     if data["rights"] not in RIGHTS:
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
     if data["status"] != "draft":
-        errors.append(issue(relative, "source status must remain draft; publication status belongs to releases"))
+        errors.append(issue(relative, "source status must remain draft; publication status comes from a signed publication commit"))
     if "identifiers" in data:
         errors.extend(issue(relative, message) for message in check_identifier_map(data["identifiers"], WORK_IDS, str(relative)))
     return errors
@@ -542,7 +479,7 @@ def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
     return errors
 
 
-def valid_edition_link(target: str) -> bool:
+def valid_source_link(target: str) -> bool:
     if not target or target.startswith("#"):
         return True
     try:
@@ -554,252 +491,135 @@ def valid_edition_link(target: str) -> bool:
 
 
 def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *, enforce_version: bool = False) -> list[str]:
-    """Validate the tracked source snapshot; never silently ignore malformed Markdown."""
+    """Validate source objects and explicit citation targets without an HTML edition."""
     root = root.resolve()
-    paths = [Path(p) for p in paths]
-    tracked = set(paths)
-    errors: list[str] = []
-    if Path("edition-origin.txt") in tracked:
-        try:
-            edition_origin(root)
-        except (OSError, ValueError) as exc:
-            errors.append(issue(Path("edition-origin.txt"), str(exc)))
-    try:
-        asset_policy = load_policy(root)
-    except (AssetError, TypeError) as exc:
-        errors.append(issue(Path("asset-policy.json"), str(exc)))
-        asset_policy = None
-    front_matters: dict[Path, dict] = {}
-    bodies: dict[Path, tuple[str, int]] = {}
-    asts: dict[Path, dict] = {}
-    ids: dict[Path, set[str]] = {}
-    published_ids: dict[Path, set[str]] = {}
-    manuscripts: set[Path] = set()
-
+    tracked = set(map(Path, paths))
+    errors, asts, anchors, manuscripts = [], {}, {}, set()
     try:
         version = subprocess.run([pandoc, "--version"], capture_output=True, text=True, check=False)
+        if version.returncode:
+            return ["pandoc: compiler not available"]
+        if enforce_version and not version.stdout.startswith("pandoc 3.12.1\n"):
+            return [f"Pandoc version mismatch: expected 3.12.1, got {version.stdout.splitlines()[0]}"]
     except OSError:
         return ["pandoc: compiler not available"]
-    if version.returncode:
-        return ["pandoc: compiler not available"]
-    expected = "3.12.1"
-    if enforce_version and not version.stdout.startswith(f"pandoc {expected}\n"):
-        return [f"Pandoc version mismatch: expected {expected}, got {version.stdout.splitlines()[0]}"]
-
-    for rel in sorted(paths):
-        if rel.parts[:2] != ('tests', 'fixtures') and (root / rel).is_file() and not (root / rel).is_symlink():
+    try:
+        policy = load_policy(root)
+    except (AssetError, TypeError) as exc:
+        errors.append(issue(Path("asset-policy.json"), str(exc))); policy = None
+    for rel in sorted(tracked):
+        path = root / rel
+        if path.is_symlink():
+            errors.append(issue(rel, "symlinks are prohibited")); continue
+        if rel.parts[:2] != ('tests', 'fixtures') and path.is_file():
             from source_custody import native_path
             try:
-                if native_path(root / rel, MAX_BYTES):
+                if native_path(path, MAX_BYTES):
                     errors.append(issue(rel, 'native conversation JSON and archives must remain outside tracked publication sources'))
             except (OSError, AssetError) as exc:
                 errors.append(issue(rel, str(exc)))
         supporting = record_path(rel)
-        in_editions = len(rel.parts) == 4 and rel.parts[0] == "works" and rel.parts[2] == "editions"
-        edition_notes = in_editions and rel.suffix == ".md" and VERSION.fullmatch(rel.stem)
-        edition_rights = (in_editions and rel.name.endswith(".rights.txt")
-                          and VERSION.fullmatch(rel.name.removesuffix(".rights.txt")))
-        if rel.parts and rel.parts[0] == "works":
-            if len(rel.parts) >= 3:
-                if not SLUG.fullmatch(rel.parts[1]):
-                    errors.append(issue(rel, "work directory must use a lowercase ASCII slug"))
-                allowed_root = len(rel.parts) == 3 and rel.parts[2] == "manuscript.md"
-                allowed_asset = len(rel.parts) >= 4 and rel.parts[2] == "assets"
-                if not (allowed_root or allowed_asset or edition_notes or edition_rights or supporting):
-                    errors.append(issue(rel, "unsupported file path under works/ (requires policy change)"))
-            else:
-                errors.append(issue(rel, "unexpected source directly beneath works/"))
-        if supporting:
-            try:
-                load_gfm_record(root / rel, root=root)
-            except (OSError, ValueError) as exc:
-                errors.append(issue(rel, str(exc)))
-            continue
-        if edition_rights:
-            statement, e = read_text(root / rel, rel)
-            errors.extend(e)
-            if statement is not None:
-                try:
-                    check_rights_statement(statement.removesuffix("\n"))
-                except AssetError as exc:
-                    errors.append(issue(rel, str(exc)))
-            continue
+        manuscript = len(rel.parts) == 3 and rel.parts[0] == "works" and rel.name == "manuscript.md"
+        if rel.parts and rel.parts[0] == 'works':
+            valid = (manuscript or supporting or (len(rel.parts) >= 4 and rel.parts[2] == 'assets'))
+            if len(rel.parts) < 3 or not SLUG.fullmatch(rel.parts[1]) or not valid:
+                errors.append(issue(rel, "unsupported file path under works/"))
         if rel.suffix.lower() not in SOURCE_EXTENSIONS:
             continue
-        path = root / rel
-        if not path.is_file():
-            errors.append(issue(rel, "tracked Markdown source is missing"))
-            continue
-        source, e = read_text(path, rel)
-        errors.extend(e)
-        if source is None:
-            continue
-        if edition_notes:
+        source, issues = read_text(path, rel); errors.extend(issues)
+        if source is None: continue
+        if supporting:
             try:
-                check_initial_notes(source)
-            except AssetError as exc:
-                errors.append(issue(rel, str(exc)))
-        manuscript = len(rel.parts) == 3 and rel.parts[0] == "works" and rel.name == "manuscript.md"
-        info = None
-        expected_math = 0
-        if manuscript:
-            manuscripts.add(rel)
-            slug = rel.parts[1]
-            if not SLUG.fullmatch(slug):
-                errors.append(issue(rel, "invalid work slug"))
-            front, body, body_line, e = validate_front_matter(rel, source)
-            errors.extend(e)
-            bodies[rel] = (body, body_line)
-            if front is not None:
-                front_matters[rel] = front
-            info, e = inspect_manuscript_syntax(rel, body, body_line)
-            errors.extend(e)
-        ast, e = parse_document(path, rel)
-        errors.extend(e)
-        if ast is None:
-            continue
-        asts[rel] = ast
-        headers = [node for node in walk(ast.get("blocks", [])) if node["t"] == "Header"]
-        headings = [node["c"][1][0] for node in headers]
-        if len(headings) != len(set(headings)):
-            errors.append(issue(rel, "duplicate rendered heading IDs"))
-        if info:
-            explicit = set(info["anchors"])
-        else:
-            # Templates and ordinary Markdown can use the same explicit anchors.
-            # Ignore anchor-shaped text inside code or display math blocks.
-            visible, _ = visible_lines(source)
-            from supporting_gfm import ANCHOR as SUPPORT_ANCHOR
-            anchor_names = [match.group(1) for _, line in visible
-                            if (match := SUPPORT_ANCHOR.fullmatch(line))]
-            if len(anchor_names) != len(set(anchor_names)):
-                errors.append(issue(rel, "duplicate stable anchors"))
-            explicit = set(anchor_names)
-            if explicit & set(headings):
-                errors.append(issue(rel, "explicit stable anchors collide with rendered header IDs"))
-        ids[rel] = set(headings) | explicit
-        if manuscript:
-            if len(headers) != len(info["headings"]):
-                errors.append(issue(rel, "Pandoc headings differ from ATX source headings (Setext/nested headings prohibited)"))
-            for (number, level, _), node in zip(info["headings"], headers):
-                if node["c"][0] != level:
-                    errors.append(issue(rel, "heading levels differ between source and AST", number))
-            if rel in front_matters:
-                front = front_matters[rel]
-                title = headers[0]["c"][2] if headers else []
-                errors.extend(validate_work_fields(rel, front, rel.parts[1], title))
-                errors.extend(validate_pandoc_front_matter(rel, front, ast))
-            raw_nodes = [node["c"][1] for node in walk(ast.get("blocks", []))
-                         if node.get("t") in ("RawInline", "RawBlock") and node.get("c", [None])[0] == "html"]
-            expected_raw = []
-            for _, line in visible_lines(*bodies[rel])[0]:
-                match = ANCHOR.fullmatch(line)
-                if match:
-                    expected_raw.extend([f'<a id="{match.group(1)}">', '</a>'])
-            if sorted(raw_nodes) != sorted(expected_raw):
-                errors.append(issue(rel, "raw HTML is prohibited except standalone stable section anchors"))
-            maths = [node for node in walk(ast.get("blocks", [])) if node["t"] == "Math"]
-            # Tokenize TeX control words/symbols so escaped backslashes and percent
-            # signs are distinct from commands and comments, respectively.
-            for node in maths:
-                for token in re.findall(r"%[^\n]*|\\[A-Za-z]+|\\.", node["c"][1]):
-                    if token in (r"\tag", r"\label"):
-                        errors.append(issue(rel, f"{token} in math cannot produce a published equation label; "
-                                                 "use a stable heading anchor and link to it"))
-            found_inline = sum(1 for m in maths if m["c"][0]["t"] == "InlineMath")
-            found_display = sum(1 for m in maths if m["c"][0]["t"] == "DisplayMath")
-            if (found_inline, found_display) != (info["inline_math"], info["display_math"]):
-                errors.append(issue(rel, f"math delimiters did not parse exactly: expected "
-                                         f"{info['inline_math']} inline/{info['display_math']} display, "
-                                         f"got {found_inline} inline/{found_display} display"))
-            found_notes = sum(1 for node in walk(ast.get("blocks", [])) if node["t"] == "Note")
-            if found_notes != info["footnote_refs"]:
-                errors.append(issue(rel, "footnote markers did not parse as expected"))
-            expected_math = len(maths)
-            try:
-                append_supporting_records(ast, root, rel, tracked)
-                expected_math = sum(1 for n in walk(ast['blocks']) if n.get('t') == 'Math')
+                ast, positions, *_ = load_gfm_record(path, root=root)
+                asts[rel], anchors[rel] = ast, set(positions)
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
-                continue
-        rendered_ids, render_errors = render_html(ast, rel, expected_math, manuscript)
+            continue
         if manuscript:
-            published_ids[rel] = rendered_ids
-        errors.extend(render_errors)
-
-    for rel, ast in asts.items():
+            _, _, _, issues=validate_front_matter(rel,source);errors.extend(issues)
+        parsed, issues = parse_document(path, rel);errors.extend(issues)
+        if parsed is None: continue
+        asts[rel] = parsed
+        headers = [n for n in walk(parsed['blocks']) if n['t'] == 'Header']
+        heading_ids = [n['c'][1][0] for n in headers]
+        if len(heading_ids) != len(set(heading_ids)):
+            errors.append(issue(rel, "duplicate rendered heading IDs"))
+        if manuscript:
+            manuscripts.add(rel)
+            front, body, line, issues = validate_front_matter(rel, source);errors.extend(issues)
+            info, issues = inspect_manuscript_syntax(rel, body, line);errors.extend(issues)
+            explicit = set(info['anchors']);anchors[rel] = explicit
+            if len(headers) != len(info['headings']):
+                errors.append(issue(rel, "Pandoc headings differ from ATX source headings (Setext/nested headings prohibited)"))
+            if [n['c'][0] for n in headers] != [h[1] for h in info['headings']]:
+                errors.append(issue(rel, "heading levels differ between source and AST"))
+            if front is not None:
+                errors.extend(validate_work_fields(rel, front, rel.parts[1], headers[0]['c'][2] if headers else []))
+                errors.extend(validate_pandoc_front_matter(rel, front, parsed))
+            raw = [n['c'][1] for n in walk(parsed['blocks']) if n['t'] in {'RawInline','RawBlock'} and n['c'][0]=='html']
+            expected = []
+            for _, text in visible_lines(body, line)[0]:
+                if match := ANCHOR.fullmatch(text): expected.extend([f'<a id="{match[1]}">','</a>'])
+            if sorted(raw) != sorted(expected):
+                errors.append(issue(rel, "raw HTML is prohibited except standalone stable section anchors"))
+            maths = [n for n in walk(parsed['blocks']) if n['t']=='Math']
+            counts = (sum(n['c'][0]['t']=='InlineMath' for n in maths),sum(n['c'][0]['t']=='DisplayMath' for n in maths))
+            if counts != (info['inline_math'],info['display_math']):
+                errors.append(issue(rel, "math delimiters did not parse exactly"))
+            for node in maths:
+                if any(token in (r'\tag',r'\label') for token in re.findall(r'%[^\n]*|\\[A-Za-z]+|\\.',node['c'][1])):
+                    errors.append(issue(rel, "\\tag or \\label cannot produce a published equation label; use a stable heading anchor"))
+            if sum(n['t']=='Note' for n in walk(parsed['blocks'])) != info['footnote_refs']:
+                errors.append(issue(rel, "footnote markers did not parse as expected"))
+            try:
+                from press_media import declarations, candidates
+                if policy is None:
+                    if list(candidates(parsed['blocks'])): raise AssetError('media requires asset-policy.json')
+                else: declarations(parsed,policy.origin,explicit)
+            except ValueError as exc:errors.append(issue(rel,str(exc)))
+        else:
+            from supporting_gfm import ANCHOR as SUPPORT_ANCHOR
+            visible, _ = visible_lines(source)
+            explicit = [m[1] for _, text in visible if (m := SUPPORT_ANCHOR.fullmatch(text))]
+            if len(explicit) != len(set(explicit)):errors.append(issue(rel,'duplicate stable anchors'))
+            if set(explicit) & set(heading_ids):errors.append(issue(rel,'explicit stable anchors collide with rendered header IDs'))
+            anchors[rel] = set(explicit) | set(heading_ids)
+    for rel, parsed in asts.items():
         manuscript = rel in manuscripts
-        for node in walk(ast.get("blocks", [])):
-            if node.get("t") not in {"Link", "Image"}:
+        for node in walk(parsed['blocks']):
+            kind = node['t']
+            if kind not in {'Link','Image'}:continue
+            target = node['c'][2][0]
+            if kind=='Image' and not plain_text(node['c'][1]).strip():errors.append(issue(rel,'image alt text required'))
+            if policy and policy.manages(target):
+                try:(policy.parse_image if kind=='Image' else policy.parse)(target)
+                except AssetError as exc:errors.append(issue(rel,str(exc)))
                 continue
-            kind = node["t"]
-            data = node["c"]
-            if len(data) < 3:
+            try:uri=urlsplit(target)
+            except ValueError:errors.append(issue(rel,'malformed URI'));continue
+            if uri.scheme or uri.netloc:
+                if kind=='Image' or not valid_source_link(target):errors.append(issue(rel,'unsupported/external URI: '+target))
                 continue
-            target = data[2][0]
-            if kind == "Image" and not plain_text(data[1]).strip():
-                errors.append(issue(rel, "image alt text required"))
-            if asset_policy and asset_policy.manages(target):
-                try:
-                    (asset_policy.parse_image if kind == 'Image' else asset_policy.parse)(target)
-                except AssetError as exc:
-                    errors.append(issue(rel,str(exc)))
-                continue
-            if kind == "Image" and manuscript and (":" in target or target.startswith("//")):
-                try:
-                    if asset_policy is None:
-                        raise AssetError("unsupported/external URI: no approved asset origin configured")
-                    asset_policy.parse_image(target)
-                except AssetError as exc:
-                    errors.append(issue(rel, str(exc)))
-                continue
-            try:
-                parsed = urlsplit(target)
-            except ValueError:
-                errors.append(issue(rel, "malformed URI"))
-                continue
-            if manuscript and kind == "Link" and not valid_edition_link(target):
-                errors.append(issue(rel, f"unsupported/external URI: standalone manuscript links require a fragment, HTTPS or mailto URL: {target}"))
-                continue
-            if parsed.scheme or parsed.netloc:
-                if parsed.scheme.lower() not in {"https", "mailto"}:
-                    errors.append(issue(rel, f"unsupported/external URI in {kind}: {target}"))
-                continue
-            if target.startswith("/") or target.startswith("\\"):
-                errors.append(issue(rel, f"root-absolute path prohibited: {target}"))
-                continue
-            if parsed.query:
-                errors.append(issue(rel, f"local links may not have query strings: {target}"))
-            if not parsed.path and not parsed.fragment:
-                continue
-            destination = ((root / rel.parent / unquote(parsed.path)) if parsed.path else (root / rel)).resolve()
-            try:
-                dest_rel = destination.relative_to(root)
-            except ValueError:
-                errors.append(issue(rel, f"link escapes repository: {target}"))
-                continue
-            if not destination.exists():
-                errors.append(issue(rel, f"broken local link: {target}"))
-                continue
-            if dest_rel not in tracked and destination.is_file():
-                errors.append(issue(rel, f"linked file is not tracked: {target}"))
-            if kind == "Image" and manuscript:
-                if len(dest_rel.parts) < 4 or dest_rel.parts[:3] != ("works", rel.parts[1], "assets"):
-                    errors.append(issue(rel, f"manuscript images must be under works/{rel.parts[1]}/assets/: {target}"))
-            # Links within a manuscript must survive publication. Repository documents
-            # link to Markdown previews, which also expose Pandoc’s generated heading slugs.
-            targets = published_ids if manuscript else ids
-            if parsed.fragment and dest_rel in asts and unquote(parsed.fragment) not in targets.get(dest_rel, set()):
-                errors.append(issue(rel, f"unresolved Markdown section link: {target}"))
-            if parsed.fragment and dest_rel.suffix.lower() in SOURCE_EXTENSIONS and dest_rel not in asts:
-                errors.append(issue(rel, f"cannot validate fragment in unparsable Markdown: {target}"))
-
-    work_folders = {rel.parts[1] for rel in tracked if len(rel.parts) >= 3 and rel.parts[0] == "works"}
-    for slug in sorted(work_folders):
-        if Path("works") / slug / "manuscript.md" not in manuscripts:
-            errors.append(issue(Path("works") / slug, "work directory requires manuscript.md"))
-    errors.extend(validate_assets(root, tracked))
-    errors.extend(validate_registrations(root, tracked, front_matters))
+            if target.startswith(('/', '\\')) or '\\' in target or uri.query:
+                errors.append(issue(rel,'unsupported/external URI: '+target));continue
+            dest=(root/rel.parent/unquote(uri.path)).resolve() if uri.path else root/rel
+            if not dest.is_relative_to(root):errors.append(issue(rel,'link escapes repository: '+target));continue
+            relative=dest.relative_to(root)
+            if not dest.exists():errors.append(issue(rel,'broken local link: '+target));continue
+            if dest.is_file() and relative not in tracked:errors.append(issue(rel,'linked file is not tracked: '+target))
+            if manuscript and uri.path and kind=='Link' and not (record_path(relative) and relative.parent==rel.parent/'supporting'):
+                errors.append(issue(rel,'unsupported/external URI: standalone manuscript links require a local section or reviewed supporting document'))
+            if manuscript and kind=='Image' and not relative.is_relative_to(rel.parent/'assets'):
+                errors.append(issue(rel,'manuscript images must be under '+str(rel.parent/'assets')))
+            if uri.fragment and relative in asts and unquote(uri.fragment) not in (anchors.get(relative,set()) if manuscript else anchors.get(relative,set()) | {n['c'][1][0] for n in walk(asts[relative]['blocks']) if n['t']=='Header'}):
+                errors.append(issue(rel,'unresolved Markdown section link: '+target))
+    for slug in {rel.parts[1] for rel in tracked if len(rel.parts)>=3 and rel.parts[0]=='works'}:
+        if Path('works')/slug/'manuscript.md' not in manuscripts:errors.append(issue(Path('works')/slug,'work directory requires manuscript.md'))
+    for slug in {r.parts[1] for r in tracked if len(r.parts)>=3 and r.parts[0]=='works'}:
+        supporting=[r for r in tracked if record_path(r) and r.parts[1]==slug]
+        if len(supporting)>128 or sum((root/r).stat().st_size for r in supporting if (root/r).is_file())>100*1024*1024:
+            errors.append(issue(Path('works')/slug,'supporting inventory exceeds 128 documents or 100 MiB'))
+    errors.extend(validate_assets(root,tracked))
     return sorted(set(errors))
 
 

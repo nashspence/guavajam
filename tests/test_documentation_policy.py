@@ -33,3 +33,7 @@ class DocumentationPolicyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def load_tests(loader, tests, pattern):
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (DocumentationPolicyTests,) for name in cls.__dict__ if name.startswith("test_"))

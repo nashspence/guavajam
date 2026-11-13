@@ -16,8 +16,7 @@ from source_custody import native_conversation, native_path
 from manage_assets import upload
 from validate_sources import git_sources, validate_repository
 from verify_source_assets import verify_source_assets
-from verify_edition import verify_edition
-from test_assets import EditionTests, SVG, ORIGIN
+from test_assets import SVG, ORIGIN
 import hashlib
 
 NATIVE = (ROOT / 'tests/fixtures/capture/conversation.json').read_bytes()
@@ -119,45 +118,9 @@ class NativeInputTests(unittest.TestCase):
                 native_path(path, 10 * 1024 * 1024)
 
 
-class CustodyBoundaryTests(EditionTests):
-    def test_tracked_and_upload_boundaries_reject_renamed_and_uninspectable_archives(self):
-        for raw in (archive(('renamed', NATIVE)), archive(('inner', archive(('renamed', NATIVE)))),
-                    b'PK\x03\x04truncated'):
-            path = self.repo / 'review-data.bin'; path.write_bytes(raw); self.git('add', path.name)
-            self.assertTrue(validate_repository(self.repo, git_sources(self.repo)))
-            store = Mock()
-            with self.assertRaises(AssetError): upload(self.repo, path, store)
-            store.upload.assert_not_called()
-            self.git('rm', '-f', path.name)
-        self.assertEqual([], validate_repository(self.repo, git_sources(self.repo)))
 
-    def source(self):
-        raw = archive(('renamed', NATIVE))
-        url = ORIGIN + '/sha256/' + hashlib.sha256(raw).hexdigest() + '.bin'
-        with (self.repo / 'works/sample/manuscript.md').open('a') as stream:
-            stream.write('\n[Reviewed download](' + url + ').\n')
-        self.git('add', 'works'); self.git('commit', '-qm', 'Review synthetic opaque reference')
-        self.commit = self.git('rev-parse', 'HEAD')
-        return lambda policy, target: (raw, 'application/octet-stream') if target == url else (SVG, 'image/svg+xml')
 
-    def test_source_verifier_and_builder_reject_native_payload_even_with_matching_sha256(self):
-        fetcher = self.source()
-        with self.assertRaisesRegex(AssetError, 'native'):
-            verify_source_assets(self.repo, fetcher=fetcher)
-        with self.assertRaisesRegex(AssetError, 'native'):
-            self.build(fetcher=fetcher)
-        self.assertFalse(self.output.exists(), 'rejection must precede writing a publication artifact')
-
-    def test_offline_verification_rejects_an_otherwise_coherent_older_package(self):
-        fetcher = self.source()
-        # Simulate a package accepted by the former filename-dependent guard.
-        with patch('source_custody.native_conversation', return_value=False):
-            self.build(fetcher=fetcher)
-        with patch('socket.create_connection', side_effect=AssertionError('offline')), \
-                self.assertRaisesRegex(AssetError, 'native'):
-            verify_edition(self.output)
 
 
 def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(loader.loadTestsFromName(name, cls) for cls in (NativeInputTests, CustodyBoundaryTests)
-                             for name in cls.__dict__ if name.startswith('test_'))
+    return unittest.TestSuite(loader.loadTestsFromName(name,cls) for cls in (NativeInputTests,) for name in cls.__dict__ if name.startswith("test_"))
