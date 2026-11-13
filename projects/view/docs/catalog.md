@@ -59,7 +59,7 @@ mode and no discovery of whichever commits happen to be at `HEAD`.
 
 ## Administrative catalog
 
-Start with `examples/catalog.json`. It deliberately contains **no invented
+Start with `projects/view/examples/catalog.json`. It deliberately contains **no invented
 publication commits or DOI assignments**. Replace the imprint and deployment
 origin and add reviewed records. This schematic example uses a made-up hash and
 DOIs; it illustrates the schema and must not be deployed unchanged:

@@ -243,7 +243,7 @@ Git/site generations.
 ## Scheduling
 
 Run the target with the deployment account's pinned mise/uv toolchain on POSIX.
-The sample `examples/guavajam-update.service` and `.timer` demonstrate a five-minute
+The sample `projects/view/examples/guavajam-update.service` and `.timer` demonstrate a five-minute
 systemd cadence; they are not installed or enabled by this contribution. Supply
 that account's executable PATH and independently managed signer policy. A cron
 entry can also call `make update`; locking is already implemented by the target.
