@@ -11,6 +11,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -135,6 +136,31 @@ class DiscoveryTests(unittest.TestCase):
         override['doi'] = '10.1234/rebound'; self.p.amend_settings()
         with self.assertRaisesRegex(ValueError, 'rebound'):
             self.discover(previous=new)
+
+    def test_ssh_discovery_uses_only_independently_managed_signers(self):
+        # Replace the fixture's GPG checkpoint with an SSH-authorized history.
+        self.p.git('reset', '--hard', 'HEAD^')
+        key = self.p.root / 'publisher-ssh'
+        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)],
+                       check=True, capture_output=True)
+        self.p.git('config', 'gpg.format', 'ssh')
+        self.p.git('config', 'user.signingkey', str(key))
+        checkpoint = self.p.seal()
+        revision = self.p.publish(label='SSH-authorized edition')
+        signers = self.p.root / 'allowed-signers'
+        signers.write_text('publisher@example.org ' + key.with_suffix('.pub').read_text())
+        catalog, evidence = discover(self.p.repo, allowed_signers=signers)
+        self.assertEqual(checkpoint, evidence['site_checkpoint'])
+        self.assertEqual([revision], evidence['publications'])
+        self.assertEqual(revision, catalog['works'][0]['recommended_revision'])
+        untrusted = self.p.root / 'untrusted-signers'
+        untrusted.write_text('')
+        with self.assertRaisesRegex(ValueError, 'invalid or unauthorized'):
+            discover(self.p.repo, allowed_signers=untrusted)
+        source_signers = self.p.repo / 'allowed-signers'
+        source_signers.write_bytes(signers.read_bytes())
+        with self.assertRaisesRegex(ValueError, 'outside the indexed repository'):
+            discover(self.p.repo, allowed_signers=source_signers)
 
     def test_missing_unknown_symlink_and_shallow_data_fail_closed(self):
         self.p.publish()
