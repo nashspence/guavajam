@@ -17,7 +17,7 @@ def incoming(root,base,*,all_history=False):
         selector=result.stdout.strip().decode()+'..HEAD' if result.returncode==0 else 'HEAD'
     revisions=git(root,'rev-list','--reverse',selector).decode().splitlines()
     if len(revisions)>1000:raise PublicationError('incoming publication audit exceeds commit budget')
-    return [sha for sha in revisions if re.search(rb'^Press-(?:Publication|Work):',git(root,'show','-s','--format=%B',sha),re.M)]
+    return [sha for sha in revisions if re.search(rb'^Press-(?:Publication|Work|Site|Published|Label):',git(root,'show','-s','--format=%B',sha),re.M)]
 
 
 def check(root,base,*,online=True,all_history=False):
@@ -37,7 +37,18 @@ def check(root,base,*,online=True,all_history=False):
                 home=Path(directory)/'gpg';home.mkdir(mode=0o700);os.environ['GNUPGHOME']=str(home)
                 imported=subprocess.run(['gpg','--batch','--import'],input=key.encode(),capture_output=True,check=False)
                 if imported.returncode:raise PublicationError('independent GPG policy import failed')
-            return [verify(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None,online_media=online,require_retention=online) for sha in candidates]
+            from publication_protocol import commit, declaration, verify_shape, verify_signature, blob, policy
+            results=[]
+            for sha in candidates:
+                declared=declaration(commit(root,sha)[1])
+                if declared and declared['kind']=='site':
+                    verify_shape(root,sha,'site')
+                    verify_signature(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None)
+                    policy(blob(root,sha,'press-site.json'))
+                    results.append({'site_checkpoint':sha})
+                else:
+                    results.append(verify(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None,online_media=online,require_retention=online))
+            return results
         finally:
             if old_home is None:os.environ.pop('GNUPGHOME',None)
             else:os.environ['GNUPGHOME']=old_home

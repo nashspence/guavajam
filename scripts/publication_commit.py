@@ -53,16 +53,14 @@ def commit_identity(repo: Path, sha: str):
     tree=re.search(rb'^tree ([0-9a-f]{40})$',header,re.M)
     if len(parents)!=1 or tree is None or git(repo,'rev-parse',parents[0].decode()+'^{tree}').strip()!=tree[1]:
         raise PublicationError('publication must be an empty, single-parent commit preserving reviewed content')
-    rows = message.strip().splitlines()
-    marker = [line for line in rows if line.startswith('Press-Publication:')]
-    works = [line for line in rows if line.startswith('Press-Work:')]
-    if marker != ['Press-Publication: 1'] or len(works) != 1:
-        raise PublicationError('publication commit requires exact, unique Press-Publication and Press-Work trailers')
-    if rows[-2:] != ['Press-Publication: 1', works[0]]:
-        raise PublicationError('publication trailers must be the final two lines')
-    work = works[0].removeprefix('Press-Work: ')
-    if not PUBLICATION.fullmatch(work):
-        raise PublicationError('Press-Work requires works/<slug>/manuscript.md')
+    from publication_protocol import declaration
+    try:
+        declared = declaration(message)
+    except ValueError as exc:
+        raise PublicationError('publication trailers must be exact and unique; v1 requires the final two lines: ' + str(exc)) from exc
+    if declared is None or declared['kind'] != 'publication':
+        raise PublicationError('commit must declare a publication')
+    work = declared['manuscript']
     source = git(repo, 'show', sha + ':' + work)
     if len(source) > 8 * 1024 * 1024:
         raise PublicationError('manuscript exceeds source byte limit')
