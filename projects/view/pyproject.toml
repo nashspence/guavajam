@@ -1,0 +1,23 @@
+[project]
+name = "guavajam-view"
+version = "0.1.0"
+description = "Optional HTML views of signed GFM source revisions"
+requires-python = ">=3.12,<3.13"
+dependencies = ["guavajam-core==0.1.0"]
+
+[project.scripts]
+guavajam = "guavajam.renderer:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+guavajam = ["styles/*.css"]
+
+[tool.uv.sources]
+guavajam-core = { workspace = true }

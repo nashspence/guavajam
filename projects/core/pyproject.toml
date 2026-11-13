@@ -1,0 +1,20 @@
+[project]
+name = "guavajam-core"
+version = "0.1.0"
+description = "Signed Git publications, source validation, assets and preservation"
+requires-python = ">=3.12,<3.13"
+dependencies = ["PyYAML==6.0.3", "Pillow==13.0.0", "av==19.0.2"]
+
+[project.scripts]
+guavajam-core = "guavajam_core.cli:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+guavajam_core = ["resources/*", "resources/**/*"]

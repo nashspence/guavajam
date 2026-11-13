@@ -1,5 +1,5 @@
 # GuavaJam
 
-Optional, script-free catalogs, DOI landing pages and HTML views of signed GFM Git revisions.
+Signed Git publication tooling and optional, script-free presentation.
 
-[Using and developing GuavaJam](AGENTS.md). Run `make help` for commands.
+[Development and package boundaries](docs/development.md). Run `make help` for commands.

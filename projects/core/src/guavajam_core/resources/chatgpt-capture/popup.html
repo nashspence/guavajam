@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Press ChatGPT Capture</title>
+  <style>
+    body { width: 340px; box-sizing: border-box; padding: 16px; margin: 0;
+           font: 14px/1.48 system-ui, sans-serif; color: #1c2935; background: #fff; }
+    h1 { font-size: 16px; margin: 0 0 7px; }
+    p { margin: 0 0 13px; }
+    button { width: 100%; padding: 11px; color: #fff; background: #16426b;
+             border: 0; border-radius: 5px; font-weight: 600; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #b57d08; outline-offset: 3px; }
+    button:disabled { opacity: .6; cursor: progress; }
+    #status { margin-top: 12px; min-height: 18px; white-space: pre-wrap;
+              overflow-wrap: anywhere; }
+    #status[data-kind="error"] { color: #a02420; }
+    #status[data-kind="warning"] { color: #754f05; }
+    .note { font-size: 12px; color: #54616d; margin-top: 10px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1b222a; color: #f3f5f7; }
+      button { background: #3977ae; }
+      #status[data-kind="error"] { color: #ffaaa4; }
+      #status[data-kind="warning"] { color: #ffd789; }
+      .note { color: #a6b5c0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+  <h1>Press · ChatGPT Capture</h1>
+  <p>Export a saved conversation's native branching graph. Its current branch and audit follow the server's saved selection.</p>
+  <button id="capture" type="button">Capture this conversation</button>
+  <div id="status" role="status" aria-live="polite"></div>
+  <p class="note">Experimental capture; branch completeness is unknown. Read-only; no persistent site access. A started capture may finish after this popup closes. Navigating away cancels it. The archive contains private, possibly hidden content. Keep the raw ZIP outside Press source control.</p>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
