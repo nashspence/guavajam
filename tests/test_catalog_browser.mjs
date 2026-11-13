@@ -50,10 +50,14 @@ try {
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
       assert.equal(await page.locator(':focus').evaluate(n => n.tagName), 'MAIN');
+      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Collected Publications');
       await page.getByRole('link', {name: 'Field Notes, Revised', exact: true}).click();
       await page.getByRole('link', {name: 'Recommended edition record'}).click();
       assert.equal(await page.locator('meta[name="citation_doi"]').getAttribute('content'), '10.1234/field-notes.v2');
+      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Revised edition');
       await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
+      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Reading');
+      assert((await page.locator('main').evaluate(el => {const h=el.querySelector('h1');const s=el.querySelector('.guavajam-reading-context');return h&&s&&Boolean(h.compareDocumentPosition(s)&Node.DOCUMENT_POSITION_FOLLOWING);})));
       await page.getByRole('link', {name: 'Cite committed source passage opening', exact: true}).click();
       assert(page.url().endsWith('/read/cite.html#opening'));
       assert((await page.locator('#opening').textContent()).includes(revision));

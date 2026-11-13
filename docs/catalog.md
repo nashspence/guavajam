@@ -179,6 +179,36 @@ Citation download JSON separates the canonical `press.citation.v1` locator from
 administrative bibliography and available anchors. Whole-document citations do
 not fabricate a passage reference.
 
+### Navigation and the signed-source reading order
+
+The generated registry, work records, edition DOI records, citation helpers and
+reading views share a small **breadcrumb** navigation (`nav` with an ordered
+list, `aria-label="Breadcrumb"` and one non-link `aria-current="page"` item).
+Ancestors use the concise “Publications” root link, the actual verified
+work title and reviewed edition label;
+there are no generic "Work and editions" / "Edition record" links and no
+self-link for the current page. Supporting-source citations preserve a path
+back to their corresponding supporting reading view. The breadcrumbs are
+ordinary links and stay responsive without scripts, CSS framework or sidebar.
+They are separate from the source document's internal contents outline.
+
+For catalog-created reading views, the source H1 and authored byline precede
+the compact canonical-source and citation guidance. The full revision, path,
+and passage anchors remain available and unchanged; moving viewer-generated
+bibliographic chrome must never rewrite signed source content. Standalone
+`guavajam render` continues to have its independent original reading layout.
+In print, breadcrumb navigation is omitted, while citation/provenance remains
+readable. Source identity is canonical regardless of the breadcrumb labels,
+landing URLs or CSS. Do not replace source anchors with generated heading IDs.
+
+The visual reference remains the restrained Press bibliographic-cover idiom:
+serif title/text, small sans-serif navigational metadata, paper/ink palette,
+underlined blue links, single-column layout and clear provenance. The design
+references retained from the original Press work/edition landing-page contract
+are Zenodo version distinction, arXiv title-first covers, W3C status notices,
+GOV.UK labeled publication facts and DataCite DOI display conventions. This
+feature does not claim pixel-for-pixel parity with the retired generator.
+
 The index links work records and work DOI URLs. Work records link edition
 records and the explicitly recommended reader. Edition records link the reader,
 supporting source documents, citation instructions and source downloads.

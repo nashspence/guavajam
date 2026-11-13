@@ -119,7 +119,7 @@ def _work_page(catalog, work, publications):
     for edition in _ordered(work):
         body += _edition_link(catalog, filename, work, edition, publications[edition['revision']]['facts'])
     body += '</ol>'
-    return page(catalog, filename, facts['title'], body, work=work,
+    return page(catalog, filename, facts['title'], body, work=work, work_title=facts['title'],
                 head=metadata(facts, catalog['publisher'], identifier=work.get('concept_doi')))
 
 
@@ -159,7 +159,7 @@ def _edition_page(catalog, work, edition, publication):
     return page(catalog, filename, facts['title'] + ' — ' + _edition_label(edition), body,
                 head=metadata(facts, catalog['publisher'], identifier=edition.get('doi'),
                               published=edition['published'], canonical=canonical),
-                work=work, edition=edition)
+                work=work, edition=edition, work_title=facts['title'])
 
 
 def _discovery(catalog, publications, pages):
@@ -284,7 +284,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                         text = (render_dir / document['view']).read_text('utf-8')
                         # The signed renderer owns source validation. The site layer
                         # adds navigation/citations, never edits publication text.
-                        text = decorate_reading(text, catalog, filename, work, edition, document, selected)
+                        text = decorate_reading(text, catalog, filename, work, edition, document, selected, work_title=facts['title'])
                         writer.put(filename, text)
                         file_hashes[document['view']] = writer.files[filename]
                         indexable.add(filename)

@@ -1,7 +1,16 @@
 /* Catalog, DOI records and citation affordances share the reading palette. */
-.guavajam-navigation { font: .86rem/1.6 system-ui, sans-serif; border-bottom: 1px solid var(--press-border); margin: 0 0 1.6rem; padding: .5rem 0; }
-.guavajam-navigation ul { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; list-style: none; margin: 0; padding: 0; }
-.guavajam-navigation a { display: inline-block; padding-block: .35rem; }
+/* Text-first breadcrumbs: the active page is not a redundant self-link. */
+.guavajam-navigation { font: .84rem/1.55 system-ui, sans-serif; border-bottom: 1px solid var(--press-border); margin: 0 0 1rem; padding: .3rem 0; }
+.guavajam-navigation ol { display: flex; flex-wrap: wrap; gap: .15rem .35rem; list-style: none; margin: 0; padding: 0; }
+.guavajam-navigation li { display: flex; align-items: baseline; min-width: 0; overflow-wrap: anywhere; }
+.guavajam-navigation a, .guavajam-navigation [aria-current="page"] { display: inline-block; padding-block: .3rem; }
+.guavajam-navigation [aria-current="page"] { color: var(--press-ink); font-weight: 600; }
+.guavajam-crumb-separator { color: var(--press-muted); margin-inline: .15rem .4rem; }
+/* Signed-source guidance follows the title/byline, never precedes the H1. */
+.guavajam-reading-context { font: .79rem/1.55 system-ui, sans-serif; color: var(--press-muted); margin: -.45rem 0 1.45rem; overflow-wrap: anywhere; }
+.guavajam-reading-context p { margin: 0 0 .35rem; }
+.guavajam-reading-context .press-source-identity { margin: 0; padding: 0; border: 0; font: inherit; color: inherit; }
+.guavajam-reading-context code { overflow-wrap: anywhere; }
 .guavajam-works, .guavajam-editions { list-style: none; margin: 0; padding: 0; }
 .guavajam-works > li, .guavajam-editions > li { margin: 1.5rem 0; padding: .4rem 0 1.5rem; border-bottom: 1px solid var(--press-border); }
 .guavajam-works h2, .guavajam-editions h3 { margin-top: .4rem; }

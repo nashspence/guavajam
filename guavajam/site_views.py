@@ -8,6 +8,7 @@ from __future__ import annotations
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
+import re
 import posixpath
 from urllib.parse import quote
 
@@ -52,15 +53,41 @@ def metadata(facts, publisher, *, identifier=None, published=None, canonical=Non
     return '\n'.join('<meta name="' + e(key) + '" content="' + e(value) + '">' for key, value in entries)
 
 
-def navigation(catalog, page, *, work=None, edition=None):
-    items = [(relative(page, 'index.html'), catalog['title'])]
-    if work:
-        items.append((relative(page, 'works/' + work['slug'] + '/index.html'), 'Work and editions'))
-    if edition:
-        root = edition_root(work['slug'], edition['revision'])
-        items.append((relative(page, root + '/index.html'), 'Edition record'))
-    return '<nav class="guavajam-navigation" lang="en" aria-label="Publication navigation"><ul>' + ''.join(
-        '<li><a href="' + e(href) + '">' + e(label) + '</a></li>' for href, label in items) + '</ul></nav>'
+def navigation(catalog, filename, *, work=None, edition=None, work_title=None):
+    """A short, source-aware breadcrumb; only ancestors are links.
+
+    The catalog and signed-source bibliography supply labels. The page URL is
+    a navigation location only, never the publication's canonical identity.
+    """
+    root = 'index.html'
+    crumbs = [(relative(filename, root), 'Publications')] if filename != root else [(None, catalog['title'])]
+    if work is not None:
+        work_page = 'works/' + work['slug'] + '/index.html'
+        crumbs.append((relative(filename, work_page) if filename != work_page else None,
+                       work_title or work['slug']))
+    if edition is not None:
+        record = edition_root(work['slug'], edition['revision']) + '/index.html'
+        label = edition.get('label', 'Revision ' + edition['revision'][:12])
+        crumbs.append((relative(filename, record) if filename != record else None, label))
+        if filename != record:
+            supporting = '/read/supporting/' in filename
+            if filename.endswith('/cite.html') or filename.endswith('.cite.html'):
+                read = (filename[:-len('cite.html')] + 'index.html' if filename.endswith('/cite.html')
+                        else filename[:-len('.cite.html')] + '.html')
+                crumbs.append((relative(filename, read), 'Supporting source' if supporting else 'Reading'))
+                crumbs.append((None, 'Citations'))
+            else:
+                crumbs.append((None, 'Supporting source' if supporting else 'Reading'))
+    if len(crumbs) > 5 or crumbs[-1][0] is not None:
+        raise ValueError('generated breadcrumb has no current page')
+    def entry(href, label, current):
+        marker = '<span class="guavajam-crumb-separator" aria-hidden="true">/</span>' if current else ''
+        text = ('<span aria-current="page">' + e(label) + '</span>' if href is None
+                else '<a href="' + e(href) + '">' + e(label) + '</a>')
+        return '<li>' + marker + text + '</li>'
+    return ('<nav class="guavajam-navigation" lang="en" aria-label="Breadcrumb"><ol>' +
+            ''.join(entry(href, label, index > 0) for index, (href, label) in enumerate(crumbs)) +
+            '</ol></nav>')
 
 
 def stylesheet():
@@ -68,7 +95,7 @@ def stylesheet():
     return (root / 'reading.css').read_text('utf-8') + '\n' + (root / 'catalog.css').read_text('utf-8')
 
 
-def page(catalog, filename, title, body, *, head='', work=None, edition=None, indexable=True):
+def page(catalog, filename, title, body, *, head='', work=None, edition=None, work_title=None, indexable=True):
     feed = ('<link rel="alternate" type="application/atom+xml" title="Publication updates" href="' +
             e(relative(filename, 'feed.xml')) + '">') if catalog['works'] else ''
     csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
@@ -81,7 +108,7 @@ def page(catalog, filename, title, body, *, head='', work=None, edition=None, in
             '<title>' + e(title) + ' — ' + e(catalog['publisher']) + '</title>\n'
             '<style>' + stylesheet() + '</style></head><body class="guavajam-site">\n'
             '<a class="press-skip" href="#guavajam-catalog-main">Skip to content</a>\n' +
-            navigation(catalog, filename, work=work, edition=edition) +
+            navigation(catalog, filename, work=work, edition=edition, work_title=work_title) +
             '<main id="guavajam-catalog-main" tabindex="-1">' + body + '</main>\n'
             '<footer><p>' + e(catalog['publisher']) +
             '. This catalog and its reading views are presentations. The independently trusted signed Git revision identifies the publication.</p>'
@@ -205,8 +232,13 @@ def _add_passage_links(html, anchors, href):
     return html
 
 
-def decorate_reading(html, catalog, filename, work, edition, document, canonical):
-    """Add site navigation without changing source IDs, source content, or CSP."""
+def decorate_reading(html, catalog, filename, work, edition, document, canonical, work_title=None):
+    """Add breadcrumbs and citation guidance without changing citable source text.
+
+    The renderer's generated source identity is moved from *before* the H1 to
+    the bibliographic area following the title/byline. All source anchors,
+    prose, quotations, media and their canonical citation targets stay intact.
+    """
     cite = citation_filename(filename)
     html = _add_passage_links(html, document['anchors'], relative(filename, cite))
     head = '<link rel="canonical" href="' + e(absolute(catalog, filename)) + '">\n'
@@ -223,14 +255,29 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     html = html.replace('</head>', head + '</head>', 1)
     css = (Path(__file__).parent / 'styles/catalog.css').read_text('utf-8')
     html = html.replace('</style>', css + '</style>', 1)
-    nav = navigation(catalog, filename, work=work, edition=edition)
-    explanation = ('<aside class="guavajam-source-guide" lang="en" aria-label="Source citation guidance"><p>'
-                   'Cite the committed work or passage, not this presentation URL. '
-                   '<a href="' + e(relative(filename, cite)) + '">Source citations and download</a>.'
-                   '</p></aside>')
-    # Navigation and the guide sit outside the source article; no artificial
-    # anchor can collide with a reviewed source ID.
-    return html.replace('</header>', '</header>' + nav + explanation, 1)
+    nav = navigation(catalog, filename, work=work, edition=edition, work_title=work_title)
+    html = html.replace('</header>', '</header>' + nav, 1)
+    marker = '<div class="press-source-identity">'
+    if html.count(marker) != 1:
+        raise ValueError('expected exactly one generated source identity block')
+    start = html.index(marker)
+    end = html.find('</div>', start)
+    if end == -1:
+        raise ValueError('generated source identity block is malformed')
+    source_identity = html[start:end + len('</div>')]
+    html = html[:start] + html[end + len('</div>'):]
+    # The first H1 belongs to the source. The author byline, when present, is
+    # renderer-generated immediately after it; group bibliographic provenance
+    # beneath both rather than let the reader reach it before the publication.
+    match = re.search(r'</h1>(?:\s*<p><span class="press-edition-identity">.*?</span></p>)?', html, re.S)
+    if match is None:
+        raise ValueError('generated reading has no H1 for its source identity')
+    context = ('<aside class="guavajam-reading-context" lang="en" aria-label="Source and citation">'
+               '<p>Cite the committed work or passage, not this presentation URL. '
+               '<a href="' + e(relative(filename, cite)) + '">Source citations and download</a>.</p>'
+               + source_identity + '</aside>')
+    html = html[:match.end()] + context + html[match.end():]
+    return html
 
 
 def citation_page(catalog, filename, work, edition, facts, document, canonical, view_page):
@@ -254,7 +301,7 @@ def citation_page(catalog, filename, work, edition, facts, document, canonical, 
         body += '<p><a href="' + e(relative(filename, view_page) + '#' + quote(anchor, safe='')) + '">Read this passage</a></p></section>'
     # Source anchors could be named guavajam-catalog-main. The shell's only ID
     # is chosen outside the declared source namespace on citation pages.
-    result = page(catalog, filename, title, body, work=work, edition=edition, indexable=False)
+    result = page(catalog, filename, title, body, work=work, edition=edition, work_title=facts['title'], indexable=False)
     main_id = 'guavajam-catalog-main'
     while main_id in document['anchors']:
         main_id += '-view'

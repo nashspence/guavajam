@@ -192,7 +192,7 @@ class CatalogBuildTests(unittest.TestCase):
             parsed = Page(html)
             self.assertNotIn('script', parsed.tags)
             self.assertEqual(len(parsed.ids), len(set(parsed.ids)), str(path))
-            self.assertIn('Publication navigation', html)
+            self.assertIn('aria-label="Breadcrumb"', html)
         for name, digest in manifest['files'].items():
             self.assertEqual(digest, hashlib.sha256((self.output / name).read_bytes()).hexdigest(), name)
         self.assertEqual(set(manifest['files']) | {'SITE.json'},
@@ -201,6 +201,50 @@ class CatalogBuildTests(unittest.TestCase):
         build_site(self.fixture['repo'], self.path, second, initial_catalog=True, fingerprints=[self.fixture['fingerprint']])
         self.assertEqual({str(p.relative_to(self.output)): p.read_bytes() for p in self.output.rglob('*') if p.is_file()},
                          {str(p.relative_to(second)): p.read_bytes() for p in second.rglob('*') if p.is_file()})
+
+    def test_breadcrumbs_are_semantic_specific_and_never_self_links(self):
+        self.build()
+        rev = self.fixture['revisions'][1]
+        root = self.edition_root()
+        paths = [
+            ('index.html', ['Collected Publications']),
+            ('works/field-notes/index.html', ['Publications', 'Field Notes, Revised']),
+            (root + '/index.html', ['Publications', 'Field Notes, Revised', 'Revised edition']),
+            (root + '/read/index.html', ['Publications', 'Field Notes, Revised', 'Revised edition', 'Reading']),
+            (root + '/read/cite.html', ['Publications', 'Field Notes, Revised', 'Revised edition', 'Reading', 'Citations']),
+            (root + '/read/supporting/note.cite.html', ['Publications', 'Field Notes, Revised', 'Revised edition', 'Supporting source', 'Citations']),
+        ]
+        for filename, labels in paths:
+            with self.subTest(filename=filename):
+                markup = self.page(filename)
+                from html.parser import HTMLParser
+                class Crumbs(HTMLParser):
+                    def __init__(self):
+                        super().__init__(); self.inside=False;self.depth=0;self.labels=[];self.links=[];self.current=[];self.ordered=0
+                    def handle_starttag(self, tag, attrs):
+                        attrs=dict(attrs)
+                        if tag == 'nav' and attrs.get('aria-label') == 'Breadcrumb':self.inside=True;self.depth=1
+                        elif self.inside:
+                            if tag == 'ol':self.ordered+=1
+                            if tag == 'a':self.links.append(attrs.get('href'))
+                            if attrs.get('aria-current')=='page':self.current.append(tag)
+                            if tag not in {'br', 'img', 'hr'}:self.depth+=1
+                    def handle_endtag(self,tag):
+                        if self.inside:
+                            self.depth-=1
+                            if self.depth==0:self.inside=False
+                    def handle_data(self,data):
+                        if self.inside and data.strip() not in {'/'}:self.labels.append(data.strip())
+                parsed=Crumbs();parsed.feed(markup)
+                self.assertEqual(1,parsed.ordered)
+                self.assertEqual(labels,parsed.labels)
+                self.assertEqual(['span'],parsed.current)
+                self.assertEqual(len(labels)-1,len(parsed.links))
+        reader=self.page(root+'/read/index.html')
+        self.assertLess(reader.index('itemprop="headline"'),reader.index('Source and citation'))
+        self.assertLess(reader.index('Field Notes, Revised</h1>'),reader.index('<div class="press-source-identity">'))
+        self.assertEqual(1,reader.count('Git SHA-1 '+rev))
+        self.assertNotIn('class="guavajam-source-guide"',reader)
 
     def test_doi_metadata_has_work_edition_and_supporting_document_scope(self):
         self.build()
