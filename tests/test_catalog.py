@@ -121,6 +121,9 @@ class CatalogSchemaTests(unittest.TestCase):
             validate(candidate)
         with self.assertRaisesRegex(CatalogError, 'cycles'):
             candidate=copy.deepcopy(expanded)
+            # Same-day successors make each edge valid independently, so this
+            # checks the cycle rule rather than a backwards publication date.
+            candidate['works'][0]['editions'][1]['published'] = first['published']
             candidate['works'][0]['editions'][1].update(
                 status='superseded', successor_revision=original['works'][0]['editions'][0]['revision'],
                 notices=[{'date': '2026-11-02', 'text': 'Circular metadata.'}])
@@ -128,6 +131,27 @@ class CatalogSchemaTests(unittest.TestCase):
         moved=copy.deepcopy(expanded)
         moved['works'][0]['editions'][0]['successor_revision'] = 'c' * 40
         with self.assertRaises(CatalogError): validate(moved)
+
+    def test_successor_chains_validate_every_link_before_traversal(self):
+        catalog = copy.deepcopy(self.catalog)
+        editions = catalog['works'][0]['editions']
+        editions[0].update(status='superseded', successor_revision='b' * 40,
+                           notices=[{'date': '2026-11-03', 'text': 'Superseded.'}])
+        editions.extend([
+            {'revision': 'b' * 40, 'published': '2026-11-02', 'status': 'superseded',
+             'successor_revision': 'c' * 40,
+             'notices': [{'date': '2026-11-03', 'text': 'Superseded again.'}]},
+            {'revision': 'c' * 40, 'published': '2026-11-03', 'status': 'available'},
+        ])
+        validate(catalog)
+        for target in ('d' * 40, [], {}, 12, None):
+            candidate = copy.deepcopy(catalog)
+            candidate['works'][0]['editions'][1]['successor_revision'] = target
+            for reverse in (False, True):
+                if reverse:
+                    candidate['works'][0]['editions'].reverse()
+                with self.subTest(target=target, reverse=reverse), self.assertRaises(CatalogError):
+                    validate(candidate)
 
     def test_successor_changes_require_append_only_notice_and_allow_restoration(self):
         old=copy.deepcopy(self.catalog)

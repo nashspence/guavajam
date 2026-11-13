@@ -182,13 +182,16 @@ def validate(catalog):
                         or successor == edition['revision']
                         or editions[successor]['published'] < edition['published']):
                     fail('successor_revision must identify a later or same-day distinct edition of this work')
-                seen = {edition['revision']}
-                current = successor
-                while current is not None:
-                    if current in seen:
-                        fail('edition successors may not form cycles')
-                    seen.add(current)
-                    current = editions[current].get('successor_revision')
+        # Validate every edge before walking chains: a later edition may name
+        # an invalid target, regardless of the catalog's edition ordering.
+        for edition in work['editions']:
+            seen = {edition['revision']}
+            current = edition.get('successor_revision')
+            while current is not None:
+                if current in seen:
+                    fail('edition successors may not form cycles')
+                seen.add(current)
+                current = editions[current].get('successor_revision')
         if not isinstance(work['metadata_revision'], str) or work['metadata_revision'] not in editions:
             fail('metadata_revision must select an edition of this work')
         if 'recommended_revision' in work:
