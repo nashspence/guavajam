@@ -37,11 +37,12 @@ jobs:
         run: |
           mise exec -- uv build --wheel
           mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam --help
+          mise exec -- uv run --isolated --no-project --with dist/guavajam-0.1.0-py3-none-any.whl guavajam site --help
       - name: Install pinned browser qualification tools
         run: |
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
-      - name: Qualify screen, keyboard, fragments, native playback, accessibility and print
+      - name: Qualify reader and catalog journeys, citations, native playback, accessibility and print
         run: make test-browser
       - name: Verify Python syntax
         run: mise exec -- uv run --locked --group dev python -m compileall -q guavajam tests

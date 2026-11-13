@@ -304,6 +304,8 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     if output.exists() and any(output.iterdir()):
         raise RenderError('destination must be a new or empty directory')
     all_files = {}
+    documents = {}
+    manuscript_facts = {}
     css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
     for path in [manuscript, *supporting]:
         source = git_blob(repo, sha, path)
@@ -319,9 +321,12 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
         from .presentation import prepare_code_focus
         body=prepare_code_focus(body)
         if path == manuscript:
+            manuscript_facts = meta
             title = meta.get('title',work); language = meta.get('language','en'); dest = 'index.html'
         else:
             title=source_title;language='en';dest='supporting/'+Path(path).stem+'.html'
+        documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
+                           'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest()}
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,
                                 path=path, body=body, css=css, origin=origin, preview=preview, facts=meta if path==manuscript else None)
     output.mkdir(parents=True, exist_ok=True)
@@ -331,13 +336,20 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     (output/'VIEW.json').write_text(json.dumps({
        'schema':'guavajam.view.v1','canonical':{'hash_algorithm':'sha1','revision':sha,
             'manuscript':manuscript}, 'renderer':'guavajam', 'preview':preview,
+       'facts': manuscript_facts, 'documents': documents,
        'files': {name:hashlib.sha256(html.encode('utf-8')).hexdigest()
                  for name,html in sorted(all_files.items())}},indent=2,sort_keys=True)+'\n')
     return len(all_files)
 
 
 def main(argv=None):
-    p=argparse.ArgumentParser(description=__doc__)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ['site']:
+        from .site import main as site_main
+        return site_main(argv[1:])
+    if argv[:1] == ['render']:
+        argv = argv[1:]
+    p=argparse.ArgumentParser(description=__doc__, epilog="Use guavajam site --help for a publication catalog and DOI landing pages; the existing render invocation remains supported.")
     p.add_argument('--repo',required=True, type=Path)
     p.add_argument('--revision',required=True)
     p.add_argument('--work',required=True)

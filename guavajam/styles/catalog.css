@@ -1,0 +1,24 @@
+/* Catalog, DOI records and citation affordances share the reading palette. */
+.guavajam-navigation { font: .86rem/1.6 system-ui, sans-serif; border-bottom: 1px solid var(--press-border); margin: 0 0 1.6rem; padding: .5rem 0; }
+.guavajam-navigation ul { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; list-style: none; margin: 0; padding: 0; }
+.guavajam-navigation a { display: inline-block; padding-block: .35rem; }
+.guavajam-works, .guavajam-editions { list-style: none; margin: 0; padding: 0; }
+.guavajam-works > li, .guavajam-editions > li { margin: 1.5rem 0; padding: .4rem 0 1.5rem; border-bottom: 1px solid var(--press-border); }
+.guavajam-works h2, .guavajam-editions h3 { margin-top: .4rem; }
+.guavajam-identifier, .guavajam-source-guide, .guavajam-passage-cite, .guavajam-administration { font: .85rem/1.65 system-ui, sans-serif; overflow-wrap: anywhere; }
+.guavajam-source-guide { border-inline-start: 3px solid var(--press-border); padding-inline-start: .8rem; margin: 1.4rem 0; }
+.guavajam-source-guide p { margin: 0; }
+.guavajam-passage-cite { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; margin: -.35rem .1rem; font: normal .75rem/1 system-ui, sans-serif; vertical-align: middle; }
+.guavajam-status { font: 600 .82rem/1.5 system-ui, sans-serif; }
+.guavajam-actions { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; margin: 1.3rem 0; }
+.guavajam-actions a { display: inline-block; padding: .4rem 0; }
+.guavajam-notices, .guavajam-citation { background: var(--press-tint); border-inline-start: 3px solid var(--press-border); padding: .9rem 1rem; margin-block: 1.3rem; overflow-wrap: anywhere; }
+.guavajam-notices h2 { margin-top: 0; font-size: 1.15rem; }
+.guavajam-citation > :last-child { margin-bottom: 0; }
+.guavajam-citation-entry { margin-top: 2rem; scroll-margin-top: 1rem; }
+.guavajam-citation-entry:target { outline: 2px solid var(--press-focus); outline-offset: .4rem; }
+.guavajam-source-identity { overflow-wrap: anywhere; }
+@media print {
+  .guavajam-navigation, .guavajam-passage-cite, .guavajam-source-guide { display: none; }
+  .guavajam-notices, .guavajam-citation, .guavajam-editions > li { break-inside: avoid; }
+}

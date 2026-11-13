@@ -1,0 +1,9 @@
+{
+  "schema": "guavajam.catalog.v1",
+  "title": "Publications",
+  "publisher": "Your imprint",
+  "language": "en",
+  "base_url": "https://publisher.example",
+  "description": "Signed source publications and their optional reading views.",
+  "works": []
+}
