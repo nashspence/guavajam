@@ -117,8 +117,18 @@ class S3:
             raw = b''.join(response_chunks(received, XML_LIMIT))
             return xml_document(raw, expected), received.getheader('x-amz-version-id')
 
+    def _lock_document(self, expected, key, version, operation):
+        try:
+            return self._xml(expected, key, query=[*object_query(version), (operation, '')])[0]
+        except S3Error as exc:
+            if exc.status == 404 and exc.code in {'NoSuchObjectLockConfiguration', 'ObjectLockConfigurationNotFoundError'}:
+                return None
+            raise
+
     def _retention(self, key, version):
-        data, _ = self._xml('Retention', key, query=[*object_query(version), ('retention', '')])
+        data = self._lock_document('Retention', key, version, 'retention')
+        if data is None:
+            return None, None
         mode, until = data.findtext('Mode'), data.findtext('RetainUntilDate')
         if mode is None and until is None:
             return None, None
@@ -149,8 +159,8 @@ class S3:
             raise
         if self.object_lock and immutable_version(item.version_id):
             mode, until = self._retention(key, item.version_id)
-            held, _ = self._xml('LegalHold', key, query=[*object_query(item.version_id), ('legal-hold', '')])
-            hold = held.findtext('Status')
+            held = self._lock_document('LegalHold', key, item.version_id, 'legal-hold')
+            hold = 'OFF' if held is None else held.findtext('Status')
             if hold not in {'ON', 'OFF'}:
                 raise AssetError('invalid Object Lock legal hold response')
             item = replace(item, retention_mode=mode, retain_until=until, legal_hold=hold == 'ON')

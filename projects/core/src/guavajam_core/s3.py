@@ -14,6 +14,7 @@ import re
 import urllib.error
 import urllib.request
 from urllib.parse import quote, urlsplit
+import xml.etree.ElementTree as ET
 
 from .asset_policy import AssetError
 from .object_store import valid_etag, valid_version
@@ -141,9 +142,30 @@ def headers(config, key='', *, method='GET', query=(), body=b'', extra=None, now
 
 
 class S3Error(AssetError):
-    def __init__(self, status):
+    def __init__(self, status, code=None):
         self.status = status
+        self.code = code
         super().__init__('S3 operation failed (HTTP ' + str(status) + '); response details omitted')
+
+
+def error_code(raw):
+    """Extract only a bounded S3 error identifier; service messages stay private."""
+    try:
+        if len(raw) > 8192:
+            return None
+        text = raw.decode('utf-8')
+        if re.search(r'<!DOCTYPE|<!ENTITY', text, re.I):
+            return None
+        root = ET.fromstring(text)
+        if root.tag.rsplit('}', 1)[-1] != 'Error':
+            return None
+        codes = [node for node in root if node.tag.rsplit('}', 1)[-1] == 'Code']
+        if len(codes) != 1 or len(codes[0]):
+            return None
+        value = codes[0].text or ''
+        return value if re.fullmatch(r'[A-Za-z][A-Za-z0-9]{0,63}', value) else None
+    except (UnicodeError, ET.ParseError):
+        return None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -158,9 +180,14 @@ def response(config, key='', *, method='GET', query=(), body=b'', extra=None):
             urllib.request.Request(url, data=body if method in {'PUT', 'POST'} else None,
                                    method=method, headers=authorization), timeout=45)
     except urllib.error.HTTPError as exc:
-        status = exc.code
-        exc.close()
-        raise S3Error(status) from None
+        status, code = exc.code, None
+        try:
+            code = error_code(exc.read(8193))
+        except OSError:
+            pass
+        finally:
+            exc.close()
+        raise S3Error(status, code) from None
     except (OSError, ValueError):
         raise AssetError('S3 connection failed; request details omitted') from None
 
