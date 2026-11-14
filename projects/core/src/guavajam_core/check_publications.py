@@ -21,7 +21,8 @@ def incoming(root,base,*,all_history=False):
     return [sha for sha in revisions if re.search(rb'^Press-(?:Publication|Work|Site|Published|Label):',git(root,'show','-s','--format=%B',sha),re.M)]
 
 
-def check(root,base,*,online=True,all_history=False):
+def check(root,base,*,online=True,all_history=False,require_retention=False):
+    if require_retention and not online:raise PublicationError('retention verification requires online checks')
     candidates=incoming(root,base,all_history=all_history)
     if not candidates:return []
     fingerprints=os.environ.get('PRESS_PUBLISHER_GPG_FINGERPRINTS','').split()
@@ -48,7 +49,7 @@ def check(root,base,*,online=True,all_history=False):
                     policy(blob(root,sha,'press-site.json'))
                     results.append({'site_checkpoint':sha})
                 else:
-                    results.append(verify(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None,online_media=online,require_retention=online))
+                    results.append(verify(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None,online_media=online,require_retention=require_retention))
             return results
         finally:
             if old_home is None:os.environ.pop('GNUPGHOME',None)
@@ -56,8 +57,8 @@ def check(root,base,*,online=True,all_history=False):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--base',default=os.environ.get('PRESS_BASE_SHA',''));parser.add_argument('--offline',action='store_true');parser.add_argument('--all',action='store_true',dest='all_history');args=parser.parse_args()
-    try:results=check(repository_root(),args.base,online=not args.offline,all_history=args.all_history)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--base',default=os.environ.get('PRESS_BASE_SHA',''));parser.add_argument('--offline',action='store_true');parser.add_argument('--all',action='store_true',dest='all_history');parser.add_argument('--require-retention',action='store_true');args=parser.parse_args()
+    try:results=check(repository_root(),args.base,online=not args.offline,all_history=args.all_history,require_retention=args.require_retention)
     except (PublicationError,OSError,ValueError) as exc:print('Publication policy failed: '+str(exc),file=sys.stderr);return 1
     print('Verified incoming publication declarations:',len(results));return 0
 if __name__=='__main__':sys.exit(main())

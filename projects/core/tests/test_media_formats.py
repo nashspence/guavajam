@@ -27,7 +27,7 @@ class MediaTests(unittest.TestCase):
         for bad in [b'WEBVTT\n\n',good.replace(b'01.500',b'00.000'),good.replace(b'The speaker says hello.',b'<script>alert(1)</script>'),good.replace(b'\n',b'\r\n')]:
             with self.subTest(bad=bad[:30]),self.assertRaises(AssetError):captions(bad)
 
-    def test_full_hash_then_bounded_exact_version_codec_ranges(self):
+    def test_full_hash_then_bounded_etag_guarded_codec_ranges(self):
         import contextlib,hashlib
         from guavajam_core.verify_media_sources import verify_one
         from unittest.mock import patch
@@ -36,7 +36,7 @@ class MediaTests(unittest.TestCase):
         calls=[]
         @contextlib.contextmanager
         def receive(url,mime,*,timeout,range_value=None):
-            calls.append(range_value);data=raw;headers={'Content-Type':'video/mp4','Accept-Ranges':'bytes','X-Press-Asset-Version':'fixture-version'}
+            calls.append(range_value);data=raw;headers={'Content-Type':'video/mp4','Accept-Ranges':'bytes','ETag':'"fixture-etag"'}
             status=200
             if range_value:
                 start,end=map(int,range_value.removeprefix('bytes=').split('-'));data=raw[start:end+1];status=206;headers['Content-Range']=f'bytes {start}-{end}/{len(raw)}'

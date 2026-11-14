@@ -2,7 +2,7 @@
 from pathlib import Path
 import hashlib,json,os,stat
 from .asset_policy import AssetError,load_policy
-from .asset_storage import LEASE_PREFIX,PREFIX
+from .object_store import LEASE_PREFIX,PREFIX
 from .asset_versions import pin_key
 from .verify_media_sources import MIME,MAX_MEDIA_BYTES,verify_one
 from .media_formats import inspect
@@ -26,12 +26,12 @@ def upload_media(root,path,store,index,*,verifier=verify_one):
         if (before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_ino,after.st_size,after.st_mtime_ns):raise AssetError('media changed during validation')
     key=PREFIX+hasher.hexdigest()+'.'+extension;url=policy.origin+'/'+key
     store.upload(LEASE_PREFIX+key[len(PREFIX):],json.dumps({'schema':'press.asset-lease.v1','key':key}).encode(),'application/json',cache_control='no-store')
-    existing=[v for v in store.versions(key) if v['fileName']==key]
-    if existing:
-        if existing[0]['action']!='upload':raise AssetError('stored media is hidden or unfinished; inspect before restoring it')
+    existing=store.current(key)
+    if existing is not None:
+        if existing.delete_marker:raise AssetError('stored media is hidden or unfinished; inspect before restoring it')
         state='Already stored'
     else:
-        if before.st_size<=10*1024*1024:store.upload(key,path.read_bytes(),MIME[extension])
+        if before.st_size<=10*1024*1024:store.upload(key,path.read_bytes(),MIME[extension],create_only=True)
         else:store.upload_file(key,path,MIME[extension])
         state='Uploaded'
     pin_key(store,index,key)

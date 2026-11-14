@@ -6,6 +6,8 @@
 
 `projects/view` builds **guavajam-view** (`guavajam`, `guavajam`). It depends on the exact matching core version and owns HTML, CSS, rendering, catalogs, citations, feeds, cache and atomic updates. Core has no view dependency. The shared lock and editable development installation do not define the distribution boundary: CI installs each wheel outside the checkout, exercises a synthetic signed publisher, and rebuilds both source distributions independently.
 
+[Asset storage configuration and guarantees](storage.md) covers S3 endpoints, optional versioning/retention, and maintenance.
+
 `make test`, `make test-browser`, and `make test-capture-browser` run the contracts. `make check-artifacts` builds/verifies both distributions without publication. Browser checks use the pinned npm lock and Playwright engines.
 
 Both packages carry the same version. `make version VERSION=x.y.z` updates both metadata files, the view's exact core dependency and the capture manifest, then updates the lock. CI rejects inconsistent versions. The manually dispatched release-preparation workflow checks an explicit version and retains selected wheels/source distributions and SHA-256 sums. It never creates tags or publishes. Package publication, registry credentials and release tags are supplied when an actual release is requested.

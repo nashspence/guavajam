@@ -58,13 +58,14 @@ def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_ite
             if sum(budget.values())>MAX_TOTAL_BYTES:raise AssetError(f'{path} exceeds the total unique asset byte limit')
     if require_retention:
         from .asset_policy import public_response
-        import time,re
+        import time
+        from .object_store import valid_version, immutable_version, valid_etag
         urls=set(remote_sizes)|{v for item in all_media for k,v in item.items() if k in {'src','poster','captions'}}
         for url in sorted(urls):
             with public_response(url,'*/*',method='HEAD') as receipt:
                 until=receipt.getheader('X-Press-Retain-Until','')
                 version=receipt.getheader('X-Press-Asset-Version','')
-                if receipt.status!=200 or not until.isdigit() or int(until)<=int(time.time()*1000) or not re.fullmatch('[A-Za-z0-9_-]{1,256}',version):
+                if receipt.status!=200 or not until.isdigit() or int(until)<=int(time.time()*1000) or not valid_version(unquote(version)) or not immutable_version(unquote(version)) or not valid_etag(receipt.getheader('ETag')):
                     raise AssetError('publication requires a version-pinned asset with current retention: '+url)
     if all_media:
         media_verifier(all_media,policy.origin)

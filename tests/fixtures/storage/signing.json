@@ -1,0 +1,102 @@
+[
+  {
+    "name": "aws-versioned",
+    "env": {
+      "S3_ENDPOINT": "https://s3.us-west-2.amazonaws.com",
+      "S3_REGION": "us-west-2",
+      "S3_BUCKET": "test-bucket",
+      "S3_ADDRESSING_STYLE": "virtual",
+      "S3_ACCESS_KEY_ID": "example-id",
+      "S3_SECRET_ACCESS_KEY": "example-secret",
+      "S3_SESSION_TOKEN": ""
+    },
+    "key": "sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "version": "opaque.+/=%with-punctuation",
+    "method": "GET",
+    "range": "bytes=1-2",
+    "etag": "\"fixed-etag\"",
+    "time": "2026-11-12T00:00:00+00:00",
+    "url": "https://test-bucket.s3.us-west-2.amazonaws.com/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4?versionId=opaque.%2B%2F%3D%25with-punctuation",
+    "authorization": "AWS4-HMAC-SHA256 Credential=example-id/20261112/us-west-2/s3/aws4_request, SignedHeaders=host;if-match;range;x-amz-content-sha256;x-amz-date, Signature=03c211f480c5802b3cc172f2371e559564be6ae2fa5388857002eaccc4c07776"
+  },
+  {
+    "name": "backblaze-versioned",
+    "env": {
+      "S3_ENDPOINT": "https://s3.us-west-004.backblazeb2.com",
+      "S3_REGION": "us-west-004",
+      "S3_BUCKET": "test-bucket",
+      "S3_ADDRESSING_STYLE": "path",
+      "S3_ACCESS_KEY_ID": "example-id",
+      "S3_SECRET_ACCESS_KEY": "example-secret",
+      "S3_SESSION_TOKEN": ""
+    },
+    "key": "sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "version": "4_z_id",
+    "method": "GET",
+    "range": null,
+    "etag": "\"fixed-etag\"",
+    "time": "2026-11-12T00:00:00+00:00",
+    "url": "https://s3.us-west-004.backblazeb2.com/test-bucket/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4?versionId=4_z_id",
+    "authorization": "AWS4-HMAC-SHA256 Credential=example-id/20261112/us-west-004/s3/aws4_request, SignedHeaders=host;if-match;x-amz-content-sha256;x-amz-date, Signature=c243cb0f28c43231f2446cce2ad0392fe0746f40601de9a50505274d9af75e50"
+  },
+  {
+    "name": "r2-unversioned",
+    "env": {
+      "S3_ENDPOINT": "https://account.r2.cloudflarestorage.com",
+      "S3_REGION": "auto",
+      "S3_BUCKET": "test-bucket",
+      "S3_ADDRESSING_STYLE": "path",
+      "S3_ACCESS_KEY_ID": "example-id",
+      "S3_SECRET_ACCESS_KEY": "example-secret",
+      "S3_SESSION_TOKEN": ""
+    },
+    "key": "sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "version": null,
+    "method": "GET",
+    "range": "bytes=1-2",
+    "etag": "\"fixed-etag\"",
+    "time": "2026-11-12T00:00:00+00:00",
+    "url": "https://account.r2.cloudflarestorage.com/test-bucket/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "authorization": "AWS4-HMAC-SHA256 Credential=example-id/20261112/auto/s3/aws4_request, SignedHeaders=host;if-match;range;x-amz-content-sha256;x-amz-date, Signature=f8d50170d9371af0f95bea3cbd3432dee364e6b18dae0affd8ec1a2b306019f5"
+  },
+  {
+    "name": "custom-session",
+    "env": {
+      "S3_ENDPOINT": "https://objects.example.test:9443",
+      "S3_REGION": "test-region",
+      "S3_BUCKET": "test-bucket",
+      "S3_ADDRESSING_STYLE": "path",
+      "S3_ACCESS_KEY_ID": "example-id",
+      "S3_SECRET_ACCESS_KEY": "example-secret",
+      "S3_SESSION_TOKEN": "session/+=token"
+    },
+    "key": "sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "version": "unicode-\u00e9+/?= !'()*",
+    "method": "HEAD",
+    "range": null,
+    "etag": "\"fixed-etag\"",
+    "time": "2026-11-12T00:00:00+00:00",
+    "url": "https://objects.example.test:9443/test-bucket/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4?versionId=unicode-%C3%A9%2B%2F%3F%3D%20%21%27%28%29%2A",
+    "authorization": "AWS4-HMAC-SHA256 Credential=example-id/20261112/test-region/s3/aws4_request, SignedHeaders=host;if-match;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=1f33406ae00ba2b0e594878a27d1b9e0303ee4f5882395933bbd19562a9a06f0"
+  },
+  {
+    "name": "suspended-null",
+    "env": {
+      "S3_ENDPOINT": "https://objects.example.test",
+      "S3_REGION": "custom",
+      "S3_BUCKET": "test-bucket",
+      "S3_ADDRESSING_STYLE": "path",
+      "S3_ACCESS_KEY_ID": "example-id",
+      "S3_SECRET_ACCESS_KEY": "example-secret",
+      "S3_SESSION_TOKEN": ""
+    },
+    "key": "sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4",
+    "version": "null",
+    "method": "GET",
+    "range": null,
+    "etag": "\"fixed-etag\"",
+    "time": "2026-11-12T00:00:00+00:00",
+    "url": "https://objects.example.test/test-bucket/sha256/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp4?versionId=null",
+    "authorization": "AWS4-HMAC-SHA256 Credential=example-id/20261112/custom/s3/aws4_request, SignedHeaders=host;if-match;x-amz-content-sha256;x-amz-date, Signature=72d1a91cd9ddf46bddd84b0963ff12a88cec2724637817225ce392a35bfaf173"
+  }
+]
