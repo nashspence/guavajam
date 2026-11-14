@@ -106,6 +106,28 @@ class SigningTests(unittest.TestCase):
                 self.assertNotIn(secret, str(raised.exception))
 
 
+    def test_http_errors_retain_only_a_bounded_standard_error_code(self):
+        secret = VALUES['S3_SECRET_ACCESS_KEY']
+        valid = b'<Error><Code>ObjectLockConfigurationNotFoundError</Code><Message>' + secret.encode() + b'</Message></Error>'
+        for body, expected in [
+                (valid, 'ObjectLockConfigurationNotFoundError'),
+                (valid.replace(b'<Error>', b'<Error xmlns="urn:s3">'), 'ObjectLockConfigurationNotFoundError'),
+                (b'<Error><Code>ObjectLockConfigurationNotFoundError</Code><Code>Other</Code></Error>', None),
+                (b'<Error><Code><Nested>ObjectLockConfigurationNotFoundError</Nested></Code></Error>', None),
+                (b'<Error><Code>Invalid code</Code></Error>', None),
+                (b'<!DOCTYPE Error [<!ENTITY x "ObjectLockConfigurationNotFoundError">]><Error><Code>&x;</Code></Error>', None),
+                (b'<Other><Code>ObjectLockConfigurationNotFoundError</Code></Other>', None),
+                (valid + b' ' * 8192, None), (b'broken', None), (b'\xff', None)]:
+            with self.subTest(expected=expected, size=len(body)):
+                error = urllib.error.HTTPError('https://objects.example.org', 404, secret, {}, io.BytesIO(body))
+                with patch('guavajam_core.s3.urllib.request.build_opener') as opener:
+                    opener.return_value.open.side_effect = error
+                    with self.assertRaises(S3Error) as raised:
+                        response(S3Config.from_values(VALUES), KEY)
+                self.assertEqual(expected, raised.exception.code)
+                self.assertNotIn(secret, str(raised.exception))
+
+
 class StorageApiTests(unittest.TestCase):
     def test_plain_head_and_get_do_not_call_versioning_or_lock_apis(self):
         store = S3(VALUES, operation='inspect')
@@ -234,6 +256,30 @@ class StorageApiTests(unittest.TestCase):
         self.assertIn(('retention', ''), api.call_args_list[0].kwargs['query'])
         with patch('guavajam_core.asset_storage.response', return_value=Response(headers=metadata(version='fixed'))), patch.object(store, '_xml', side_effect=S3Error(403)), self.assertRaises(S3Error):
             store.head(KEY)
+
+    def test_absent_object_lock_documents_do_not_invent_retention_or_hold(self):
+        store = S3({**VALUES, 'S3_VERSIONING': 'on', 'S3_OBJECT_LOCK': 'on'}, operation='inspect')
+        for code in ['NoSuchObjectLockConfiguration', 'ObjectLockConfigurationNotFoundError']:
+            with self.subTest(code=code):
+                with patch('guavajam_core.asset_storage.response', return_value=Response(headers=metadata(version='fixed'))), patch.object(store, '_xml', side_effect=S3Error(404, code)) as api:
+                    stored = store.head(KEY)
+                self.assertIsNone(stored.retention_mode)
+                self.assertIsNone(stored.retain_until)
+                self.assertFalse(stored.legal_hold)
+                self.assertEqual(2, api.call_count)
+
+    def test_lock_document_errors_cannot_downgrade_preservation(self):
+        store = S3({**VALUES, 'S3_VERSIONING': 'on', 'S3_OBJECT_LOCK': 'on'}, operation='inspect')
+        unlocked = ET.fromstring('<Retention/>')
+        failures = [(403, 'AccessDenied'), (403, 'ObjectLockConfigurationNotFoundError'),
+                    (404, None), (404, 'NoSuchKey'), (404, 'NoSuchVersion'), (404, 'NoSuchBucket'),
+                    (404, 'Unknown'), (501, 'NotImplemented'), (400, 'InvalidRequest')]
+        for status, code in failures:
+            for legal_hold in [False, True]:
+                with self.subTest(status=status, code=code, legal_hold=legal_hold):
+                    side_effect = [(unlocked, None), S3Error(status, code)] if legal_hold else S3Error(status, code)
+                    with patch('guavajam_core.asset_storage.response', return_value=Response(headers=metadata(version='fixed'))), patch.object(store, '_xml', side_effect=side_effect), self.assertRaises(S3Error):
+                        store.head(KEY)
 
     def test_explicit_lock_is_atomic_on_sidecar_upload_and_never_bypassed(self):
         until = int(time.time()*1000)+100000
