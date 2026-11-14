@@ -56,18 +56,18 @@ def upload_worker(source, account, name, token, bindings):
 
 def deploy(root, *, apply=False):
     from .cloudflare import cloudflare_values
-    from .asset_storage import credentials,B2
+    from .asset_storage import credentials,S3
     policy=load_policy(root)
     if policy is None:raise AssetError('approved asset origin required')
     hostname=urlsplit(policy.origin).hostname
     worker=os.environ.get('ASSET_WORKER') or 'guavajam-assets'
     if not re.fullmatch('[a-z0-9][a-z0-9-]{1,61}',worker):raise AssetError('invalid Worker name')
     if not apply:
-        print('Plan: deploy exact-version authenticated S3 reads at '+policy.origin)
-        print('Private digest-version sidecars share the configured B2 bucket; no API writes or credential reads')
+        print('Plan: deploy authenticated, identity-pinned S3 reads at '+policy.origin)
+        print('Private digest-object sidecars share the configured S3 bucket; no API writes or credential reads')
         return
     account,token=cloudflare_values()
-    store=B2(credentials(root),operation='pin')
+    store=S3(credentials(root),operation='inspect')
     domains=cf_request(account,'domains',token)
     existing=next((d for d in domains if d['hostname']==hostname),None)
     if existing and existing['service']!=worker:raise AssetError('approved hostname belongs to another Worker')
@@ -77,14 +77,16 @@ def deploy(root, *, apply=False):
     if settings is not None:
         previous={item['name']:item for item in settings.get('bindings',[])}
         if previous.get('ASSET_HOST',{}).get('text')!=hostname:raise AssetError('existing Worker belongs to a different approved host')
-    bindings=[{'name':'ASSET_HOST','type':'plain_text','text':hostname},
-              {'name':'B2_S3_ENDPOINT','type':'plain_text','text':store.s3_endpoint},
-              {'name':'B2_BUCKET_NAME','type':'plain_text','text':store.bucket_name},
-              {'name':'B2_APPLICATION_KEY_ID','type':'secret_text','text':store.key_id},
-              {'name':'B2_APPLICATION_KEY','type':'secret_text','text':store.key}]
+    bindings=[{'name':'ASSET_HOST','type':'plain_text','text':hostname}]
+    values=store.config.values()
+    for name in ('S3_ENDPOINT','S3_REGION','S3_BUCKET','S3_ADDRESSING_STYLE',
+                 'S3_ACCESS_KEY_ID','S3_SECRET_ACCESS_KEY','S3_SESSION_TOKEN'):
+        if name=='S3_SESSION_TOKEN' and not values[name]:continue
+        kind='secret_text' if name in {'S3_ACCESS_KEY_ID','S3_SECRET_ACCESS_KEY','S3_SESSION_TOKEN'} else 'plain_text'
+        bindings.append({'name':name,'type':kind,'text':values[name]})
     upload_worker(RESOURCES/'storage/worker.js',account,worker,token,bindings)
     cf_request(account,'domains',token,method='PUT',body=json.dumps({'hostname':hostname,'service':worker,'environment':'production','zone_id':zone}).encode())
-    print('Exact-version asset gateway deployed: '+policy.origin)
+    print('S3 asset gateway deployed: '+policy.origin)
 
 
 def main():

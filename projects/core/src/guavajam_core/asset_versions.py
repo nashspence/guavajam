@@ -1,79 +1,112 @@
-"""Verify and pin exact stored versions, optionally extending explicit retention."""
+"""Hash and pin stored objects, using versions and retention only when available."""
+from contextlib import contextmanager
+import hashlib
+import io
+import json
+import re
+import time
+
 from .repository import repository_root
-from pathlib import Path
-import hashlib,io,json,os,re,time
-from .asset_policy import AssetError,response_chunks
+from .asset_policy import AssetError, MIME, response_chunks
 from .gateway_index import Index
+from .object_store import ObjectStore, check_response, immutable_version, same_version
 from .verify_media_sources import MIME as MEDIA_MIME
-from .asset_policy import MIME
-from .s3 import response
 
 
-def pin_key(store,index,key,*,version=None,retain_until=None,mode=None):
-    if not re.fullmatch(r'sha256/[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)',key):raise AssetError('invalid asset key')
-    previous=index.get(key)
+def pin_key(store: ObjectStore, index: Index, key: str, *, version=None, retain_until=None, mode=None):
+    if not re.fullmatch(r'sha256/[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)', key):
+        raise AssetError('invalid asset key')
+    now = int(time.time() * 1000)
+    if retain_until is not None or mode is not None:
+        if type(retain_until) is not int or retain_until <= now or mode not in {'governance', 'compliance'}:
+            raise AssetError('supply an explicit future RETAIN_UNTIL and RETENTION_MODE')
+        if not store.object_lock:
+            raise AssetError('requested retention requires S3_OBJECT_LOCK=on; it will not be silently omitted')
+    previous = index.get(key)
     if previous:
-        if version and version!=previous['version_id']:raise AssetError('asset URL already has a different fixed version')
-        version=previous['version_id']
-    if version is None:
-        records=[v for v in store.versions() if v['fileName']==key]
-        if not records or records[0]['action']!='upload':raise AssetError('asset has no visible uploaded version to pin')
-        version=records[0]['fileId']
-    info=store.info(version)
-    digest,extension=key.removeprefix('sha256/').split('.')
-    mime={**MIME,**MEDIA_MIME,'bin':'application/octet-stream'}[extension]
-    maximum=20*1024**3 if extension in {'mp3','mp4'} else 10*1024*1024
-    if info.get('fileId')!=version or info.get('bucketId')!=store.bucket_id or info.get('fileName')!=key or type(info.get('contentLength')) is not int or not 0<=info['contentLength']<=maximum or (info['contentLength']==0 and extension!='bin'):
-        raise AssetError('stored version is outside its exact asset identity or byte budget')
-    if info.get('contentType','').partition(';')[0]!=mime:raise AssetError('stored version MIME differs')
-    saved=io.BytesIO() if extension not in {'mp3','mp4'} else None
-    with response(store.s3_endpoint,store.bucket_name,key,version,store.key_id,store.key,method='GET') as received:
-        if received.status!=200 or received.getheader('x-amz-version-id')!=version:raise AssetError('S3 returned a different version')
-        total,hasher=0,hashlib.sha256()
-        for chunk in response_chunks(received,maximum):
-            total+=len(chunk);hasher.update(chunk)
-            if saved is not None:saved.write(chunk)
-        if total!=info['contentLength'] or hasher.hexdigest()!=digest:raise AssetError('stored exact-version SHA-256 differs from its asset URL')
+        if version is not None and not same_version(version, previous['version_id']):
+            raise AssetError('asset URL already has a different pinned object')
+        info = store.head(key, previous['version_id'], etag=previous['etag'])
+    elif version is not None:
+        info = store.head(key, version)
+    else:
+        info = store.current(key)
+    if info is None or info.delete_marker:
+        raise AssetError('asset has no visible uploaded object to pin')
+    if previous and (not same_version(info.version_id, previous['version_id']) or info.etag != previous['etag']):
+        raise AssetError('asset URL already has a different pinned object')
+    if retain_until is not None and not immutable_version(info.version_id):
+        raise AssetError('Object Lock requires an immutable object version')
+    digest, extension = key.removeprefix('sha256/').split('.')
+    mime = {**MIME, **MEDIA_MIME, 'bin': 'application/octet-stream'}[extension]
+    maximum = 20 * 1024 ** 3 if extension in {'mp3', 'mp4'} else 10 * 1024 * 1024
+    if (info.key != key or not 0 <= info.byte_count <= maximum
+            or (info.byte_count == 0 and extension != 'bin') or info.content_type != mime):
+        raise AssetError('stored object is outside its asset identity, MIME or byte budget')
+    saved = io.BytesIO() if extension not in {'mp3', 'mp4'} else None
+    with store.read(info) as received:
+        check_response(received, info)
+        total, hasher = 0, hashlib.sha256()
+        for chunk in response_chunks(received, maximum):
+            total += len(chunk)
+            hasher.update(chunk)
+            if saved is not None:
+                saved.write(chunk)
+        if total != info.byte_count or hasher.hexdigest() != digest:
+            raise AssetError('stored object SHA-256 differs from its asset URL')
     from .media_formats import inspect
     if saved is None:
         from .media_ranges import VerifiedRangeFile
-        def private_range(_url,_mime,*,timeout,range_value):
-            return response(store.s3_endpoint,store.bucket_name,key,version,store.key_id,store.key,method='GET',range_value=range_value)
-        with VerifiedRangeFile(key,mime,total,version,private_range,version_header='x-amz-version-id') as probe:inspect(probe,extension)
-    elif extension!='bin':inspect(saved,extension)
+        @contextmanager
+        def private_range(_url, _mime, *, timeout, range_value):
+            start, end = map(int, range_value.removeprefix('bytes=').split('-'))
+            with store.read(info, range_value=range_value) as received:
+                check_response(received, info, status=206, length=end-start+1)
+                yield received
+        with VerifiedRangeFile(key, mime, total, info.etag, private_range) as probe:
+            inspect(probe, extension)
+    elif extension != 'bin':
+        inspect(saved, extension)
     else:
         from .asset_policy import verify_bytes
-        verify_bytes(saved.getvalue(),'bin',mime)
-    retention=info.get('fileRetention',{})
-    if not retention.get('isClientAuthorizedToRead'):raise AssetError('retention readback requires readFileRetentions')
-    current=retention.get('value') or {};until=current.get('retainUntilTimestamp')
-    if until is not None and (type(until) is not int or until<=0):raise AssetError('invalid retention readback')
-    if previous and previous['retain_until'] and (not until or until<previous['retain_until']):raise AssetError('stored retention is shorter than the pinned commitment')
+        verify_bytes(saved.getvalue(), 'bin', mime)
+    if previous and previous['retain_until']:
+        if (not info.retain_until or info.retain_until < previous['retain_until']
+                or info.retention_mode != previous['retention_mode']):
+            raise AssetError('stored retention is shorter than the pinned commitment')
     if retain_until is not None:
-        if type(retain_until) is not int or retain_until<=int(time.time()*1000) or mode not in {'governance','compliance'}:raise AssetError('supply an explicit future RETAIN_UNTIL and RETENTION_MODE')
-        if current.get('mode') and current['mode']!=mode:raise AssetError('retention mode differs; never weaken an existing retention policy')
-        if not until or until<retain_until:
-            store.retain(key,version,mode,retain_until)
-            info=store.info(version);retention=info.get('fileRetention',{});current=retention.get('value') or {};until=current.get('retainUntilTimestamp')
-            if info.get('fileId')!=version or not retention.get('isClientAuthorizedToRead') or type(until) is not int:raise AssetError('invalid retention readback')
-        if current.get('mode')!=mode or until<retain_until:raise AssetError('Object Lock retention readback differs')
-    value={'schema':'press.asset.v1','sha256':digest,'extension':extension,'version_id':version,
-           'byte_count':total,'content_type':mime,'retain_until':until}
-    index.put(key,value,retention_mode=mode)
+        info = store.retain(info, mode, retain_until)
+        if info.retention_mode != mode or not info.retain_until or info.retain_until < retain_until:
+            raise AssetError('Object Lock retention readback differs')
+    until = info.retain_until
+    # An already-expired backend lock does not create a new retention promise.
+    if until is not None and until <= now and previous is None:
+        until = None
+    value = {'schema': 'press.asset.v1', 'sha256': digest, 'extension': extension,
+             'version_id': info.version_id, 'etag': info.etag, 'byte_count': total,
+             'content_type': mime, 'retain_until': until,
+             'retention_mode': info.retention_mode if until else None}
+    index.put(key, value)
     return value
 
 
 def main():
     import argparse
-    from .asset_storage import B2,credentials
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('key');parser.add_argument('--retain-until',type=int);parser.add_argument('--retention-mode',choices=['governance','compliance'])
-    args=parser.parse_args()
+    from .asset_storage import S3, credentials
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('key')
+    parser.add_argument('--retain-until', type=int)
+    parser.add_argument('--retention-mode', choices=['governance', 'compliance'])
+    args = parser.parse_args()
     try:
-        store=B2(credentials(repository_root()),operation='pin')
-        index=Index(store)
-        result=pin_key(store,index,args.key,retain_until=args.retain_until,mode=args.retention_mode)
-        print(json.dumps(result,sort_keys=True));return 0
-    except (AssetError,OSError,ValueError) as exc:
-        print('Asset pinning failed: '+str(exc),file=__import__('sys').stderr);return 1
-if __name__=='__main__':raise SystemExit(main())
+        store = S3(credentials(repository_root()), operation='pin')
+        result = pin_key(store, Index(store), args.key, retain_until=args.retain_until, mode=args.retention_mode)
+        print(json.dumps(result, sort_keys=True))
+        return 0
+    except (AssetError, OSError, ValueError) as exc:
+        print('Asset pinning failed: ' + str(exc), file=__import__('sys').stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

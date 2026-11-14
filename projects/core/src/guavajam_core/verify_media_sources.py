@@ -1,6 +1,6 @@
 """Bounded-memory verification of large, content-addressed HTTPS media.
 
-No upload, release artifact, B2 login, or publication mutation occurs here.
+No upload, release artifact, storage login, or publication mutation occurs here.
 Online publication checks stream full objects and compare the SHA-256 that was
 committed in GFM. The public origin is pinned against DNS rebinding by the
 existing HTTPS verifier. A recording is validated at issuance, not per play.
@@ -81,7 +81,7 @@ def verify_one(url, origin, *, response_factory=public_response, sound=None):
         if small is not None:inspect(small,extension)
         else:
             from .media_ranges import VerifiedRangeFile
-            with VerifiedRangeFile(url,MIME[extension],count,response.getheader('X-Press-Asset-Version'),response_factory) as probe:
+            with VerifiedRangeFile(url,MIME[extension],count,response.getheader('ETag'),response_factory) as probe:
                 inspect(probe,extension,sound=sound)
         return count
 

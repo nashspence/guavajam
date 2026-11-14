@@ -1,4 +1,4 @@
-"""Asset storage, retention and exact-tip retirement against isolated fixtures."""
+"""Generic storage workflows, conservative collection and exact-tip retirement."""
 import contextlib
 import hashlib
 import io
@@ -10,62 +10,36 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from urllib.parse import unquote
 
 import yaml
 
 from guavajam_core.asset_policy import AssetError
-from guavajam_core import asset_storage
-from guavajam_core.asset_storage import B2, GRACE_DAYS, LEASE_PREFIX, credentials
-from guavajam_core import asset_workflow
+from guavajam_core import asset_storage, asset_workflow
+from guavajam_core.asset_storage import credentials
+from guavajam_core.object_store import GRACE_DAYS, LEASE_PREFIX, StoredObject
 from guavajam_core.configure_asset_maintenance import configure, deletion_ruleset
 from guavajam_core.manage_assets import candidates, collect, fingerprints, git, require_action, retained_assets, upload
-
-
 from guavajam_test_support import FIXTURES, RESOURCES
-SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><title>Asset fixture</title></svg>\n'
+from guavajam_test_support.storage_fixture import MemoryStore, VALUES, RAW as SVG, KEY
+
 DIGEST = hashlib.sha256(SVG).hexdigest()
-KEY = "sha256/" + DIGEST + ".svg"
 ORIGIN = "https://assets.publisher.test"
 NOW = 2_000_000_000
 OLD = int((NOW - (GRACE_DAYS + 1) * 86400) * 1000)
-VALUES = {"B2_APPLICATION_KEY_ID": "fixture-id", "B2_APPLICATION_KEY": "fixture-private-value",
-          "B2_BUCKET_ID": "fixture-bucket-id", "B2_BUCKET_NAME": "fixture-bucket"}
 
 
-def version(key=KEY, *, stamp=OLD, action="upload", file_id="version-one"):
-    return {"bucketId": VALUES["B2_BUCKET_ID"], "fileName": key, "fileId": file_id,
-            "uploadTimestamp": stamp, "action": action, "contentLength": len(SVG) if action == "upload" else 0}
+def version(key=KEY, *, stamp=OLD, action="upload", file_id="version-one", legal_hold=False, versioned=True):
+    return StoredObject(key, file_id if versioned else None,
+                        '"fixture-etag"' if action == 'upload' else None,
+                        len(SVG) if action == 'upload' else 0, stamp, 'image/svg+xml',
+                        delete_marker=action == 'hide', legal_hold=legal_hold)
 
 
-class MemoryB2:
+class Store(MemoryStore):
     def __init__(self, records=()):
-        self.records = list(records)
-        self.bytes = {KEY: SVG} if any(i["fileName"] == KEY for i in records) else {}
-        self.deleted, self.uploads = [], []
-
-    def versions(self, prefix="sha256/"):
-        return [dict(i) for i in self.records if i["fileName"].startswith(prefix)]
-
-    def upload(self, key, raw, media_type, **kwargs):
-        self.uploads.append((key, raw, media_type, kwargs))
-        self.bytes[key] = raw
-        self.records.append(version(key, stamp=int(NOW * 1000), file_id="new-" + str(len(self.uploads))))
-
-    def verify(self, key, raw, media_type):
-        if self.bytes.get(key) != raw:
-            raise AssetError("origin differs")
-
-    def delete(self, item):
-        self.deleted.append(item)
-        self.records = [i for i in self.records if i["fileId"] != item["fileId"]]
-
-
-def authorization(caps=("listFiles", "writeFiles", "readFiles", "readFileRetentions")):
-    return {"authorizationToken": "fixture-access-token", "apiInfo": {"storageApi": {
-        "apiUrl": "https://api001.backblazeb2.com", "downloadUrl": "https://f001.backblazeb2.com",
-        "allowed": {"buckets": [{"id": VALUES["B2_BUCKET_ID"], "name": VALUES["B2_BUCKET_NAME"]}],
-                    "namePrefix": "sha256/", "capabilities": list(caps)}}}}
+        super().__init__(records)
+        for row in records:
+            self.bytes[(row.key, row.version_id)] = SVG
 
 
 class StorageTests(unittest.TestCase):
@@ -75,13 +49,14 @@ class StorageTests(unittest.TestCase):
         self.image = self.root / "a figure.svg"
         self.image.write_bytes(SVG)
 
+
     def test_private_env_is_data_and_never_executes_shell(self):
         path = self.root / ".env.assets"
         payload = "$(touch forbidden)"
-        path.write_text("\n".join(f"{k}='{payload if k == 'B2_APPLICATION_KEY' else v}'" for k, v in VALUES.items()))
+        path.write_text("\n".join(f"{k}='{payload if k == 'S3_SECRET_ACCESS_KEY' else v}'" for k, v in VALUES.items()))
         path.chmod(0o600)
         loaded = credentials(self.root, {})
-        self.assertEqual(payload, loaded["B2_APPLICATION_KEY"])
+        self.assertEqual(payload, loaded["S3_SECRET_ACCESS_KEY"])
         self.assertFalse((self.root / "forbidden").exists())
         path.chmod(0o644)
         with self.assertRaises(AssetError):
@@ -90,6 +65,7 @@ class StorageTests(unittest.TestCase):
         path.symlink_to(self.image)
         with self.assertRaises(AssetError):
             credentials(self.root, {})
+
 
     def test_credential_file_refuses_unknown_fields_and_missing_values(self):
         with self.assertRaises(AssetError):
@@ -100,64 +76,9 @@ class StorageTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             credentials(self.root, {})
 
-    def test_b2_scope_is_one_bucket_with_optional_exact_prefix_and_required_capabilities(self):
-        for operation, caps in [("upload", ("listFiles", "writeFiles", "readFiles", "readFileRetentions")),
-                                ("delete", ("listFiles", "deleteFiles", "readFileRetentions")), ("preview", ("listFiles", "readFileRetentions"))]:
-            with patch("guavajam_core.asset_storage.request", return_value=authorization(caps)):
-                self.assertEqual(VALUES["B2_BUCKET_ID"], B2(VALUES, operation=operation).bucket_id)
-        for field, value in [("buckets", None), ("buckets", []), ("namePrefix", "sha256/x"),
-                             ("capabilities", ["writeFiles"])]:
-            data = authorization()
-            data["apiInfo"]["storageApi"]["allowed"][field] = value
-            with self.subTest(field=field, value=value), patch("guavajam_core.asset_storage.request", return_value=data), self.assertRaises(AssetError):
-                B2(VALUES, operation="upload")
-
-    def test_shared_read_write_key_is_accepted_but_client_modes_limit_calls(self):
-        data = authorization(("listFiles", "writeFiles", "deleteFiles", "readFiles", "readFileRetentions", "readBuckets", "writeBuckets"))
-        with patch("guavajam_core.asset_storage.request", return_value=data):
-            uploader = B2(VALUES, operation="upload")
-            preview = B2(VALUES, operation="preview")
-            deleter = B2(VALUES, operation="delete")
-        for store, operation in [(uploader, "b2_delete_file_version"), (preview, "b2_get_upload_url"),
-                                 (preview, "b2_delete_file_version"), (deleter, "b2_get_upload_url"),
-                                 (uploader, "b2_update_bucket")]:
-            with self.subTest(operation=operation), self.assertRaises(AssetError):
-                store.call(operation)
-
-    def test_b2_service_urls_cannot_send_credentials_elsewhere(self):
-        for url in ["https://evil.test", "https://api001.backblazeb2.com.evil.test", "http://api.backblazeb2.com",
-                    "https://user@api.backblazeb2.com", "https://api.backblazeb2.com:443", "https://api.backblazeb2.com/#x"]:
-            with self.subTest(url=url), self.assertRaises(AssetError):
-                asset_storage.b2_url(url)
-
-    def test_b2_http_failures_do_not_log_service_body_or_token(self):
-        error = asset_storage.urllib.error.HTTPError("https://api.backblazeb2.com", 403,
-                    VALUES["B2_APPLICATION_KEY"], {}, io.BytesIO(VALUES["B2_APPLICATION_KEY"].encode()))
-        with patch("guavajam_core.asset_storage.urllib.request.build_opener") as opener:
-            opener.return_value.open.side_effect = error
-            with self.assertRaises(AssetError) as raised:
-                asset_storage.request("https://api.backblazeb2.com", VALUES["B2_APPLICATION_KEY"])
-        self.assertNotIn(VALUES["B2_APPLICATION_KEY"], str(raised.exception))
-        self.assertIn("HTTP 403", str(raised.exception))
-        self.assertIsNone(asset_storage.NoRedirects().redirect_request(None, None, 302, None, None, None))
-
-    def test_version_pagination_is_complete_and_rejects_ambiguous_inventory(self):
-        with patch("guavajam_core.asset_storage.request", return_value=authorization()):
-            store = B2(VALUES, operation="upload")
-        second = version(file_id="version-two")
-        pages = [{"files": [version()], "nextFileName": KEY, "nextFileId": "version-two"},
-                 {"files": [second], "nextFileName": None, "nextFileId": None}]
-        with patch.object(store, "call", side_effect=pages) as call:
-            self.assertEqual(2, len(store.versions()))
-            self.assertEqual("version-two", call.call_args.kwargs["startFileId"])
-        for page in [{"files": []}, {"files": [version(), version()], "nextFileName": None, "nextFileId": None},
-                     {"files": [version("other/key")], "nextFileName": None, "nextFileId": None},
-                     {"files": [], "nextFileName": "outside/prefix", "nextFileId": "x"}]:
-            with self.subTest(page=page), patch.object(store, "call", return_value=page), self.assertRaises(AssetError):
-                store.versions()
 
     def test_upload_preserves_bytes_and_reuse_renews_only_lease(self):
-        store = MemoryB2()
+        store = Store()
         fetcher = Mock(return_value=(SVG, "image/svg+xml"))
         self.assertEqual(("Uploaded", ORIGIN + "/" + KEY), upload(self.root, self.image, store, fetcher=fetcher))
         self.assertEqual("Already stored", upload(self.root, self.image, store, fetcher=fetcher)[0])
@@ -165,16 +86,18 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(SVG, store.uploads[1][1])
         self.assertEqual(2, fetcher.call_count)
 
+
     def test_upload_refuses_corrupt_existing_bytes_hidden_files_and_public_mismatch(self):
-        store = MemoryB2([version()])
-        store.bytes[KEY] = SVG + b" "
+        store = Store([version()])
+        store.bytes[(KEY, "version-one")] = SVG + b" "
         with self.assertRaises(AssetError):
             upload(self.root, self.image, store, fetcher=Mock())
         self.assertNotIn(KEY, [i[0] for i in store.uploads])
         with self.assertRaises(AssetError):
-            upload(self.root, self.image, MemoryB2([version(action="hide")]), fetcher=Mock())
+            upload(self.root, self.image, Store([version(action="hide")]), fetcher=Mock())
         with self.assertRaises(AssetError):
-            upload(self.root, self.image, MemoryB2(), fetcher=lambda *args: (SVG + b" ", "image/svg+xml"))
+            upload(self.root, self.image, Store(), fetcher=lambda *args: (SVG + b" ", "image/svg+xml"))
+
 
     def test_invalid_local_file_never_mutates_storage(self):
         store = Mock()
@@ -188,32 +111,6 @@ class StorageTests(unittest.TestCase):
             upload(self.root, self.image, store)
         store.upload.assert_not_called()
 
-    def test_b2_upload_sends_original_bytes_and_verifies_its_receipt(self):
-        with patch("guavajam_core.asset_storage.request", return_value=authorization()):
-            store = B2(VALUES, operation="upload")
-        endpoint = {"bucketId": VALUES["B2_BUCKET_ID"], "uploadUrl": "https://pod-001.backblaze.com/b2api/v4/b2_upload_file",
-                    "authorizationToken": "fixture-upload-token"}
-        receipt = {"bucketId": VALUES["B2_BUCKET_ID"], "fileName": KEY, "contentLength": len(SVG),
-                   "contentSha1": hashlib.sha1(SVG).hexdigest()}
-        with patch.object(store, "call", return_value=endpoint), patch("guavajam_core.asset_storage.request", return_value=receipt) as send:
-            store.upload(KEY, SVG, "image/svg+xml")
-        self.assertEqual(SVG, send.call_args.kwargs["body"])
-        headers = send.call_args.kwargs["headers"]
-        self.assertEqual(hashlib.sha1(SVG).hexdigest(), headers["X-Bz-Content-Sha1"])
-        self.assertEqual(str(len(SVG)), headers["Content-Length"])
-        self.assertNotIn("Content-Encoding", headers)
-        self.assertEqual(asset_storage.CACHE_CONTROL, unquote(headers["X-Bz-Info-b2-cache-control"]))
-        with patch.object(store, "call", return_value=endpoint), \
-             patch("guavajam_core.asset_storage.request", return_value={**receipt, "contentSha1": "wrong"}), self.assertRaises(AssetError):
-            store.upload(KEY, SVG, "image/svg+xml")
-
-    def test_delete_uses_exact_version_without_governance_bypass(self):
-        with patch("guavajam_core.asset_storage.request", return_value=authorization(("listFiles", "deleteFiles", "readFileRetentions"))):
-            store = B2(VALUES, operation="delete")
-        with patch.object(store, "call", return_value={"fileName": KEY, "fileId": "exact-version"}) as call:
-            store.delete(version(file_id="exact-version"))
-        self.assertEqual({"fileName": KEY, "fileId": "exact-version"}, call.call_args.kwargs)
-
 
 class CollectionTests(unittest.TestCase):
     def run_gc(self, store, scan=lambda *args: set(), **kwargs):
@@ -225,37 +122,37 @@ class CollectionTests(unittest.TestCase):
         for records, retained in [([version(), version(KEY.replace(".svg", ".png"), file_id="png")], {DIGEST}),
                                   ([version(stamp=recent)], set()),
                                   ([version(), version(LEASE_PREFIX + KEY[7:], stamp=recent, file_id="lease")], set()),
-                                  ([version(action="start")], set())]:
+                                  ([version(legal_hold=True)], set())]:
             with self.subTest(records=records):
                 self.assertEqual({}, candidates(records, retained, NOW))
 
     def test_preview_does_not_delete_and_apply_removes_exact_versions_and_markers(self):
         records = [version(file_id="old"), version(action="hide", stamp=OLD + 1, file_id="marker"),
                    version(LEASE_PREFIX + KEY[7:], file_id="lease"), version("unrecognized/key", file_id="other")]
-        store = MemoryB2(records)
+        store = Store(records)
         self.assertEqual(0, self.run_gc(store))
         self.assertEqual([], store.deleted)
         self.assertEqual(3, self.run_gc(store, apply=True))
-        self.assertEqual({"old", "marker", "lease"}, {i["fileId"] for i in store.deleted})
-        self.assertEqual("marker", store.deleted[-1]["fileId"])
-        self.assertEqual(["other"], [i["fileId"] for i in store.records])
+        self.assertEqual({"old", "marker", "lease"}, {i.version_id for i in store.deleted})
+        self.assertEqual("marker", store.deleted[-1].version_id)
+        self.assertEqual(["other"], [i.version_id for i in store.records])
 
     def test_apply_aborts_when_reference_or_lease_appears(self):
-        store = MemoryB2([version()])
+        store = Store([version()])
         with self.assertRaises(AssetError):
             self.run_gc(store, scan=Mock(side_effect=[set(), {DIGEST}]), apply=True)
         self.assertEqual([], store.deleted)
-        store.versions = Mock(side_effect=[[version()], [version(), version(LEASE_PREFIX + KEY[7:], stamp=int(NOW * 1000), file_id="lease")]])
+        store.inventory = Mock(side_effect=[[version()], [version(), version(LEASE_PREFIX + KEY[7:], stamp=int(NOW * 1000), file_id="lease")]])
         with self.assertRaises(AssetError):
             self.run_gc(store, apply=True)
         self.assertEqual([], store.deleted)
 
     def test_storage_or_reference_failures_never_authorize_deletion(self):
         for where in ["scan", "storage"]:
-            store = MemoryB2([version()])
+            store = Store([version()])
             scan = Mock(side_effect=AssetError("unavailable")) if where == "scan" else Mock(return_value=set())
             if where == "storage":
-                store.versions = Mock(side_effect=AssetError("unavailable"))
+                store.inventory = Mock(side_effect=AssetError("unavailable"))
             with self.assertRaises(AssetError):
                 self.run_gc(store, scan=scan, apply=True)
             self.assertEqual([], store.deleted)
