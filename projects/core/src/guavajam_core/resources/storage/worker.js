@@ -77,7 +77,8 @@ async function originRead(env,key,version,method='GET',range=null,etag=null) {
   for(let attempt=0;attempt<3;attempt++) {
     const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),20000);
     try {
-      const result=await fetch(signed.url,{method,headers:signed.headers,redirect:'manual',signal:abort.signal});
+      // Intermediary caches can remove signed conditional/range headers on a miss.
+      const result=await fetch(signed.url,{method,headers:signed.headers,redirect:'manual',cache:'no-store',signal:abort.signal});
       if(![429,500,502,503,504].includes(result.status)||attempt===2)return result;
       await result.body?.cancel().catch(()=>{});
     } catch(error){if(attempt===2)throw error;}

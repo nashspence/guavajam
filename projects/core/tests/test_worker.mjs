@@ -150,3 +150,31 @@ test('the mutable null version uses an ETag but advertises no immutable version'
  });
  assert.equal(result.status,200);assert.equal(result.headers.get('X-Press-Asset-Version'),null);
 });
+
+
+test('signed origin reads bypass caches that rewrite conditional and range requests',async()=>{
+ const original=globalThis.fetch;
+ try{
+  for(const version of ['fixed_version',null])for(const [method,range] of [['GET',null],['HEAD',null],['GET','bytes=10-19']]){
+   const config=setup();Object.assign(config.__mapping,{version_id:version,retain_until:null,retention_mode:null});
+   const calls=[];
+   globalThis.fetch=async(target,options)=>{
+    calls.push(options);
+    if(target.includes('/sha256/.pins/')){
+     const raw=JSON.stringify(config.__mapping);
+     return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
+    }
+    // A cache miss can drop If-Match, invalidating the signed upstream request.
+    if(options.cache!=='no-store')return new Response('',{status:403});
+    assert.equal(options.headers['if-match'],'"fixed-etag"');
+    if(range)assert.equal(options.headers.range,range);
+    return upstream({version,...(range?{start:10,end:19}:{})});
+   };
+   const result=await worker.fetch(new Request(url,{method,headers:range?{Range:range}:undefined}),config);
+   assert.equal(result.status,range?206:200);
+   assert.equal(calls.length,2);
+   assert(calls.every(options=>options.cache==='no-store'));
+   if(method==='GET')assert.equal((await result.arrayBuffer()).byteLength,range?10:1000);
+  }
+ }finally{globalThis.fetch=original;}
+});
