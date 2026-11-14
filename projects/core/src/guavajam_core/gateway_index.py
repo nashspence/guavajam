@@ -1,48 +1,87 @@
-"""Private B2 sidecars pin digest URLs; the existing bucket key owns ingestion and cleanup."""
+"""Private, provider-neutral sidecars bind digest URLs to verified object identities."""
 import json
-from .asset_policy import AssetError,response_chunks
-from .s3 import response
+import re
 
-PIN_PREFIX='sha256/.pins/'
+from .asset_policy import AssetError, response_chunks
+from .object_store import PIN_PREFIX, ObjectStore, check_response, immutable_version, valid_etag, valid_version
+
+FIELDS = {'schema', 'sha256', 'extension', 'version_id', 'etag', 'byte_count',
+          'content_type', 'retain_until', 'retention_mode'}
 
 
-def validate(value,key):
-    import re
-    match=re.fullmatch(r'sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)',key)
-    if not isinstance(value,dict) or not match or set(value)!={'schema','sha256','extension','version_id','byte_count','content_type','retain_until'}:raise AssetError('invalid asset-version mapping fields')
-    if value['schema']!='press.asset.v1' or value['sha256']!=match[1] or value['extension']!=match[2]:raise AssetError('asset-version mapping identity differs')
-    if not isinstance(value['version_id'],str) or not re.fullmatch('[A-Za-z0-9_-]{1,256}',value['version_id']):raise AssetError('invalid fixed B2 version identity')
-    limit=20*1024**3 if match[2] in {'mp3','mp4'} else 10*1024*1024
-    if type(value['byte_count']) is not int or not 0<=value['byte_count']<=limit or (value['byte_count']==0 and match[2]!='bin'):raise AssetError('invalid asset byte count')
-    if value['retain_until'] is not None and (type(value['retain_until']) is not int or value['retain_until']<=0):raise AssetError('invalid asset retention time')
+def validate(value, key):
+    match = re.fullmatch(r'sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)', key)
+    if not isinstance(value, dict) or not match or set(value) != FIELDS:
+        raise AssetError('invalid asset mapping fields')
+    if value['schema'] != 'press.asset.v1' or value['sha256'] != match[1] or value['extension'] != match[2]:
+        raise AssetError('asset mapping identity differs')
+    version = value['version_id']
+    if (version is not None and not valid_version(version)) or not valid_etag(value['etag']):
+        raise AssetError('invalid pinned object identity')
+    limit = 20 * 1024 ** 3 if match[2] in {'mp3', 'mp4'} else 10 * 1024 * 1024
+    if type(value['byte_count']) is not int or not 0 <= value['byte_count'] <= limit or (value['byte_count'] == 0 and match[2] != 'bin'):
+        raise AssetError('invalid asset byte count')
+    until, mode = value['retain_until'], value['retention_mode']
+    if until is None:
+        if mode is not None:
+            raise AssetError('retention mode requires a retention time')
+    elif (type(until) is not int or not 0 < until <= 9007199254740991
+          or mode not in {'governance', 'compliance'} or not immutable_version(version)):
+        raise AssetError('invalid asset retention commitment')
     from .verify_media_sources import MIME as MEDIA_MIME
     from .asset_policy import MIME
-    if value['content_type']!={**MIME,**MEDIA_MIME,'bin':'application/octet-stream'}[match[2]]:raise AssetError('asset MIME differs from extension')
+    if value['content_type'] != {**MIME, **MEDIA_MIME, 'bin': 'application/octet-stream'}[match[2]]:
+        raise AssetError('asset MIME differs from extension')
 
 
 class Index:
-    def __init__(self,store):self.store=store
+    def __init__(self, store: ObjectStore):
+        self.store = store
+
     @staticmethod
-    def path(key):return PIN_PREFIX+key.removeprefix('sha256/')+'.json'
-    def get(self,key):
-        name=self.path(key);records=[r for r in self.store.versions(name) if r['fileName']==name]
-        if not records or records[0]['action']=='hide':return None
-        if records[0]['action']!='upload':raise AssetError('asset-version mapping upload is incomplete')
-        with response(self.store.s3_endpoint,self.store.bucket_name,name,records[0]['fileId'],self.store.key_id,self.store.key,method='GET') as received:
-            if received.status!=200 or received.getheader('Content-Type','').partition(';')[0]!='application/json':raise AssetError('invalid private asset-version mapping response')
-            raw=b''.join(response_chunks(received,8192))
-        try:value=json.loads(raw);validate(value,key);return value
-        except (ValueError,TypeError):raise AssetError('invalid private asset-version mapping') from None
-    def put(self,key,value,*,retention_mode=None):
-        validate(value,key);previous=self.get(key)
-        if previous and any(previous.get(k)!=value.get(k) for k in ('version_id','sha256','extension','byte_count','content_type')):
-            raise AssetError('digest URL is pinned to another version; investigate instead of replacing it')
-        if previous==value:return
-        name=self.path(key);raw=(json.dumps(value,sort_keys=True)+'\n').encode()
-        receipt=self.store.upload(name,raw,'application/json',cache_control='no-store')
-        if retention_mode and value['retain_until']:
-            self.store.retain(name,receipt['fileId'],retention_mode,value['retain_until'])
-            held=self.store.info(receipt['fileId']).get('fileRetention',{})
-            lock=held.get('value') or {}
-            if not held.get('isClientAuthorizedToRead') or lock.get('mode')!=retention_mode or type(lock.get('retainUntilTimestamp')) is not int or lock['retainUntilTimestamp']<value['retain_until']:raise AssetError('mapping retention readback differs')
-        if self.get(key)!=value:raise AssetError('asset-version mapping readback differs')
+    def path(key):
+        return PIN_PREFIX + key.removeprefix('sha256/') + '.json'
+
+    def _load(self, key):
+        item = self.store.head(self.path(key))
+        if item is None:
+            return None, None
+        if item.content_type != 'application/json' or not 0 < item.byte_count <= 8192:
+            raise AssetError('invalid private asset mapping metadata')
+        with self.store.read(item) as received:
+            check_response(received, item)
+            raw = b''.join(response_chunks(received, 8192))
+        if len(raw) != item.byte_count:
+            raise AssetError('truncated private asset mapping')
+        try:
+            value = json.loads(raw)
+        except (ValueError, TypeError):
+            raise AssetError('invalid private asset mapping') from None
+        validate(value, key)
+        if value['retain_until'] and (not item.retain_until or item.retain_until < value['retain_until']
+                                      or item.retention_mode != value['retention_mode']):
+            raise AssetError('private mapping retention differs from its pinned commitment')
+        return value, item
+
+    def get(self, key):
+        return self._load(key)[0]
+
+    def put(self, key, value):
+        validate(value, key)
+        previous, observed = self._load(key)
+        if previous:
+            if any(previous[k] != value[k] for k in ('version_id', 'etag', 'sha256', 'extension', 'byte_count', 'content_type')):
+                raise AssetError('digest URL is pinned to another object; investigate instead of replacing it')
+            if previous['retain_until'] and (not value['retain_until'] or value['retain_until'] < previous['retain_until']
+                                            or value['retention_mode'] != previous['retention_mode']):
+                raise AssetError('never weaken an existing retention commitment')
+        if previous == value:
+            return
+        raw = (json.dumps(value, sort_keys=True) + '\n').encode()
+        # Apply the sidecar's lock atomically with the PUT, not after publication
+        # of a mapping that claims retention. Readback is mandatory in the store.
+        self.store.upload(self.path(key), raw, 'application/json', cache_control='no-store',
+                          previous=observed, create_only=observed is None,
+                          retention_mode=value['retention_mode'], retain_until=value['retain_until'])
+        if self.get(key) != value:
+            raise AssetError('asset mapping readback differs')

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload original images or conservatively collect abandoned B2 asset versions."""
+"""Upload original images or conservatively collect abandoned asset objects."""
 from __future__ import annotations
 
 from .repository import repository_root
@@ -18,7 +18,8 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from .asset_policy import ASSET_PATH, AssetError, fetch_asset, load_policy
-from .asset_storage import B2, GRACE_DAYS, LEASE_PREFIX, PREFIX, credentials
+from .asset_storage import S3, credentials
+from .object_store import GRACE_DAYS, LEASE_PREFIX, PREFIX
 from .prepare_asset import prepare_image
 from .github import gh
 
@@ -55,16 +56,15 @@ def upload(root, image, store, *, fetcher=fetch_asset, index=None):
     # orphan before its manuscript is pushed. No author or local path is stored.
     lease = json.dumps({"schema": "press.asset-lease.v1", "key": key}, sort_keys=True).encode()
     store.upload(LEASE_PREFIX + key[len(PREFIX):], lease, "application/json", cache_control="no-store")
-    existing = [item for item in store.versions(key) if item["fileName"] == key]
-    if existing:
-        latest = max(existing, key=lambda item: item["uploadTimestamp"])
-        if latest["action"] != "upload":
+    existing = store.current(key)
+    if existing is not None:
+        if existing.delete_marker:
             raise AssetError("existing asset is hidden or unfinished; inspect storage before restoring it")
         state = "Already stored"
     else:
-        store.upload(key, raw, media_type)
+        store.upload(key, raw, media_type, create_only=True)
         state = "Uploaded"
-    # Check B2 directly as well as the gateway: a valid cached copy must not mask
+    # Check storage directly as well as the gateway: a valid cached copy must not mask
     # corrupt or missing bytes at the origin. Never overwrite a conflicting key.
     store.verify(key, raw, media_type)
     url = policy.origin + "/" + key
@@ -225,64 +225,56 @@ def asset_key(name):
     return candidate if ASSET_PATH.fullmatch("/" + candidate) else None
 
 
-def groups(versions):
+def groups(objects):
     result = {}
-    for item in versions:
-        key = asset_key(item["fileName"])
+    for item in objects:
+        key = asset_key(item.key)
         if key is not None:
             result.setdefault(key, []).append(item)
     return result
 
 
-def retained_until(item):
-    retention=item.get('fileRetention')
-    if retention is None:return 0
-    if not isinstance(retention,dict) or not retention.get('isClientAuthorizedToRead'):raise AssetError('cleanup requires readable file retention state')
-    value=retention.get('value') or {}
-    until=value.get('retainUntilTimestamp')
-    if until is not None and (type(until) is not int or until<=0):raise AssetError('invalid file retention time')
-    return until or 0
-
-
-def candidates(versions, retained, now):
+def candidates(objects, retained, now):
     cutoff = (now - GRACE_DAYS * 86400) * 1000
     result = {}
-    for key, items in groups(versions).items():
+    for key, items in groups(objects).items():
         digest = ASSET_PATH.fullmatch("/" + key)[1]
-        if (digest not in retained and all(item["uploadTimestamp"] < cutoff for item in items)
-                and all(item["action"] in {"upload", "hide"} for item in items)
-                and all(not retained_until(item)>now*1000 for item in items)):
+        if (digest not in retained and all(item.modified_ms < cutoff for item in items)
+                and all(not item.legal_hold and (item.retain_until or 0) <= now * 1000 for item in items)):
             result[key] = items
     return result
+
+
+def collection_order(item):
+    return item.key, item.version_id or '', item.etag or ''
 
 
 def collect(root, repo, store, *, apply=False, now=None, scan=retained_assets):
     now = time.time() if now is None else now
     retained = scan(root, repo)
-    planned = candidates(store.versions(), retained, now)
+    planned = candidates(store.inventory(), retained, now)
     print(f"Retained digest tokens: {len(retained)}; grace: {GRACE_DAYS} days")
-    print(f"Unreferenced candidates: {len(planned)} objects; {sum(map(len, planned.values()))} versions (including leases)")
+    print(f"Unreferenced candidates: {len(planned)} assets; {sum(map(len, planned.values()))} stored objects (including leases and pins)")
     deleted = 0
     for key, items in sorted(planned.items()):
         print("Candidate:", key)
-        for item in sorted(items, key=lambda item: item["fileId"]):
-            print(f"  {item['fileId']} {item['action']} {item['contentLength']} bytes")
+        for item in sorted(items, key=collection_order):
+            print(f"  {item.version_id or 'unversioned'} {item.byte_count} bytes; delete marker: {item.delete_marker}")
         if not apply:
             continue
-        # No persisted plan can authorize deletion: refresh both sources of truth
-        # for each object and require the exact same versions before any delete.
+        # No persisted plan authorizes deletion. Writers and reference changes
+        # must remain paused for the entire sweep, including unversioned buckets.
         current_retained = scan(root, repo)
-        current = store.versions()
+        current = store.inventory()
         refreshed = candidates(current, current_retained, now).get(key)
-        if refreshed is None or sorted(refreshed, key=lambda x: x["fileId"]) != sorted(items, key=lambda x: x["fileId"]):
-            raise AssetError("asset references, versions or leases changed; retry cleanup")
-        # Delete old hidden versions before the hide marker to avoid resurrecting
-        # an older public copy while collecting a versioned object.
-        ordered = sorted(items, key=lambda item: (item["action"] == "hide", item["uploadTimestamp"]))
+        if refreshed is None or sorted(refreshed, key=collection_order) != sorted(items, key=collection_order):
+            raise AssetError("asset references, objects or leases changed; retry cleanup")
+        # Delete hidden content before its delete marker, avoiding resurrection.
+        ordered = sorted(items, key=lambda item: (item.delete_marker, item.modified_ms, collection_order(item)))
         for item in ordered:
             store.delete(item)
             deleted += 1
-    print(f"Deleted versions: {deleted}" if apply else "Preview only; no versions deleted.")
+    print(f"Deleted objects: {deleted}" if apply else "Preview only; no objects deleted.")
     return deleted
 
 
@@ -310,7 +302,7 @@ def main():
                 typed=args.image.suffix in {'.mp3','.mp4','.vtt'}
                 if not typed:prepare_image(args.image)
                 from .gateway_index import Index
-                store=B2(credentials(root),operation='upload')
+                store=S3(credentials(root),operation='upload')
                 index=Index(store)
                 if typed:
                     from .ingest_asset import upload_media
@@ -322,7 +314,7 @@ def main():
                 repo = repository(root)
                 if args.apply:
                     require_action(repo)
-                store = B2(credentials(root), operation="delete" if args.apply else "preview")
+                store = S3(credentials(root), operation="delete" if args.apply else "preview")
                 collect(root, repo, store, apply=args.apply)
         return 0
     except AssetError as exc:

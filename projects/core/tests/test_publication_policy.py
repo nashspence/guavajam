@@ -59,27 +59,27 @@ class SourceProofTests(PublicationCommitTests):
 
     def test_owner_preparation_reads_actual_private_retention_and_same_public_version(self):
         from guavajam_core.prepare_publication import prepare
-        from test_asset_versions import Store,KEY
+        from guavajam_test_support.storage_fixture import MemoryStore,KEY
+        from dataclasses import replace
         from guavajam_core.gateway_index import Index
         from guavajam_core.asset_versions import pin_key
         from guavajam_core.asset_policy import AssetError
         import contextlib,io,re,time
-        store=Store();until=int(time.time()*1000)+100000
-        self.enterContext(patch('guavajam_core.gateway_index.response',side_effect=store.read));self.enterContext(patch('guavajam_core.asset_versions.response',side_effect=store.read))
+        store=MemoryStore(object_lock=True,seed=True);until=int(time.time()*1000)+100000
         pin_key(store,Index(store),KEY,retain_until=until,mode='governance')
         source=self.repo/'works/recorded-notes/manuscript.md'
         source.write_text(re.sub(r'```press-media\n.*?\n```','![A circle](https://assets.example.org/'+KEY+')',source.read_text(),flags=re.S))
         self.commit_source()
         @contextlib.contextmanager
         def public(*args,**kwargs):
-            response=Mock(status=200);response.getheader.return_value='version_0';yield response
+            response=Mock(status=200);values={'ETag':store.head(KEY,'version_0').etag,'X-Press-Asset-Version':'version_0','X-Press-Retain-Until':str(until)};response.getheader.side_effect=lambda k,default=None:values.get(k,default);yield response
         with patch('guavajam_core.prepare_publication.verify_source_assets') as full,patch('guavajam_core.asset_policy.public_response',side_effect=public),patch('guavajam_core.prepare_publication.public_response',side_effect=public):
-            result=prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store)
+            result=prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store,require_retention=True)
             self.assertEqual(['Press-Publication: 1', 'Press-Work: works/recorded-notes/manuscript.md',
                               'Press-Published: 2026-11-13'],result['publication_trailers'])
             self.assertTrue(result['retention_verified']);self.assertEqual(until,result['assets'][0]['retain_until'])
             full.assert_called_once();self.assertTrue(full.call_args.kwargs['require_retention'])
-            store.info('version_0')['fileRetention']['isClientAuthorizedToRead']=False
-            with self.assertRaisesRegex(AssetError,'private B2'):prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store)
+            row=store.head(KEY,'version_0');store.records[store.records.index(row)]=replace(row,retain_until=None,retention_mode=None)
+            with self.assertRaisesRegex(AssetError,'private retention'):prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store,require_retention=True)
 
 def load_tests(loader,tests,pattern):return unittest.TestSuite(loader.loadTestsFromName(n,SourceProofTests) for n in SourceProofTests.__dict__ if n.startswith('test_'))

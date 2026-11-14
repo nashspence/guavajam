@@ -1,15 +1,18 @@
-"""Bounded codec probing of the exact version whose full SHA-256 was verified."""
+"""Bounded codec probing of the object representation whose full SHA-256 was verified."""
 from collections import OrderedDict
 import io
 from .asset_policy import AssetError,response_chunks
+from .object_store import valid_etag
 
 BLOCK=1024*1024
 CACHE_BLOCKS=4
 MAX_PROBE_BYTES=64*1024*1024
 
 class VerifiedRangeFile(io.RawIOBase):
-    def __init__(self,url,mime,size,version,response_factory,*,version_header="X-Press-Asset-Version"):
-        super().__init__();self.url=url;self.mime=mime;self.size=size;self.version=version;self.factory=response_factory
+    def __init__(self,url,mime,size,version,response_factory,*,version_header="ETag"):
+        super().__init__()
+        if not valid_etag(version):raise AssetError('codec probing requires a strong pinned ETag')
+        self.url=url;self.mime=mime;self.size=size;self.version=version;self.factory=response_factory
         self.version_header=version_header
         self.position=0;self.cache=OrderedDict();self.fetched=0
     def readable(self):return True
@@ -23,12 +26,12 @@ class VerifiedRangeFile(io.RawIOBase):
     def block(self,number):
         if number in self.cache:self.cache.move_to_end(number);return self.cache[number]
         start=number*BLOCK;end=min(self.size-1,start+BLOCK-1);length=end-start+1
-        if not self.version or self.fetched+length>MAX_PROBE_BYTES:raise AssetError('codec probing requires a fixed version and bounded range reads')
+        if not valid_etag(self.version) or self.fetched+length>MAX_PROBE_BYTES:raise AssetError('codec probing requires a pinned ETag and bounded range reads')
         with self.factory(self.url,self.mime,timeout=60,range_value=f'bytes={start}-{end}') as response:
             if (response.status!=206 or response.getheader('Content-Type','').partition(';')[0].strip()!=self.mime
                 or response.getheader('Content-Range')!=f'bytes {start}-{end}/{self.size}'
                 or response.getheader(self.version_header)!=self.version):
-                raise AssetError('codec probe returned a different version or byte range')
+                raise AssetError('codec probe returned a different representation or byte range')
             raw=b''.join(response_chunks(response,length))
         if len(raw)!=length:raise AssetError('codec probe is truncated')
         self.fetched+=length;self.cache[number]=raw

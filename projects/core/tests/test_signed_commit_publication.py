@@ -168,7 +168,7 @@ class StreamAndMediaTests(unittest.TestCase):
             def __init__(self):self.reader=io.BytesIO(data);self.maximum=0
             def getheader(self,name,default=None):
                 return {'Content-Type':'video/mp4','Content-Length':str(len(data)),
-                        'Accept-Ranges':'bytes'}.get(name,default)
+                        'Accept-Ranges':'bytes','ETag':'"fixture-etag"'}.get(name,default)
             def read1(self,count):
                 self.maximum=max(self.maximum,count)
                 return self.reader.read(count)
