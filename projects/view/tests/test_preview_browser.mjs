@@ -21,8 +21,10 @@ globalThis.fetch=async(target,options)=>{
   let body=raw,status=200;
   const headers={'Content-Type':record.mime,'ETag':pin.etag,'x-amz-version-id':pin.version_id};
   if(options.headers.range){
-    const [,start,end]=/^bytes=(\d+)-(\d+)$/.exec(options.headers.range);
-    body=raw.subarray(Number(start),Number(end)+1);status=206;
+    const [,first,last]=/^bytes=(\d*)-(\d*)$/.exec(options.headers.range);
+    const start=first?Number(first):Math.max(0,raw.length-Number(last));
+    const end=first&&last?Math.min(Number(last),raw.length-1):raw.length-1;
+    body=raw.subarray(start,end+1);status=206;
     headers['Content-Range']=`bytes ${start}-${end}/${raw.length}`;
   }
   headers['Content-Length']=String(body.length);storageReads++;
@@ -53,8 +55,9 @@ try{
       for(const selector of ['video','audio']){
         const media=page.locator(selector);
         assert((await media.locator('source').getAttribute('src')).startsWith('/_assets/'));
-        await media.evaluate(element=>{element.muted=true;return element.play();});
-        await page.waitForFunction(selector=>document.querySelector(selector).currentTime>0,selector);
+        await media.evaluate(element=>{element.muted=true;element.play().catch(error=>{element.dataset.playError=error.name;});});
+        await page.waitForFunction(selector=>{const element=document.querySelector(selector);return element.currentTime>0||element.dataset.playError;},selector);
+        assert((await media.evaluate(element=>element.currentTime))>0,engine+' '+selector+' playback failed: '+await media.evaluate(element=>element.dataset.playError));
         await media.evaluate(element=>element.pause());
       }
       await page.locator('video').evaluate(video=>{video.textTracks[0].mode='showing';});
