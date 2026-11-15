@@ -123,7 +123,8 @@ class LostWrite:
         raise AssetError('synthetic lost successful response')
 
 
-def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenance=True):
+def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenance=True, progress=lambda phase: None):
+    progress('staging')
     staged = S3(roles['staging'], operation='upload')
     reader = S3(roles['readonly'], operation='inspect')
     releaser = S3(roles['release'], operation='release')
@@ -138,11 +139,13 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
         until = int((time.time() + retention_seconds) * 1000)
         pins = S3(roles['staging'], operation='pin')
         for key in keys: pin_key(pins, Index(pins), key, retain_until=until, mode='governance')
+    progress('private_gateway')
     for key in keys:
         for method, range_value in [('HEAD', None), ('GET', None), ('GET', 'bytes=0-127')]:
             with public_response(origin + '/' + key, '*/*', method=method, range_value=range_value) as received:
                 require(received.status == 404)
     require(Index(reader).get(keys[2])['etag'].endswith('-2"'))
+    progress('roles')
     denied(staged.config, Releases.path(keys[0]))
     denied(releaser.config, keys[0])
     lease = LEASE_PREFIX + keys[0][len(PREFIX):]
@@ -167,6 +170,7 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
     try: urllib.request.urlopen(urllib.request.Request(anonymous, method='HEAD'), timeout=10)
     except urllib.error.HTTPError as error: require(error.code in {401, 403})
     else: raise AssetError('anonymous provider read allowed')
+    progress('signed_source')
     fixture = root / 'publisher'; fixture.mkdir()
     p = Publisher(fixture)
     try:
@@ -197,11 +201,13 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
             for key, granted in zip(keys, grants):
                 with public_response(origin + '/' + key, '*/*', method='HEAD') as received:
                     require(received.status == (200 if granted else 404))
+            progress('release_and_retry')
             require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
             before = {row.identity for row in exact(maintenance, paths(keys))}
             require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
             require(before == {row.identity for row in exact(maintenance, paths(keys))})
             require(p.git('rev-parse', 'HEAD') == tip)
+        progress('public_delivery')
         for name, key in zip(NAMES, keys):
             raw = (root / name).read_bytes(); mapping = Index(reader).get(key)
             for method in ['HEAD', 'GET']:
@@ -216,6 +222,7 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
                         require(received.status == 206 and b''.join(response_chunks(received, 128)) == expected)
                 with public_response(origin + '/' + key, '*/*', range_value='bytes=999999999999-') as received:
                     require(received.status == 416)
+        progress('collection_protection')
         # No bucket-wide inventory: removal of every Git reference still cannot collect these releases.
         require(not candidates(exact(maintenance, paths(keys)), set(), time.time() + 100 * 86400))
         return {'private_staging': True, 'signed_main_authority': True, 'partial_release_recovery': True,
@@ -256,12 +263,14 @@ def run(root, roles, origin, *, retention_seconds=0, strict_maintenance=True, cl
                 require(not journal.exists() and not any((root / name).exists() for name in NAMES))
                 keys = fixtures(root); value = claim(maintenance, keys, journal, binding)
                 result['phase'] = 'exercise'; save(receipt, result)
-                result['checks'] = exercise(root, roles, origin, keys, retention_seconds=retention_seconds, strict_maintenance=strict_maintenance)
+                def progress(phase):
+                    result['check_phase'] = phase; save(receipt, result)
+                result['checks'] = exercise(root, roles, origin, keys, retention_seconds=retention_seconds, strict_maintenance=strict_maintenance, progress=progress)
                 result['exercise_passed'] = True
         except Exception:
             trace = sys.exc_info()[2]
             while trace:
-                if trace.tb_frame.f_code.co_filename == __file__: result['failed_line'] = trace.tb_lineno
+                if trace.tb_frame.f_code.co_filename == __file__ and trace.tb_frame.f_code.co_name != 'require': result['failed_line'] = trace.tb_lineno
                 trace = trace.tb_next
             raise
         finally:
