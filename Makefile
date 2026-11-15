@@ -55,8 +55,9 @@ test-deployment-config: ## Verify Compose boundaries and pinned build inputs wit
 	@$(PYTHON) -m unittest discover -s tests/deployment -p test_configuration.py -v
 
 test-compose: test-deployment-config ## Build and qualify default/local-assets Compose with disposable signed source and real S3 media.
-	docker compose build updater web assets
+	docker compose build updater web assets private-preview
 	@$(PYTHON) tests/deployment/test_compose.py
+	$(PYTHON) tests/deployment/test_preview_compose.py
 
 preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Build an authenticated loopback draft preview; baseline context needs external signer trust. No publication or asset-release writes.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }

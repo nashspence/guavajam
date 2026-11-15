@@ -101,3 +101,28 @@ test('preview refuses stale object identities rather than serving latest',async(
  try{assert.equal((await previewFetch(new Request('https://'+env.ASSET_HOST+'/'+key),env,pin)).status,502);}
  finally{globalThis.fetch=fetch;}
 });
+
+test('hosted preview pins HTTPS origin, requires a session and sets Secure cookies',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'hosted-preview-'));
+ const content='<h1>Private workspace</h1>';await writeFile(join(directory,'index.html'),content);
+ const manifest={schema:'guavajam.preview.v1',assets:{},files:{'index.html':createHash('sha256').update(content).digest('hex')}};
+ const token='e'.repeat(64),webOrigin='https://preview.publisher.test';
+ assert.throws(()=>previewServer({},directory,manifest,token,'http://preview.publisher.test'));
+ const listener=previewServer({},directory,manifest,token,webOrigin);
+ await new Promise(resolve=>listener.listen(0,'127.0.0.1',resolve));
+ const address='http://127.0.0.1:'+listener.address().port;
+ function get(path,headers={}){return new Promise((resolve,reject)=>{
+  const req=httpRequest(address+path,{headers:{Host:'preview.publisher.test',...headers}},res=>{let body='';res.on('data',v=>body+=v);res.on('end',()=>resolve({status:res.statusCode,headers:res.headers,body}));});req.on('error',reject);req.end();
+ });}
+ try{
+  assert.equal((await get('/')).status,404);
+  const session=await get('/_session?token='+token);assert.equal(session.status,303);
+  assert.match(session.headers['set-cookie'][0],/HttpOnly; SameSite=Strict; Secure$/);
+  const Cookie=session.headers['set-cookie'][0].split(';')[0];
+  assert.equal((await get('/',{Cookie})).body,content);
+  assert.equal((await get('/',{Cookie,Host:'attacker.test'})).status,404);
+  assert.equal((await get('/',{Cookie,Origin:'http://preview.publisher.test'})).status,404);
+  assert.equal((await get('/',{Cookie,'Sec-Fetch-Site':'cross-site'})).status,404);
+  assert.equal((await get('/',{Cookie,Origin:webOrigin})).status,200);
+ }finally{listener.closeAllConnections();await new Promise(resolve=>listener.close(resolve));await rm(directory,{recursive:true});}
+});

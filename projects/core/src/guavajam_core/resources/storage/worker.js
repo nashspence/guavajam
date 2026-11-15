@@ -139,7 +139,7 @@ async function deliver(request,env,previewMapping=null) {
     catch{return failure(502);}
 }
 
-// Only trusted loopback preview code can call this entrypoint with a qualified
+// Only trusted preview code can call this entrypoint with a qualified
 // mapping. No request header, cookie, query, branch name or env flag can switch
 // the public Worker to private delivery.
 export function previewFetch(request,env,mapping) {
