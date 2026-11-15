@@ -24,7 +24,13 @@ USER 1000:1000
 WORKDIR /state
 ENTRYPOINT ["python", "-m", "guavajam.service"]
 
-FROM node:24.10.0-bookworm-slim@sha256:b8d2197aff9129d16c801a3e3e1b2a873c4946480f5a310f38056df2268c38d9 AS gateway
+FROM node:24.10.0-bookworm-slim@sha256:b8d2197aff9129d16c801a3e3e1b2a873c4946480f5a310f38056df2268c38d9 AS node
+
+FROM view AS preview
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+ENTRYPOINT ["python", "-m", "guavajam.preview_service"]
+
+FROM node AS gateway
 COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway
 COPY --from=packages /build/projects/core/LICENSES /usr/share/licenses/guavajam-core/LICENSES
 COPY --from=packages /build/projects/core/REUSE.toml /usr/share/licenses/guavajam-core/REUSE.toml

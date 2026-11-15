@@ -19,6 +19,20 @@ class DeploymentConfigurationTests(unittest.TestCase):
                 r'^FROM \S+ AS (\w+)\n(.*?)(?=^FROM |\Z)', cls.dockerfile, re.M | re.S)
         }
 
+    def test_hosted_preview_has_read_only_source_and_only_reader_credentials(self):
+        preview = self.services['private-preview']
+        self.assertEqual(['private-preview'], preview['profiles'])
+        self.assertTrue(preview['read_only'])
+        self.assertEqual(['ALL'], preview['cap_drop'])
+        self.assertEqual({'context': '.', 'target': 'preview'}, preview['build'])
+        mounts = [m for m in preview['volumes'] if isinstance(m, dict)]
+        self.assertEqual({'/source', '/run/secrets/session.key', '/run/secrets/readonly.env'}, {m['target'] for m in mounts})
+        self.assertTrue(all(m['read_only'] and not m['bind']['create_host_path'] for m in mounts))
+        self.assertEqual('/run/secrets/readonly.env', preview['environment']['S3_ENV'])
+        self.assertEqual(['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080'], preview['ports'])
+        self.assertFalse(preview.get('depends_on'))
+        self.assertIn('COPY --from=node /usr/local/bin/node /usr/local/bin/node', self.stages['preview'])
+
     def test_default_view_and_optional_local_storage_have_separate_images(self):
         self.assertEqual({'updater', 'web'}, {
             name for name, service in self.services.items() if not service.get('profiles')
@@ -53,7 +67,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         updater = self.services['updater']
         self.assertIn('state:/state', updater['volumes'])
         self.assertFalse(any(key.startswith('S3_') for key in updater['environment']))
-        self.assertEqual({'state', 'objects'}, set(self.compose['volumes']))
+        self.assertEqual({'state', 'objects', 'preview-state'}, set(self.compose['volumes']))
         self.assertIn('objects:/data', self.services['seaweedfs']['volumes'])
         self.assertNotIn('objects:/data', updater['volumes'])
 
@@ -84,7 +98,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertFalse(self.services['updater'].get('ports'))
 
     def test_builds_lock_packages_pin_external_images_and_install_the_shared_gateway(self):
-        images = re.findall(r'^FROM (\S+)', self.dockerfile, re.M)
+        images = [value for value in re.findall(r'^FROM (\S+)', self.dockerfile, re.M) if value not in self.stages]
         images += [self.services['seaweedfs']['image']]
         for image in images:
             with self.subTest(image=image):

@@ -1,4 +1,4 @@
-// Loopback-only preview transport. The private HTML and asset responses are
+// Authenticated private preview transport. The private HTML and asset responses are
 // same-origin, noncacheable, exact-inventory, and use the production byte handler.
 // Credentials live only in this process; source-controlled code never executes.
 import {createServer} from 'node:http';
@@ -14,7 +14,11 @@ const types={'.html':'text/html; charset=utf-8','.json':'application/json','.gfm
 function deny(res,status=404){res.writeHead(status,{'Cache-Control':'no-store','Content-Type':'text/plain','X-Content-Type-Options':'nosniff'});res.end('Not found');}
 function equal(a,b){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
 
-export function previewServer(env,root,manifest,token) {
+export function previewServer(env,root,manifest,token,webOrigin=null) {
+  if(webOrigin){
+    const url=new URL(webOrigin);
+    if(url.protocol!=='https:'||url.origin!==webOrigin||url.username||url.password)throw Error('canonical HTTPS preview origin required');
+  }
   if(!/^[a-f0-9]{64}$/.test(token))throw Error('preview token');
   if(manifest.schema!=='guavajam.preview.v1'||!manifest.files||!manifest.assets)throw Error('preview manifest');
   root=realpathSync(root);
@@ -22,17 +26,18 @@ export function previewServer(env,root,manifest,token) {
     try {
       // Loopback binding alone is not enough: reject rebinding Host and cross-site
       // browser fetches before reading private source or storage.
-      const host='127.0.0.1:'+req.socket.localPort;
-      if(req.headers.host!==host||!['127.0.0.1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress))return deny(res);
+      const host=webOrigin?new URL(webOrigin).host:'127.0.0.1:'+req.socket.localPort;
+      const origin=webOrigin||'http://'+host;
+      if(req.headers.host!==host||(!webOrigin&&!['127.0.0.1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress)))return deny(res);
       if(!['GET','HEAD'].includes(req.method))return deny(res,405);
       if(req.headers['sec-fetch-site']==='cross-site')return deny(res);
-      if(req.headers.origin&&req.headers.origin!=='http://'+host)return deny(res);
+      if(req.headers.origin&&req.headers.origin!==origin)return deny(res);
       if(!req.url.startsWith('/')||req.url.startsWith('//')||req.url.includes('\\'))return deny(res);
-      const url=new URL(req.url,'http://'+host);
+      const url=new URL(req.url,origin);
       // Token is supplied once in an explicit local URL. Never send it upstream.
       if(url.pathname==='/_session'&&req.method==='GET'&&url.searchParams.size===1&&equal(url.searchParams.get('token')||'',token)){
         res.writeHead(303,{'Location':'/','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
-          'Set-Cookie':'guavajam_preview='+token+'; Path=/; HttpOnly; SameSite=Strict'});res.end();return;
+          'Set-Cookie':'guavajam_preview='+token+'; Path=/; HttpOnly; SameSite=Strict'+(webOrigin?'; Secure':'')});res.end();return;
       }
       const cookies=(req.headers.cookie||'').split(';').map(x=>x.trim());
       if(!cookies.some(x=>x.startsWith('guavajam_preview=')&&equal(x.slice(17),token)))return deny(res);
@@ -70,12 +75,15 @@ if(process.argv[1]&&import.meta.url===new URL(process.argv[1],'file:').href){
     const manifest=JSON.parse(readFileSync(join(root,'PREVIEW.json'),'utf8'));
     const values=JSON.parse(readFileSync(0,'utf8'));
     const env=Object.keys(manifest.assets).length?configuration(values.storage):{};
-    const server=previewServer(env,root,manifest,values.token);
+    const server=previewServer(env,root,manifest,values.token,values.webOrigin||null);
     const port=Number(process.env.GUAVAJAM_PREVIEW_PORT||0);
     if(!Number.isInteger(port)||port<0||port>65535)throw Error('port');
     server.requestTimeout=30000;server.headersTimeout=10000;
     server.on('error',()=>{process.stderr.write('Private preview listener unavailable\n');process.exitCode=1;});
-    server.listen(port,'127.0.0.1',()=>console.log('Private preview: http://127.0.0.1:'+server.address().port+'/_session?token='+values.token));
+    server.listen(port,values.webOrigin?'0.0.0.0':'127.0.0.1',()=>{
+      if(values.webOrigin)console.log('Private preview listening; session access is operator-provisioned');
+      else console.log('Private preview: http://127.0.0.1:'+server.address().port+'/_session?token='+values.token);
+    });
     for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>server.close(()=>process.exit(0)));
   }catch{process.stderr.write('Private preview failed; details omitted\n');process.exitCode=1;}
 }

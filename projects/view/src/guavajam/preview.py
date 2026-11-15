@@ -3,7 +3,7 @@
 The optional signed base supplies existing catalog context. The draft is an
 explicitly labeled preview, never a fake publication with a fabricated identity.
 Canonical source URLs are unchanged; only derived HTML routes staged assets
-through a loopback, session-authenticated gateway sharing the production handler.
+through a session-authenticated private gateway sharing the production handler.
 """
 from html import escape
 import argparse
@@ -95,20 +95,30 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
     return manifest
 
 
-def serve(output, manifest, values, *, port=0):
+def start_server(output, manifest, values, *, port=0, token=None, web_origin=None, quiet=False):
     node = shutil.which('node')
     if not node:
-        raise AssetError('Node is required for the loopback preview server')
+        raise AssetError('Node is required for the preview server')
+    if web_origin and token is None:
+        raise AssetError('hosted preview requires an operator-provisioned session token')
     storage = dict(values)
     if manifest['origin']:
         storage['ASSET_HOST'] = manifest['origin'].removeprefix('https://')
-    token = secrets.token_hex(32)
-    # Credentials never enter rendered files, process arguments, source or logs.
     process = subprocess.Popen([node, str(RESOURCES / 'storage/preview.mjs'), str(output)],
-                               stdin=subprocess.PIPE, env={**os.environ, 'GUAVAJAM_PREVIEW_PORT': str(port)})
+                               stdin=subprocess.PIPE, env={**os.environ, 'GUAVAJAM_PREVIEW_PORT': str(port)},
+                               **({'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL} if quiet else {}))
     try:
-        process.stdin.write(json.dumps({'storage': storage, 'token': token}).encode())
+        process.stdin.write(json.dumps({'storage': storage, 'token': token or secrets.token_hex(32), 'webOrigin': web_origin}).encode())
         process.stdin.close()
+        return process
+    except BaseException:
+        process.terminate(); process.wait()
+        raise
+
+
+def serve(output, manifest, values, *, port=0):
+    process = start_server(output, manifest, values, port=port)
+    try:
         return process.wait()
     except KeyboardInterrupt:
         process.terminate()
