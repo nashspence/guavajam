@@ -112,7 +112,7 @@ def remote_main(repo, expected, remote='origin'):
     return tip
 
 
-def release(repo, revision, expected_main, *, store, fingerprints=(), allowed_signers=None,
+def release(repo, revision, expected_main, *, store, release_store, fingerprints=(), allowed_signers=None,
             remote='origin', apply=False, require_retention=False):
     repo = Path(repo).resolve(strict=True)
     oid(revision)
@@ -126,7 +126,7 @@ def release(repo, revision, expected_main, *, store, fingerprints=(), allowed_si
     work = declared['manuscript'].split('/')[1]
     prepared = prepare(repo, revision, work, published=declared['published'],
                        label=declared.get('label'), store=store, require_retention=require_retention)
-    releases = Releases(store)
+    releases = Releases(release_store)
     origin = prepared['asset_origin']
     mappings = {item['key']: {k: v for k, v in item.items() if k != 'key'} for item in prepared['assets']}
     for key, mapping in mappings.items():
@@ -145,12 +145,31 @@ def release(repo, revision, expected_main, *, store, fingerprints=(), allowed_si
     return {**result, 'applied': True, 'public_delivery_verified': True}
 
 
+def release_stores(repo, release_env, *, apply=False):
+    """Separate private qualification reads from release-prefix reads/writes.
+
+    A provider with a single prefix per key need not give the release writer
+    access to private bytes. Explicit files prevent inherited credential mixing.
+    """
+    store = S3(credentials(repo), operation='inspect')
+    release_store = S3(credentials(repo, {'S3_ENV': str(release_env)}),
+                       operation='release' if apply else 'inspect')
+    left, right = store.config, release_store.config
+    if (any(getattr(left, field) != getattr(right, field) for field in
+            ('endpoint', 'region', 'bucket', 'addressing_style', 'versioning', 'object_lock', 'conditional_writes'))
+            or left.access_key == right.access_key):
+        raise AssetError('release requires a distinct credential for the same configured storage')
+    return store, release_store
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, default=Path('.'))
     parser.add_argument('--revision', required=True, help='exact signed publication commit')
     parser.add_argument('--expected-main', required=True, help='exact reviewed remote main tip')
     parser.add_argument('--remote', default='origin')
+    parser.add_argument('--release-env', type=Path, required=True,
+                        help='owner-only S3 configuration for the separate release-prefix authority')
     parser.add_argument('--apply', action='store_true', help='authorize public disclosure; default verifies without writes')
     parser.add_argument('--require-retention', action='store_true')
     trust = parser.add_mutually_exclusive_group(required=True)
@@ -158,10 +177,10 @@ def main(argv=None):
     trust.add_argument('--ssh-allowed-signers', type=Path)
     args = parser.parse_args(argv)
     try:
-        store = S3(credentials(args.repo), operation='release' if args.apply else 'inspect')
+        store, release_store = release_stores(args.repo, args.release_env, apply=args.apply)
         from .manage_assets import operator_lock
         with operator_lock(args.repo):
-            result = release(args.repo, args.revision, args.expected_main, store=store,
+            result = release(args.repo, args.revision, args.expected_main, store=store, release_store=release_store,
                              fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers,
                              remote=args.remote, apply=args.apply, require_retention=args.require_retention)
         print(json.dumps(result, sort_keys=True))

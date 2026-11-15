@@ -12,7 +12,7 @@ function setup(extension='mp4',size=1000){
 async function run(request,config,handler){
  const original=globalThis.fetch;
  globalThis.fetch=async(target,options)=>{
-  if(target.includes('/sha256/.released/')){
+  if(target.includes('/released/sha256/')){
    if(config.__mapping===null)return new Response('',{status:404});
    if(config.__mapping===undefined)throw Error('index unavailable');
    const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
@@ -160,7 +160,7 @@ test('signed origin reads bypass caches that rewrite conditional and range reque
    const calls=[];
    globalThis.fetch=async(target,options)=>{
     calls.push(options);
-    if(target.includes('/sha256/.released/')){
+    if(target.includes('/released/sha256/')){
      const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
      return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
     }

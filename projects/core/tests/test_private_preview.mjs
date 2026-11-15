@@ -17,7 +17,7 @@ function data(range=false,etag='"exact"'){
 test('a stage pin is NOT a release, including HEAD/ranges and guessed private overrides',async()=>{
  const fetch=globalThis.fetch;let dataReads=0;
  globalThis.fetch=async target=>{
-  if(String(target).includes('/.released/'))return new Response('',{status:404});
+  if(String(target).includes('/released/sha256/'))return new Response('',{status:404});
   if(String(target).includes('/.pins/'))return Response.json(pin);
   dataReads++;return data();
  };
@@ -39,7 +39,7 @@ test('a stage pin is NOT a release, including HEAD/ranges and guessed private ov
 test('only an exact release envelope enables anonymous content; an old pin is rejected',async()=>{
  const fetch=globalThis.fetch;let envelope=pin;
  globalThis.fetch=async target=>{
-  if(String(target).includes('/.released/')){
+  if(String(target).includes('/released/sha256/')){
    const raw=JSON.stringify(envelope);
    return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
   }

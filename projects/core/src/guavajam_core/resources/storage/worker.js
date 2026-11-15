@@ -4,7 +4,7 @@ const SMALL = 10 * 1024 * 1024;
 const LARGE = 20 * 1024 ** 3;
 const MIME = {png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',bin:'application/octet-stream',mp3:'audio/mpeg',mp4:'video/mp4',vtt:'text/vtt'};
 const KEY = /^sha256\/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)$/;
-const PIN = /^sha256\/\.(?:pins|released)\/[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)\.json$/;
+const PIN = /^(?:sha256\/\.pins\/|released\/sha256\/)[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)\.json$/;
 const encoder = new TextEncoder();
 const hex = bytes => [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
 async function hmac(key,text) {
@@ -87,7 +87,7 @@ async function originRead(env,key,version,method='GET',range=null,etag=null) {
   }
 }
 async function mappingFor(env,key) {
-  const upstream=await originRead(env,key.replace('sha256/','sha256/.released/')+'.json',null);
+  const upstream=await originRead(env,'released/'+key+'.json',null);
   if(upstream.status===404)return null;
   const length=upstream.headers.get('Content-Length');
   if(upstream.status!==200||(upstream.headers.get('Content-Encoding')||'identity')!=='identity'||upstream.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json'||!/^\d+$/.test(length||'')||Number(length)>8192||Number(length)===0)throw Error('mapping');

@@ -16,12 +16,10 @@ def role_actions(bucket):
     The real Compose contract also attempts forbidden raw S3 writes, bypassing
     our client-mode checks, to qualify provider enforcement.
     """
-    objects = [f'{bucket}/sha256/{digit}*' for digit in '0123456789abcdef']
-    stage = [*objects, f'{bucket}/sha256/.pins/*', f'{bucket}/sha256/.leases/*']
     return {
-        'publisher': ['Read:' + bucket, 'List:' + bucket, *['Write:' + path for path in stage]],
+        'publisher': ['Read:' + bucket + '/sha256/*', 'List:' + bucket, 'Write:' + bucket + '/sha256/*'],
         'delivery': ['Read:' + bucket],
-        'release': ['Read:' + bucket, 'List:' + bucket, 'Write:' + bucket + '/sha256/.released/*'],
+        'release': ['Read:' + bucket + '/released/sha256/*', 'List:' + bucket, 'Write:' + bucket + '/released/sha256/*'],
         'maintenance': ['Read:' + bucket, 'List:' + bucket, 'Write:' + bucket],
     }
 

@@ -12,11 +12,11 @@ import unittest
 from unittest.mock import patch
 
 from guavajam_core.asset_policy import AssetError
-from guavajam_core.asset_release import Releases, release, remote_main
+from guavajam_core.asset_release import Releases, release, release_stores, remote_main
 from guavajam_core.asset_storage import S3
 from guavajam_core.asset_versions import pin_key
 from guavajam_core.gateway_index import Index
-from guavajam_core.manage_assets import candidates, upload
+from guavajam_core.manage_assets import asset_inventory, candidates, upload
 from guavajam_core.object_store import RELEASE_PREFIX
 from guavajam_core.private_assets import PrivateAssets
 from guavajam_core.asset_policy import AssetPolicy
@@ -24,6 +24,35 @@ from guavajam_core.publication_commit import verify as verify_commit
 from guavajam_core.validate_sources import validate_repository
 from guavajam_test_support.discovery_fixture import Publisher
 from guavajam_test_support.storage_fixture import MemoryStore, RAW, KEY, VALUES
+
+
+class ReleaseCredentialTests(unittest.TestCase):
+    def test_explicit_release_file_isolated_from_private_read_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def config(name, values):
+                path = root / name
+                path.write_text(''.join(k+'='+v+'\n' for k,v in values.items()))
+                path.chmod(0o600)
+                return path
+            read = config('read.env', VALUES)
+            release_values = {**VALUES, 'S3_ACCESS_KEY_ID': 'release-id', 'S3_SECRET_ACCESS_KEY': 'release-secret'}
+            authority = config('release.env', release_values)
+            with patch.dict(os.environ, {'S3_ENV': str(read), 'S3_ACCESS_KEY_ID': 'inherited-key'}):
+                store, writer = release_stores(root, authority, apply=True)
+                self.assertEqual('inspect', store.operation)
+                self.assertEqual('release', writer.operation)
+                self.assertEqual(VALUES['S3_ACCESS_KEY_ID'], store.config.access_key)
+                self.assertEqual('release-id', writer.config.access_key)
+                self.assertEqual('inspect', release_stores(root, authority)[1].operation)
+                for bad in [VALUES, {**release_values, 'S3_BUCKET': 'another-bucket'},
+                            {**release_values, 'S3_VERSIONING': 'on'}]:
+                    config('release.env', bad)
+                    with self.assertRaises(AssetError):
+                        release_stores(root, authority, apply=True)
+                authority.unlink()
+                with self.assertRaises(AssetError):
+                    release_stores(root, authority, apply=True)
 
 
 class ReleaseRecordTests(unittest.TestCase):
@@ -104,7 +133,7 @@ class ReleaseRecordTests(unittest.TestCase):
 
     def test_collection_never_retracts_released_assets_when_branch_roots_disappear(self):
         self.releases.put(KEY, self.pin, 'a'*40, 'https://assets.example.org')
-        self.assertEqual({}, candidates(self.store.inventory(), set(), time.time()+100*86400))
+        self.assertEqual({}, candidates(asset_inventory(self.store), set(), time.time()+100*86400))
 
     def test_private_reads_bind_complete_bytes_to_the_observed_pin(self):
         reader = PrivateAssets(self.store, AssetPolicy('https://assets.example.org'))
@@ -155,7 +184,7 @@ class ReleaseAuthorityTests(unittest.TestCase):
 
     def run_release(self, **kwargs):
         return release(self.publisher.repo, self.revision, getattr(self, 'tip', self.base),
-                       store=self.store, fingerprints=[self.publisher.fingerprint], **kwargs)
+                       store=self.store, release_store=self.store, fingerprints=[self.publisher.fingerprint], **kwargs)
 
     def test_signed_branch_is_not_main_authority_and_stale_main_is_rejected(self):
         before = list(self.store.uploads)
@@ -262,10 +291,10 @@ class ReleaseAuthorityTests(unittest.TestCase):
     def test_unsigned_merge_and_untrusted_signature_cannot_issue(self):
         self.merge()
         with self.assertRaises(ValueError):
-            release(self.publisher.repo, self.tip, self.tip, store=self.store,
+            release(self.publisher.repo, self.tip, self.tip, store=self.store, release_store=self.store,
                     fingerprints=[self.publisher.fingerprint], apply=True)
         with self.assertRaises(ValueError):
-            release(self.publisher.repo, self.revision, self.tip, store=self.store,
+            release(self.publisher.repo, self.revision, self.tip, store=self.store, release_store=self.store,
                     fingerprints=['0'*40], apply=True)
         self.assertIsNone(Releases(self.store).get(KEY))
 

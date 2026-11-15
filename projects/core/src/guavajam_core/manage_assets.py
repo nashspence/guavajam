@@ -252,10 +252,19 @@ def collection_order(item):
     return item.key, item.version_id or '', item.etag or ''
 
 
+def asset_inventory(store):
+    """Collection must see release commitments outside the staging namespace."""
+    from .object_store import RELEASE_PREFIX, MAX_OBJECTS
+    items = store.inventory(PREFIX) + store.inventory(RELEASE_PREFIX)
+    if len(items) > MAX_OBJECTS:
+        raise AssetError('asset inventory exceeds its bounded limit')
+    return items
+
+
 def collect(root, repo, store, *, apply=False, now=None, scan=retained_assets):
     now = time.time() if now is None else now
     retained = scan(root, repo)
-    planned = candidates(store.inventory(), retained, now)
+    planned = candidates(asset_inventory(store), retained, now)
     print(f"Retained digest tokens: {len(retained)}; grace: {GRACE_DAYS} days")
     print(f"Unreferenced candidates: {len(planned)} assets; {sum(map(len, planned.values()))} stored objects (including leases and pins)")
     deleted = 0
@@ -268,7 +277,7 @@ def collect(root, repo, store, *, apply=False, now=None, scan=retained_assets):
         # No persisted plan authorizes deletion. Writers and reference changes
         # must remain paused for the entire sweep, including unversioned buckets.
         current_retained = scan(root, repo)
-        current = store.inventory()
+        current = asset_inventory(store)
         refreshed = candidates(current, current_retained, now).get(key)
         if refreshed is None or sorted(refreshed, key=collection_order) != sorted(items, key=collection_order):
             raise AssetError("asset references, objects or leases changed; retry cleanup")

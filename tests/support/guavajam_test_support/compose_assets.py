@@ -78,6 +78,7 @@ def main():
                     assert received.status==404
             from .discovery_fixture import Publisher
             from guavajam_core.asset_release import release, Releases
+            from guavajam_core.object_store import RELEASE_PREFIX
             from unittest.mock import patch
             source_root=root/'publisher';source_root.mkdir()
             p=Publisher(source_root)
@@ -94,17 +95,17 @@ def main():
             release_values={**values,'S3_ACCESS_KEY_ID':roles['release']['accessKey'],'S3_SECRET_ACCESS_KEY':roles['release']['secretKey']}
             releaser=S3(release_values,operation='release')
             with patch.dict(os.environ,{'GNUPGHOME':p.env['GNUPGHOME']}):
-                try:release(p.repo,edition,base,store=releaser,fingerprints=[p.fingerprint],apply=True)
+                try:release(p.repo,edition,base,store=store,release_store=releaser,fingerprints=[p.fingerprint],apply=True)
                 except ValueError:pass
                 else:raise AssertionError('unmerged signed branch could release media')
-                assert all(Releases(store).get(key) is None for key in keys)
+                assert all(Releases(releaser).get(key) is None for key in keys)
                 p.git('switch','main');p.git('merge','--no-ff','review','-m','Accept reviewed edition')
                 p.git('push','-q','origin','main');tip=p.git('rev-parse','HEAD')
-                result=release(p.repo,edition,tip,store=releaser,fingerprints=[p.fingerprint],apply=True)
+                result=release(p.repo,edition,tip,store=store,release_store=releaser,fingerprints=[p.fingerprint],apply=True)
                 assert result['public_delivery_verified']
-                before=len(store.inventory())
-                release(p.repo,edition,tip,store=releaser,fingerprints=[p.fingerprint],apply=True)
-                assert len(store.inventory())==before
+                before=len(releaser.inventory(RELEASE_PREFIX))
+                release(p.repo,edition,tip,store=store,release_store=releaser,fingerprints=[p.fingerprint],apply=True)
+                assert len(releaser.inventory(RELEASE_PREFIX))==before
             # Test raw signed requests, not only client-mode guards.
             for config,key in [(store.config,Releases.path(keys[0])),(releaser.config,keys[0])]:
                 try:
@@ -140,11 +141,12 @@ def main():
             print(json.dumps({'delivery_write_rejected':True,'unknown_and_anonymous_access_rejected':True,'two_part_multipart_verified':True}),flush=True)
         finally:
             cleanup=S3({**values,'S3_ACCESS_KEY_ID':roles['maintenance']['accessKey'],'S3_SECRET_ACCESS_KEY':roles['maintenance']['secretKey']},operation='delete')
-            for item in cleanup.inventory():cleanup.delete(item)
-            assert cleanup.inventory()==[]
+            from guavajam_core.manage_assets import asset_inventory
+            for item in asset_inventory(cleanup):cleanup.delete(item)
+            assert asset_inventory(cleanup)==[]
             for key in keys:
                 with public_response(origin+'/'+key,'*/*',method='HEAD') as received:assert received.status==404
-            with response(store.config,query=[('uploads','')]) as received:
+            with response(cleanup.config,query=[('uploads','')]) as received:
                 assert b'<Upload>' not in received.read(1024*1024)
             print(json.dumps({'fixture_cleanup_verified':True}),flush=True)
 
