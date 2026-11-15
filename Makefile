@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render site update build check-artifacts version check-boundaries check-licenses
+.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render preview site update build check-artifacts version check-boundaries check-licenses
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
-export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD
+export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD BASE_REF SERVE PORT REQUIRE_RETENTION
 help: ## Show commands.
 	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' Makefile
 setup: ## Install pinned project tools and dependencies.
@@ -10,7 +10,7 @@ setup: ## Install pinned project tools and dependencies.
 test: check-licenses check-boundaries test-core test-view test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
 test-core: ## Run source, capture, storage and preservation contracts.
 	@$(PYTHON) tools/run_tests.py core
-	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_chatgpt_capture.mjs
+	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_private_preview.mjs projects/core/tests/test_chatgpt_capture.mjs
 test-view: ## Run rendering, catalog and update contracts.
 	@$(PYTHON) tools/run_tests.py view
 test-browser: ## Run reader, keyboard, accessibility and print journeys; requires pinned Playwright browsers.
@@ -57,3 +57,10 @@ test-deployment-config: ## Verify Compose boundaries and pinned build inputs wit
 test-compose: test-deployment-config ## Build and qualify default/local-assets Compose with disposable signed source and real S3 media.
 	docker compose build updater web assets
 	@$(PYTHON) tests/deployment/test_compose.py
+
+preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Build an authenticated loopback draft preview; baseline context needs external signer trust. No publication or asset-release writes.
+	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }
+	@set --; if [ -n "$$BASE_REF" ]; then set -- --base-ref "$$BASE_REF"; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- "$$@" --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- "$$@" --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external trust for BASE_REF}"; fi; fi; \
+	case "$${SERVE:-0}" in 1) set -- "$$@" --serve;; 0) ;; *) echo 'SERVE must be 0 or 1'; exit 1;; esac; \
+	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
+	$(PYTHON) -m guavajam preview --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:?Set SOURCE_REF}" --work "$${WORK:?Set WORK}" --output "$${OUTPUT:?Set OUTPUT}" --port "$${PORT:-0}" "$$@"

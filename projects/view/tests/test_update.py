@@ -107,6 +107,17 @@ class PeriodicUpdateTests(unittest.TestCase):
             self.assertEqual('busy',self.update()['status'])
         self.assertFalse((self.output/'current').exists())
 
+    def test_unreleased_assets_do_not_switch_the_public_generation(self):
+        self.update(); old = self.selected()
+        self.p.publish('2026-11-14')
+        with patch('guavajam.update.verify_public_delivery', side_effect=ValueError('assets still private')), \
+             patch('guavajam.update.build_site') as build:
+            with self.assertRaisesRegex(ValueError, 'still private'):
+                self.update()
+            build.assert_not_called()
+        self.assertEqual(old, self.selected())
+        self.assertEqual([], list(self.output.glob('.staging-*')))
+
     def test_failed_build_keeps_current_and_leaves_no_half_deployed_generation(self):
         self.update();old=self.selected()
         self.p.publish('2026-11-14')

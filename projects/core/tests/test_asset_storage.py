@@ -79,24 +79,22 @@ class StorageTests(unittest.TestCase):
 
     def test_upload_preserves_bytes_and_reuse_renews_only_lease(self):
         store = Store()
-        fetcher = Mock(return_value=(SVG, "image/svg+xml"))
-        self.assertEqual(("Uploaded", ORIGIN + "/" + KEY), upload(self.root, self.image, store, fetcher=fetcher))
-        self.assertEqual("Already stored", upload(self.root, self.image, store, fetcher=fetcher)[0])
+        with patch("guavajam_core.asset_policy.public_addresses", side_effect=AssertionError("public upload readback")) as public:
+            self.assertEqual(("Uploaded", ORIGIN + "/" + KEY), upload(self.root, self.image, store))
+            self.assertEqual("Already stored", upload(self.root, self.image, store)[0])
+        public.assert_not_called()
         self.assertEqual([LEASE_PREFIX + KEY[7:], KEY, LEASE_PREFIX + KEY[7:]], [i[0] for i in store.uploads])
         self.assertEqual(SVG, store.uploads[1][1])
-        self.assertEqual(2, fetcher.call_count)
 
 
-    def test_upload_refuses_corrupt_existing_bytes_hidden_files_and_public_mismatch(self):
+    def test_upload_refuses_corrupt_existing_bytes_and_hidden_files(self):
         store = Store([version()])
         store.bytes[(KEY, "version-one")] = SVG + b" "
         with self.assertRaises(AssetError):
-            upload(self.root, self.image, store, fetcher=Mock())
+            upload(self.root, self.image, store)
         self.assertNotIn(KEY, [i[0] for i in store.uploads])
         with self.assertRaises(AssetError):
-            upload(self.root, self.image, Store([version(action="hide")]), fetcher=Mock())
-        with self.assertRaises(AssetError):
-            upload(self.root, self.image, Store(), fetcher=lambda *args: (SVG + b" ", "image/svg+xml"))
+            upload(self.root, self.image, Store([version(action="hide")]))
 
 
     def test_invalid_local_file_never_mutates_storage(self):

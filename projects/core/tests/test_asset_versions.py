@@ -127,7 +127,7 @@ class PinTests(unittest.TestCase):
 
 
 class LifecycleTests(unittest.TestCase):
-    def test_plain_and_versioned_upload_reuse_public_readback_and_cleanup(self):
+    def test_plain_and_versioned_private_upload_reuse_and_cleanup(self):
         import contextlib
         import io
         from pathlib import Path
@@ -141,13 +141,12 @@ class LifecycleTests(unittest.TestCase):
                 image.write_bytes(RAW)
                 store = MemoryStore(versioning=versioning)
                 index = Index(store)
-                public = lambda *args: (RAW, 'image/svg+xml')
-                state, url = upload(root, image, store, index=index, fetcher=public)
+                state, url = upload(root, image, store, index=index)
                 self.assertEqual('Uploaded', state)
                 self.assertEqual('https://assets.example.org/'+KEY, url)
                 pin = index.get(KEY)
                 self.assertIsNone(pin['retain_until'])
-                self.assertEqual('Already stored', upload(root, image, store, index=index, fetcher=public)[0])
+                self.assertEqual('Already stored', upload(root, image, store, index=index)[0])
                 self.assertEqual(pin, index.get(KEY))
                 with contextlib.redirect_stdout(io.StringIO()):
                     deleted = collect(root, 'fixture/repo', store, apply=True, now=time.time()+40*86400, scan=lambda *args:set())

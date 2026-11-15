@@ -8,6 +8,7 @@ COMMANDS = {
     'check-publications': 'check_publications', 'publication-check': 'publication_commit',
     'publication-prepare': 'prepare_publication', 'prepare-asset': 'prepare_asset',
     'assets': 'manage_assets', 'asset-workflow': 'asset_workflow',
+    'assets-qualify': 'qualify_assets', 'assets-release': 'asset_release',
     'asset-policy': 'configure_asset_maintenance', 'asset-pin': 'asset_versions',
     'gateway': 'deploy_asset_gateway', 'archive': 'source_archive',
     'chat': 'extract_chatgpt', 'site-export': 'export_site',

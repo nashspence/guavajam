@@ -53,7 +53,7 @@ export function server(env) {
 if(import.meta.url===new URL(process.argv[1],'file:').href){
   try{
     const env=configuration();
-    await signedRead(env,'sha256/.pins/'+'a'.repeat(64)+'.bin.json',null,'GET',null);
+    await signedRead(env,'sha256/.released/'+'a'.repeat(64)+'.bin.json',null,'GET',null);
     const port=Number(process.env.PORT||8080);
     if(!Number.isInteger(port)||port<1||port>65535)throw Error('port');
     const listener=server(env);listener.requestTimeout=30000;listener.headersTimeout=10000;

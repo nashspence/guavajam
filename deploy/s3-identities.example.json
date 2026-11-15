@@ -2,13 +2,74 @@
   "identities": [
     {
       "name": "publisher",
-      "credentials": [{"accessKey": "REPLACE_PUBLISHER_ACCESS_KEY", "secretKey": "REPLACE_PUBLISHER_SECRET_KEY"}],
-      "actions": ["Read:publication-assets", "Write:publication-assets", "List:publication-assets", "Tagging:publication-assets"]
+      "credentials": [
+        {
+          "accessKey": "REPLACE_PUBLISHER_ACCESS_KEY",
+          "secretKey": "REPLACE_PUBLISHER_SECRET_KEY"
+        }
+      ],
+      "actions": [
+        "Read:publication-assets",
+        "List:publication-assets",
+        "Write:publication-assets/sha256/0*",
+        "Write:publication-assets/sha256/1*",
+        "Write:publication-assets/sha256/2*",
+        "Write:publication-assets/sha256/3*",
+        "Write:publication-assets/sha256/4*",
+        "Write:publication-assets/sha256/5*",
+        "Write:publication-assets/sha256/6*",
+        "Write:publication-assets/sha256/7*",
+        "Write:publication-assets/sha256/8*",
+        "Write:publication-assets/sha256/9*",
+        "Write:publication-assets/sha256/a*",
+        "Write:publication-assets/sha256/b*",
+        "Write:publication-assets/sha256/c*",
+        "Write:publication-assets/sha256/d*",
+        "Write:publication-assets/sha256/e*",
+        "Write:publication-assets/sha256/f*",
+        "Write:publication-assets/sha256/.pins/*",
+        "Write:publication-assets/sha256/.leases/*"
+      ]
     },
     {
       "name": "delivery",
-      "credentials": [{"accessKey": "REPLACE_DELIVERY_ACCESS_KEY", "secretKey": "REPLACE_DELIVERY_SECRET_KEY"}],
-      "actions": ["Read:publication-assets"]
+      "credentials": [
+        {
+          "accessKey": "REPLACE_DELIVERY_ACCESS_KEY",
+          "secretKey": "REPLACE_DELIVERY_SECRET_KEY"
+        }
+      ],
+      "actions": [
+        "Read:publication-assets"
+      ]
+    },
+    {
+      "name": "release",
+      "credentials": [
+        {
+          "accessKey": "REPLACE_RELEASE_ACCESS_KEY",
+          "secretKey": "REPLACE_RELEASE_SECRET_KEY"
+        }
+      ],
+      "actions": [
+        "Read:publication-assets",
+        "List:publication-assets",
+        "Write:publication-assets/sha256/.released/*"
+      ]
+    },
+    {
+      "name": "maintenance",
+      "credentials": [
+        {
+          "accessKey": "REPLACE_MAINTENANCE_ACCESS_KEY",
+          "secretKey": "REPLACE_MAINTENANCE_SECRET_KEY"
+        }
+      ],
+      "actions": [
+        "Read:publication-assets",
+        "List:publication-assets",
+        "Write:publication-assets"
+      ]
     }
   ]
 }

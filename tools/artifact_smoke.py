@@ -21,7 +21,7 @@ def main():
     import guavajam_core
     assert Path(guavajam_core.__file__).is_relative_to(Path(sys.prefix)), 'core came from a checkout'
     resources = Path(guavajam_core.__file__).parent / 'resources'
-    for name in ('storage/worker.js', 'chatgpt-capture/manifest.json',
+    for name in ('storage/worker.js', 'storage/preview.mjs', 'storage/server.mjs', 'chatgpt-capture/manifest.json',
                  'templates/work/manuscript.md', 'schemas/press-site-v1.schema.json'):
         assert (resources / name).is_file(), name
     if not repo.exists():
@@ -47,7 +47,12 @@ def main():
         assert (root / 'capture/capture.mjs').is_file()
         for legal in ['LICENSES/Apache-2.0.txt', 'REUSE.toml']:
             assert (root / 'capture' / legal).read_bytes() == (resources / 'chatgpt-capture' / legal).read_bytes()
+    for command in ('assets-qualify', 'assets-release'):
+        assert '--revision' in run(sys.executable, '-m', 'guavajam_core', command, '--help', cwd=repo)
     sha = run('git', 'rev-parse', 'HEAD', cwd=repo)
+    qualified = json.loads(run(sys.executable, '-m', 'guavajam_core', 'assets-qualify',
+                              '--revision', sha, '--work', 'artifact-work', cwd=repo))
+    assert qualified['privately_verified'] and not qualified['public_delivery_verified']
     signers = root / 'allowed-signers'
     from guavajam_core.publication_commit import verify
     assert verify(repo, sha, allowed_signers=signers)['revision'] == sha
@@ -57,6 +62,10 @@ def main():
         export(repo, sha, archive, allowed_signers=signers)
     check(archive, sha, allowed_signers=signers)
     if view:
+        from guavajam.preview import build_preview
+        preview = build_preview(repo, sha, 'artifact-work', root / 'draft-preview')
+        assert not preview['publication'] and (root / 'draft-preview/PREVIEW.json').is_file()
+        assert '--serve' in run(sys.executable, '-m', 'guavajam', 'preview', '--help', cwd=repo)
         from guavajam.renderer import render
         render(repo, sha, 'artifact-work', root / 'view', allowed_signers=signers)
         assert 'Artifact Work' in (root / 'view/index.html').read_text()

@@ -5,14 +5,14 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import hashlib
 import sys
-from .asset_policy import AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, fetch_asset, load_policy, verify_bytes
+from .asset_policy import AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, fetch_asset, load_policy, verify_bytes, public_response
 from .validate_sources import git_sources, local_asset_size, parse_document, walk
 from .supporting_gfm import load_gfm_record, record_path
 from .media import candidates, declarations
 from .verify_media_sources import verify_items
 
 
-def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_items, paths=None, require_retention=False):
+def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_items, paths=None, require_retention=False, response_factory=public_response):
     root = root.resolve(); policy = load_policy(root); tracked = set(git_sources(root) if paths is None else paths)
     remote_sizes, all_media, budgets = {}, [], {}
     for path in sorted(tracked):
@@ -57,12 +57,11 @@ def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_ite
             if len(budget)>MAX_ASSETS:raise AssetError(f'{path} exceeds the distinct asset limit')
             if sum(budget.values())>MAX_TOTAL_BYTES:raise AssetError(f'{path} exceeds the total unique asset byte limit')
     if require_retention:
-        from .asset_policy import public_response
         import time
         from .object_store import valid_version, immutable_version, valid_etag
         urls=set(remote_sizes)|{v for item in all_media for k,v in item.items() if k in {'src','poster','captions'}}
         for url in sorted(urls):
-            with public_response(url,'*/*',method='HEAD') as receipt:
+            with response_factory(url,'*/*',method='HEAD') as receipt:
                 until=receipt.getheader('X-Press-Retain-Until','')
                 version=receipt.getheader('X-Press-Asset-Version','')
                 if receipt.status!=200 or not until.isdigit() or int(until)<=int(time.time()*1000) or not valid_version(unquote(version)) or not immutable_version(unquote(version)) or not valid_etag(receipt.getheader('ETag')):

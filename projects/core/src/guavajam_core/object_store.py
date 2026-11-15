@@ -10,6 +10,7 @@ from .asset_policy import AssetError
 PREFIX = 'sha256/'
 LEASE_PREFIX = PREFIX + '.leases/'
 PIN_PREFIX = PREFIX + '.pins/'
+RELEASE_PREFIX = PREFIX + '.released/'
 CACHE_CONTROL = 'public, max-age=31536000, immutable, no-transform'
 GRACE_DAYS = 30
 MAX_OBJECTS = 100_000

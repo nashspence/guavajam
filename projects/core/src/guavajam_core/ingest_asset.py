@@ -1,14 +1,14 @@
-"""Bounded original-byte media ingestion, exact-version pinning and public readback."""
+"""Stage original media privately; an upload is never publication authority."""
 from pathlib import Path
 import hashlib,json,os,stat
 from .asset_policy import AssetError,load_policy
 from .object_store import LEASE_PREFIX,PREFIX
 from .asset_versions import pin_key
-from .verify_media_sources import MIME,MAX_MEDIA_BYTES,verify_one
+from .verify_media_sources import MIME,MAX_MEDIA_BYTES
 from .media_formats import inspect
 
 
-def upload_media(root,path,store,index,*,verifier=verify_one):
+def upload_media(root,path,store,index):
     path=Path(path)
     if path.suffix not in {'.mp3','.mp4','.vtt'}:raise AssetError('typed media upload requires MP3, MP4 or WebVTT')
     policy=load_policy(root)
@@ -35,5 +35,4 @@ def upload_media(root,path,store,index,*,verifier=verify_one):
         else:store.upload_file(key,path,MIME[extension])
         state='Uploaded'
     pin_key(store,index,key)
-    if verifier(url,policy.origin)!=before.st_size:raise AssetError('public media byte count differs from the original')
     return state,url
