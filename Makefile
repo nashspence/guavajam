@@ -64,3 +64,7 @@ preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug OUTPUT=outside/new [
 	case "$${SERVE:-0}" in 1) set -- "$$@" --serve;; 0) ;; *) echo 'SERVE must be 0 or 1'; exit 1;; esac; \
 	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam preview --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:?Set SOURCE_REF}" --work "$${WORK:?Set WORK}" --output "$${OUTPUT:?Set OUTPUT}" --port "$${PORT:-0}" "$$@"
+
+.PHONY: test-provider
+test-provider: ## Opt-in real S3 rehearsal; PROVIDER_ARGS='--help' for explicit credentials, gateway, run directory and apply options.
+	@PYTHONPATH=tests/support $(PYTHON) -m guavajam_test_support.provider_qualification $(PROVIDER_ARGS)
