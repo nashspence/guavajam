@@ -1,7 +1,7 @@
 # Publisher command recipes owned and shipped by guavajam-core.
-.PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export assets-qualify assets-release
+.PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export assets-qualify assets-release preview
 export TITLE AUTHOR LANGUAGE
-export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
+export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV GUAVAJAM_PREVIEW_IMAGE GUAVAJAM_SSH_ALLOWED_SIGNERS GUAVAJAM_TRUSTED_GPG_FINGERPRINTS GUAVAJAM_GPG_PUBLIC_KEYS PORT BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
 check: check-source check-assets ## Validate public source/assets. Use assets-qualify for committed private drafts.
 
@@ -89,3 +89,7 @@ assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main S3_RELEASE_ENV=rele
 	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	case "$${APPLY:-0}" in 1) set -- "$$@" --apply;; 0) ;; *) echo 'APPLY must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam_core.asset_release --revision "$${REV:?Set signed REV}" --release-env "$${S3_RELEASE_ENV:?Set separate release-prefix credential file}" --expected-main "$${MAIN_SHA:?Set exact MAIN_SHA}" --remote "$${REMOTE:-origin}" "$$@"
+
+preview: ## WORK=slug [PUBLISHED=YYYY-MM-DD LABEL=text PORT=8082 S3_ENV=private-read.env] Start the whole proposed GuavaJam website from this committed authoring branch via pinned Docker image; baseline requires externally configured signer trust. Ctrl+C stops it.
+	@set --; if [ -n "$$PUBLISHED" ]; then set -- --published "$$PUBLISHED"; fi; if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
+	$(PYTHON) -m guavajam_core.preview_docker --work "$${WORK:?Set WORK}" --port "$${PORT:-8082}" "$$@"

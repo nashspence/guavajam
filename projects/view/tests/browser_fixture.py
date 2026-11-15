@@ -1,6 +1,6 @@
 """Build real copied-starter, supporting and native-media browser qualification views."""
 from pathlib import Path
-import base64,hashlib,json,subprocess
+import base64,hashlib,json,subprocess,os
 from guavajam.renderer import render
 from guavajam_test_support.media_fixture import video,audio
 from PIL import Image
@@ -39,7 +39,20 @@ def make_fixture(directory):
     source+='\n<a id="wide"></a>\n## Wide structures\n\n```python\nlong_identifier = "'+'x'*240+'"\n```\n\n'
     source+='| '+' | '.join('Column '+str(i) for i in range(12))+' |\n| '+' | '.join('---' for _ in range(12))+' |\n| '+' | '.join('A long measured value' for _ in range(12))+' |\n\n: Table 2 — Wide measurements\n'
     (work/'manuscript.md').write_text(source)
-    git('add','-A');git('commit','-qm','Qualification source');sha=git('rev-parse','HEAD')
+    git('add','-A');git('commit','-qm','Qualification source')
+    (repo/'press-site.json').write_text(json.dumps({'schema':'press.site.v1','publisher':'Fixture Publisher',
+                                                      'base_url':'https://publisher.example'})+'\n')
+    git('add','press-site.json');git('commit','-qm','Review publisher site settings')
+    keys=directory/'signing';keys.mkdir(mode=0o700)
+    env={**os.environ,'GNUPGHOME':str(keys)}
+    def gpg(*args):return subprocess.check_output(['gpg',*args],env=env,stderr=subprocess.PIPE).decode().strip()
+    gpg('--batch','--pinentry-mode','loopback','--passphrase','','--quick-generate-key',
+        'Browser Preview <fixture@example.org>','ed25519','sign','0')
+    fingerprint=next(line.split(':')[9] for line in gpg('--batch','--with-colons','--list-secret-keys').splitlines() if line.startswith('fpr:'))
+    git('config','gpg.format','openpgp');git('config','user.signingkey',fingerprint)
+    subprocess.run(['git','commit','--allow-empty','-S','-qm','Authorize site settings\n\nPress-Site: 1'],cwd=repo,env=env,check=True,capture_output=True)
+    with (work/'manuscript.md').open('a') as stream:stream.write('\nA proposed additional work passage.\n')
+    git('add','-A');git('commit','-qm','Proposed unsigned complete site');sha=git('rev-parse','HEAD')
     output=directory/'view';render(repo,sha,'sample-work',output,preview=True)
     from guavajam.preview import build_preview
     from guavajam_core.asset_versions import pin_key
@@ -50,7 +63,10 @@ def make_fixture(directory):
         store.upload(key.lstrip('/'),base64.b64decode(record['body']),record['mime'])
         pin_key(store,Index(store),key.lstrip('/'))
     private=directory/'private'
-    manifest=build_preview(repo,sha,'sample-work',private,store=store)
+    from unittest.mock import patch
+    with patch.dict(os.environ,{'GNUPGHOME':str(keys)}):
+        manifest=build_preview(repo,sha,'sample-work',private,store=store,
+                               fingerprints=[fingerprint],published='2026-11-15')
     fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha,
              'preview_root':str(private),'preview_manifest':manifest}
     (directory/'fixture.json').write_text(json.dumps(fixture))

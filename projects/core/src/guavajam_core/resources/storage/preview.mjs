@@ -11,13 +11,36 @@ import {previewFetch} from './worker.js';
 import {configuration} from './server.mjs';
 
 const types={'.html':'text/html; charset=utf-8','.json':'application/json','.gfm':'text/plain; charset=utf-8','.xml':'application/xml'};
+
+// Preview-only *response* adaptation. Signed canonical files on disk are never
+// rewritten: a later production build can be compared byte-for-byte. Only
+// actual HTML attributes referencing the exact, privately qualified inventory
+// are routed to the session-bound asset proxy; literal code/text stays intact.
+export function privateHtml(raw,manifest) {
+  const addresses=new Map(Object.keys(manifest.assets).map(key=>[manifest.origin+'/'+key,'/_assets/'+key]));
+  let html=raw.toString('utf8');
+  // Match only real opening tags. Replacing text globally can silently change
+  // literal `src="..."` examples in code blocks and the author's prose.
+  html=html.replace(/<[A-Za-z][^>]*>/g,tag=>tag.replace(/(\b(?:src|href|poster)=["'])([^"']+)(["'])/g,
+    (full,start,url,end)=>addresses.has(url)?start+addresses.get(url)+end:full));
+  // The published baseline may still use its public origin, while staged assets
+  // use this same-origin private gateway. Permit BOTH, without altering files.
+  html=html.replace(/(<meta http-equiv="Content-Security-Policy" content=")([^"]+)(")/, (full,start,csp,end)=>
+    start+csp.replace(/((?:img-src|media-src)\s+)([^;]+)/g,(directive,kind,values)=>
+      kind+(values.includes('&#x27;self&#x27;')?values:values.trimEnd()+' &#x27;self&#x27;'))+end);
+  // Fixed-position notice does not alter the real content/navigation layout.
+  const marker='<aside role="note" aria-label="Private preview" style="position:fixed;right:0;bottom:0;z-index:9999;background:#222;color:#fff;padding:5px 9px;font:12px system-ui;pointer-events:none">'+
+    (manifest.candidate_signed?'PRIVATE SIGNED PREVIEW':'PRIVATE PROPOSED EDITION — UNSIGNED')+'</aside>';
+  return Buffer.from(html.replace('</body>',marker+'</body>'));
+}
 function deny(res,status=404){res.writeHead(status,{'Cache-Control':'no-store','Content-Type':'text/plain','X-Content-Type-Options':'nosniff'});res.end('Not found');}
 function equal(a,b){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
 
 export function previewServer(env,root,manifest,token,webOrigin=null) {
   if(webOrigin){
     const url=new URL(webOrigin);
-    if(url.protocol!=='https:'||url.origin!==webOrigin||url.username||url.password)throw Error('canonical HTTPS preview origin required');
+    const loopback=url.protocol==='http:'&&url.hostname==='127.0.0.1';
+    if((url.protocol!=='https:'&&!loopback)||url.origin!==webOrigin||url.username||url.password)throw Error('HTTPS or explicit localhost preview origin required');
   }
   if(!/^[a-f0-9]{64}$/.test(token))throw Error('preview token');
   if(manifest.schema!=='guavajam.preview.v1'||!manifest.files||!manifest.assets)throw Error('preview manifest');
@@ -37,7 +60,7 @@ export function previewServer(env,root,manifest,token,webOrigin=null) {
       // Token is supplied once in an explicit local URL. Never send it upstream.
       if(url.pathname==='/_session'&&req.method==='GET'&&url.searchParams.size===1&&equal(url.searchParams.get('token')||'',token)){
         res.writeHead(303,{'Location':'/','Cache-Control':'no-store','Referrer-Policy':'no-referrer',
-          'Set-Cookie':'guavajam_preview='+token+'; Path=/; HttpOnly; SameSite=Strict'+(webOrigin?'; Secure':'')});res.end();return;
+          'Set-Cookie':'guavajam_preview='+token+'; Path=/; HttpOnly; SameSite=Strict'+(webOrigin?.startsWith('https://')?'; Secure':'')});res.end();return;
       }
       const cookies=(req.headers.cookie||'').split(';').map(x=>x.trim());
       if(!cookies.some(x=>x.startsWith('guavajam_preview=')&&equal(x.slice(17),token)))return deny(res);
@@ -60,10 +83,11 @@ export function previewServer(env,root,manifest,token,webOrigin=null) {
       const {createHash}=await import('node:crypto');
       if(createHash('sha256').update(content).digest('hex')!==manifest.files[name])return deny(res,503);
       const type=Object.entries(types).find(([suffix])=>name.endsWith(suffix))?.[1]||'application/octet-stream';
-      res.writeHead(200,{'Content-Type':type,'Content-Length':String(content.length),'Cache-Control':'private, no-store',
+      const presented=name.endsWith('.html')?privateHtml(content,manifest):content;
+      res.writeHead(200,{'Content-Type':type,'Content-Length':String(presented.length),'Cache-Control':'private, no-store',
         'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cross-Origin-Resource-Policy':'same-origin',
         'X-Robots-Tag':'noindex, nofollow, noarchive','Content-Security-Policy':"frame-ancestors 'none'"});
-      res.end(req.method==='HEAD'?undefined:content);
+      res.end(req.method==='HEAD'?undefined:presented);
     }catch{if(!res.headersSent)deny(res,503);else res.destroy();}
   });
 }
