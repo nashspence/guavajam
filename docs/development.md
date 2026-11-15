@@ -6,6 +6,8 @@
 
 `projects/view` builds **guavajam-view** (`guavajam`, `guavajam`). It depends on the exact matching core version and owns HTML, CSS, rendering, catalogs, citations, feeds, cache and atomic updates. Core has no view dependency. The shared lock and editable development installation do not define the distribution boundary: CI installs each wheel outside the checkout, exercises a synthetic signed publisher, and rebuilds both source distributions independently.
 
+[Compose deployment](../deploy/README.md) packages the updater and static view server, with an optional local S3 profile.
+
 [Asset storage configuration and guarantees](storage.md) covers S3 endpoints, optional versioning/retention, and maintenance.
 
 `make test`, `make test-browser`, and `make test-capture-browser` run the contracts. `make check-artifacts` builds/verifies both distributions without publication. Browser checks use the pinned npm lock and Playwright engines.

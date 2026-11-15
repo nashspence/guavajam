@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-core test-view test-browser test-capture-browser render site update build check-artifacts version check-boundaries
+.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose render site update build check-artifacts version check-boundaries
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
 export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD
 help: ## Show commands.
@@ -10,7 +10,7 @@ setup: ## Install pinned project tools and dependencies.
 test: check-boundaries test-core test-view ## Run both package contracts.
 test-core: ## Run source, capture, storage and preservation contracts.
 	@$(PYTHON) tools/run_tests.py core
-	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_chatgpt_capture.mjs
+	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_chatgpt_capture.mjs
 test-view: ## Run rendering, catalog and update contracts.
 	@$(PYTHON) tools/run_tests.py view
 test-browser: ## Run reader, keyboard, accessibility and print journeys; requires pinned Playwright browsers.
@@ -44,3 +44,8 @@ version: ## VERSION=x.y.z Update both package versions and their dependency; the
 
 check-boundaries: ## Enforce core independence and single implementation ownership.
 	@$(PYTHON) tools/check_boundaries.py
+
+
+test-compose: ## Build and qualify default/local-assets Compose with disposable signed source and real S3 media.
+	docker compose build updater web assets
+	@$(PYTHON) tools/check_compose.py

@@ -1,0 +1,4 @@
+{
+  "origin": "https://assets.publisher.example",
+  "networks": ["192.168.50.10/32"]
+}
