@@ -41,6 +41,17 @@ def make_fixture(directory):
     (work/'manuscript.md').write_text(source)
     git('add','-A');git('commit','-qm','Qualification source');sha=git('rev-parse','HEAD')
     output=directory/'view';render(repo,sha,'sample-work',output,preview=True)
-    fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha}
+    from guavajam.preview import build_preview
+    from guavajam_core.asset_versions import pin_key
+    from guavajam_core.gateway_index import Index
+    from guavajam_test_support.storage_fixture import MemoryStore
+    store=MemoryStore()
+    for key,record in assets.items():
+        store.upload(key.lstrip('/'),base64.b64decode(record['body']),record['mime'])
+        pin_key(store,Index(store),key.lstrip('/'))
+    private=directory/'private'
+    manifest=build_preview(repo,sha,'sample-work',private,store=store)
+    fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha,
+             'preview_root':str(private),'preview_manifest':manifest}
     (directory/'fixture.json').write_text(json.dumps(fixture))
     return fixture

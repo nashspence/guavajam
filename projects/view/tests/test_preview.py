@@ -9,12 +9,10 @@ import unittest
 from unittest.mock import patch
 
 from guavajam.preview import build_preview
-from guavajam.renderer import process as renderer_process
 from guavajam.update import verify_public_delivery
 from guavajam_core.asset_policy import AssetError
 from guavajam_core.asset_versions import pin_key
 from guavajam_core.gateway_index import Index
-from guavajam_core.validate_sources import validate_repository
 from guavajam_test_support.discovery_fixture import Publisher
 from guavajam_test_support.storage_fixture import MemoryStore, RAW, KEY
 
@@ -28,15 +26,6 @@ class PreviewTests(unittest.TestCase):
         self.output = self.root/'preview'
         self.store = MemoryStore(seed=True)
         pin_key(self.store, Index(self.store), KEY)
-        # Test byte routing with the available compiler; pinned-toolchain refusal
-        # is a separate production contract. All actual parsing/rendering runs.
-        self.enterContext(patch('guavajam_core.qualify_assets.validate_repository',
-                                side_effect=lambda root, files, **kw: validate_repository(root, files, enforce_version=False)))
-        def compile(command, **kwargs):
-            if command == ['pandoc', '--version']:
-                return b'pandoc 3.12.1\n'
-            return renderer_process(command, **kwargs)
-        self.enterContext(patch('guavajam.renderer.process', side_effect=compile))
 
     def source(self, assets=True):
         (self.publisher.repo/'asset-policy.json').write_text('{"origin":"https://assets.example.org"}\n')

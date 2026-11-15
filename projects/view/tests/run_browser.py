@@ -16,5 +16,6 @@ def main():
         if result.returncode==0:
             from verify_print import verify
             verify(output)
+            result=subprocess.run(['mise','exec','--','node',str(Path(__file__).with_name('test_preview_browser.mjs')),str(root/'fixture/fixture.json')],check=False)
         return result.returncode
 if __name__=='__main__':sys.exit(main())

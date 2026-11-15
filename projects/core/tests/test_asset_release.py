@@ -136,18 +136,13 @@ class ReleaseAuthorityTests(unittest.TestCase):
         self.publisher.git('push', '-q', 'origin', 'review')
         self.store = MemoryStore(seed=True)
         self.mapping = pin_key(self.store, Index(self.store), KEY)
-        # These authority tests allow the caller-installed compiler. The shipping
-        # CLI still requires the pinned compiler; renderer/qualification tests
-        # cover that separate boundary. Source syntax and real signatures run.
-        self.enterContext(patch('guavajam_core.qualify_assets.validate_repository',
-                                side_effect=lambda root, files, **kw: validate_repository(root, files, enforce_version=False)))
         def verify(repo, revision, **kwargs):
             if kwargs.get('online_media'):
                 self.public_calls += 1
                 if self.fail_public:
                     raise AssetError('synthetic public delivery outage')
                 kwargs['online_media'] = False
-            return verify_commit(repo, revision, pandoc_version=False, **kwargs)
+            return verify_commit(repo, revision, **kwargs)
         self.public_calls = 0
         self.fail_public = False
         self.enterContext(patch('guavajam_core.asset_release.verify', side_effect=verify))
