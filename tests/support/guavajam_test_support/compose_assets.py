@@ -1,4 +1,5 @@
 """Real local S3/media qualification, run only inside a disposable test container."""
+import argparse
 import hashlib
 import json
 import os
@@ -14,6 +15,28 @@ from guavajam_core.asset_policy import public_response, response_chunks
 from guavajam_core.gateway_index import Index
 from guavajam_core.s3 import S3Error, response
 from .media_fixture import audio, video
+
+
+def persistence(phase):
+    """Exercise actual S3 data/metadata across Compose down/up, then remove the marker."""
+    identities=json.loads(Path('/qualification/identities.json').read_text())['identities']
+    publisher=identities[0]['credentials'][0]
+    values={'S3_ENDPOINT':'https://storage.publisher.test','S3_REGION':'us-east-1',
+            'S3_BUCKET':'publication-assets','S3_ACCESS_KEY_ID':publisher['accessKey'],
+            'S3_SECRET_ACCESS_KEY':publisher['secretKey']}
+    store=S3(values,operation='upload' if phase=='write' else 'inspect')
+    raw=b'WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nOwned disposable persistence fixture.\n'
+    key='sha256/'+hashlib.sha256(raw).hexdigest()+'.vtt'
+    if phase=='write':
+        assert store.inventory()==[]
+        store.upload(key,raw,'text/vtt')
+    else:
+        item=store.head(key)
+        assert item and item.byte_count==len(raw) and item.content_type=='text/vtt'
+        with store.read(item) as received:assert received.read()==raw
+        S3(values,operation='delete').delete(item)
+        assert store.inventory()==[]
+    print(json.dumps({'persistent_s3_fixture_'+phase:True}),flush=True)
 
 
 def main():
@@ -82,4 +105,9 @@ def main():
             print(json.dumps({'fixture_cleanup_verified':True}),flush=True)
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--persistence',choices=['write','verify'])
+    args=parser.parse_args()
+    if args.persistence:persistence(args.persistence)
+    else:main()
