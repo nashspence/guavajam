@@ -45,6 +45,8 @@ def main():
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'works')
         run(sys.executable, '-m', 'guavajam_core', 'resources', 'capture', '--output', str(root / 'capture'), cwd=repo)
         assert (root / 'capture/capture.mjs').is_file()
+        for legal in ['LICENSES/Apache-2.0.txt', 'REUSE.toml']:
+            assert (root / 'capture' / legal).read_bytes() == (resources / 'chatgpt-capture' / legal).read_bytes()
     sha = run('git', 'rev-parse', 'HEAD', cwd=repo)
     signers = root / 'allowed-signers'
     from guavajam_core.publication_commit import verify

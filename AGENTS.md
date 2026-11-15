@@ -2,8 +2,9 @@
 
 Use `make setup` for pinned mise/uv tools and `make help` for commands.
 
-`README.md` and `AGENTS.md` are the only prose documentation on `main`. Keep onboarding minimal, primarily linking to executable tests. Tests are authoritative; prose is limited to policy that cannot be encoded as executable checks. Put release guides with release documentation and rationale/verification history in issues/PRs.
+`README.md` and `AGENTS.md` are the only prose documentation on `main`; license texts are legal artifacts. Keep onboarding minimal, primarily linking to executable tests. Tests are authoritative; prose is limited to policy that cannot be encoded as executable checks. Put release guides with release documentation and rationale/verification history in issues/PRs.
 
+- Licensing: [REUSE and package contracts](tests/repository/test_licensing.py); `make check-licenses` runs REUSE lint.
 - Repository policy: [documentation boundary and onboarding links](tests/repository/test_policy.py).
 - Packages: [core independence and single implementation ownership](tools/check_boundaries.py), [coordinated versions](tools/version.py), [isolated distributions](tools/check_artifacts.py), [release preparation](.github/workflows/prepare-release.yml).
 - Core: [source, signatures, capture, discovery and preservation](projects/core/tests/).

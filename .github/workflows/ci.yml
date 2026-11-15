@@ -75,3 +75,16 @@ jobs:
       - run: mise install
       - run: mise exec -- uv sync --locked --all-packages --group dev
       - run: make test-compose
+
+  licensing:
+    name: Verify REUSE licensing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: mise install
+      - run: make check-licenses

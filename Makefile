@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render site update build check-artifacts version check-boundaries
+.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render site update build check-artifacts version check-boundaries check-licenses
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
 export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD
 help: ## Show commands.
@@ -7,7 +7,7 @@ help: ## Show commands.
 setup: ## Install pinned project tools and dependencies.
 	mise install
 	mise exec -- uv sync --locked --all-packages --group dev
-test: check-boundaries test-core test-view test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
+test: check-licenses check-boundaries test-core test-view test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
 test-core: ## Run source, capture, storage and preservation contracts.
 	@$(PYTHON) tools/run_tests.py core
 	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_chatgpt_capture.mjs
@@ -45,7 +45,10 @@ version: ## VERSION=x.y.z Update both package versions and their dependency; the
 check-boundaries: ## Enforce core independence and single implementation ownership.
 	@$(PYTHON) tools/check_boundaries.py
 
-test-repository: ## Verify the documentation boundary and onboarding links.
+check-licenses: ## Verify REUSE copyright and license coverage.
+	@UV_PROJECT_ENVIRONMENT=.build/licensing mise exec -- uv run --locked --only-group licensing reuse lint
+
+test-repository: ## Verify licensing, the documentation boundary and onboarding links.
 	@$(PYTHON) -m unittest discover -s tests/repository -v
 
 test-deployment-config: ## Verify Compose boundaries and pinned build inputs without Docker.

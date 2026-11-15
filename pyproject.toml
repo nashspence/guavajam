@@ -3,3 +3,6 @@ members = ["projects/core", "projects/view"]
 
 [dependency-groups]
 dev = ["PyMuPDF==1.26.5"]
+licensing = [
+    "reuse==6.3.0",
+]

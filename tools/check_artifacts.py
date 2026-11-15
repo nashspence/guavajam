@@ -1,6 +1,7 @@
 """Check build boundaries with clean environments outside the source checkout."""
 from pathlib import Path
 import argparse
+from email.parser import BytesParser
 import hashlib
 import os
 import subprocess
@@ -11,6 +12,7 @@ import zipfile
 from version import check
 
 ROOT = Path(__file__).resolve().parents[1]
+LICENSE_FILES = ['LICENSES/Apache-2.0.txt', 'REUSE.toml']
 
 
 def run(*args, cwd=None, env=None):
@@ -35,6 +37,12 @@ def main():
                 wheels[package] = wheel
                 with zipfile.ZipFile(wheel) as archive:
                     names = archive.namelist()
+                    info = f'guavajam_{package}-{version}.dist-info/'
+                    metadata = BytesParser().parsebytes(archive.read(info + 'METADATA'))
+                    assert metadata['License-Expression'] == 'Apache-2.0', 'wheel license expression differs'
+                    assert set(metadata.get_all('License-File', [])) == set(LICENSE_FILES)
+                    for name in LICENSE_FILES:
+                        assert archive.read(info + 'licenses/' + name) == (ROOT / name).read_bytes(), 'wheel lost legal artifact: ' + name
                     if package == 'core':
                         assert not any(name.startswith('guavajam/') for name in names)
                     else:
@@ -44,6 +52,9 @@ def main():
             # A standalone sdist must build without the workspace root or sibling sources.
             sdist = ROOT / f'dist/guavajam_{package}-{version}.tar.gz'
             with tarfile.open(sdist) as archive:
+                for name in LICENSE_FILES:
+                    legal = archive.extractfile(f'guavajam_{package}-{version}/' + name)
+                    assert legal is not None and legal.read() == (ROOT / name).read_bytes(), 'sdist lost legal artifact: ' + name
                 archive.extractall(scratch / 'sources', filter='data')
             source = scratch / 'sources' / f'guavajam_{package}-{version}'
             run('uv', 'build', '--no-sources', '--wheel', str(source), '--out-dir', str(scratch / 'rebuilt'), env=env)
