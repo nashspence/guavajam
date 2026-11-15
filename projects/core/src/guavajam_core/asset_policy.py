@@ -174,8 +174,12 @@ def public_addresses(host: str) -> list[str]:
     if isinstance(records, OSError):
         raise AssetError("asset origin DNS lookup failed") from records
     addresses = sorted({record[4][0] for record in records})
-    if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
-        raise AssetError("asset origin must resolve exclusively to public addresses")
+    from .asset_network import allowed_networks
+    networks = allowed_networks(host)
+    if not addresses or any(not ipaddress.ip_address(address).is_global
+                            and not any(ipaddress.ip_address(address) in network for network in networks)
+                            for address in addresses):
+        raise AssetError("asset origin must resolve exclusively to public or explicitly authorized addresses")
     return addresses
 
 

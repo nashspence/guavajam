@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "publisher",
+      "credentials": [{"accessKey": "REPLACE_PUBLISHER_ACCESS_KEY", "secretKey": "REPLACE_PUBLISHER_SECRET_KEY"}],
+      "actions": ["Read:publication-assets", "Write:publication-assets", "List:publication-assets", "Tagging:publication-assets"]
+    },
+    {
+      "name": "delivery",
+      "credentials": [{"accessKey": "REPLACE_DELIVERY_ACCESS_KEY", "secretKey": "REPLACE_DELIVERY_SECRET_KEY"}],
+      "actions": ["Read:publication-assets"]
+    }
+  ]
+}
