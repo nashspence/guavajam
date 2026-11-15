@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render preview site update build check-artifacts version check-boundaries check-licenses
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
-export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD BASE_REF SERVE PORT REQUIRE_RETENTION
+export REPO REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW CATALOG PREVIOUS_CATALOG INITIAL_CATALOG SOURCE_REF REMOTE NO_FETCH REBUILD BASE_REF SERVE PORT REQUIRE_RETENTION PUBLISHED LABEL
 help: ## Show commands.
 	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' Makefile
 setup: ## Install pinned project tools and dependencies.
@@ -59,9 +59,9 @@ test-compose: test-deployment-config ## Build and qualify default/local-assets C
 	@$(PYTHON) tests/deployment/test_compose.py
 	$(PYTHON) tests/deployment/test_preview_compose.py
 
-preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Build an authenticated loopback draft preview; baseline context needs external signer trust. No publication or asset-release writes.
+preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug PUBLISHED=YYYY-MM-DD OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Preview the entire proposed site against signed main (exact signed identities; unsigned facts provisional). No public writes.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }
-	@set --; if [ -n "$$BASE_REF" ]; then set -- --base-ref "$$BASE_REF"; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- "$$@" --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- "$$@" --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external trust for BASE_REF}"; fi; fi; \
+	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signing trust}"; fi; 	if [ -n "$$BASE_REF" ]; then set -- "$$@" --base-ref "$$BASE_REF"; fi; 	if [ -n "$$PUBLISHED" ]; then set -- "$$@" --published "$$PUBLISHED"; fi; 	if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
 	case "$${SERVE:-0}" in 1) set -- "$$@" --serve;; 0) ;; *) echo 'SERVE must be 0 or 1'; exit 1;; esac; \
 	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam preview --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:?Set SOURCE_REF}" --work "$${WORK:?Set WORK}" --output "$${OUTPUT:?Set OUTPUT}" --port "$${PORT:-0}" "$$@"

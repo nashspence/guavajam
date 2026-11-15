@@ -26,7 +26,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual(['ALL'], preview['cap_drop'])
         self.assertEqual({'context': '.', 'target': 'preview'}, preview['build'])
         mounts = [m for m in preview['volumes'] if isinstance(m, dict)]
-        self.assertEqual({'/source', '/run/secrets/session.key', '/run/secrets/readonly.env'}, {m['target'] for m in mounts})
+        self.assertEqual({'/source', '/trust', '/run/secrets/session.key', '/run/secrets/readonly.env'}, {m['target'] for m in mounts})
         self.assertTrue(all(m['read_only'] and not m['bind']['create_host_path'] for m in mounts))
         self.assertEqual('/run/secrets/readonly.env', preview['environment']['S3_ENV'])
         self.assertEqual(['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080'], preview['ports'])

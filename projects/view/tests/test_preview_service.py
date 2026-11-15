@@ -16,23 +16,31 @@ class PreviewServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); publisher=Publisher(root)
             publisher.git('switch','-c','draft')
+            publisher.source('field-notes','Field Notes','An initial private draft.')
+            publisher.git('add','-A');publisher.git('commit','-qm','Initial unsigned draft')
+            public=root/'publisher.asc'
+            from guavajam_test_support.discovery_fixture import command
+            public.write_text(command(publisher.repo,'gpg','--batch','--armor','--export',publisher.fingerprint,env=publisher.env))
             token_file=root/'session.key'; token_file.write_text('e'*64); token_file.chmod(0o600)
             state=root/'state'; state.mkdir()
             with socket.socket() as sock:
                 sock.bind(('127.0.0.1',0)); port=sock.getsockname()[1]
             env={'GUAVAJAM_PREVIEW_ORIGIN':'https://preview.publisher.test','GUAVAJAM_PREVIEW_PORT':str(port),
                  'GUAVAJAM_PREVIEW_REPO':str(publisher.repo),'GUAVAJAM_PREVIEW_REF':'refs/heads/draft',
-                 'GUAVAJAM_PREVIEW_WORK':'field-notes','GUAVAJAM_PREVIEW_TOKEN_FILE':str(token_file)}
+                 'GUAVAJAM_PREVIEW_WORK':'field-notes','GUAVAJAM_PREVIEW_TOKEN_FILE':str(token_file),
+                 'GUAVAJAM_PREVIEW_PUBLISHED':'2026-11-15', 'GUAVAJAM_SSH_ALLOWED_SIGNERS':'',
+                 'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS':publisher.fingerprint,
+                 'GUAVAJAM_GPG_PUBLIC_KEYS':str(public)}
             preview=Preview(state,env)
             try:
                 with patch('guavajam.preview_service.credentials',side_effect=AssertionError('no asset credentials needed')):
                     self.assertEqual(preview.refresh(),'updated')
                 first=preview.revision; output=preview.output
                 self.assertEqual(preview.refresh(),'unchanged')
-                target='http://127.0.0.1:'+str(port)+'/works/field-notes/preview/index.html'
+                target='http://127.0.0.1:'+str(port)+'/works/field-notes/index.html'
                 req=urllib.request.Request(target,headers={'Host':'preview.publisher.test','Cookie':'guavajam_preview='+'e'*64})
                 with urllib.request.urlopen(req) as response:
-                    self.assertIn(b'PRIVATE DRAFT PREVIEW',response.read())
+                    self.assertIn(b'PRIVATE PROPOSED EDITION',response.read())
                 with self.assertRaises(urllib.error.HTTPError):
                     urllib.request.urlopen(urllib.request.Request(target,headers={'Host':'preview.publisher.test'}))
                 publisher.source('field-notes','Field Notes','A privately revised observation.')
@@ -45,11 +53,14 @@ class PreviewServiceTests(unittest.TestCase):
                 previous=preview.revision
                 with self.assertRaises(ValueError):preview.refresh()
                 self.assertEqual(previous,preview.revision)
-                with urllib.request.urlopen(req) as response:self.assertIn(b'privately revised',response.read())
+                reading='http://127.0.0.1:'+str(port)+'/works/field-notes/editions/'+previous+'/read/index.html'
+                with urllib.request.urlopen(urllib.request.Request(reading,headers={'Host':'preview.publisher.test','Cookie':'guavajam_preview='+'e'*64})) as response:
+                    self.assertIn(b'privately revised',response.read())
             finally:preview.close()
 
     def test_hosted_mode_requires_fixed_https_and_private_key_file(self):
-        for origin in ['http://preview.example','https://preview.example/','https://user@preview.example','https://preview.example?x=1']:
+        self.assertEqual('http://127.0.0.1:8082', settings({'GUAVAJAM_PREVIEW_ORIGIN':'http://127.0.0.1:8082'})[0])
+        for origin in ['http://preview.example','http://localhost:8082','https://preview.example/','https://user@preview.example','https://preview.example?x=1']:
             with self.subTest(origin=origin),self.assertRaises(ValueError):settings({'GUAVAJAM_PREVIEW_ORIGIN':origin})
         with tempfile.TemporaryDirectory() as directory:
             key=Path(directory)/'key';key.write_text('a'*64);key.chmod(0o644)
