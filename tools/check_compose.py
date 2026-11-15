@@ -51,6 +51,7 @@ def main():
         trust=work/'trust';trust.mkdir();trust.chmod(0o755)
         public=trust/'publisher.asc'
         public.write_text(run(['gpg','--batch','--armor','--export',p.fingerprint],env=p.env));public.chmod(0o644)
+        gitconfig=trust/'gitconfig';gitconfig.write_text('[safe]\n\tdirectory = /fixture-source\n\tdirectory = /fixture-source/.git\n');gitconfig.chmod(0o644)
         private=initialize(work/'identities')
         # Synthetic test-only credentials, readable by the non-root image on CI UID mappings.
         for name in ['delivery-access-key','delivery-secret-key','s3-identities.json']:
@@ -68,7 +69,7 @@ def main():
         config=work/'tls.conf'
         config.write_text('pid /tmp/nginx.pid; events {} http { access_log off; server { listen 443 ssl; server_name storage.publisher.test; ssl_certificate /tls/cert.pem; ssl_certificate_key /tls/key.pem; client_max_body_size 0; location / { proxy_pass http://seaweedfs:8333; proxy_set_header Host $http_host; proxy_http_version 1.1; proxy_request_buffering off; proxy_buffering off; } } server { listen 443 ssl; server_name assets.publisher.test; ssl_certificate /tls/cert.pem; ssl_certificate_key /tls/key.pem; location / { proxy_pass http://assets:8080; proxy_set_header Host $http_host; proxy_buffering off; } } }')
         override={'services':{
-            'updater':{'volumes':[str(p.repo)+':/fixture-source:ro']},
+            'updater':{'environment':{'GIT_CONFIG_GLOBAL':'/trust/gitconfig'},'volumes':[str(p.repo)+':/fixture-source:ro']},
             'assets':{'environment':{'NODE_EXTRA_CA_CERTS':'/tls/cert.pem'},'volumes':[str(cert)+':/tls:ro']},
             'tls':{'profiles':['local-assets'],'image':'nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a','entrypoint':['nginx'],'command':['-g','daemon off;'],'volumes':[str(config)+':/etc/nginx/nginx.conf:ro',str(cert)+':/tls:ro'],'networks':{'default':{'aliases':['assets.publisher.test','storage.publisher.test']}}}}}
         override_path=work/'override.json';override_path.write_text(json.dumps(override))
