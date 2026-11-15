@@ -33,6 +33,8 @@ jobs:
           else
             mise exec -- uv sync --locked --all-packages --group dev
           fi
+      - name: Enforce repository documentation policy
+        run: make test-repository PYTHON=.venv/bin/python
       - name: Enforce package boundaries
         run: .venv/bin/python tools/check_boundaries.py
       - name: Verify coordinated versions
