@@ -1,12 +1,12 @@
 # Working on GuavaJam
 
-Tests define supported behavior. Use `make help` for commands and keep recipes/help together.
+Use `make setup` for pinned mise/uv tools and `make help` for commands.
 
-- Core: [source, signature, capture, asset and preservation contracts](projects/core/tests/).
-- View: [renderer and catalog contracts](projects/view/tests/), [catalog operations](projects/view/docs/catalog.md), and [periodic updates](projects/view/docs/updates.md).
-- Deployment: [configuration contracts](tests/deployment/test_configuration.py), [Compose lifecycle and media qualification](tests/deployment/test_compose.py), and its [executed HTTPS ingress fixture](tests/deployment/ingress.conf).
-- Packages: [workspace and release preparation](docs/development.md), [isolated artifact checks](tools/check_artifacts.py), and [CI](.github/workflows/ci.yml).
+`README.md` and `AGENTS.md` are the only prose documentation on `main`. Keep onboarding minimal, primarily linking to executable tests. Tests are authoritative; prose is limited to policy that cannot be encoded as executable checks. Put release guides with release documentation and rationale/verification history in issues/PRs.
 
-Keep README minimal and onboarding short. Put rationale and verification history in issues/PRs. Tests are the authority for supported deployment behavior; release-specific operator guides belong with that release’s documentation. Views are derived; publication authority comes from independently trusted signed source commits. Core must not import the view. Neither indexed repositories nor local sibling checkouts supply tool implementations or signer policy.
-
-All publication and data protocol identifiers are v1 while unreleased. Keep one current contract without migration commands or compatibility adapters. Package versions remain coordinated independently of protocol identifiers.
+- Repository policy: [documentation boundary and onboarding links](tests/repository/test_policy.py).
+- Packages: [core independence and single implementation ownership](tools/check_boundaries.py), [coordinated versions](tools/version.py), [isolated distributions](tools/check_artifacts.py), [release preparation](.github/workflows/prepare-release.yml).
+- Core: [source, signatures, capture, discovery and preservation](projects/core/tests/).
+- Storage: [S3 contracts](projects/core/tests/test_s3.py), [identity/retention](projects/core/tests/test_asset_versions.py), [publication checks](projects/core/tests/test_publication_storage.py), [collection](projects/core/tests/test_asset_storage.py).
+- View: [catalogs and citations](projects/view/tests/test_catalog.py), [atomic updates](projects/view/tests/test_update.py), [service/trust](projects/view/tests/test_service.py), [browser journeys](projects/view/tests/test_catalog_browser.mjs).
+- Deployment: [configuration](tests/deployment/test_configuration.py), [Compose lifecycle and media](tests/deployment/test_compose.py).
