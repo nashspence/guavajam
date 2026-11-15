@@ -16,7 +16,7 @@ import yaml
 from guavajam_core.asset_policy import AssetError
 from guavajam_core import asset_storage, asset_workflow
 from guavajam_core.asset_storage import credentials
-from guavajam_core.object_store import GRACE_DAYS, LEASE_PREFIX, StoredObject
+from guavajam_core.object_store import GRACE_DAYS, LEASE_PREFIX, RELEASE_PREFIX, StoredObject
 from guavajam_core.configure_asset_maintenance import configure, deletion_ruleset
 from guavajam_core.manage_assets import candidates, collect, fingerprints, git, require_action, retained_assets, upload
 from guavajam_test_support import FIXTURES, RESOURCES
@@ -140,7 +140,7 @@ class CollectionTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.run_gc(store, scan=Mock(side_effect=[set(), {DIGEST}]), apply=True)
         self.assertEqual([], store.deleted)
-        store.inventory = Mock(side_effect=[[version()], [version(), version(LEASE_PREFIX + KEY[7:], stamp=int(NOW * 1000), file_id="lease")]])
+        store.inventory = Mock(side_effect=[[version()], [], [version(), version(LEASE_PREFIX + KEY[7:], stamp=int(NOW * 1000), file_id="lease")], []])
         with self.assertRaises(AssetError):
             self.run_gc(store, apply=True)
         self.assertEqual([], store.deleted)
@@ -154,6 +154,20 @@ class CollectionTests(unittest.TestCase):
             with self.assertRaises(AssetError):
                 self.run_gc(store, scan=scan, apply=True)
             self.assertEqual([], store.deleted)
+
+    def test_release_namespace_inventory_protects_content_and_failure_blocks_collection(self):
+        store = Store([version(), version(RELEASE_PREFIX + KEY[7:] + '.json', file_id='release')])
+        self.assertEqual(0, self.run_gc(store, apply=True))
+        self.assertEqual([], store.deleted)
+        inventory = store.inventory
+        def denied(prefix):
+            if prefix == RELEASE_PREFIX:
+                raise AssetError('release authority unavailable')
+            return inventory(prefix)
+        store.inventory = denied
+        with self.assertRaises(AssetError):
+            self.run_gc(store, apply=True)
+        self.assertEqual([], store.deleted)
 
     def test_apply_gate_requires_trusted_main_workflow(self):
         env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "publisher/press",

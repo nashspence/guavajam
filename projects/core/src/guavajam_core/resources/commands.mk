@@ -1,7 +1,7 @@
 # Publisher command recipes owned and shipped by guavajam-core.
 .PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export assets-qualify assets-release
 export TITLE AUTHOR LANGUAGE
-export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
+export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
 check: check-source check-assets ## Validate public source/assets. Use assets-qualify for committed private drafts.
 
@@ -83,9 +83,9 @@ assets-qualify: ## REV=full-draft-sha WORK=slug [S3_ENV=private-read.env REQUIRE
 	@set --; case "$${REQUIRE_RETENTION:-0}" in 1) set -- --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam_core.qualify_assets --revision "$${REV:?Set exact REV}" --work "$${WORK:?Set WORK}" "$$@"
 
-assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main [APPLY=1 S3_ENV=release.env REQUIRE_RETENTION=1] External signer trust required; default read-only plan, APPLY=1 irreversibly authorizes public delivery.
+assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main S3_RELEASE_ENV=release.env [APPLY=1 S3_ENV=private-read.env REQUIRE_RETENTION=1] External signer trust required; default read-only plan, APPLY=1 irreversibly authorizes public delivery.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust}"; fi; \
 	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	case "$${APPLY:-0}" in 1) set -- "$$@" --apply;; 0) ;; *) echo 'APPLY must be 0 or 1'; exit 1;; esac; \
-	$(PYTHON) -m guavajam_core.asset_release --revision "$${REV:?Set signed REV}" --expected-main "$${MAIN_SHA:?Set exact MAIN_SHA}" --remote "$${REMOTE:-origin}" "$$@"
+	$(PYTHON) -m guavajam_core.asset_release --revision "$${REV:?Set signed REV}" --release-env "$${S3_RELEASE_ENV:?Set separate release-prefix credential file}" --expected-main "$${MAIN_SHA:?Set exact MAIN_SHA}" --remote "$${REMOTE:-origin}" "$$@"

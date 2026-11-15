@@ -64,7 +64,7 @@ def deploy(root, *, apply=False):
     if not re.fullmatch('[a-z0-9][a-z0-9-]{1,61}',worker):raise AssetError('invalid Worker name')
     if not apply:
         print('Plan: deploy authenticated, identity-pinned S3 reads at '+policy.origin)
-        print('Private integrity pins never authorize delivery; separate .released/ records are required; no API writes or credential reads')
+        print('Private integrity pins never authorize delivery; separate released/sha256/ records are required; no API writes or credential reads')
         return
     account,token=cloudflare_values()
     store=S3(credentials(root),operation='inspect')

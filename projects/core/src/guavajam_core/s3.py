@@ -17,7 +17,7 @@ from urllib.parse import quote, urlsplit
 import xml.etree.ElementTree as ET
 
 from .asset_policy import AssetError
-from .object_store import valid_etag, valid_version
+from .object_store import PREFIX, RELEASE_PREFIX, valid_etag, valid_version
 
 
 @dataclass(frozen=True)
@@ -97,7 +97,7 @@ class S3Config:
 
 def headers(config, key='', *, method='GET', query=(), body=b'', extra=None, now=None):
     """Return an exactly signed URL and headers (query values are always encoded)."""
-    if key and (not key.startswith('sha256/') or '..' in key.split('/')
+    if key and (not key.startswith((PREFIX, RELEASE_PREFIX)) or '..' in key.split('/')
                 or re.search(r'[\x00-\x1f\x7f]', key)):
         raise AssetError('S3 key must be inside the asset namespace')
     if method not in {'GET', 'HEAD', 'PUT', 'POST', 'DELETE'}:

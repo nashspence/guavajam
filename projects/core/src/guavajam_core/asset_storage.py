@@ -182,7 +182,8 @@ class S3:
                         extra=read_headers(stored.etag, range_value))
 
     def inventory(self, prefix=PREFIX):
-        if not prefix.startswith(PREFIX):
+        from .object_store import RELEASE_PREFIX
+        if not prefix.startswith((PREFIX, RELEASE_PREFIX)):
             raise AssetError('inventory must stay within the asset namespace')
         records, identities, cursors = [], set(), set()
         cursor = []
