@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import sys
 import subprocess
 import time
 import uuid
@@ -243,7 +244,8 @@ def run(root, roles, origin, *, retention_seconds=0, strict_maintenance=True, cl
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         journal = root / 'owned.json'; receipt = root / 'receipt.json'
         binding = binding_for(roles, origin); maintenance = S3(roles['maintenance'], operation='delete')
-        result = {'schema': SCHEMA, 'passed': False, 'phase': 'preflight', 'cleanup_verified': False}
+        result = {'schema': SCHEMA, 'passed': False, 'phase': 'preflight', 'cleanup_verified': False,
+                  'suite_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
         value = None
         try:
             if cleanup_only:
@@ -256,6 +258,12 @@ def run(root, roles, origin, *, retention_seconds=0, strict_maintenance=True, cl
                 result['phase'] = 'exercise'; save(receipt, result)
                 result['checks'] = exercise(root, roles, origin, keys, retention_seconds=retention_seconds, strict_maintenance=strict_maintenance)
                 result['exercise_passed'] = True
+        except Exception:
+            trace = sys.exc_info()[2]
+            while trace:
+                if trace.tb_frame.f_code.co_filename == __file__: result['failed_line'] = trace.tb_lineno
+                trace = trace.tb_next
+            raise
         finally:
             if value is not None:
                 result['phase'] = 'cleanup'; save(receipt, result)
