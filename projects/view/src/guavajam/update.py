@@ -116,7 +116,7 @@ def current(output):
     if not site.is_dir() or site.is_symlink() or site.resolve() != site:
         raise CatalogError('current generation is missing or redirected')
     receipt = read_json(site.parent / 'STATE.json')
-    if receipt.get('schema') != 'guavajam.update.v1':
+    if receipt.get('schema') != 'guavajam.update.v1' or receipt.get('public_delivery_verified') is not True:
         raise CatalogError('unrecognized generation receipt')
     if digest((site / 'CATALOG.json').read_bytes()) != receipt.get('catalog_sha256'):
         raise CatalogError('deployed catalog differs from its retained baseline')
@@ -167,6 +167,23 @@ def fetch(repo, output, *, ref='refs/heads/main', remote='origin'):
     return resolve(repo, destination)
 
 
+def verify_public_delivery(repo, catalog, *, previous=None, fingerprints=(), allowed_signers=None):
+    """Do not select a new site generation while any readable edition is private.
+
+    The public gateway is tested without storage credentials. Failures retain
+    the existing site. This is readiness evidence, never release authority.
+    """
+    from guavajam_core.publication_commit import verify
+    from guavajam_core.catalog import READABLE_STATUSES
+    checked = {e['revision'] for w in (previous or {}).get('works', []) for e in w['editions']
+               if e['status'] in READABLE_STATUSES}
+    for work in catalog['works']:
+        for edition in work['editions']:
+            if edition['status'] in READABLE_STATUSES and edition['revision'] not in checked:
+                verify(repo, edition['revision'], fingerprints=fingerprints,
+                       allowed_signers=allowed_signers, online_media=True)
+
+
 def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
            no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False):
     repo = Path(repo).expanduser().resolve(strict=True)
@@ -195,6 +212,8 @@ def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads
             atomic(last, encoded(last_record))
             return {'status': 'unchanged', 'changed': False, 'source_tip': tip,
                     'site': str(root / 'current'), 'publications': len(evidence['publications'])}
+        verify_public_delivery(repo, catalog, previous=None if rebuild else previous,
+                               fingerprints=fingerprints, allowed_signers=allowed_signers)
         namespace = digest(encoded({'renderer': renderer, 'trust': trusted}))
         if rebuild:
             namespace = digest((namespace + uuid.uuid4().hex).encode())
@@ -216,7 +235,7 @@ def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads
             build_site(repo, catalog_path, staged / 'site', fingerprints=fingerprints,
                        allowed_signers=allowed_signers, previous_catalog=prior_path,
                        initial_catalog=previous is None, view_cache=cache)
-            state = {'schema': 'guavajam.update.v1', 'source_tip': tip, 'identity': identity,
+            state = {'schema': 'guavajam.update.v1', 'public_delivery_verified': True, 'source_tip': tip, 'identity': identity,
                      'catalog_sha256': catalog_hash, 'renderer': renderer, 'trust_sha256': trusted,
                      'site_checkpoint': evidence['site_checkpoint'], 'publications': evidence['publications'],
                      'cache_namespace': namespace}

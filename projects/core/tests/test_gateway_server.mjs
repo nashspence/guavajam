@@ -27,8 +27,8 @@ test('HTTP adapter preserves the shared gateway identity, ranges and isolation',
  globalThis.fetch=async(target,options)=>{
   if(!String(target).startsWith(env.S3_ENDPOINT))return realFetch(target,options);
   assert.equal(options.cache,'no-store');
-  if(String(target).includes('/.pins/')){
-   const raw=JSON.stringify(mapping);return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
+  if(String(target).includes('/.released/')){
+   const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:mapping});return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
   }
   assert.equal(options.headers['if-match'],'"fixture-etag"');
   const partial=Boolean(options.headers.range);const length=partial?10:1000;
@@ -41,7 +41,7 @@ test('HTTP adapter preserves the shared gateway identity, ranges and isolation',
   result=await realFetch(origin+'/'+key,{method:'HEAD'});assert.equal(result.status,200);assert.equal(await result.text(),'');
   assert.equal((await realFetch(origin+'/'+key+'?override=1')).status,404);
   assert.equal((await realFetch(origin+'/'+key,{method:'POST'})).status,405);
-  assert.equal((await realFetch(origin+'/sha256/.pins/private.json')).status,404);
+  assert.equal((await realFetch(origin+'/sha256/.released/private.json')).status,404);
   assert.equal((await realFetch(origin+'/healthz')).status,200);
  }finally{globalThis.fetch=realFetch;listener.closeAllConnections();await new Promise(resolve=>listener.close(resolve));}
 });

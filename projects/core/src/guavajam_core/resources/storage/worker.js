@@ -4,7 +4,7 @@ const SMALL = 10 * 1024 * 1024;
 const LARGE = 20 * 1024 ** 3;
 const MIME = {png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',bin:'application/octet-stream',mp3:'audio/mpeg',mp4:'video/mp4',vtt:'text/vtt'};
 const KEY = /^sha256\/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)$/;
-const PIN = /^sha256\/\.pins\/[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)\.json$/;
+const PIN = /^sha256\/\.(?:pins|released)\/[0-9a-f]{64}\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)\.json$/;
 const encoder = new TextEncoder();
 const hex = bytes => [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
 async function hmac(key,text) {
@@ -87,21 +87,25 @@ async function originRead(env,key,version,method='GET',range=null,etag=null) {
   }
 }
 async function mappingFor(env,key) {
-  const upstream=await originRead(env,key.replace('sha256/','sha256/.pins/')+'.json',null);
+  const upstream=await originRead(env,key.replace('sha256/','sha256/.released/')+'.json',null);
   if(upstream.status===404)return null;
   const length=upstream.headers.get('Content-Length');
   if(upstream.status!==200||(upstream.headers.get('Content-Encoding')||'identity')!=='identity'||upstream.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json'||!/^\d+$/.test(length||'')||Number(length)>8192||Number(length)===0)throw Error('mapping');
   return new Response(bounded(upstream.body,Number(length))).json();
 }
-export default {
-  async fetch(request,env) {
+async function deliver(request,env,previewMapping=null) {
     const url=new URL(request.url),key=url.pathname.slice(1),match=KEY.exec(key);
     if(url.origin!=='https://'+env.ASSET_HOST||url.href!==url.origin+url.pathname||url.search||url.hash||!match)return failure(404,'Not found');
     if(!['GET','HEAD'].includes(request.method))return failure(405,'Method not allowed',{Allow:'GET, HEAD'});
-    let mapping;
+    let mapping, publication=null;
     try{
-      mapping=await mappingFor(env,key);
-      if(!mapping)return failure(404,'Not found');
+      if(previewMapping){mapping=previewMapping;}
+      else {
+        const released=await mappingFor(env,key);
+        if(!released)return failure(404,'Not found');
+        if(Object.keys(released).sort().join(',')!=='asset,origin,publication,schema'||released.schema!=='press.asset-release.v1'||released.origin!=='https://'+env.ASSET_HOST||!/^[0-9a-f]{40}$/.test(released.publication))throw Error('release');
+        mapping=released.asset;publication=released.publication;
+      }
       if(Object.keys(mapping).sort().join(',')!=='byte_count,content_type,etag,extension,retain_until,retention_mode,schema,sha256,version_id'||(mapping.retain_until!==null&&(!Number.isSafeInteger(mapping.retain_until)||mapping.retain_until<=0))||mapping.schema!=='press.asset.v1'||mapping.sha256!==match[1]||mapping.extension!==match[2]||
         (mapping.version_id!==null&&!validVersion(mapping.version_id))||!validETag(mapping.etag)||!Number.isSafeInteger(mapping.byte_count)||mapping.byte_count<0||(mapping.byte_count===0&&match[2]!=='bin')||
         mapping.byte_count>(['mp3','mp4'].includes(match[2])?LARGE:SMALL)||mapping.content_type!==MIME[match[2]]||
@@ -123,14 +127,23 @@ export default {
       await upstream.body?.cancel().catch(()=>{});return failure(502);
     }
     const headers=new Headers({'Content-Type':mapping.content_type,'Content-Length':String(expected),
-      'Cache-Control':'public, max-age=31536000, immutable, no-transform','X-Content-Type-Options':'nosniff',
-      'Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Content-Length, Content-Range, Accept-Ranges, ETag, X-Press-Asset-Version, X-Press-Retain-Until',
+      'Cache-Control':previewMapping?'private, no-store':'public, max-age=31536000, immutable, no-transform','X-Content-Type-Options':'nosniff',
+      ...(!previewMapping?{'Access-Control-Allow-Origin':'*'}:{}),'Access-Control-Expose-Headers':'Content-Length, Content-Range, Accept-Ranges, ETag, X-Press-Asset-Version, X-Press-Retain-Until, X-Press-Asset-Publication',
       'ETag':mapping.etag,'X-Press-Retain-Until':String(mapping.retain_until||0)});
+    if(publication)headers.set('X-Press-Asset-Publication',publication);
     if(fixedVersion(mapping.version_id))headers.set('X-Press-Asset-Version',encode(mapping.version_id));
     if(['mp3','mp4'].includes(match[2]))headers.set('Accept-Ranges','bytes');
     if(part)headers.set('Content-Range',`bytes ${part.start}-${part.end}/${mapping.byte_count}`);
     if(match[2]==='bin')headers.set('Content-Disposition','attachment; filename="'+key.split('/')[1]+'"');
     try{return new Response(request.method==='HEAD'||expected===0?null:bounded(upstream.body,expected),{status:part?206:200,headers});}
     catch{return failure(502);}
-  }
-};
+}
+
+// Only trusted loopback preview code can call this entrypoint with a qualified
+// mapping. No request header, cookie, query, branch name or env flag can switch
+// the public Worker to private delivery.
+export function previewFetch(request,env,mapping) {
+  if(!mapping||typeof mapping!=='object')return failure(404,'Not found');
+  return deliver(request,env,mapping);
+}
+export default {fetch:(request,env)=>deliver(request,env)};

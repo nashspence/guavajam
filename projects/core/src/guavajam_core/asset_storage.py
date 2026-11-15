@@ -99,7 +99,7 @@ def md5(raw):
 
 class S3:
     def __init__(self, values, *, operation):
-        if operation not in {'upload', 'pin', 'inspect', 'preview', 'delete'}:
+        if operation not in {'upload', 'pin', 'release', 'inspect', 'preview', 'delete'}:
             raise AssetError('unknown asset operation')
         self.config = S3Config.from_values(values)
         self.operation = operation
@@ -175,7 +175,7 @@ class S3:
         return records[0] if records else None
 
     def read(self, stored, *, method='GET', range_value=None):
-        self._allow('upload', 'pin', 'inspect')
+        self._allow('upload', 'pin', 'release', 'inspect')
         if method not in {'GET', 'HEAD'} or stored.delete_marker or not valid_etag(stored.etag):
             raise AssetError('invalid object read')
         return response(self.config, stored.key, method=method, query=object_query(stored.version_id),
@@ -282,7 +282,11 @@ class S3:
 
     def upload(self, key, raw, media_type, *, cache_control=CACHE_CONTROL, previous=None,
                create_only=False, retention_mode=None, retain_until=None):
-        self._allow('upload', 'pin')
+        from .object_store import RELEASE_PREFIX
+        if key.startswith(RELEASE_PREFIX):
+            self._allow('release')
+        else:
+            self._allow('upload', 'pin')
         lock_headers = self._lock_headers(retention_mode, retain_until)
         extra = {'Content-Type': media_type, 'Cache-Control': cache_control, 'Content-MD5': md5(raw),
                  **self._conditions(key, previous, create_only), **lock_headers}

@@ -41,7 +41,8 @@ def persistence(phase):
 
 def main():
     identities=json.loads(Path('/qualification/identities.json').read_text())['identities']
-    publisher,delivery=[x['credentials'][0] for x in identities]
+    roles={x['name']:x['credentials'][0] for x in identities}
+    publisher,delivery=roles['publisher'],roles['delivery']
     with tempfile.TemporaryDirectory() as temporary:
         root=Path(temporary)
         subprocess.run(['git','init','-q',str(root)],check=True)
@@ -72,6 +73,49 @@ def main():
                 if extension=='mp4':assert mapping['etag'].endswith('-2"')
                 for method in ['HEAD','GET']:
                     with public_response(origin+'/'+key,'*/*',method=method) as received:
+                        assert received.status==404  # Exact known URL is still private.
+                with public_response(origin+'/'+key,'*/*',range_value='bytes=0-127') as received:
+                    assert received.status==404
+            from .discovery_fixture import Publisher
+            from guavajam_core.asset_release import release, Releases
+            from unittest.mock import patch
+            source_root=root/'publisher';source_root.mkdir()
+            p=Publisher(source_root)
+            remote=root/'origin.git'
+            subprocess.run(['git','init','--bare','-q',str(remote)],check=True)
+            p.git('remote','add','origin',str(remote));p.git('push','-q','origin','main')
+            base=p.git('rev-parse','HEAD');p.git('switch','-c','review')
+            (p.repo/'asset-policy.json').write_text(json.dumps({'origin':origin})+'\n')
+            body='![Figure]('+origin+'/'+keys[0]+')\n\n'
+            body+='\n\n'.join('[Reviewed media '+str(i)+']('+origin+'/'+key+')' for i,key in enumerate(keys[1:]))
+            p.source('field-notes','Field Notes',body)
+            p.git('add','-A');p.git('commit','-qm','Review private media');edition=p.publish()
+            p.git('push','-q','origin','review')
+            release_values={**values,'S3_ACCESS_KEY_ID':roles['release']['accessKey'],'S3_SECRET_ACCESS_KEY':roles['release']['secretKey']}
+            releaser=S3(release_values,operation='release')
+            with patch.dict(os.environ,{'GNUPGHOME':p.env['GNUPGHOME']}):
+                try:release(p.repo,edition,base,store=releaser,fingerprints=[p.fingerprint],apply=True)
+                except ValueError:pass
+                else:raise AssertionError('unmerged signed branch could release media')
+                assert all(Releases(store).get(key) is None for key in keys)
+                p.git('switch','main');p.git('merge','--no-ff','review','-m','Accept reviewed edition')
+                p.git('push','-q','origin','main');tip=p.git('rev-parse','HEAD')
+                result=release(p.repo,edition,tip,store=releaser,fingerprints=[p.fingerprint],apply=True)
+                assert result['public_delivery_verified']
+                before=len(store.inventory())
+                release(p.repo,edition,tip,store=releaser,fingerprints=[p.fingerprint],apply=True)
+                assert len(store.inventory())==before
+            # Test raw signed requests, not only client-mode guards.
+            for config,key in [(store.config,Releases.path(keys[0])),(releaser.config,keys[0])]:
+                try:
+                    with response(config,key,method='PUT',body=b'forbidden',extra={'Content-Type':'application/json'}):pass
+                except S3Error as error:assert error.status==403
+                else:raise AssertionError('storage provider failed staging/release role separation')
+            for name,key in zip(['image.png','recording.mp3','recording.mp4','captions.vtt'],keys):
+                raw=(root/name).read_bytes();extension=Path(name).suffix[1:]
+                digest=hashlib.sha256(raw).hexdigest();mapping=Index(store).get(key)
+                for method in ['HEAD','GET']:
+                    with public_response(origin+'/'+key,'*/*',method=method) as received:
                         assert received.status==200 and received.getheader('ETag')==mapping['etag']
                         assert received.getheader('Content-Length')==str(len(raw))
                         assert received.getheader('X-Press-Asset-Version') is None
@@ -81,7 +125,7 @@ def main():
                         with public_response(origin+'/'+key,'*/*',range_value=value) as received:
                             assert received.status==206 and b''.join(response_chunks(received,128))==expected
                     with public_response(origin+'/'+key,'*/*',range_value='bytes=999999999999-') as received:assert received.status==416
-                print(json.dumps({'format':extension,'upload_hash_pin_and_delivery_passed':True}),flush=True)
+                print(json.dumps({'format':extension,'private_stage_signed_release_and_delivery_passed':True}),flush=True)
             readonly=S3({**values,'S3_ACCESS_KEY_ID':delivery['accessKey'],'S3_SECRET_ACCESS_KEY':delivery['secretKey']},operation='upload')
             try:readonly.upload(keys[0],b'forbidden','image/png')
             except S3Error as error:assert error.status==403
@@ -95,7 +139,7 @@ def main():
             else:raise AssertionError('anonymous request could read')
             print(json.dumps({'delivery_write_rejected':True,'unknown_and_anonymous_access_rejected':True,'two_part_multipart_verified':True}),flush=True)
         finally:
-            cleanup=S3(credentials(root),operation='delete')
+            cleanup=S3({**values,'S3_ACCESS_KEY_ID':roles['maintenance']['accessKey'],'S3_SECRET_ACCESS_KEY':roles['maintenance']['secretKey']},operation='delete')
             for item in cleanup.inventory():cleanup.delete(item)
             assert cleanup.inventory()==[]
             for key in keys:

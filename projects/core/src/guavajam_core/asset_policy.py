@@ -267,9 +267,9 @@ def response_chunks(response, limit):
         raise AssetError("response is truncated")
 
 
-def fetch_asset(policy: AssetPolicy, url: str) -> tuple[bytes, str]:
+def fetch_asset(policy: AssetPolicy, url: str, *, response_factory=public_response) -> tuple[bytes, str]:
     digest, extension = policy.parse(url)
-    with public_response(url, MIME.get(extension, 'application/octet-stream')) as response:
+    with response_factory(url, MIME.get(extension, 'application/octet-stream')) as response:
         if response.status != 200:
             raise AssetError(f"asset fetch requires HTTP 200 (received {response.status}); redirects prohibited")
         raw = b"".join(response_chunks(response, MAX_BYTES))

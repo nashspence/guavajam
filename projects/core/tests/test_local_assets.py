@@ -20,6 +20,23 @@ class LocalAssetConfigurationTests(unittest.TestCase):
             with self.assertRaises(ValueError):initialize(path)
             self.assertEqual(saved, {p.name: p.read_bytes() for p in path.iterdir()})
 
+    def test_staging_and_release_have_distinct_object_prefix_authority(self):
+        from guavajam_core.local_assets import role_actions
+        import fnmatch
+        roles = role_actions('publication-assets')
+        def can_write(role, key):
+            return any(fnmatch.fnmatchcase('publication-assets/' + key, action[6:])
+                       for action in roles[role] if action.startswith('Write:'))
+        for digit in '0123456789abcdef':
+            self.assertTrue(can_write('publisher', 'sha256/' + digit * 64 + '.mp4'))
+        self.assertTrue(can_write('publisher', 'sha256/.pins/file.json'))
+        self.assertTrue(can_write('publisher', 'sha256/.leases/file'))
+        self.assertFalse(can_write('publisher', 'sha256/.released/file.json'))
+        self.assertTrue(can_write('release', 'sha256/.released/file.json'))
+        self.assertFalse(can_write('release', 'sha256/' + 'a'*64 + '.mp4'))
+        self.assertFalse(can_write('release', 'sha256/.pins/file.json'))
+        self.assertFalse(any(a.startswith('Write:') for a in roles['delivery']))
+
     def test_initializer_cli_never_prints_credentials_on_success_or_refusal(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / 'private'

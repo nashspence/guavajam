@@ -9,6 +9,23 @@ import tempfile
 from .s3 import S3Config
 
 
+def role_actions(bucket):
+    """Object-prefix capabilities; no staging writer can forge release authority.
+
+    SeaweedFS object-scoped actions: S3-Credentials / Object-Level Permissions.
+    The real Compose contract also attempts forbidden raw S3 writes, bypassing
+    our client-mode checks, to qualify provider enforcement.
+    """
+    objects = [f'{bucket}/sha256/{digit}*' for digit in '0123456789abcdef']
+    stage = [*objects, f'{bucket}/sha256/.pins/*', f'{bucket}/sha256/.leases/*']
+    return {
+        'publisher': ['Read:' + bucket, 'List:' + bucket, *['Write:' + path for path in stage]],
+        'delivery': ['Read:' + bucket],
+        'release': ['Read:' + bucket, 'List:' + bucket, 'Write:' + bucket + '/sha256/.released/*'],
+        'maintenance': ['Read:' + bucket, 'List:' + bucket, 'Write:' + bucket],
+    }
+
+
 def initialize(directory, bucket='publication-assets'):
     S3Config('https://storage.example', 'us-east-1', bucket, 'validation', 'validation')
     directory = Path(directory).absolute()
@@ -18,10 +35,10 @@ def initialize(directory, bucket='publication-assets'):
     pending = Path(tempfile.mkdtemp(prefix='.local-assets-', dir=directory.parent))
     try:
         identities = []
-        for role, actions in [('publisher', ['Read', 'Write', 'List', 'Tagging']), ('delivery', ['Read'])]:
+        for role, actions in role_actions(bucket).items():
             access, secret = secrets.token_hex(16), secrets.token_hex(32)
             identities.append({'name': role, 'credentials': [{'accessKey': access, 'secretKey': secret}],
-                               'actions': [action + ':' + bucket for action in actions]})
+                               'actions': actions})
             for name, value in [(role + '-access-key', access), (role + '-secret-key', secret)]:
                 with os.fdopen(os.open(pending / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w') as stream:
                     stream.write(value + '\n')
@@ -45,7 +62,7 @@ def main(argv=None):
     except (OSError, ValueError):
         print('Local asset configuration could not be created; existing files are preserved')
         return 1
-    print('Created private publisher and read-only delivery configuration; no credentials printed')
+    print('Created separate staging, delivery, release and maintenance identities; no credentials printed')
     return 0
 
 

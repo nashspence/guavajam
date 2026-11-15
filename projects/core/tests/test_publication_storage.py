@@ -6,14 +6,13 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch, Mock
-from urllib.parse import quote
 
 from guavajam_core.asset_policy import AssetError
 from guavajam_core.asset_versions import pin_key
 from guavajam_core.gateway_index import Index
 from guavajam_core.prepare_publication import prepare
 from guavajam_core.check_publications import check
-from guavajam_test_support.storage_fixture import MemoryStore, KEY, Response
+from guavajam_test_support.storage_fixture import MemoryStore, KEY
 
 
 class PublicationStorageTests(unittest.TestCase):
@@ -24,53 +23,53 @@ class PublicationStorageTests(unittest.TestCase):
         @contextlib.contextmanager
         def snapshot(*args):
             yield self.root, self.files
-        self.enterContext(patch('guavajam_core.prepare_publication.snapshot', snapshot))
-        self.enterContext(patch('guavajam_core.prepare_publication.validate_repository', return_value=[]))
-        self.enterContext(patch('guavajam_core.prepare_publication.references', return_value=['https://assets.example.org/'+KEY]))
-        self.full = self.enterContext(patch('guavajam_core.prepare_publication.verify_source_assets'))
+        self.enterContext(patch('guavajam_core.qualify_assets.snapshot', snapshot))
+        self.enterContext(patch('guavajam_core.qualify_assets.validate_repository', return_value=[]))
+        self.enterContext(patch('guavajam_core.qualify_assets.references', return_value=['https://assets.example.org/'+KEY]))
+        ast = {'blocks': [{'t': 'Para', 'c': [{'t': 'Image', 'c': [['', [], []], [{'t': 'Str', 'c': 'figure'}], ['https://assets.example.org/'+KEY, '']]}]}]}
+        self.enterContext(patch('guavajam_core.verify_source_assets.parse_document', return_value=(ast, [])))
         self.enterContext(patch('guavajam_core.prepare_publication.git', return_value=b'a'*40))
+        self.enterContext(patch('guavajam_core.publication_protocol.blob', return_value=b'{"origin":"https://assets.example.org"}'))
 
     def prepare(self, store, **kwargs):
         return prepare(self.root, 'a'*40, 'test', published='2026-11-13', store=store, **kwargs)
 
-    def public(self, mapping, *, etag=None):
-        return patch('guavajam_core.prepare_publication.public_response', side_effect=lambda *a, **kw: Response(headers={
-            'ETag': etag or mapping['etag'], 'X-Press-Retain-Until': str(mapping['retain_until'] or 0),
-            **({'X-Press-Asset-Version': quote(mapping['version_id'], safe='')} if mapping['version_id'] not in {None, 'null'} else {})}))
+    def no_public_requests(self):
+        # Preparation must never use anonymous HTTPS, regardless of the reply.
+        return patch('guavajam_core.asset_policy.public_addresses', side_effect=AssertionError('public request before release'))
 
     def test_plain_and_versioned_buckets_without_lock_can_prepare(self):
         for versioning in [False, True]:
             store = MemoryStore(versioning=versioning, seed=True)
             mapping = pin_key(store, Index(store), KEY)
-            with self.public(mapping):
+            with self.no_public_requests():
                 result = self.prepare(store)
             self.assertTrue(result['assets_verified'])
             self.assertFalse(result['retention_verified'])
             self.assertEqual(mapping['version_id'], result['assets'][0]['version_id'])
             self.assertIsNone(result['assets'][0]['retain_until'])
-            self.assertFalse(self.full.call_args.kwargs['require_retention'])
-            with self.public(mapping), self.assertRaisesRegex(AssetError, 'retention'):
+            self.assertFalse(result['public_delivery_verified'])
+            with self.no_public_requests(), self.assertRaisesRegex(AssetError, 'retention'):
                 self.prepare(store, require_retention=True)
 
     def test_explicit_lock_policy_is_verified_not_assumed(self):
         store = MemoryStore(object_lock=True, seed=True)
         until = int(time.time()*1000) + 100000
         mapping = pin_key(store, Index(store), KEY, retain_until=until, mode='governance')
-        with self.public(mapping):
+        with self.no_public_requests():
             self.assertTrue(self.prepare(store, require_retention=True)['retention_verified'])
-        self.assertTrue(self.full.call_args.kwargs['require_retention'])
         row = store.head(KEY, mapping['version_id'])
         store.records[store.records.index(row)] = replace(row, retain_until=None, retention_mode=None)
-        with self.public(mapping), self.assertRaisesRegex(AssetError, 'private retention'):
+        with self.no_public_requests(), self.assertRaisesRegex(AssetError, 'private retention'):
             self.prepare(store)
 
-    def test_changed_public_or_private_identity_cannot_prepare(self):
+    def test_public_access_is_unneeded_and_private_identity_changes_fail(self):
         store = MemoryStore(versioning=False, seed=True)
         mapping = pin_key(store, Index(store), KEY)
-        with self.public(mapping, etag='"different"'), self.assertRaisesRegex(AssetError, 'public delivery'):
-            self.prepare(store)
+        with self.no_public_requests():
+            self.assertFalse(self.prepare(store)['public_delivery_verified'])
         store.upload(KEY, b'replacement bytes', 'image/svg+xml')
-        with self.public(mapping), self.assertRaises(AssetError):
+        with self.no_public_requests(), self.assertRaises(AssetError):
             self.prepare(store)
 
     def test_incoming_publication_checks_default_to_no_retention_requirement(self):

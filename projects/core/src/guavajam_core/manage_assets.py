@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import unquote
 
-from .asset_policy import ASSET_PATH, AssetError, fetch_asset, load_policy
+from .asset_policy import ASSET_PATH, AssetError, load_policy
 from .asset_storage import S3, credentials
 from .object_store import GRACE_DAYS, LEASE_PREFIX, PREFIX
 from .prepare_asset import prepare_image
@@ -47,7 +47,7 @@ def operator_lock(root):
         yield
 
 
-def upload(root, image, store, *, fetcher=fetch_asset, index=None):
+def upload(root, image, store, *, index=None):
     policy = load_policy(root)
     if policy is None:
         raise AssetError("no approved asset origin configured")
@@ -71,9 +71,6 @@ def upload(root, image, store, *, fetcher=fetch_asset, index=None):
     if index is not None:
         from .asset_versions import pin_key
         pin_key(store,index,key)
-    received, received_type = fetcher(policy, url)
-    if received != raw or received_type != media_type:
-        raise AssetError("public asset read-back differs from the original image")
     return state, url
 
 
@@ -217,8 +214,10 @@ def retained_assets(root, repo):
 
 
 def asset_key(name):
-    from .gateway_index import PIN_PREFIX
-    if name.startswith(PIN_PREFIX) and name.endswith('.json'):
+    from .object_store import PIN_PREFIX, RELEASE_PREFIX
+    if name.startswith(RELEASE_PREFIX) and name.endswith('.json'):
+        candidate=PREFIX+name[len(RELEASE_PREFIX):-5]
+    elif name.startswith(PIN_PREFIX) and name.endswith('.json'):
         candidate=PREFIX+name[len(PIN_PREFIX):-5]
     else:
         candidate = PREFIX + name[len(LEASE_PREFIX):] if name.startswith(LEASE_PREFIX) else name
@@ -237,7 +236,11 @@ def groups(objects):
 def candidates(objects, retained, now):
     cutoff = (now - GRACE_DAYS * 86400) * 1000
     result = {}
+    from .object_store import RELEASE_PREFIX
     for key, items in groups(objects).items():
+        # A released URL is a durable delivery commitment, not branch-scoped state.
+        if any(item.key.startswith(RELEASE_PREFIX) for item in items):
+            continue
         digest = ASSET_PATH.fullmatch("/" + key)[1]
         if (digest not in retained and all(item.modified_ms < cutoff for item in items)
                 and all(not item.legal_hold and (item.retain_until or 0) <= now * 1000 for item in items)):
@@ -308,7 +311,7 @@ def main():
                     from .ingest_asset import upload_media
                     state,url=upload_media(root,args.image,store,index)
                 else:state, url = upload(root, args.image, store,index=index)
-                print(f"{state} and verified: {url}")
+                print(f"{state} and privately verified (not released): {url}")
                 print(f'[Download media]({url})' if typed else f'![Describe the image]({url})')
             else:
                 repo = repository(root)
