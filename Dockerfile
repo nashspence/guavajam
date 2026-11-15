@@ -5,6 +5,10 @@ WORKDIR /build
 COPY pyproject.toml uv.lock ./
 COPY projects/core/pyproject.toml projects/core/pyproject.toml
 COPY projects/view/pyproject.toml projects/view/pyproject.toml
+COPY projects/core/LICENSES projects/core/LICENSES
+COPY projects/core/REUSE.toml projects/core/REUSE.toml
+COPY projects/view/LICENSES projects/view/LICENSES
+COPY projects/view/REUSE.toml projects/view/REUSE.toml
 COPY projects/core/src projects/core/src
 COPY projects/view/src projects/view/src
 RUN uv sync --locked --all-packages --no-dev --no-editable
@@ -22,12 +26,16 @@ ENTRYPOINT ["python", "-m", "guavajam.service"]
 
 FROM node:24.10.0-bookworm-slim@sha256:b8d2197aff9129d16c801a3e3e1b2a873c4946480f5a310f38056df2268c38d9 AS gateway
 COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway
+COPY --from=packages /build/projects/core/LICENSES /usr/share/licenses/guavajam-core/LICENSES
+COPY --from=packages /build/projects/core/REUSE.toml /usr/share/licenses/guavajam-core/REUSE.toml
 USER 1000:1000
 WORKDIR /opt/gateway
 ENTRYPOINT ["node", "server.mjs"]
 
 FROM nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a AS web
 COPY --chmod=644 deploy/nginx.conf /etc/nginx/nginx.conf
+COPY LICENSES /usr/share/licenses/guavajam/LICENSES
+COPY REUSE.toml /usr/share/licenses/guavajam/REUSE.toml
 USER 101:101
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]

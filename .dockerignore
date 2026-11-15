@@ -16,3 +16,12 @@
 **/__pycache__
 **/*.pyc
 !deploy/nginx.conf
+!LICENSES/
+!LICENSES/**
+!REUSE.toml
+!projects/core/LICENSES/
+!projects/core/LICENSES/**
+!projects/core/REUSE.toml
+!projects/view/LICENSES/
+!projects/view/LICENSES/**
+!projects/view/REUSE.toml

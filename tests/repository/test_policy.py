@@ -14,6 +14,9 @@ MARKDOWN_DATA = {
     'tests/fixtures/chatgpt/lantern-current.gfm.md',
     'tests/fixtures/chatgpt/lantern-alternate.gfm.md',
 }
+LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'projects/core/LICENSES/Apache-2.0.txt',
+                'projects/view/LICENSES/Apache-2.0.txt',
+                'projects/core/src/guavajam_core/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
 PROSE_SUFFIXES = {'.md', '.markdown', '.mdown', '.mkd', '.rst', '.adoc', '.asciidoc', '.txt'}
 
 
@@ -24,8 +27,12 @@ class DocumentationPolicyTests(unittest.TestCase):
         ).decode().split('\0')
         documents = {path for path in paths if Path(path).suffix.lower() in PROSE_SUFFIXES
                      and (ROOT / path).is_file()}
-        self.assertEqual(ONBOARDING | MARKDOWN_DATA, documents,
-                         'Keep prose in README.md/AGENTS.md; other Markdown is exercised source/fixture data')
+        self.assertEqual(ONBOARDING | MARKDOWN_DATA | LICENSE_TEXT, documents,
+                         'Keep prose in README.md/AGENTS.md; license texts and exercised Markdown data are separate artifacts')
+
+    def test_readme_contains_no_licensing_content(self):
+        self.assertNotRegex((ROOT / 'README.md').read_text(),
+                            r'(?i)\b(?:licen[cs]\w*|copyright|spdx|apache-2\.0)\b')
 
     def test_onboarding_links_resolve_to_current_checkout_files(self):
         for name in sorted(ONBOARDING):

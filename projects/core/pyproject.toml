@@ -2,6 +2,8 @@
 name = "guavajam-core"
 version = "0.1.0"
 description = "Signed Git publications, source validation, assets and preservation"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml"]
 requires-python = ">=3.12,<3.13"
 dependencies = ["PyYAML==6.0.3", "Pillow==13.0.0", "av==19.0.2"]
 
