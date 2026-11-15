@@ -214,7 +214,7 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
                 with public_response(origin + '/' + key, '*/*', method=method) as received:
                     require(received.status == 200 and received.getheader('ETag') == mapping['etag'])
                     require(received.getheader('X-Press-Asset-Publication') == edition)
-                    require(received.getheader('Content-Length') == str(len(raw)))
+                    require(received.getheader('Content-Length') in ({str(len(raw))} if method == 'HEAD' else {None, str(len(raw))}))
                     if method == 'GET': require(b''.join(response_chunks(received, len(raw))) == raw)
             if name.endswith(('.mp3', '.mp4')):
                 for value, expected in [('bytes=0-127', raw[:128]), ('bytes=-128', raw[-128:])]:
