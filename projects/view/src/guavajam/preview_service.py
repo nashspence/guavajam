@@ -20,15 +20,17 @@ import uuid
 from guavajam_core.asset_storage import credentials
 from guavajam_core.publication_protocol import resolve
 from .preview import build_preview, start_server
-from .service import service_lock
+from .service import service_lock, trust
 from .update import atomic
 
 
 def settings(env):
     origin = env['GUAVAJAM_PREVIEW_ORIGIN']
     url = urlsplit(origin)
-    if (url.scheme != 'https' or not url.hostname or url.username or url.password
-            or origin != 'https://' + url.netloc): raise ValueError('canonical HTTPS origin required')
+    local = url.scheme == 'http' and url.hostname == '127.0.0.1'
+    if ((url.scheme != 'https' and not local) or not url.hostname or url.username or url.password
+            or origin != url.scheme + '://' + url.netloc):
+        raise ValueError('HTTPS or localhost preview origin required')
     port = int(env.get('GUAVAJAM_PREVIEW_PORT', '8080'))
     interval = int(env.get('GUAVAJAM_POLL_SECONDS', '30'))
     if not 1 <= port <= 65535 or not 5 <= interval <= 86400: raise ValueError('invalid preview timing')
@@ -60,6 +62,10 @@ class Preview:
         self.token = session_key(env['GUAVAJAM_PREVIEW_TOKEN_FILE'])
         self.repo = Path(env['GUAVAJAM_PREVIEW_REPO']).resolve(strict=True)
         self.ref, self.work = env['GUAVAJAM_PREVIEW_REF'], env['GUAVAJAM_PREVIEW_WORK']
+        self.base_ref = env.get('GUAVAJAM_PREVIEW_BASE_REF', 'refs/heads/main')
+        self.published = env.get('GUAVAJAM_PREVIEW_PUBLISHED') or None
+        self.label = env.get('GUAVAJAM_PREVIEW_LABEL') or None
+        self.policy = trust(state, self.repo, env)
         if not (re.fullmatch(r'refs/heads/[A-Za-z0-9._/-]+', self.ref) and '..' not in self.ref):
             raise ValueError('select an explicit local branch')
         self.process = self.output = self.revision = None
@@ -77,7 +83,9 @@ class Preview:
         pending = self.state / ('preview-' + uuid.uuid4().hex)
         try:
             manifest = build_preview(self.repo, revision, self.work, pending,
-                                     require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1')
+                                     base_ref=self.base_ref, published=self.published, label=self.label,
+                                     require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1',
+                                     **self.policy)
             values = credentials(self.repo) if manifest['assets'] else {}
             previous = self.output
             self.close()

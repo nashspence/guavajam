@@ -38,7 +38,7 @@ try{
     const browser=await type.launch(),context=await browser.newContext();
     try{
       const page=await context.newPage();page.setDefaultTimeout(15000);
-      const anonymous=await page.goto(origin+'/works/sample-work/preview/index.html');
+      const anonymous=await page.goto(origin+'/works/sample-work/index.html');
       assert.equal(anonymous.status(),404);
       const before=storageReads;
       const key=Object.keys(fixture.preview_manifest.assets)[0];
@@ -47,10 +47,14 @@ try{
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
-      await page.getByRole('link',{name:/Review draft sample-work/}).click();
-      assert.equal(await page.locator('aside').first().innerText(),'PRIVATE DRAFT PREVIEW — NOT A PUBLICATION. This site is disposable; no public release is authorized.');
+      await page.getByRole('link',{name:/Sample Work/}).first().click();
+      assert(page.url().includes('/works/sample-work/'));
+      await page.getByRole('link',{name:/Read the recommended edition/}).click();
+      assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
+      assert.equal(await page.getByRole('note',{name:'Private preview'}).innerText(),'PRIVATE PROPOSED EDITION — UNSIGNED');
       assert.equal(await page.evaluate(()=>document.referrer),'');
-      assert((await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).includes("media-src 'self'"));
+      const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+      assert.match(csp,/media-src[^;]*'self'/);
       const requests=[];page.on('request',request=>requests.push(request.url()));
       for(const selector of ['video','audio']){
         const media=page.locator(selector);await media.scrollIntoViewIfNeeded();
@@ -63,7 +67,7 @@ try{
       await page.locator('video').evaluate(video=>{video.textTracks[0].mode='showing';});
       await page.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length>0);
       assert(requests.every(value=>{const url=new URL(value);return url.origin===origin&&['http:','blob:'].includes(url.protocol);}));
-      const source=await context.request.get(origin+'/works/sample-work/preview/source.gfm');
+      const source=await context.request.get(origin+'/works/sample-work/editions/'+fixture.revision+'/read/source.gfm');
       assert.equal(source.headers()['cache-control'],'private, no-store');
       assert((await source.text()).includes(fixture.origin));
       assert.equal((await context.request.get(origin+'/PREVIEW.json')).status(),404);

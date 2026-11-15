@@ -58,19 +58,19 @@ def _edition_label(edition):
     return edition.get('label', 'Revision ' + edition['revision'][:12])
 
 
-def _edition_link(catalog, filename, work, edition, facts):
+def _edition_link(catalog, filename, work, edition, facts, *, provisional=False):
     root = edition_root(work['slug'], edition['revision'])
     content = ('<h3><a href="' + e(relative(filename, root + '/index.html')) + '">' +
                e(_edition_label(edition)) + '</a></h3><p>' + e(facts['title']) + '</p>' +
                '<p><time datetime="' + e(edition['published']) + '">' + e(edition['published']) +
-               '</time> · ' + status(edition) + '</p>')
+               '</time> · ' + ('Proposed (unsigned)' if provisional else status(edition)) + '</p>')
     if edition.get('doi'):
         content += doi_display(edition['doi'], 'Edition identifier')
-    content += '<p class="guavajam-administration">Git SHA-1 <code>' + e(edition['revision']) + '</code></p>'
+    content += '<p class="guavajam-administration">' + ('Draft commit SHA-1' if provisional else 'Git SHA-1') + ' <code>' + e(edition['revision']) + '</code></p>'
     return '<li><article>' + content + '</article></li>'
 
 
-def _registry(catalog, publications):
+def _registry(catalog, publications, *, provisional=None):
     filename = 'index.html'
     body = '<h1>' + e(catalog['title']) + '</h1><p class="press-edition-identity">' + e(catalog['publisher']) + '</p>'
     if catalog.get('description'):
@@ -88,14 +88,15 @@ def _registry(catalog, publications):
         else:
             body += '<p class="guavajam-administration">No work DOI is listed.</p>'
         count = len(work['editions'])
-        body += '<p>' + str(count) + ' signed source edition' + ('s' if count != 1 else '') + '</p></article></li>'
+        kind = (' editions, including a proposed unsigned edition' if provisional is not None and any(e['revision'] == provisional for e in work['editions']) else ' signed source edition' + ('s' if count != 1 else ''))
+        body += '<p>' + str(count) + kind + '</p></article></li>'
     body += '</ol>'
     if catalog['works']:
         body += '<p><a href="feed.xml">Publication updates (Atom)</a></p>'
     return page(catalog, filename, catalog['title'], body)
 
 
-def _work_page(catalog, work, publications):
+def _work_page(catalog, work, publications, *, provisional=None):
     filename = 'works/' + work['slug'] + '/index.html'
     basis = publications[work['metadata_revision']]
     facts = basis['facts']
@@ -114,16 +115,17 @@ def _work_page(catalog, work, publications):
         body += '<p>No edition is currently recommended by this catalog.</p>'
     basis_link = relative(filename, edition_root(work['slug'], work['metadata_revision']) + '/index.html')
     body += ('<p class="guavajam-administration">The displayed title, authors and abstract come from '
-             '<a href="' + e(basis_link) + '">signed revision <code>' + e(work['metadata_revision']) + '</code></a>.</p>')
+             '<a href="' + e(basis_link) + '">' + ('provisional draft' if work['metadata_revision'] == provisional else 'signed revision') + ' <code>' + e(work['metadata_revision']) + '</code></a>.</p>')
     body += '<h2>Editions</h2><ol class="guavajam-editions">'
     for edition in _ordered(work):
-        body += _edition_link(catalog, filename, work, edition, publications[edition['revision']]['facts'])
+        body += _edition_link(catalog, filename, work, edition, publications[edition['revision']]['facts'],
+                              provisional=edition['revision'] == provisional)
     body += '</ol>'
     return page(catalog, filename, facts['title'], body, work=work, work_title=facts['title'],
                 head=metadata(facts, catalog['publisher'], identifier=work.get('concept_doi')))
 
 
-def _edition_page(catalog, work, edition, publication):
+def _edition_page(catalog, work, edition, publication, *, provisional=False):
     root = edition_root(work['slug'], edition['revision'])
     filename = root + '/index.html'
     facts = publication['facts']
@@ -133,7 +135,8 @@ def _edition_page(catalog, work, edition, publication):
     if edition.get('doi'):
         body += doi_display(edition['doi'], 'Edition identifier')
     else:
-        body += '<p>No edition DOI is listed. The signed source identity is sufficient to identify this edition.</p>'
+        body += ('<p>Unsigned proposed edition; the draft Git SHA is provisional and not an issued citation identity.</p>'
+                 if provisional else '<p>No edition DOI is listed. The signed source identity is sufficient to identify this edition.</p>')
     if work.get('concept_doi'):
         body += doi_display(work['concept_doi'], 'Work across editions')
     body += abstract(facts) + edition_advisory(catalog, filename, work, edition)
@@ -152,7 +155,7 @@ def _edition_page(catalog, work, edition, publication):
             body += '<p><a href="' + e(other) + '">Open the pinned source in another viewer</a></p>'
     else:
         body += ('<p class="guavajam-source-guide">This is a retained bibliographic record. The unavailable edition has no distributed reading view or source download in this build. Its signed source identity is unchanged.</p>')
-    body += '<h2>Cite the committed source</h2>' + citation(catalog, facts, edition, canonical)
+    body += ('<h2>Provisional citation preview — not issued</h2>' if provisional else '<h2>Cite the committed source</h2>') + citation(catalog, facts, edition, canonical)
     body += '<p><a download href="citation.json">Download citation data</a></p><p class="guavajam-administration">The page URL locates a presentation; it is not the canonical source identifier.</p>'
     body += '<p>Rights: ' + e(facts['rights']) + '</p>'
     return page(catalog, filename, facts['title'] + ' — ' + _edition_label(edition), body,
@@ -233,11 +236,20 @@ def check_links(output):
 
 
 def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=None,
-               previous_catalog=None, initial_catalog=False, view_cache=None):
+               previous_catalog=None, initial_catalog=False, view_cache=None,
+               preview_candidate=None):
     if bool(previous_catalog) == bool(initial_catalog):
         raise CatalogError('provide the last deployed catalog or explicitly select the initial catalog build')
     if bool(fingerprints) == bool(allowed_signers):
         raise CatalogError('provide exactly one external GPG fingerprint policy or SSH allowed-signers file')
+    if preview_candidate is not None:
+        # This entry point is private to the authenticated preview builder.
+        # It shares production site generation, but may render exactly one
+        # unsigned candidate as a clearly provisional edition.
+        if (not isinstance(preview_candidate, dict)
+                or set(preview_candidate) != {'work', 'revision'}
+                or not isinstance(preview_candidate['revision'], str)):
+            raise CatalogError('invalid isolated preview candidate')
     catalog = read_catalog(catalog_path)
     if previous_catalog:
         compare(read_catalog(previous_catalog), catalog)
@@ -259,15 +271,19 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
             for edition in _ordered(work):
                 sha = edition['revision']
                 render_dir = temporary / 'view'
-                if view_cache is None:
+                provisional = (preview_candidate is not None and sha == preview_candidate['revision']
+                               and work['slug'] == preview_candidate['work'])
+                if provisional:
+                    render(repo, sha, work['slug'], render_dir, preview=True)
+                elif view_cache is None:
                     render(repo, sha, work['slug'], render_dir, fingerprints=fingerprints, allowed_signers=allowed_signers)
                 else:
                     from .view_cache import cached_render
                     cached_render(view_cache, repo, sha, work['slug'], render_dir,
                                   fingerprints=fingerprints, allowed_signers=allowed_signers)
                 view = json.loads((render_dir / 'VIEW.json').read_text('utf-8'))
-                if view['preview'] or view['canonical']['revision'] != sha:
-                    raise CatalogError('a catalog can list only exact signed publications')
+                if view['preview'] != provisional or view['canonical']['revision'] != sha:
+                    raise CatalogError('site edition verification disagrees with its selected authority')
                 canonical = canonical_record(sha, view['canonical']['manuscript'])
                 facts = view['facts']
                 concept = facts.get('identifiers', {}).get('concept_doi')
@@ -276,7 +292,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 publication = {'canonical': canonical, 'facts': facts, 'documents': view['documents']}
                 publications[sha] = publication
                 root = edition_root(work['slug'], sha)
-                writer.put(root + '/index.html', _edition_page(catalog, work, edition, publication))
+                writer.put(root + '/index.html', _edition_page(catalog, work, edition, publication, provisional=provisional))
                 indexable.add(root + '/index.html')
                 manuscript_info = view['documents'][canonical['manuscript']]
                 writer.put(root + '/citation.json', encoded(citation_data(catalog, facts, edition, canonical, manuscript_info['anchors'])))
@@ -306,10 +322,11 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                     view['catalog_sha256'] = hashlib.sha256(encoded(catalog)).hexdigest()
                     writer.put(root + '/read/VIEW.json', encoded(view))
                 shutil.rmtree(render_dir)
-        writer.put('index.html', _registry(catalog, publications))
+        proposed_sha = preview_candidate['revision'] if preview_candidate else None
+        writer.put('index.html', _registry(catalog, publications, provisional=proposed_sha))
         for work in catalog['works']:
             name = 'works/' + work['slug'] + '/index.html'
-            writer.put(name, _work_page(catalog, work, publications))
+            writer.put(name, _work_page(catalog, work, publications, provisional=proposed_sha))
             indexable.add(name)
         for name, content in _discovery(catalog, publications, indexable).items():
             writer.put(name, content)
@@ -319,7 +336,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
         manifest = {'schema': 'guavajam.site.v1', 'catalog_sha256': writer.files['CATALOG.json'],
                     'canonical_publications': [publications[sha]['canonical'] for sha in sorted(publications)],
                     'files': dict(sorted(writer.files.items())),
-                    'source_signatures_verified': True,
+                    'source_signatures_verified': preview_candidate is None,
                     'external_media_verified': False,
                     'doi_registration_verified': False}
         writer.put('SITE.json', encoded(manifest))
