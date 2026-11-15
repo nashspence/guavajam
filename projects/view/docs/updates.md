@@ -210,10 +210,6 @@ not a partial index. Git subprocesses and signatures have explicit time/output
 budgets. These limits do not impose a media-file-size ceiling or copy video into
 Git/site generations.
 
-## Containers
-
-[Compose deployment](../../../deploy/README.md) runs this same updater periodically with persistent state and independent signer trust. The static web server serves only the selected generation.
-
 ## Scheduling
 
 Run the target with the deployment account's pinned mise/uv toolchain on POSIX.

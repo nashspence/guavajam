@@ -1,8 +1,10 @@
+from contextlib import redirect_stdout, redirect_stderr
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
-from guavajam_core.local_assets import initialize
+from guavajam_core.local_assets import initialize, main
 
 
 class LocalAssetConfigurationTests(unittest.TestCase):
@@ -17,3 +19,16 @@ class LocalAssetConfigurationTests(unittest.TestCase):
             saved = {p.name: p.read_bytes() for p in path.iterdir()}
             with self.assertRaises(ValueError):initialize(path)
             self.assertEqual(saved, {p.name: p.read_bytes() for p in path.iterdir()})
+
+    def test_initializer_cli_never_prints_credentials_on_success_or_refusal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'private'
+            output = io.StringIO()
+            with redirect_stdout(output), redirect_stderr(output):
+                self.assertEqual(0, main([str(path), '--bucket', 'custom-publication']))
+                self.assertEqual(1, main([str(path), '--bucket', 'custom-publication']))
+            identities = json.loads((path / 's3-identities.json').read_text())['identities']
+            secrets = [value for identity in identities for credential in identity['credentials']
+                       for value in credential.values()]
+            self.assertTrue(all(value not in output.getvalue() for value in secrets))
+            self.assertEqual(['Read:custom-publication'], identities[1]['actions'])

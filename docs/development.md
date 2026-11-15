@@ -6,7 +6,11 @@
 
 `projects/view` builds **guavajam-view** (`guavajam`, `guavajam`). It depends on the exact matching core version and owns HTML, CSS, rendering, catalogs, citations, feeds, cache and atomic updates. Core has no view dependency. The shared lock and editable development installation do not define the distribution boundary: CI installs each wheel outside the checkout, exercises a synthetic signed publisher, and rebuilds both source distributions independently.
 
-[Compose deployment](../deploy/README.md) packages the updater and static view server, with an optional local S3 profile.
+Deployment tests define supported behavior; operator guides belong with a release’s documentation. Start configuration from [compose.env.example](../deploy/compose.env.example) and use these executable contracts:
+
+- `make test-deployment-config`: [configuration, isolation and pinned build inputs](../tests/deployment/test_configuration.py).
+- `make test-compose` (Docker Compose v2): [signed updates, failure preservation, isolation and persistent recreation](../tests/deployment/test_compose.py), using the [HTTPS ingress fixture](../tests/deployment/ingress.conf) and [S3/media qualification](../tests/support/guavajam_test_support/compose_assets.py).
+- Package suites: [independent signer trust and service configuration](../projects/view/tests/test_service.py), [private asset network policy](../projects/core/tests/test_asset_network.py), and [private credential initialization](../projects/core/tests/test_local_assets.py).
 
 [Asset storage configuration and guarantees](storage.md) covers S3 endpoints, optional versioning/retention, and maintenance.
 
