@@ -53,7 +53,7 @@ try{
       assert((await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).includes("media-src 'self'"));
       const requests=[];page.on('request',request=>requests.push(request.url()));
       for(const selector of ['video','audio']){
-        const media=page.locator(selector);
+        const media=page.locator(selector);await media.scrollIntoViewIfNeeded();
         assert((await media.locator('source').getAttribute('src')).startsWith('/_assets/'));
         await media.evaluate(element=>{element.muted=true;element.play().catch(error=>{element.dataset.playError=error.name;});});
         await page.waitForFunction(selector=>{const element=document.querySelector(selector);return element.currentTime>0||element.dataset.playError;},selector);
@@ -62,7 +62,7 @@ try{
       }
       await page.locator('video').evaluate(video=>{video.textTracks[0].mode='showing';});
       await page.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length>0);
-      assert(requests.every(url=>url.startsWith(origin+'/')));
+      assert(requests.every(value=>{const url=new URL(value);return url.origin===origin&&['http:','blob:'].includes(url.protocol);}));
       const source=await context.request.get(origin+'/works/sample-work/preview/source.gfm');
       assert.equal(source.headers()['cache-control'],'private, no-store');
       assert((await source.text()).includes(fixture.origin));

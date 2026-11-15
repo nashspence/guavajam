@@ -73,9 +73,11 @@ def pandoc(ast_or_markdown: bytes, *, reader=READER, writer='json', id_prefix=No
                    data=ast_or_markdown, limit=32 * 1024 * 1024)
 
 
-def _make_media(item):
+def _make_media(item, *, private=False):
     kind = item['kind']; ident = escape(item['id'], quote=True)
-    attrs = f'controls playsinline preload="metadata" aria-label="{escape(item['title'], quote=True)}"' if kind == 'video' else f'controls crossorigin="anonymous" preload="none" aria-label="{escape(item['title'], quote=True)}"'
+    # Authenticate private audio metadata before native playback starts.
+    preload = 'metadata' if private else 'none'
+    attrs = f'controls playsinline preload="metadata" aria-label="{escape(item['title'], quote=True)}"' if kind == 'video' else f'controls crossorigin="anonymous" preload="{preload}" aria-label="{escape(item['title'], quote=True)}"'
     if kind == 'video':
         attrs += ' crossorigin="anonymous" poster="' + escape(item['poster'], quote=True) + '"'
     source = escape(item['src'], quote=True)
@@ -158,7 +160,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
                 item=decode(block['c'][1],origin)
                 if asset_prefix:
                     item={k: (asset_prefix+v[len(origin):] if k in {'src','poster','captions'} else v) for k,v in item.items()}
-                block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
+                block.clear();block.update(t='RawBlock',c=['html',_make_media(item, private=bool(asset_prefix))])
         ast=prepare_presentation_ast(ast)
         from guavajam_core.bibliography import ordered_authors,author_text
         byline=author_text(ordered_authors(front),identifiers=True)
