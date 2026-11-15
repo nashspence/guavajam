@@ -52,7 +52,7 @@ try{
       const requests=[];page.on('request',request=>requests.push(request.url()));
       for(const selector of ['video','audio']){
         const media=page.locator(selector);
-        assert((await media.getAttribute('src')).startsWith('/_assets/'));
+        assert((await media.locator('source').getAttribute('src')).startsWith('/_assets/'));
         await media.evaluate(element=>{element.muted=true;return element.play();});
         await page.waitForFunction(selector=>document.querySelector(selector).currentTime>0,selector);
         await media.evaluate(element=>element.pause());
