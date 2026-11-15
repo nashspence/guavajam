@@ -31,6 +31,8 @@ def main():
         run('git', 'config', 'user.email', 'fixture@example.org', cwd=repo)
         run(sys.executable, '-m', 'guavajam_core', 'new-work', 'artifact-work',
             '--title', 'Artifact Work', '--author', 'Example Author', cwd=repo)
+        (repo / 'press-site.json').write_text(json.dumps({'schema': 'press.site.v1',
+            'publisher': 'Artifact Publisher', 'base_url': 'https://publisher.example'}))
         run('git', 'add', '-A', cwd=repo)
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
         run('git', 'commit', '-qm', 'Reviewed source', cwd=repo)
@@ -38,6 +40,8 @@ def main():
         run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
         run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
         run('git', 'config', 'user.signingkey', str(key), cwd=repo)
+        run('git', 'commit', '--allow-empty', '-S', '-m', 'Approve site settings', '-m',
+            'Press-Site: 1', cwd=repo)
         run('git', 'commit', '--allow-empty', '-S', '-m', 'Publish', '-m',
             'Press-Publication: 1\nPress-Work: works/artifact-work/manuscript.md\nPress-Published: 2026-11-13', cwd=repo)
         (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
@@ -63,7 +67,7 @@ def main():
     check(archive, sha, allowed_signers=signers)
     if view:
         from guavajam.preview import build_preview
-        preview = build_preview(repo, sha, 'artifact-work', root / 'draft-preview')
+        preview = build_preview(repo, sha, 'artifact-work', root / 'draft-preview', allowed_signers=signers)
         assert not preview['publication'] and (root / 'draft-preview/PREVIEW.json').is_file()
         assert '--serve' in run(sys.executable, '-m', 'guavajam', 'preview', '--help', cwd=repo)
         from guavajam.renderer import render

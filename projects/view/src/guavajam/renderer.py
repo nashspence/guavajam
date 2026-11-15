@@ -73,11 +73,9 @@ def pandoc(ast_or_markdown: bytes, *, reader=READER, writer='json', id_prefix=No
                    data=ast_or_markdown, limit=32 * 1024 * 1024)
 
 
-def _make_media(item, *, private=False):
+def _make_media(item):
     kind = item['kind']; ident = escape(item['id'], quote=True)
-    # Authenticate private audio metadata before native playback starts.
-    preload = 'metadata' if private else 'none'
-    attrs = f'controls playsinline preload="metadata" aria-label="{escape(item['title'], quote=True)}"' if kind == 'video' else f'controls crossorigin="anonymous" preload="{preload}" aria-label="{escape(item['title'], quote=True)}"'
+    attrs = f'controls playsinline preload="metadata" aria-label="{escape(item['title'], quote=True)}"' if kind == 'video' else f'controls crossorigin="anonymous" preload="none" aria-label="{escape(item['title'], quote=True)}"'
     if kind == 'video':
         attrs += ' crossorigin="anonymous" poster="' + escape(item['poster'], quote=True) + '"'
     source = escape(item['src'], quote=True)
@@ -135,7 +133,7 @@ def _href(url, *, kind, path, sha, repo, origin, supporting):
     raise RenderError('unresolved local link; only committed supporting pages and images are rendered')
 
 
-def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=None, asset_prefix=None):
+def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=None):
     from guavajam_core.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk,plain_text
     from guavajam_core.table_captions import normalize_table_captions
     from .presentation import prepare_presentation_ast
@@ -158,9 +156,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
             if block.get('t')=='CodeBlock' and 'press-media' in block['c'][0][1]:
                 from guavajam_core.media import decode
                 item=decode(block['c'][1],origin)
-                if asset_prefix:
-                    item={k: (asset_prefix+v[len(origin):] if k in {'src','poster','captions'} else v) for k,v in item.items()}
-                block.clear();block.update(t='RawBlock',c=['html',_make_media(item, private=bool(asset_prefix))])
+                block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
         ast=prepare_presentation_ast(ast)
         from guavajam_core.bibliography import ordered_authors,author_text
         byline=author_text(ordered_authors(front),identifiers=True)
@@ -180,10 +176,6 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
             url=node['c'][2][0]
             if url.startswith('#') and url[1:] not in anchors :raise RenderError('unresolved explicit source fragment')
             node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting)
-            if asset_prefix and origin and url.startswith(origin+'/'):
-                from guavajam_core.asset_policy import AssetPolicy
-                AssetPolicy(origin).parse(url)
-                node['c'][2][0]=asset_prefix+url[len(origin):]
     return ast,items,anchors,source_title
 
 
@@ -192,7 +184,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
         language = 'en'
     if '</style' in css.lower() or '@import' in css or re.search(r'url\s*\(', css, re.I):
         raise RenderError('presentation stylesheet requires static self-contained CSS')
-    if origin and not (preview and origin == "'self'") and (not origin.startswith('https://') or any(c in origin for c in '\"<> ')):
+    if origin and (not origin.startswith('https://') or any(c in origin for c in '\"<> ')):
         raise RenderError('invalid media origin')
     csp = ("default-src 'none'; style-src 'unsafe-inline'; "
            f"img-src data: {origin}; media-src {origin or chr(39)+"none"+chr(39)}; "
@@ -235,9 +227,7 @@ def _raw_git_list(repo, sha, prefix):
     return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
 
 
-def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False, asset_prefix=None):
-    if asset_prefix is not None and (not preview or asset_prefix != '/_assets'):
-        raise RenderError('asset routing overrides are limited to private preview presentations')
+def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False):
     if not process(['pandoc','--version']).startswith(b'pandoc 3.12.1\n'):raise RenderError('Pandoc 3.12.1 is required')
     repo = Path(repo).resolve(); revision(repo, sha)
     from guavajam_core.identifiers import SLUG as WORK_SLUG
@@ -289,7 +279,7 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
         from guavajam_core.validate_sources import validate_front_matter
         meta = validate_front_matter(Path(path),source.decode('utf-8'))[0] if path == manuscript else {}
         ast,items,anchors,source_title = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
-                                      supporting=supporting,media=(path==manuscript),source=source.decode('utf-8'),asset_prefix=asset_prefix)
+                                      supporting=supporting,media=(path==manuscript),source=source.decode('utf-8'))
         from .identities import writer_prefix,restore_source_ids
         prefix=writer_prefix(anchors)
         body = pandoc(json.dumps(ast, ensure_ascii=False).encode('utf-8'),reader='json',writer='html5',id_prefix=prefix).decode('utf-8')
@@ -304,7 +294,7 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
         documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
                            'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest()}
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,
-                                path=path, body=body, css=css, origin=("'self'" if asset_prefix else origin), preview=preview, facts=meta if path==manuscript else None)
+                                path=path, body=body, css=css, origin=origin, preview=preview, facts=meta if path==manuscript else None)
     output.mkdir(parents=True, exist_ok=True)
     for name, html in all_files.items():
         target=output/name;target.parent.mkdir(parents=True, exist_ok=True)

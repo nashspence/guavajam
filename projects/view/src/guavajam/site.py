@@ -274,7 +274,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 provisional = (preview_candidate is not None and sha == preview_candidate['revision']
                                and work['slug'] == preview_candidate['work'])
                 if provisional:
-                    render(repo, sha, work['slug'], render_dir, preview=True, asset_prefix='/_assets')
+                    render(repo, sha, work['slug'], render_dir, preview=True)
                 elif view_cache is None:
                     render(repo, sha, work['slug'], render_dir, fingerprints=fingerprints, allowed_signers=allowed_signers)
                 else:

@@ -53,7 +53,8 @@ try{
       assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
       assert.equal(await page.getByRole('note',{name:'Private preview'}).innerText(),'PRIVATE PROPOSED EDITION — UNSIGNED');
       assert.equal(await page.evaluate(()=>document.referrer),'');
-      assert((await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')).includes("media-src 'self'"));
+      const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+      assert.match(csp,/media-src[^;]*'self'/);
       const requests=[];page.on('request',request=>requests.push(request.url()));
       for(const selector of ['video','audio']){
         const media=page.locator(selector);await media.scrollIntoViewIfNeeded();

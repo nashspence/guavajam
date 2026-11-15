@@ -15,7 +15,7 @@ class PrivateComposeTests(unittest.TestCase):
     def test_local_workspace_is_private_and_updates_without_publication(self):
         with tempfile.TemporaryDirectory(prefix='private-compose-',dir=ROOT/'.build') as directory:
             work=Path(directory);work.chmod(0o755)
-            p=Publisher(work);p.git('switch','-c','draft')
+            p=Publisher(work);p.publish('2026-11-01');p.publish('2026-11-02');p.git('switch','-c','draft')
             p.source('field-notes','Field Notes','An initial private observation.')
             p.git('add','-A');p.git('commit','-qm','Initial private draft')
             trust=work/'trust';trust.mkdir();trust.chmod(0o755)
@@ -42,7 +42,11 @@ class PrivateComposeTests(unittest.TestCase):
                 if auth:headers['Cookie']='guavajam_preview='+token
                 return urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:'+selected+path,headers=headers),timeout=3)
             def content():
-                with get('/works/field-notes/index.html') as response:return response.read()
+                with get('/CATALOG.json') as response:
+                    catalog=json.load(response)
+                revision=catalog['works'][0]['recommended_revision']
+                with get('/works/field-notes/editions/'+revision+'/read/index.html') as response:
+                    return response.read()
             try:
                 dc('up','-d','--no-build','private-preview')
                 wait_for(lambda:b'PRIVATE PROPOSED EDITION' in content())

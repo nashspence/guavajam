@@ -76,7 +76,8 @@ class PreviewTests(unittest.TestCase):
         self.assertIn(draft, (self.output/'sitemap.xml').read_text())
         self.assertIn(draft, (self.output/'feed.xml').read_text())
         html = (self.output/draft/'read/index.html').read_text()
-        self.assertIn('src="/_assets/'+KEY+'"', html)
+        self.assertIn('src="https://assets.example.org/'+KEY+'"', html)
+        self.assertNotIn('/_assets/', html)
         self.assertIn('https://assets.example.org/'+KEY, html) # Literal code remains text.
         self.assertIn('UNSIGNED PREVIEW', html)
         self.assertEqual(before, (self.output/draft/'read/source.gfm').read_bytes())
