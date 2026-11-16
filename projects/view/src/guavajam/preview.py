@@ -6,6 +6,8 @@ only the selected proposed edition bypasses signature verification. Both are
 served privately with staged-asset access; neither publishes, signs or pushes.
 """
 import argparse
+import copy
+import re
 import hashlib
 import json
 import os
@@ -19,7 +21,7 @@ import tempfile
 from guavajam_core.asset_policy import AssetError, load_policy
 from guavajam_core.asset_storage import S3, credentials
 from guavajam_core.catalog import encoded, validate, compare, day
-from guavajam_core.publication_protocol import discover, resolve, ancestor
+from guavajam_core.publication_protocol import discover, resolve, ancestor, declared_history, run, blob, policy
 from guavajam_core.qualify_assets import qualify
 from guavajam_core.resources import ROOT as RESOURCES
 from guavajam_core.source_snapshot import snapshot
@@ -76,28 +78,74 @@ def proposed_catalog(catalog, revision, work, published, label, manuscript, *, r
     return catalog
 
 
-def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/main',
+def preview_refs(repo):
+    """Only bounded local publication branches; never fetch or execute source."""
+    rows = run(repo, 'for-each-ref', '--format=%(refname) %(objectname)',
+               'refs/heads/', 'refs/remotes/', limit=32768).decode('ascii').splitlines()
+    if len(rows) > 128:
+        raise AssetError('too many preview branches')
+    return dict(row.split(' ', 1) for row in rows)
+
+
+def provisional_settings(stage):
+    """Mark every derived HTML surface; exact source downloads stay untouched."""
+    notice = ('<aside role="note" aria-label="Provisional repository" '
+              'style="background:#222;color:#fff;padding:1rem">'
+              'UNSIGNED REPOSITORY PREVIEW — publisher settings are provisional; '
+              'no publication has been issued.</aside>')
+    for path in stage.rglob('*.html'):
+        html = path.read_text('utf-8')
+        html = re.sub(r'(<body\b[^>]*>)', lambda match: match[1] + notice, html, count=1)
+        path.write_text(html, encoding='utf-8')
+
+
+def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
                   fingerprints=(), allowed_signers=None, require_retention=False,
-                  published=None, label=None):
+                  published=None, label=None, baseline=None):
     """Build the entire hypothetical site, atomically and without public effects.
 
-    A signed last-known main is mandatory: no fake repository settings or implicit
-    bootstrap. The base must be an ancestor of the candidate; divergent
-    integration is not predicted. Unsigned previews use a provisional Git SHA
-    until the separate empty signed publication commit exists.
+    A declaration-free repository needs no signer policy or protected branch.
+    Declared history always uses independent verification, never a fallback.
+    A saved verified baseline prevents session downgrade and lost publications.
     """
     repo = Path(repo).resolve(strict=True)
-    revision = resolve(repo, ref)
-    base = resolve(repo, base_ref)
-    ancestor(repo, base, revision)
-    if bool(fingerprints) == bool(allowed_signers):
-        raise AssetError('whole-site preview requires independently trusted publisher signing policy')
+    revision, declarations = declared_history(repo, ref)
+    if fingerprints and allowed_signers:
+        raise AssetError('choose exactly one publisher signing policy')
     output = Path(output).absolute()
     if output.exists() or output.is_symlink() or output.resolve() != output or output.is_relative_to(repo):
         raise AssetError('preview output must be a new directory outside the source repository without symlink ancestors')
-    previous, _ = discover(repo, ref=base, fingerprints=fingerprints, allowed_signers=allowed_signers)
-    catalog, _ = discover(repo, ref=revision, fingerprints=fingerprints, allowed_signers=allowed_signers,
-                          previous=previous)
+    if baseline is not None:
+        if set(baseline) != {'schema', 'checkpoint', 'catalog'} or baseline['schema'] != 'guavajam.preview-baseline.v1':
+            raise AssetError('invalid verified preview baseline')
+        validate(baseline['catalog'])
+        ancestor(repo, baseline['checkpoint'], revision)
+    provisional_repository = not declarations
+    if provisional_repository:
+        _, known = declared_history(repo, revision, additional_refs=tuple(preview_refs(repo)))
+        if known or baseline is not None:
+            raise AssetError('preview branch omits known repository declarations')
+        base = resolve(repo, base_ref) if base_ref else revision
+        ancestor(repo, base, revision)
+        settings, catalog = policy(blob(repo, revision, 'guavajam.json'))
+        if settings.get('works') or settings.get('editions'):
+            raise AssetError('provisional repository cannot claim issued works or editions')
+        catalog.setdefault('base_url', 'https://preview.invalid')
+        previous = copy.deepcopy(catalog)
+        checkpoint, verified_catalog = None, None
+    else:
+        if not (fingerprints or allowed_signers):
+            raise AssetError('declared history requires independently trusted publisher signing policy')
+        refs = preview_refs(repo)
+        default_base = next((name for name in ('refs/heads/main', 'refs/remotes/origin/main') if name in refs), revision)
+        base = resolve(repo, base_ref or default_base)
+        ancestor(repo, base, revision)
+        previous, _ = discover(repo, ref=base, fingerprints=fingerprints, allowed_signers=allowed_signers)
+        catalog, evidence = discover(repo, ref=revision, fingerprints=fingerprints, allowed_signers=allowed_signers,
+                                    previous=previous)
+        if baseline is not None:
+            compare(baseline['catalog'], catalog)
+        checkpoint, verified_catalog = evidence['repository_checkpoint'], copy.deepcopy(catalog)
     # The exact candidate must either declare the selected signed edition, or
     # be a committed draft to be represented provisionally in the whole catalog.
     from guavajam_core.publication_protocol import declaration, commit
@@ -112,12 +160,11 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
         raise AssetError('preview facts differ from the signed publication declaration')
     mappings = qualify(repo, revision, work, store=store, require_retention=require_retention)
     with snapshot(repo, revision) as (root, _):
-        policy = load_policy(root)
-        origin = policy.origin if policy else None
+        asset_policy = load_policy(root)
+        origin = asset_policy.origin if asset_policy else None
     if not signed:
         if published is None:
             raise AssetError('unsigned full-site preview requires PUBLISHED=YYYY-MM-DD')
-        from guavajam_core.publication_protocol import blob
         settings = json.loads(blob(repo, revision, 'guavajam.json'))
         locked = 'recommended_revision' in settings.get('works', {}).get(work, {})
         catalog = proposed_catalog(catalog, revision, work, published, label,
@@ -133,6 +180,8 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
         prior_path.write_bytes(encoded(previous))
         build_site(repo, catalog_path, stage, fingerprints=fingerprints, allowed_signers=allowed_signers,
                    previous_catalog=prior_path, preview_candidate=(None if signed else {'work': work, 'revision': revision}))
+        if provisional_repository:
+            provisional_settings(stage)
         if not signed:
             # Never export an issuance-shaped SITE manifest for an unsigned
             # proposed edition; PREVIEW.json is its only private inventory.
@@ -142,7 +191,9 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
         manifest = {'schema': 'guavajam.preview.v1', 'revision': revision, 'work': work,
                     'origin': origin, 'files': inventory, 'assets': mappings,
                     'publication': False, 'candidate_signed': signed,
-                    'base_revision': base, 'provisional_identity': not signed}
+                    'base_revision': base, 'provisional_identity': not signed,
+                    'provisional_repository': provisional_repository,
+                    'repository_checkpoint': checkpoint, 'verified_catalog': verified_catalog}
         (stage / 'PREVIEW.json').write_bytes(encoded(manifest))
         stage.chmod(0o700)
         stage.rename(output)
@@ -189,7 +240,7 @@ def main(argv=None):
     parser.add_argument('--ref', required=True, help='full commit or explicit local refs/heads/<branch>')
     parser.add_argument('--work', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--base-ref', default='refs/heads/main', help='signed protected-main baseline (must be an ancestor of the candidate)')
+    parser.add_argument('--base-ref', help='optional ancestor baseline; defaults to main for declared history')
     parser.add_argument('--published', help='required YYYY-MM-DD date for an unsigned proposed edition')
     parser.add_argument('--label', help='optional proposed edition label')
     parser.add_argument('--serve', action='store_true', help='serve only on 127.0.0.1 with a private session')

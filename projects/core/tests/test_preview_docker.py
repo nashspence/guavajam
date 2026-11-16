@@ -31,7 +31,6 @@ class DockerPreviewTests(unittest.TestCase):
             self.assertIn('refs/heads/work/notes',args)
             self.assertIn('GUAVAJAM_PREVIEW_PUBLISHED=2026-11-15',args)
             self.assertIn('GUAVAJAM_PREVIEW_ORIGIN=http://127.0.0.1:8082',args)
-            self.assertIn('GUAVAJAM_PREVIEW_BASE_REF=refs/heads/main',args)
             self.assertIn('src='+str(repo)+',dst=/source,readonly',args)
             self.assertIn('src='+str(reader)+',dst=/run/secrets/readonly.env,readonly',args)
             self.assertIn('src='+str(trust)+',dst=/trust/allowed_signers,readonly',args)
@@ -39,6 +38,21 @@ class DockerPreviewTests(unittest.TestCase):
             self.assertIn('--cap-drop',snapshot)
             self.assertNotIn('docker.sock',args)
             self.assertNotIn('S3_RELEASE_ENV',args)
+
+    def test_first_preview_does_not_request_or_mount_signer_or_storage_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); repo = root / 'source'; repo.mkdir()
+            with patch.dict(os.environ, {'PATH': os.environ['PATH']}, clear=True), \
+                 patch('guavajam_core.preview_docker.image', return_value=('preview@sha256:'+'a'*64, None)), \
+                 patch('guavajam_core.preview_docker.source_ref', return_value='refs/heads/draft'), \
+                 patch('guavajam_core.preview_docker.safe_file', side_effect=AssertionError('unneeded private input')), \
+                 patch('guavajam_core.preview_docker.subprocess.run', return_value=Mock(returncode=0)) as invoked, \
+                 patch('builtins.print'):
+                self.assertEqual(0, run(repo, 'field-notes', '2026-11-16'))
+            argv = invoked.call_args.args[0]
+            mounts = [argv[i+1] for i, arg in enumerate(argv) if arg == '--mount']
+            self.assertEqual({'/source', '/state', '/run/secrets/session.key'},
+                             {value.split('dst=')[1].split(',')[0] for value in mounts})
 
     def test_ref_requires_a_branch_not_a_tag_or_detached_head(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -90,6 +90,6 @@ assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main S3_RELEASE_ENV=rele
 	case "$${APPLY:-0}" in 1) set -- "$$@" --apply;; 0) ;; *) echo 'APPLY must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam_core.asset_release --revision "$${REV:?Set signed REV}" --release-env "$${S3_RELEASE_ENV:?Set separate release-prefix credential file}" --expected-main "$${MAIN_SHA:?Set exact MAIN_SHA}" --remote "$${REMOTE:-origin}" "$$@"
 
-preview: ## WORK=slug [PUBLISHED=YYYY-MM-DD LABEL=text PORT=8082 S3_ENV=private-read.env] Start the whole proposed GuavaJam website from this committed authoring branch via pinned Docker image; baseline requires externally configured signer trust. Ctrl+C stops it.
+preview: ## WORK=slug [PUBLISHED=YYYY-MM-DD LABEL=text PORT=8082 S3_ENV=private-read.env] Start the whole proposed GuavaJam website from this committed authoring branch via pinned Docker image; fresh repositories need no signer setup; declared history requires independent trust. Ctrl+C stops it.
 	@set --; if [ -n "$$PUBLISHED" ]; then set -- --published "$$PUBLISHED"; fi; if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
 	$(PYTHON) -m guavajam_core.preview_docker --work "$${WORK:?Set WORK}" --port "$${PORT:-8082}" "$$@"

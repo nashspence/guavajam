@@ -196,12 +196,12 @@ def citation(catalog, facts, edition, canonical):
             '<p><strong>Exact committed source:</strong> <code>' + e(source_identity(canonical)) + '</code></p></div>')
 
 
-def citation_data(catalog, facts, edition, canonical, anchors):
+def citation_data(catalog, facts, edition, canonical, anchors, *, provisional=False):
     return {'schema': 'guavajam.citation.v1', 'canonical': canonical, 'anchors': anchors,
             'bibliography': {'title': facts['title'], 'authors': ordered_authors(facts),
                              'publisher': catalog['publisher'], 'published': edition['published'],
                              **({'doi': edition['doi']} if 'doi' in edition else {})},
-            'status': edition['status']}
+            'status': edition['status'], **({'provisional': True} if provisional else {})}
 
 
 def citation_filename(view):

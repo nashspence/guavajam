@@ -240,7 +240,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                preview_candidate=None):
     if bool(previous_catalog) == bool(initial_catalog):
         raise CatalogError('provide the last deployed catalog or explicitly select the initial catalog build')
-    if bool(fingerprints) == bool(allowed_signers):
+    if fingerprints and allowed_signers:
         raise CatalogError('provide exactly one external GPG fingerprint policy or SSH allowed-signers file')
     if preview_candidate is not None:
         # This entry point is private to the authenticated preview builder.
@@ -251,6 +251,13 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 or not isinstance(preview_candidate['revision'], str)):
             raise CatalogError('invalid isolated preview candidate')
     catalog = read_catalog(catalog_path)
+    if not (fingerprints or allowed_signers):
+        only = catalog['works']
+        if (preview_candidate is None or len(only) != 1 or only[0]['slug'] != preview_candidate['work']
+                or only[0]['metadata_revision'] != preview_candidate['revision']
+                or len(only[0]['editions']) != 1
+                or only[0]['editions'][0]['revision'] != preview_candidate['revision']):
+            raise CatalogError('provide external signer trust for every non-provisional edition')
     if 'base_url' not in catalog:
         raise CatalogError('HTML site generation requires an explicit base_url in repository configuration')
     if previous_catalog:
@@ -297,7 +304,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 writer.put(root + '/index.html', _edition_page(catalog, work, edition, publication, provisional=provisional))
                 indexable.add(root + '/index.html')
                 manuscript_info = view['documents'][canonical['manuscript']]
-                writer.put(root + '/citation.json', encoded(citation_data(catalog, facts, edition, canonical, manuscript_info['anchors'])))
+                writer.put(root + '/citation.json', encoded(citation_data(catalog, facts, edition, canonical, manuscript_info['anchors'], provisional=provisional)))
                 if edition['status'] in READABLE_STATUSES:
                     file_hashes = {}
                     for document_path, document in sorted(view['documents'].items()):
@@ -313,7 +320,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                         cite_name = citation_filename(filename)
                         writer.put(cite_name, citation_page(catalog, cite_name, work, edition, facts, document, selected, filename))
                         writer.put(str(PurePosixPath(cite_name).with_suffix('.json')),
-                                   encoded(citation_data(catalog, facts, edition, selected, document['anchors'])))
+                                   encoded(citation_data(catalog, facts, edition, selected, document['anchors'], provisional=provisional)))
                         raw = git_blob(repo, sha, document_path)
                         if hashlib.sha256(raw).hexdigest() != document['source_sha256']:
                             raise CatalogError('source download differs from the verified document')

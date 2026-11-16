@@ -10,26 +10,21 @@ def command(repo, *args, env=None):
     return result.stdout.strip()
 
 
-class Publisher:
-    def __init__(self, directory):
-        self.root = Path(directory)
+class Draft:
+    """Fresh local repository; no keys, signer configuration, main or remote."""
+    def __init__(self, directory, *, branch='draft', base_url=None):
+        self.root = Path(directory); self.root.mkdir(parents=True, exist_ok=True)
         self.repo = self.root / 'source'; self.repo.mkdir()
-        self.home = self.root / 'keys'; self.home.mkdir(mode=0o700)
-        self.env = {**os.environ, 'GNUPGHOME': str(self.home)}
-        for args in [('init', '-q', '-b', 'main'), ('config', 'user.name', 'Independent Publisher'),
-                     ('config', 'user.email', 'publisher@example.org'), ('config', 'gpg.format', 'openpgp')]:
+        self.env = {**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null'}
+        for args in [('init', '-q', '-b', branch), ('config', 'user.name', 'Independent Publisher'),
+                     ('config', 'user.email', 'publisher@example.org')]:
             self.git(*args)
-        command(self.repo, 'gpg', '--batch', '--pinentry-mode', 'loopback', '--passphrase', '',
-                '--quick-generate-key', 'Discovery Fixture <publisher@example.org>', 'ed25519', 'sign', '0', env=self.env)
-        listing = command(self.repo, 'gpg', '--with-colons', '--list-secret-keys', env=self.env)
-        self.fingerprint = next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
-        self.git('config', 'user.signingkey', self.fingerprint)
-        self.settings = {'schema': 'guavajam.repository.v1', 'publisher': 'Independent Publisher', 'base_url': 'https://publisher.example'}
+        self.settings = {'schema': 'guavajam.repository.v1', 'publisher': 'Independent Publisher'}
+        if base_url:
+            self.settings['base_url'] = base_url
         self.source('field-notes', 'Field Notes', 'The first observation.')
         self.write_settings()
         self.git('add', '-A'); self.git('commit', '-qm', 'Review source and repository settings')
-        self.seal()
-        self.revisions = []
 
     def git(self, *args):
         return command(self.repo, 'git', *args, env=self.env)
@@ -56,6 +51,21 @@ rights: CC-BY-4.0
 
     def write_settings(self):
         (self.repo / 'guavajam.json').write_text(json.dumps(self.settings, sort_keys=True) + '\n')
+
+
+class Publisher(Draft):
+    def __init__(self, directory):
+        super().__init__(directory, branch='main', base_url='https://publisher.example')
+        self.home = self.root / 'keys'; self.home.mkdir(mode=0o700)
+        self.env['GNUPGHOME'] = str(self.home)
+        command(self.repo, 'gpg', '--batch', '--pinentry-mode', 'loopback', '--passphrase', '',
+                '--quick-generate-key', 'Discovery Fixture <publisher@example.org>', 'ed25519', 'sign', '0', env=self.env)
+        listing = command(self.repo, 'gpg', '--with-colons', '--list-secret-keys', env=self.env)
+        self.fingerprint = next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
+        self.git('config', 'gpg.format', 'openpgp')
+        self.git('config', 'user.signingkey', self.fingerprint)
+        self.seal()
+        self.revisions = []
 
     def seal(self, signed=True):
         self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve repository settings\n\nGuavaJam-Repository: 1')

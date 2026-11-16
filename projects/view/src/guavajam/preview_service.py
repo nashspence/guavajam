@@ -19,7 +19,7 @@ import uuid
 
 from guavajam_core.asset_storage import credentials
 from guavajam_core.publication_protocol import resolve
-from .preview import build_preview, start_server
+from .preview import build_preview, start_server, preview_refs
 from .service import service_lock, trust
 from .update import atomic
 
@@ -62,10 +62,15 @@ class Preview:
         self.token = session_key(env['GUAVAJAM_PREVIEW_TOKEN_FILE'])
         self.repo = Path(env['GUAVAJAM_PREVIEW_REPO']).resolve(strict=True)
         self.ref, self.work = env['GUAVAJAM_PREVIEW_REF'], env['GUAVAJAM_PREVIEW_WORK']
-        self.base_ref = env.get('GUAVAJAM_PREVIEW_BASE_REF', 'refs/heads/main')
+        self.base_ref = env.get('GUAVAJAM_PREVIEW_BASE_REF') or None
         self.published = env.get('GUAVAJAM_PREVIEW_PUBLISHED') or None
         self.label = env.get('GUAVAJAM_PREVIEW_LABEL') or None
-        self.policy = trust(state, self.repo, env)
+        configured = any(env.get(key) for key in ('GUAVAJAM_SSH_ALLOWED_SIGNERS',
+                         'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS', 'GUAVAJAM_GPG_PUBLIC_KEYS'))
+        self.policy = trust(state, self.repo, env) if configured else {}
+        self.baseline_path = state / 'baseline.json'
+        self.baseline = json.loads(self.baseline_path.read_text()) if self.baseline_path.exists() else None
+        self.selection = None
         if not (re.fullmatch(r'refs/heads/[A-Za-z0-9._/-]+', self.ref) and '..' not in self.ref):
             raise ValueError('select an explicit local branch')
         self.process = self.output = self.revision = None
@@ -77,13 +82,14 @@ class Preview:
 
     def refresh(self):
         revision = resolve(self.repo, self.ref)
-        if revision == self.revision and self.process and self.process.poll() is None:
+        selection = (revision, tuple(preview_refs(self.repo).items()))
+        if selection == self.selection and self.process and self.process.poll() is None:
             if not reachable(self.origin, self.port, self.token): raise ValueError('preview unavailable')
             return 'unchanged'
         pending = self.state / ('preview-' + uuid.uuid4().hex)
         try:
             manifest = build_preview(self.repo, revision, self.work, pending,
-                                     base_ref=self.base_ref, published=self.published, label=self.label,
+                                     base_ref=self.base_ref, published=self.published, label=self.label, baseline=self.baseline,
                                      require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1',
                                      **self.policy)
             values = credentials(self.repo) if manifest['assets'] else {}
@@ -99,7 +105,12 @@ class Preview:
                 except OSError: pass
                 if time.monotonic() >= deadline: raise ValueError('preview listener timeout')
                 time.sleep(0.1)
-            self.output, self.revision = pending, revision
+            if manifest['repository_checkpoint']:
+                baseline = {'schema': 'guavajam.preview-baseline.v1',
+                            'checkpoint': manifest['repository_checkpoint'], 'catalog': manifest['verified_catalog']}
+                atomic(self.baseline_path, json.dumps(baseline).encode())
+                self.baseline = baseline
+            self.output, self.revision, self.selection = pending, revision, selection
             if previous: shutil.rmtree(previous)
             return 'updated'
         except BaseException:

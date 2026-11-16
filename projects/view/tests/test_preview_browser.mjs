@@ -5,6 +5,7 @@ import {chromium,firefox,webkit} from 'playwright';
 import {previewServer} from '../../core/src/guavajam_core/resources/storage/preview.mjs';
 
 const fixture=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
+async function qualify(fixture){
 const token='d'.repeat(64),endpoint='https://private-storage.publisher.test';
 const env={ASSET_HOST:new URL(fixture.origin).host,S3_ENDPOINT:endpoint,S3_REGION:'us-east-1',
   S3_BUCKET:'assets',S3_ACCESS_KEY_ID:'fixture-readonly',S3_SECRET_ACCESS_KEY:'fixture-secret'};
@@ -46,6 +47,9 @@ try{
       assert.equal(storageReads,before);
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
+      if(fixture.preview_manifest.provisional_repository){
+        assert.match(await page.getByRole('note',{name:'Provisional repository',exact:true}).innerText(),/publisher settings are provisional/);
+      }
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
       await page.getByRole('link',{name:/Sample Work/}).first().click();
       assert(page.url().includes('/works/sample-work/'));
@@ -82,3 +86,7 @@ try{
 }finally{
   globalThis.fetch=originalFetch;listener.closeAllConnections();await new Promise(resolve=>listener.close(resolve));
 }
+
+}
+await qualify(fixture);
+await qualify({...fixture,...fixture.bootstrap});

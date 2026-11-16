@@ -134,6 +134,22 @@ class PreviewTests(unittest.TestCase):
         self.assertIn(published, (self.output/'works/field-notes/index.html').read_text())
         self.assertIn(edition, (self.output/'works/field-notes/index.html').read_text())
 
+    def test_signed_first_repository_without_main_uses_verified_candidate_history(self):
+        self.publisher.git('branch', '-m', 'draft')
+        edition = self.publisher.publish('2026-11-15')
+        manifest = self.preview(edition, published=None)
+        self.assertTrue(manifest['candidate_signed'])
+        self.assertFalse(manifest['provisional_repository'])
+        self.assertTrue(manifest['repository_checkpoint'])
+        self.assertEqual(edition, manifest['base_revision'])
+
+    def test_untrusted_signed_history_cannot_fall_back_to_initial_preview(self):
+        sha = self.source(assets=False)
+        with self.assertRaises(ValueError):
+            build_preview(self.publisher.repo, sha, 'field-notes', self.output,
+                          fingerprints=['a'*40], published='2026-11-15')
+        self.assertFalse(self.output.exists())
+
     def test_explicit_signed_work_recommendation_is_not_silently_overwritten(self):
         original = self.publisher.publish('2026-11-01')
         self.publisher.settings['works'] = {'field-notes': {'recommended_revision': original}}
