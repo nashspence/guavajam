@@ -2,7 +2,7 @@
 
 Signed candidates use the unmodified production builder and canonical bytes. Unsigned
 candidates are provisional catalog overlays rendered by the same site builder;
-only the selected proposed edition bypasses signature verification. Both are
+selected proposed editions remain explicitly provisional. Both are
 served privately with staged-asset access; neither publishes, signs or pushes.
 """
 import argparse
@@ -29,7 +29,7 @@ from .renderer import git_blob
 from .site import build_site
 
 
-def proposed_catalog(catalog, revision, work, published, label, manuscript, *, recommendation_locked=False):
+def proposed_catalog(catalog, revision, work, published, label, manuscript, *, recommendation_locked=False, provisional=()):
     """Add one non-authoritative edition to the reviewed signed catalog.
 
     The current signed catalog supplies all existing works and editorial settings.
@@ -57,12 +57,12 @@ def proposed_catalog(catalog, revision, work, published, label, manuscript, *, r
         original_doi = existing.get('concept_doi')
         proposed_doi = metadata.get('identifiers', {}).get('concept_doi')
         if proposed_doi and proposed_doi != original_doi:
-            raise AssetError('changing an issued work DOI requires reviewed site administration')
+            raise AssetError('changing an issued work DOI requires reviewed repository administration')
         previous_latest = max((e for e in existing['editions'] if e['status'] == 'available'),
                               key=lambda e: e['published'], default=None)
         existing['editions'].append(item)
         # Only advance an implicit/default recommendation. An explicitly
-        # disabled or older recommendation remains under signed site control.
+        # disabled or older recommendation remains under signed repository control.
         existing['editions'].sort(key=lambda x: x['published'])
         if (not recommendation_locked and previous_latest and existing.get('recommended_revision') == previous_latest['revision']
                 and date >= previous_latest['published']):
@@ -74,7 +74,7 @@ def proposed_catalog(catalog, revision, work, published, label, manuscript, *, r
             candidate['concept_doi'] = metadata['identifiers']['concept_doi']
         catalog['works'].append(candidate)
         catalog['works'].sort(key=lambda x: x['slug'])
-    validate(catalog)
+    validate(catalog, provisional=provisional)
     return catalog
 
 
@@ -158,7 +158,21 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
     if signed and (published is not None and published != declared['published'] or
                    label is not None and label != declared.get('label')):
         raise AssetError('preview facts differ from the signed publication declaration')
-    mappings = qualify(repo, revision, work, store=store, require_retention=require_retention)
+    selected = [work]
+    if provisional_repository:
+        from guavajam_core.publication_protocol import WORK
+        paths = run(repo, 'ls-tree', '-r', '--name-only', revision, '--', 'works', limit=1024*1024).decode('utf-8').splitlines()
+        selected = sorted({match[1] for path in paths if (match := WORK.fullmatch(path))})
+        if work not in selected or len(selected) > 256:
+            raise AssetError('select a work from the bounded committed draft inventory')
+    candidates = [{'work': slug, 'revision': revision} for slug in selected] if not signed else None
+    provisional = {(item['work'], item['revision']) for item in candidates or []}
+    mappings = {}
+    for slug in selected:
+        for key, mapping in qualify(repo, revision, slug, store=store, require_retention=require_retention).items():
+            if key in mappings and mappings[key] != mapping:
+                raise AssetError('drafts disagree on private asset identity')
+            mappings[key] = mapping
     with snapshot(repo, revision) as (root, _):
         asset_policy = load_policy(root)
         origin = asset_policy.origin if asset_policy else None
@@ -166,11 +180,12 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         if published is None:
             raise AssetError('unsigned full-site preview requires PUBLISHED=YYYY-MM-DD')
         settings = json.loads(blob(repo, revision, 'guavajam.json'))
-        locked = 'recommended_revision' in settings.get('works', {}).get(work, {})
-        catalog = proposed_catalog(catalog, revision, work, published, label,
-                                   git_blob(repo, revision, f'works/{work}/manuscript.md'),
-                                   recommendation_locked=locked)
-    compare(previous, catalog)
+        for slug in selected:
+            locked = 'recommended_revision' in settings.get('works', {}).get(slug, {})
+            catalog = proposed_catalog(catalog, revision, slug, published, label,
+                                       git_blob(repo, revision, f'works/{slug}/manuscript.md'),
+                                       recommendation_locked=locked, provisional=provisional)
+    compare(previous, catalog, provisional=provisional)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.guavajam-preview-', dir=output.parent) as directory:
         stage = Path(directory) / 'site'
@@ -179,7 +194,7 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         prior_path = Path(directory) / 'previous.json'
         prior_path.write_bytes(encoded(previous))
         build_site(repo, catalog_path, stage, fingerprints=fingerprints, allowed_signers=allowed_signers,
-                   previous_catalog=prior_path, preview_candidate=(None if signed else {'work': work, 'revision': revision}))
+                   previous_catalog=prior_path, preview_candidates=candidates)
         if provisional_repository:
             provisional_settings(stage)
         if not signed:
@@ -190,7 +205,7 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
                      for p in stage.rglob('*') if p.is_file()}
         manifest = {'schema': 'guavajam.preview.v1', 'revision': revision, 'work': work,
                     'origin': origin, 'files': inventory, 'assets': mappings,
-                    'publication': False, 'candidate_signed': signed,
+                    'publication': False, 'candidate_signed': signed, 'candidates': candidates or [],
                     'base_revision': base, 'provisional_identity': not signed,
                     'provisional_repository': provisional_repository,
                     'repository_checkpoint': checkpoint, 'verified_catalog': verified_catalog}

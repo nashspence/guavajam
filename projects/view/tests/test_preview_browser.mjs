@@ -49,6 +49,14 @@ try{
       assert.equal(page.url(),origin+'/');
       if(fixture.preview_manifest.provisional_repository){
         assert.match(await page.getByRole('note',{name:'Provisional repository',exact:true}).innerText(),/publisher settings are provisional/);
+        const catalog=await (await context.request.get(origin+'/CATALOG.json')).json();
+        assert.equal(catalog.works.length,3);
+        for(const work of catalog.works){
+          const record=await context.request.get(origin+'/works/'+work.slug+'/editions/'+fixture.revision+'/citation.json');
+          const citation=await record.json();
+          assert.equal(citation.canonical.manuscript,'works/'+work.slug+'/manuscript.md');
+          assert(citation.provisional);
+        }
       }
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
       await page.getByRole('link',{name:/Sample Work/}).first().click();
