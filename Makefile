@@ -59,9 +59,9 @@ test-compose: test-deployment-config ## Build and qualify default/local-assets C
 	@$(PYTHON) tests/deployment/test_compose.py
 	$(PYTHON) tests/deployment/test_preview_compose.py
 
-preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug PUBLISHED=YYYY-MM-DD OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Preview the entire proposed site against signed main (exact signed identities; unsigned facts provisional). No public writes.
+preview: ## REPO=path SOURCE_REF=refs/heads/draft WORK=slug PUBLISHED=YYYY-MM-DD OUTPUT=outside/new [SERVE=1 PORT=0 BASE_REF=refs/heads/main] Preview the entire proposed site without signing for a fresh repository; declared history requires external trust. No public writes.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }
-	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signing trust}"; fi; 	if [ -n "$$BASE_REF" ]; then set -- "$$@" --base-ref "$$BASE_REF"; fi; 	if [ -n "$$PUBLISHED" ]; then set -- "$$@" --published "$$PUBLISHED"; fi; 	if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
+	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; elif [ -n "$$TRUSTED_GPG_FINGERPRINT" ]; then set -- --trusted-gpg-fingerprint "$$TRUSTED_GPG_FINGERPRINT"; fi; 	if [ -n "$$BASE_REF" ]; then set -- "$$@" --base-ref "$$BASE_REF"; fi; 	if [ -n "$$PUBLISHED" ]; then set -- "$$@" --published "$$PUBLISHED"; fi; 	if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
 	case "$${SERVE:-0}" in 1) set -- "$$@" --serve;; 0) ;; *) echo 'SERVE must be 0 or 1'; exit 1;; esac; \
 	case "$${REQUIRE_RETENTION:-0}" in 1) set -- "$$@" --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam preview --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:?Set SOURCE_REF}" --work "$${WORK:?Set WORK}" --output "$${OUTPUT:?Set OUTPUT}" --port "$${PORT:-0}" "$$@"

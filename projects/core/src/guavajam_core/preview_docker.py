@@ -1,8 +1,8 @@
 """Launch the optional GuavaJam *whole site* preview from a publication checkout.
 
-Only the signed-main baseline and exact committed author branch are read.
+Only exact committed author branches and any declared baseline are read.
 Docker runs an independently pinned GuavaJam image with read-only source,
-external public signer trust and read-only private S3 access; no source program
+optional external signer trust and read-only private S3 access; no source program
 runs with either credential. No Docker socket is mounted inside the container.
 """
 import argparse
@@ -77,30 +77,26 @@ def run(repo, work, published, *, label=None, port=8082):
     selected, pin = image()
     signer = os.environ.get('GUAVAJAM_SSH_ALLOWED_SIGNERS') or os.environ.get('SSH_ALLOWED_SIGNERS')
     gpg = os.environ.get('GUAVAJAM_TRUSTED_GPG_FINGERPRINTS') or os.environ.get('TRUSTED_GPG_FINGERPRINT')
-    if bool(signer) == bool(gpg):
+    if signer and gpg:
         raise AssetError('configure exactly one external signer trust source')
     if gpg and not re.fullmatch(r'(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64})(?:\s+(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64}))*', gpg):
         raise AssetError('provide full trusted GPG fingerprints')
-    trust = safe_file(repo, signer or os.environ.get('GUAVAJAM_GPG_PUBLIC_KEYS', ''))
+    trust = safe_file(repo, signer or os.environ.get('GUAVAJAM_GPG_PUBLIC_KEYS', '')) if signer or gpg else None
     private_env = os.environ.get('S3_ENV')
     if private_env:
         private_env = safe_file(repo, private_env, owner_only=True)
-    # Compose/service require an external file even for asset-free drafts.
     with tempfile.TemporaryDirectory(prefix='guavajam-preview-') as temporary:
         state = Path(temporary)
         key = state/'session.key'
         token = secrets.token_hex(32)
         key.write_text(token);key.chmod(0o600)
-        if private_env is None:
-            private_env = state/'readonly.env'
-            private_env.write_text('# No staged assets selected\n');private_env.chmod(0o600)
         env = ['-e', 'GUAVAJAM_PREVIEW_REPO=/source',
                '-e', 'GUAVAJAM_PREVIEW_REF='+ref,
-               '-e', 'GUAVAJAM_PREVIEW_BASE_REF=refs/heads/main',
                '-e', 'GUAVAJAM_PREVIEW_WORK='+work,
                '-e', 'GUAVAJAM_PREVIEW_ORIGIN=http://127.0.0.1:'+str(port),
-               '-e', 'GUAVAJAM_PREVIEW_TOKEN_FILE=/run/secrets/session.key',
-               '-e', 'S3_ENV=/run/secrets/readonly.env']
+               '-e', 'GUAVAJAM_PREVIEW_TOKEN_FILE=/run/secrets/session.key']
+        if private_env:
+            env += ['-e', 'S3_ENV=/run/secrets/readonly.env']
         if published:
             env += ['-e', 'GUAVAJAM_PREVIEW_PUBLISHED='+published]
         if label:
@@ -108,7 +104,7 @@ def run(repo, work, published, *, label=None, port=8082):
         if signer:
             env += ['-e', 'GUAVAJAM_SSH_ALLOWED_SIGNERS=/trust/allowed_signers']
             trusted_destination = '/trust/allowed_signers'
-        else:
+        elif gpg:
             env += ['-e', 'GUAVAJAM_SSH_ALLOWED_SIGNERS=',
                     '-e', 'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS='+gpg,
                     '-e', 'GUAVAJAM_GPG_PUBLIC_KEYS=/trust/publisher.asc']
@@ -119,8 +115,12 @@ def run(repo, work, published, *, label=None, port=8082):
             subprocess.run(['docker', 'build', '--target', 'preview', '--tag', selected,
                             'https://github.com/nashspence/guavajam.git?ref='+pin], check=True)
         mounts = []
-        for path, destination in [(repo, '/source'), (private_env, '/run/secrets/readonly.env'),
-                                  (key, '/run/secrets/session.key'), (trust, trusted_destination)]:
+        inputs = [(repo, '/source'), (key, '/run/secrets/session.key')]
+        if private_env:
+            inputs.append((private_env, '/run/secrets/readonly.env'))
+        if trust:
+            inputs.append((trust, trusted_destination))
+        for path, destination in inputs:
             mounts.extend(['--mount', f'type=bind,src={path},dst={destination},readonly'])
         argv = ['docker', 'run', '--rm', '--init', '--read-only', '--cap-drop', 'ALL',
                 '--security-opt', 'no-new-privileges', '--user', str(os.getuid())+':'+str(os.getgid()),

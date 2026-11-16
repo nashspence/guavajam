@@ -88,36 +88,26 @@ services:
       GUAVAJAM_PREVIEW_REPO: /source
       GUAVAJAM_PREVIEW_REF: ${GUAVAJAM_PREVIEW_REF:-refs/heads/draft}
       GUAVAJAM_PREVIEW_WORK: ${GUAVAJAM_PREVIEW_WORK:-}
-      GUAVAJAM_PREVIEW_BASE_REF: ${GUAVAJAM_PREVIEW_BASE_REF:-refs/heads/main}
+      GUAVAJAM_PREVIEW_BASE_REF: ${GUAVAJAM_PREVIEW_BASE_REF:-}
       GUAVAJAM_PREVIEW_PUBLISHED: ${GUAVAJAM_PREVIEW_PUBLISHED:-}
       GUAVAJAM_PREVIEW_LABEL: ${GUAVAJAM_PREVIEW_LABEL:-}
-      GUAVAJAM_SSH_ALLOWED_SIGNERS: ${GUAVAJAM_SSH_ALLOWED_SIGNERS-/trust/allowed_signers}
+      GUAVAJAM_SSH_ALLOWED_SIGNERS: ${GUAVAJAM_SSH_ALLOWED_SIGNERS:-}
       GUAVAJAM_TRUSTED_GPG_FINGERPRINTS: ${GUAVAJAM_TRUSTED_GPG_FINGERPRINTS:-}
       GUAVAJAM_GPG_PUBLIC_KEYS: ${GUAVAJAM_GPG_PUBLIC_KEYS:-}
       GUAVAJAM_PREVIEW_ORIGIN: ${GUAVAJAM_PREVIEW_ORIGIN:-}
-      GUAVAJAM_PREVIEW_TOKEN_FILE: /run/secrets/session.key
+      GUAVAJAM_PREVIEW_TOKEN_FILE: /run/preview/session.key
       GUAVAJAM_POLL_SECONDS: ${GUAVAJAM_POLL_SECONDS:-30}
-      S3_ENV: /run/secrets/readonly.env
+      S3_ENV: /run/preview/readonly.env
     volumes:
       - preview-state:/state
-      - type: bind
-        source: ${GUAVAJAM_TRUST_DIR:-./deploy/trust}
-        target: /trust
-        read_only: true
-        bind: {create_host_path: false}
       - type: bind
         source: ${GUAVAJAM_PREVIEW_SOURCE:-./deploy/source}
         target: /source
         read_only: true
         bind: {create_host_path: false}
       - type: bind
-        source: ${GUAVAJAM_PREVIEW_TOKEN_FILE:-./deploy/private/session.key}
-        target: /run/secrets/session.key
-        read_only: true
-        bind: {create_host_path: false}
-      - type: bind
-        source: ${GUAVAJAM_PREVIEW_READONLY_ENV:-./deploy/private/readonly.env}
-        target: /run/secrets/readonly.env
+        source: ${GUAVAJAM_PREVIEW_INPUTS:-./deploy/private}
+        target: /run/preview
         read_only: true
         bind: {create_host_path: false}
     ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080']

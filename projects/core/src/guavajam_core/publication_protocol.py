@@ -227,27 +227,39 @@ def _concept_doi(raw):
     return identifiers.get('concept_doi')
 
 
+def declared_history(repo, ref='refs/heads/main', *, additional_refs=()):
+    """Bounded complete history and parsed declarations, without assigning trust."""
+    repo = Path(repo).resolve(strict=True)
+    if len(additional_refs) > 128:
+        fail('too many preview history roots')
+    tip = resolve(repo, ref)
+    tips = list(dict.fromkeys([tip, *(resolve(repo, value) for value in additional_refs)]))
+    ids = run(repo, 'rev-list', '--max-count=' + str(MAX_HISTORY + 1), *tips).splitlines()
+    if len(ids) > MAX_HISTORY:
+        fail('history exceeds 10,000 commits; use an explicitly reviewed protocol upgrade, not silent truncation')
+    raw = run(repo, 'log', '--no-show-signature', '--reverse', '--topo-order', '--format=%H%x00%B%x00', *tips)
+    parts = raw.split(b'\x00')
+    if parts[-1].strip():
+        fail('invalid Git message framing')
+    declarations = []
+    for i in range(0, len(parts)-1, 2):
+        sha = oid(parts[i].strip().decode('ascii'))
+        message = parts[i+1].decode('utf-8', 'strict')
+        if not any(line.startswith('GuavaJam-') for line in message.splitlines()):
+            continue
+        declarations.append((sha, declaration(message)))
+    return tip, declarations
+
+
 def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=None, previous=None):
     """Return the exact guavajam.catalog.v1 input and non-authoritative evidence.
 
     Enumerate ONLY the selected history. Invalid declarations fail closed; no
     tag/branch name, commit time, author field or JSON boolean establishes trust.
     """
-    repo = Path(repo).resolve(strict=True)
-    tip = resolve(repo, ref)
-    ids = run(repo, 'rev-list', '--max-count=' + str(MAX_HISTORY + 1), tip).splitlines()
-    if len(ids) > MAX_HISTORY:
-        fail('history exceeds 10,000 commits; use an explicitly reviewed protocol upgrade, not silent truncation')
-    raw = run(repo, 'log', '--no-show-signature', '--reverse', '--topo-order', '--format=%H%x00%B%x00', tip)
-    parts = raw.split(b'\x00')
-    if parts[-1].strip():
-        fail('invalid Git message framing')
+    tip, declarations = declared_history(repo, ref)
     publications, checkpoints, declarations_seen = [], [], []
-    for i in range(0, len(parts)-1, 2):
-        sha = oid(parts[i].strip().decode('ascii'))
-        message = parts[i+1].decode('utf-8', 'strict')
-        if not re.search(r'^GuavaJam-(?:Publication|Work|Repository|Published|Label):', message, re.M):
-            continue
+    for sha, _ in declarations:
         candidate = verify_shape(repo, sha)
         verify_signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
         declarations_seen.append(sha)

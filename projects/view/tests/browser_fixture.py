@@ -67,7 +67,21 @@ def make_fixture(directory):
     with patch.dict(os.environ,{'GNUPGHOME':str(keys)}):
         manifest=build_preview(repo,sha,'sample-work',private,store=store,
                                fingerprints=[fingerprint],published='2026-11-15')
+    # The same full media journey must also work before any signer bootstrap.
+    from guavajam_test_support.discovery_fixture import Draft
+    import shutil
+    bootstrap = Draft(directory/'bootstrap')
+    bootstrap.git('rm', '-r', 'works/field-notes')
+    shutil.copytree(work, bootstrap.repo/'works/sample-work')
+    shutil.copyfile(repo/'asset-policy.json', bootstrap.repo/'asset-policy.json')
+    bootstrap.git('add', '-A'); bootstrap.git('commit', '-qm', 'Review first private work')
+    bootstrap_sha = bootstrap.git('rev-parse', 'HEAD')
+    bootstrap_output = directory/'bootstrap-private'
+    bootstrap_manifest = build_preview(bootstrap.repo, bootstrap_sha, 'sample-work', bootstrap_output,
+                                       store=store, published='2026-11-15')
     fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha,
-             'preview_root':str(private),'preview_manifest':manifest}
+             'preview_root':str(private),'preview_manifest':manifest,
+             'bootstrap':{'revision':bootstrap_sha,'preview_root':str(bootstrap_output),
+                          'preview_manifest':bootstrap_manifest}}
     (directory/'fixture.json').write_text(json.dumps(fixture))
     return fixture
