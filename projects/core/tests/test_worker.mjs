@@ -6,7 +6,7 @@ import worker,{signedRead} from '../src/guavajam_core/resources/storage/worker.j
 const digest='b'.repeat(64),key='sha256/'+digest+'.mp4',url='https://assets.publisher.test/'+key;
 const env={ASSET_HOST:'assets.publisher.test',S3_ENDPOINT:'https://objects.example.test',S3_REGION:'test-region',S3_BUCKET:'test-bucket',S3_ACCESS_KEY_ID:'example-id',S3_SECRET_ACCESS_KEY:'example-secret'};
 function setup(extension='mp4',size=1000){
- const entry={schema:'press.asset.v1',sha256:digest,extension,version_id:'fixed_version',etag:'"fixed-etag"',retention_mode:'governance',byte_count:size,content_type:({mp4:'video/mp4',mp3:'audio/mpeg',bin:'application/octet-stream',vtt:'text/vtt',svg:'image/svg+xml'})[extension],retain_until:2000000000000};
+ const entry={schema:'guavajam.asset.v1',sha256:digest,extension,version_id:'fixed_version',etag:'"fixed-etag"',retention_mode:'governance',byte_count:size,content_type:({mp4:'video/mp4',mp3:'audio/mpeg',bin:'application/octet-stream',vtt:'text/vtt',svg:'image/svg+xml'})[extension],retain_until:2000000000000};
  return {...env,__mapping:entry};
 }
 async function run(request,config,handler){
@@ -15,7 +15,7 @@ async function run(request,config,handler){
   if(target.includes('/released/sha256/')){
    if(config.__mapping===null)return new Response('',{status:404});
    if(config.__mapping===undefined)throw Error('index unavailable');
-   const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
+   const raw=JSON.stringify({schema:'guavajam.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
    return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
   }
   return handler(target,options);
@@ -40,7 +40,7 @@ test('full reads and HEAD expose only the fixed version and approved media type'
  try{
   const result=await run(new Request(url),setup(),globalThis.fetch);
   assert.equal(result.status,200);assert.equal((await result.arrayBuffer()).byteLength,1000);
-  assert.equal(result.headers.get('X-Press-Asset-Version'),'fixed_version');assert.equal(result.headers.get('X-Press-Retain-Until'),'2000000000000');
+  assert.equal(result.headers.get('X-GuavaJam-Asset-Version'),'fixed_version');assert.equal(result.headers.get('X-GuavaJam-Retain-Until'),'2000000000000');
   assert.equal(result.headers.get('Access-Control-Allow-Origin'),'*');assert.equal(result.headers.get('Accept-Ranges'),'bytes');
   assert.equal(calls[0][1].redirect,'manual');assert(!('cf' in calls[0][1]));assert.match(calls[0][0],/versionId=fixed_version$/);
   const head=await run(new Request(url,{method:'HEAD'}),setup(),globalThis.fetch);assert.equal(head.status,200);assert.equal(await head.text(),'');assert.equal(calls[1][1].method,'HEAD');
@@ -110,7 +110,7 @@ test('unversioned GET, HEAD and ranges use If-Match and expose no fabricated ver
    return upstream({version:null,...(range?{start:10,end:19}:{})});
   });
   assert.equal(result.status,range?206:200);assert.equal(result.headers.get('ETag'),'"fixed-etag"');
-  assert.equal(result.headers.get('X-Press-Asset-Version'),null);assert.equal(result.headers.get('X-Press-Retain-Until'),'0');
+  assert.equal(result.headers.get('X-GuavaJam-Asset-Version'),null);assert.equal(result.headers.get('X-GuavaJam-Retain-Until'),'0');
   if(method==='GET')assert.equal((await result.arrayBuffer()).byteLength,range?10:1000);
  }
 });
@@ -126,14 +126,14 @@ test('unversioned replacement and ignored If-Match fail closed for full and part
 test('versioning without Object Lock needs no retention claim',async()=>{
  const config=setup();Object.assign(config.__mapping,{retain_until:null,retention_mode:null});
  const result=await run(new Request(url),config,async()=>upstream());
- assert.equal(result.status,200);assert.equal(result.headers.get('X-Press-Retain-Until'),'0');
+ assert.equal(result.status,200);assert.equal(result.headers.get('X-GuavaJam-Retain-Until'),'0');
 });
 test('opaque version IDs are encoded rather than restricted to B2 characters',async()=>{
  const config=setup(),version='opaque.+/=%';config.__mapping.version_id=version;
  const result=await run(new Request(url),config,async(target)=>{
   assert.equal(new URL(target).searchParams.get('versionId'),version);return upstream({version});
  });
- assert.equal(result.status,200);assert.equal(result.headers.get('X-Press-Asset-Version'),encodeURIComponent(version));
+ assert.equal(result.status,200);assert.equal(result.headers.get('X-GuavaJam-Asset-Version'),encodeURIComponent(version));
 });
 test('malformed ETags and impossible retention claims never reach the asset origin',async()=>{
  for(const bad of [{etag:null},{etag:'W/"weak"'},{etag:'*'},{version_id:null},{retention_mode:null},{version_id:'null'}]){
@@ -148,7 +148,7 @@ test('the mutable null version uses an ETag but advertises no immutable version'
   assert.equal(new URL(target).searchParams.get('versionId'),'null');assert.equal(options.headers['if-match'],'"fixed-etag"');
   return upstream({version:'null'});
  });
- assert.equal(result.status,200);assert.equal(result.headers.get('X-Press-Asset-Version'),null);
+ assert.equal(result.status,200);assert.equal(result.headers.get('X-GuavaJam-Asset-Version'),null);
 });
 
 
@@ -161,7 +161,7 @@ test('signed origin reads bypass caches that rewrite conditional and range reque
    globalThis.fetch=async(target,options)=>{
     calls.push(options);
     if(target.includes('/released/sha256/')){
-     const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
+     const raw=JSON.stringify({schema:'guavajam.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:config.__mapping});
      return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
     }
     // A cache miss can drop If-Match, invalidating the signed upstream request.

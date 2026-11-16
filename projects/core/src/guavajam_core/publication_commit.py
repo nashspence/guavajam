@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify a Press edition directly from its *signed Git commit*.
+"""Verify a GuavaJam edition directly from its *signed Git commit*.
 
 No tag, release, account, URL or rendered HTML is part of edition identity.
 Trust anchors must be supplied externally to the source commit under review.
@@ -69,7 +69,7 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
         if validate_tree:
             errors = validate_repository(root, files, enforce_version=pandoc_version)
             if errors:
-                raise PublicationError('published GFM violates Press conventions: ' + '; '.join(errors[:8]))
+                raise PublicationError('published GFM violates GuavaJam conventions: ' + '; '.join(errors[:8]))
         from .asset_policy import load_policy
         policy = load_policy(root)
         items = media_items(root, Path(work))
@@ -92,7 +92,7 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
         'documents': documents,
         'assets_verified': online_media,
         'media_verified': (not items or online_media),
-        'schema': 'press.citation.v1',
+        'schema': 'guavajam.source-citation.v1',
         'hash_algorithm': 'sha1',
         'revision': sha,
         'manuscript': work,

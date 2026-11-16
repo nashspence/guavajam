@@ -10,7 +10,7 @@ from .repository import repository_root
 
 from .resources import ROOT as RESOURCES
 EXPORTS = {'capture': 'chatgpt-capture', 'credentials': 'storage/credentials.env.example',
-           'site-settings': 'templates/site.json', 'site-schema': 'schemas/press-site-v1.schema.json',
+           'repository-settings': 'templates/repository.json', 'repository-schema': 'schemas/guavajam-repository-v1.schema.json',
            'preview': 'storage/preview.svg'}
 
 

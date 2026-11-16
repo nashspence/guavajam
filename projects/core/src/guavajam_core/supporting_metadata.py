@@ -76,8 +76,8 @@ def metadata_block(fields):
     entries = []
     for key, value in fields:
         values = value if isinstance(value, list) else [value]
-        content = [{'t':'Plain','c':[span(item, 'data-press-metadata-value', cls='press-metadata-value')]} for item in values]
+        content = [{'t':'Plain','c':[span(item, 'data-guavajam-metadata-value', cls='guavajam-metadata-value')]} for item in values]
         blocks = [{'t':'BulletList','c':[[item] for item in content]}] if isinstance(value, list) else content
-        definition = {'t':'Div','c':[['', [], [['data-press-metadata-kind', 'list' if isinstance(value, list) else 'text']]], blocks]}
-        entries.append([[span(key, 'data-press-metadata-key')], [[definition]]])
-    return {'t':'Div','c':[['', ['press-document-metadata'], []], [{'t':'DefinitionList','c':entries}]]}
+        definition = {'t':'Div','c':[['', [], [['data-guavajam-metadata-kind', 'list' if isinstance(value, list) else 'text']]], blocks]}
+        entries.append([[span(key, 'data-guavajam-metadata-key')], [[definition]]])
+    return {'t':'Div','c':[['', ['guavajam-document-metadata'], []], [{'t':'DefinitionList','c':entries}]]}

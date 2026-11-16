@@ -20,9 +20,9 @@ class _Response:
         self.response, self.mapping, self.status = response, mapping, response.status
 
     def getheader(self, name, default=None):
-        if name.lower() == 'x-press-retain-until':
+        if name.lower() == 'x-guavajam-retain-until':
             return str(self.mapping['retain_until'] or 0)
-        if name.lower() == 'x-press-asset-version':
+        if name.lower() == 'x-guavajam-asset-version':
             version = self.mapping['version_id']
             return quote(version, safe='') if immutable_version(version) else default
         if name.lower() == 'accept-ranges' and self.mapping['extension'] in {'mp3', 'mp4'}:

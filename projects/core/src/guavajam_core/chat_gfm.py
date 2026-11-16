@@ -34,7 +34,7 @@ def _write_math_gfm(blocks: list[dict]) -> tuple[list[dict], dict[str, tuple[str
     restoring them *after* the GFM writer leaves authored code untouched.
     Re-parsing and byte-by-byte math/code checks below remain mandatory.
     """
-    prefix = 'PRESSMATHTOKEN' + hashlib.sha256(json.dumps(
+    prefix = 'GUAVAJAMMATHTOKEN' + hashlib.sha256(json.dumps(
         blocks, ensure_ascii=True, sort_keys=True).encode()).hexdigest()[:20].upper()
     mapping: dict[str, tuple[str, str]] = {}
 
@@ -188,7 +188,7 @@ def _divider_blocks(value, *, inline_only=False):
     def split(inlines):
         chunks = [[]]
         for item in inlines:
-            if item.get('t') == 'RawInline' and item['c'][0] == 'press-divider':
+            if item.get('t') == 'RawInline' and item['c'][0] == 'guavajam-divider':
                 chunks.append([])
                 continue
             kind = item.get('t')
@@ -234,7 +234,7 @@ def _divider_blocks(value, *, inline_only=False):
                 blocks.append({'t': value['t'], 'c': chunk})
         return blocks
     # Headings and GFM table cells cannot contain block separators.
-    if value.get('t') == 'RawInline' and value['c'][0] == 'press-divider':
+    if value.get('t') == 'RawInline' and value['c'][0] == 'guavajam-divider':
         return {'t': 'Span', 'c': [['', [], [['title', value['c'][1]]]], [{'t': 'Str', 'c': '—'}]]}
     return {key: _divider_blocks(item, inline_only=inline_only or value.get('t') in {'Header', 'Table'})
             for key, item in value.items()}
@@ -355,7 +355,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             if len(value['c'][1]) <= 2000 and DIVIDER.fullmatch(value['c'][1]):
                 report('chatgpt-divider-normalized')
                 return {'t': 'HorizontalRule'} if kind == 'RawBlock' else {
-                    't': 'RawInline', 'c': ['press-divider', value['c'][1]]}
+                    't': 'RawInline', 'c': ['guavajam-divider', value['c'][1]]}
             if re.match(r'<CodeBlock\b', value['c'][1]):
                 raise AssetError('ChatGPT CodeBlock must stand alone between blank lines')
             if re.fullmatch(r'<(?:icon|Icon)\b[^<>\r\n]*/>', value['c'][1]) and len(value['c'][1]) <= 2000:
@@ -416,7 +416,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             return {'t':'Str','c':text}
         return {key:clean(item) for key,item in value.items()}
     def anchor(identifier, speaker=None):
-        annotation = ' data-press-speaker="' + speaker + '"' if speaker else ''
+        annotation = ' data-guavajam-speaker="' + speaker + '"' if speaker else ''
         return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"{annotation}></a>\n']}
     def header(level,text):
         return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}

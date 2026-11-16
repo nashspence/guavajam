@@ -61,7 +61,7 @@ class SourceContractTests(unittest.TestCase):
 
     def test_quotation_heading_scopes_reset_without_changing_the_author_outline(self):
         def quote(headings):
-            return ('<a name="reply" data-press-speaker="responder"></a>\n\n' +
+            return ('<a name="reply" data-guavajam-speaker="responder"></a>\n\n' +
                     '\n>\n'.join('> <a name="quoted-' + str(i) + '"></a>\n>\n> ' + '#' * level + ' Quoted heading'
                                  for i, level in enumerate(headings)) + '\n\n— Correspondent\n')
         author = ('<a name="section-anchor"></a>\n\n## Section\n\n'
@@ -89,36 +89,36 @@ class SourceContractTests(unittest.TestCase):
     def test_author_is_plain_and_only_external_quotations_are_credited(self):
         source = document('<a name="author-entry"></a>\n\nThe author writes ordinarily.\n\n'
             '<a name="author-section"></a>\n\n## Actual section\n\n'
-            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '<a name="response" data-guavajam-speaker="responder"></a>\n\n'
             '> <a name="response-body"></a>\n>\n> A quoted response.\n\n'
             '— Correspondent\n')
         ast, anchors, *_ = self.parse(source)
         self.assertEqual({'document', 'author-entry', 'author-section', 'response', 'response-body'},set(anchors))
         self.assertEqual('Para', ast['blocks'][anchors['author-entry']]['t'])
         self.assertEqual('Header', ast['blocks'][anchors['author-section']]['t'])
-        self.assertFalse(any('data-press-speaker' in dict(node['c'][1][2]) for node in walk(ast['blocks'])
+        self.assertFalse(any('data-guavajam-speaker' in dict(node['c'][1][2]) for node in walk(ast['blocks'])
                              if node['t']=='Header'))
         self.assertEqual('Div', ast['blocks'][anchors['response']]['t'])
         attrs = dict(ast['blocks'][anchors['response']]['c'][0][2])
-        self.assertEqual({'data-press-speaker':'responder', 'data-press-attribution':'Correspondent'},attrs)
+        self.assertEqual({'data-guavajam-speaker':'responder', 'data-guavajam-attribution':'Correspondent'},attrs)
 
         for bad in (
-            '<a name="voice" data-press-speaker="user"></a>\n\nAuthorial text.\n',
-            '<a name="voice" data-press-speaker="author"></a>\n\nAuthorial text.\n',
-            '<a name="voice" data-press-speaker="assistant"></a>\n\n## Heading\n',
-            '<a name="voice" data-press-speaker="responder"></a>\n\n'
+            '<a name="voice" data-guavajam-speaker="user"></a>\n\nAuthorial text.\n',
+            '<a name="voice" data-guavajam-speaker="author"></a>\n\nAuthorial text.\n',
+            '<a name="voice" data-guavajam-speaker="assistant"></a>\n\n## Heading\n',
+            '<a name="voice" data-guavajam-speaker="responder"></a>\n\n'
                 '> <a name="part"></a>\n>\n> Quoted text.\n',
-            '<a name="voice" data-press-speaker="responder"></a>\n\n'
+            '<a name="voice" data-guavajam-speaker="responder"></a>\n\n'
                 '> <a name="part"></a>\n>\n> Quoted text.\n\n— Author\n',
-            '<a name="voice" data-press-speaker="responder" style="color:red"></a>\n\n'
+            '<a name="voice" data-guavajam-speaker="responder" style="color:red"></a>\n\n'
                 '> <a name="part"></a>\n>\n> Quoted text.\n\n— Correspondent\n',
-            '> <a name="voice" data-press-speaker="responder"></a>\n>\n> Text.\n',
+            '> <a name="voice" data-guavajam-speaker="responder"></a>\n>\n> Text.\n',
         ):
             with self.subTest(source=bad[:80]), self.assertRaises(AssetError):
                 self.parse(document(bad))
 
     def test_responder_quote_preserves_nested_quotation_and_source_ids(self):
-        source=document('<a name="response" data-press-speaker="responder"></a>\n\n'
+        source=document('<a name="response" data-guavajam-speaker="responder"></a>\n\n'
             '> <a name="paragraph"></a>\n>\n> Answer.\n>\n'
             '> <a name="inner-quote"></a>\n>\n> > Another quoted passage.\n>\n'
             '> <a name="code"></a>\n>\n> ```python\n> print(1)\n> ```\n\n'
@@ -129,20 +129,20 @@ class SourceContractTests(unittest.TestCase):
         self.assertEqual('BlockQuote',ast['blocks'][anchors['inner-quote']]['t'])
         self.assertEqual('CodeBlock',ast['blocks'][anchors['code']]['t'])
         for bad in (
-            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '<a name="response" data-guavajam-speaker="responder"></a>\n\n'
             '> <a name="part"></a>\n>\n> A response.\n\n— Author\n',
-            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '<a name="response" data-guavajam-speaker="responder"></a>\n\n'
             '> <a name="part"></a>\n>\n> A response.\n\n**— Correspondent**\n',
-            '<a name="response" data-press-speaker="responder"></a>\n\n'
+            '<a name="response" data-guavajam-speaker="responder"></a>\n\n'
             '> A response.\n\n— Correspondent\n',
-            '<a name="response" data-press-speaker="responder"></a>\n\n'
-            '> <a name="part" data-press-speaker="responder"></a>\n>\n> Text.\n\n— Correspondent\n',
+            '<a name="response" data-guavajam-speaker="responder"></a>\n\n'
+            '> <a name="part" data-guavajam-speaker="responder"></a>\n>\n> Text.\n\n— Correspondent\n',
         ):
             with self.subTest(source=bad),self.assertRaises(AssetError):self.parse(document(bad))
 
     def test_external_credit_is_one_reviewed_entity_not_a_field_list(self):
         def reviewed(credit, speaker='responder'):
-            return document('<a name="response" data-press-speaker="' + speaker + '"></a>\n\n'
+            return document('<a name="response" data-guavajam-speaker="' + speaker + '"></a>\n\n'
                             '> <a name="part"></a>\n>\n> Quoted response.\n\n' + credit + '\n')
         valid = (
             '— Correspondent',
@@ -156,8 +156,8 @@ class SourceContractTests(unittest.TestCase):
             with self.subTest(credit=source_credit):
                 ast, anchors, *_ = self.parse(reviewed(source_credit))
                 attrs = dict(ast['blocks'][anchors['response']]['c'][0][2])
-                self.assertEqual({'data-press-speaker': 'responder',
-                                  'data-press-attribution': source_credit[2:]}, attrs)
+                self.assertEqual({'data-guavajam-speaker': 'responder',
+                                  'data-guavajam-attribution': source_credit[2:]}, attrs)
         # A visible credit is editorially reviewed. Role labels and structured
         # technical-field lists are no longer valid external attributions.
         invalid = (

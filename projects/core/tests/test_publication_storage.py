@@ -74,9 +74,9 @@ class PublicationStorageTests(unittest.TestCase):
 
     def test_incoming_publication_checks_default_to_no_retention_requirement(self):
         from guavajam_core.publication_commit import PublicationError
-        env = {'PRESS_PUBLISHER_GPG_FINGERPRINTS':'', 'PRESS_PUBLISHER_SSH_SIGNERS':'publisher ssh-ed25519 fixture'}
+        env = {'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':'', 'GUAVAJAM_PUBLISHER_SSH_SIGNERS':'publisher ssh-ed25519 fixture'}
         with patch.dict('os.environ', env), patch('guavajam_core.check_publications.incoming', return_value=['a'*40]), \
-             patch('guavajam_core.publication_protocol.commit', return_value=(None, 'Press-Publication: 1')), \
+             patch('guavajam_core.publication_protocol.commit', return_value=(None, 'GuavaJam-Publication: 1')), \
              patch('guavajam_core.publication_protocol.declaration', return_value={'kind':'publication'}), \
              patch('guavajam_core.check_publications.verify', return_value={}) as verify:
             check(self.root, 'b'*40)

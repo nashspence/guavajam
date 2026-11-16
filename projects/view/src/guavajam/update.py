@@ -184,7 +184,7 @@ def verify_public_delivery(repo, catalog, *, previous=None, fingerprints=(), all
                        allowed_signers=allowed_signers, online_media=True)
 
 
-def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
+def update(repo=Path('.'), output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
            no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False):
     repo = Path(repo).expanduser().resolve(strict=True)
     with locked_root(output, repo) as root:
@@ -237,7 +237,7 @@ def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads
                        initial_catalog=previous is None, view_cache=cache)
             state = {'schema': 'guavajam.update.v1', 'public_delivery_verified': True, 'source_tip': tip, 'identity': identity,
                      'catalog_sha256': catalog_hash, 'renderer': renderer, 'trust_sha256': trusted,
-                     'site_checkpoint': evidence['site_checkpoint'], 'publications': evidence['publications'],
+                     'repository_checkpoint': evidence['repository_checkpoint'], 'publications': evidence['publications'],
                      'cache_namespace': namespace}
             (staged / 'STATE.json').write_bytes(encoded(state))
             # Flush completed files before the sole public switch point.
@@ -264,7 +264,7 @@ def update(repo=Path('../press'), output=Path('.build/site'), *, ref='refs/heads
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', type=Path, default=Path('../press'))
+    parser.add_argument('--repo', type=Path, default=Path('.'))
     parser.add_argument('--output', type=Path, default=Path('.build/site'))
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--remote', default='origin')

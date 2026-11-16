@@ -1,17 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Press source-owned site settings v1",
+  "title": "GuavaJam source-owned repository settings v1",
   "description": "Executable validators additionally enforce signed publication membership, exact URI/DOI normalization, chronology, successor integrity and append-only deployed bindings.",
   "type": "object",
   "required": [
     "schema",
-    "publisher",
-    "base_url"
+    "publisher"
   ],
   "additionalProperties": false,
   "properties": {
     "schema": {
-      "const": "press.site.v1"
+      "const": "guavajam.repository.v1"
     },
     "publisher": {
       "type": "string",

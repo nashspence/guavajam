@@ -111,9 +111,9 @@ class ReleaseRecordTests(unittest.TestCase):
     def test_missing_corrupt_or_extra_release_fields_fail_closed(self):
         self.releases.put(KEY, self.pin, 'a'*40, 'https://assets.example.org')
         name = self.releases.path(KEY)
-        for raw in [b'not-json', json.dumps({'schema': 'press.asset.v1', **self.pin}).encode(),
-                    json.dumps({'schema': 'press.asset-release.v1', 'publication': 'main', 'asset': self.pin}).encode(),
-                    json.dumps({'schema': 'press.asset-release.v1', 'publication': 'a'*40, 'asset': self.pin, 'public': True}).encode()]:
+        for raw in [b'not-json', json.dumps({'schema': 'guavajam.asset.v1', **self.pin}).encode(),
+                    json.dumps({'schema': 'guavajam.asset-release.v1', 'publication': 'main', 'asset': self.pin}).encode(),
+                    json.dumps({'schema': 'guavajam.asset-release.v1', 'publication': 'a'*40, 'asset': self.pin, 'public': True}).encode()]:
             self.store.upload(name, raw, 'application/json')
             with self.assertRaises(ValueError):
                 self.releases.get(KEY)

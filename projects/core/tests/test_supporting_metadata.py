@@ -53,12 +53,12 @@ class MetadataSourceTests(unittest.TestCase):
         self.assertEqual({}, ast['meta'])
         self.assertEqual({'document', 'details', 'claim'}, set(anchors))
         self.assertEqual(0, anchors['document']); self.assertEqual(1, anchors['details'])
-        keys = [dict(n['c'][0][2])['data-press-metadata-key'] for n in walk(ast['blocks'])
-                if n['t'] == 'Span' and 'data-press-metadata-key' in dict(n['c'][0][2])]
+        keys = [dict(n['c'][0][2])['data-guavajam-metadata-key'] for n in walk(ast['blocks'])
+                if n['t'] == 'Span' and 'data-guavajam-metadata-key' in dict(n['c'][0][2])]
         self.assertEqual(['date_created','user_account','exported_identity','title','schema','unknown_',
                           'header-includes','Quoted <key> & label','boolean','number','empty','multiline'], keys)
         values = [n['c'][1][0]['c'] if n['c'][1] else '' for n in walk(ast['blocks'])
-                  if n['t'] == 'Span' and 'data-press-metadata-value' in dict(n['c'][0][2])]
+                  if n['t'] == 'Span' and 'data-guavajam-metadata-value' in dict(n['c'][0][2])]
         self.assertEqual(['2026-11-08','example-user','Example User','Supporting metadata title','A submitter label',
                           'Do not discard this field','<script>literal()</script>','first & literal','second <literal>',
                           'yes','001','','First line.\nSecond line.\n'], values)
@@ -81,7 +81,7 @@ class MetadataSourceTests(unittest.TestCase):
         ast,anchors,*_=self.parse(document('Source: A submitter claim\nStatus: In review\n'))
         self.assertIn('details',anchors)
         metadata=ast['blocks'][anchors['details']]
-        self.assertIn('press-document-metadata',metadata['c'][0][1])
+        self.assertIn('guavajam-document-metadata',metadata['c'][0][1])
         self.assertIn('A submitter claim',str(metadata))
 
 
@@ -89,8 +89,8 @@ class MetadataSourceTests(unittest.TestCase):
         source = document(''.join(f'field-{n:02d}: "Value {n:02d} — Café"\n' for n in range(64)))
         ast, anchors, *_ = self.parse(source)
         self.assertEqual({}, ast['meta'])
-        keys = [dict(node['c'][0][2])['data-press-metadata-key'] for node in walk(ast['blocks'])
-                if node['t'] == 'Span' and 'data-press-metadata-key' in dict(node['c'][0][2])]
+        keys = [dict(node['c'][0][2])['data-guavajam-metadata-key'] for node in walk(ast['blocks'])
+                if node['t'] == 'Span' and 'data-guavajam-metadata-key' in dict(node['c'][0][2])]
         self.assertEqual([f'field-{n:02d}' for n in range(64)], keys)
         self.assertEqual({'document', 'details', 'claim'}, set(anchors))
 
@@ -112,8 +112,8 @@ class MetadataSourceTests(unittest.TestCase):
             self.parse(document(''.join(f'field{n}: value\n' for n in range(65))))
 
     def test_metadata_markers_cannot_be_forged_in_authored_html_and_later_yaml_is_not_silently_consumed(self):
-        for markup in ('<span data-press-metadata-key="forged">Text</span>',
-                       '<div class="press-document-metadata">Text</div>'):
+        for markup in ('<span data-guavajam-metadata-key="forged">Text</span>',
+                       '<div class="guavajam-document-metadata">Text</div>'):
             with self.assertRaises(AssetError):
                 self.parse(BODY + '\n<a name="forged"></a>\n\n' + markup + '\n')
         later = BODY + '\n---\nunknown_: must remain visible or fail\n---\n'

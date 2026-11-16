@@ -17,7 +17,7 @@ def restore_source_ids(rendered,anchors,prefix):
         def handle_starttag(self,tag,attrs):
             attrs=dict(attrs);raw=self.get_starttag_text();changed=raw
             classes=set(attrs.get('class','').split());identifier=attrs.get('id','')
-            source_element=(tag in {'h1','h2','h3','h4','h5','h6'} or tag=='div' and bool(classes&{'press-supporting-element','press-passage-datetime','press-document-metadata'}))
+            source_element=(tag in {'h1','h2','h3','h4','h5','h6'} or tag=='div' and bool(classes&{'guavajam-supporting-element','guavajam-passage-datetime','guavajam-document-metadata'}))
             if source_element and identifier.startswith(prefix) and identifier[len(prefix):] in anchors:
                 changed=changed.replace('id="'+identifier+'"','id="'+identifier[len(prefix):]+'"',1)
             href=attrs.get('href','')

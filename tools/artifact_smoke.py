@@ -22,7 +22,7 @@ def main():
     assert Path(guavajam_core.__file__).is_relative_to(Path(sys.prefix)), 'core came from a checkout'
     resources = Path(guavajam_core.__file__).parent / 'resources'
     for name in ('storage/worker.js', 'storage/preview.mjs', 'storage/server.mjs', 'chatgpt-capture/manifest.json',
-                 'templates/work/manuscript.md', 'schemas/press-site-v1.schema.json'):
+                 'templates/work/manuscript.md', 'schemas/guavajam-repository-v1.schema.json'):
         assert (resources / name).is_file(), name
     if not repo.exists():
         repo.mkdir()
@@ -31,7 +31,7 @@ def main():
         run('git', 'config', 'user.email', 'fixture@example.org', cwd=repo)
         run(sys.executable, '-m', 'guavajam_core', 'new-work', 'artifact-work',
             '--title', 'Artifact Work', '--author', 'Example Author', cwd=repo)
-        (repo / 'press-site.json').write_text(json.dumps({'schema': 'press.site.v1',
+        (repo / 'guavajam.json').write_text(json.dumps({'schema': 'guavajam.repository.v1',
             'publisher': 'Artifact Publisher', 'base_url': 'https://publisher.example'}))
         run('git', 'add', '-A', cwd=repo)
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
@@ -40,10 +40,10 @@ def main():
         run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
         run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
         run('git', 'config', 'user.signingkey', str(key), cwd=repo)
-        run('git', 'commit', '--allow-empty', '-S', '-m', 'Approve site settings', '-m',
-            'Press-Site: 1', cwd=repo)
+        run('git', 'commit', '--allow-empty', '-S', '-m', 'Approve repository settings', '-m',
+            'GuavaJam-Repository: 1', cwd=repo)
         run('git', 'commit', '--allow-empty', '-S', '-m', 'Publish', '-m',
-            'Press-Publication: 1\nPress-Work: works/artifact-work/manuscript.md\nPress-Published: 2026-11-13', cwd=repo)
+            'GuavaJam-Publication: 1\nGuavaJam-Work: works/artifact-work/manuscript.md\nGuavaJam-Published: 2026-11-13', cwd=repo)
         (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'works')

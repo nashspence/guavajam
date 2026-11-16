@@ -49,7 +49,7 @@ class NativeInputTests(unittest.TestCase):
             for raw in (NATIVE, NATIVE.decode().encode('utf-16'), NATIVE.decode().encode('utf-32')):
                 with self.subTest(name=name, encoding=raw[:4]):
                     self.assertTrue(native_conversation(archive((name, raw))))
-        manifest = json.dumps({'schema':'press-chatgpt-capture-reference/v1'}).encode()
+        manifest = json.dumps({'schema':'guavajam.chatgpt-capture-reference.v1'}).encode()
         self.assertTrue(native_conversation(manifest))
         self.assertTrue(native_conversation(archive(('anything', manifest))))
 

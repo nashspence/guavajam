@@ -1,6 +1,6 @@
-"""Render a pinned Press-convention Git tree as a disposable, script-free view.
+"""Render a pinned GuavaJam-convention Git tree as a disposable, script-free view.
 
-No GitHub API, Press source import, B2 credentials, runtime JavaScript, or
+No GitHub API, source-program execution, B2 credentials, runtime JavaScript, or
 release identity is required. Callers explicitly supply an independently
 trusted revision/signature policy, or request an unmistakable draft preview.
 """
@@ -51,7 +51,7 @@ def revision(repo, sha):
 
 def git_blob(repo, sha, path, *, maximum=8 * 1024 * 1024):
     if not RECORD.fullmatch(path):
-        raise RenderError('source path is outside the Press manuscript/supporting convention')
+        raise RenderError('source path is outside the GuavaJam manuscript/supporting convention')
     mode = process(['git', '--no-replace-objects', 'ls-tree', sha, '--', path], cwd=repo)
     if not mode.startswith(b'100644 blob ') and not mode.startswith(b'100755 blob '):
         raise RenderError('rendering requires committed regular files, never symlinks')
@@ -80,7 +80,7 @@ def _make_media(item):
         attrs += ' crossorigin="anonymous" poster="' + escape(item['poster'], quote=True) + '"'
     source = escape(item['src'], quote=True)
     mime = 'video/mp4' if kind == 'video' else 'audio/mpeg'
-    out = ['<figure class="press-media">', f'<{kind} {attrs}>',
+    out = ['<figure class="guavajam-media">', f'<{kind} {attrs}>',
            f'<source src="{source}" type="{mime}">']
     if 'captions' in item:
         out.append('<track kind="captions" src="' + escape(item['captions'], quote=True) +
@@ -88,7 +88,7 @@ def _make_media(item):
                    '" label="' + escape(item['label'], quote=True) + '" default>')
     out += [f'</{kind}>']
     if kind == 'video':
-        out.append('<img class="press-media-poster" src="' + escape(item['poster'], quote=True) + '" alt="">')
+        out.append('<img class="guavajam-media-poster" src="' + escape(item['poster'], quote=True) + '" alt="">')
     out += [f'<figcaption>{escape(item["title"])} '
             f'<a href="{escape(item["transcript"], quote=True)}">Transcript</a> '
             f'<a href="{source}">Download {kind}</a></figcaption>', '</figure>']
@@ -153,7 +153,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
         if errors:raise RenderError('; '.join(errors))
         items=declarations(ast,origin,anchors)
         for block in ast['blocks']:
-            if block.get('t')=='CodeBlock' and 'press-media' in block['c'][0][1]:
+            if block.get('t')=='CodeBlock' and 'guavajam-media' in block['c'][0][1]:
                 from guavajam_core.media import decode
                 item=decode(block['c'][1],origin)
                 block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
@@ -161,7 +161,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
         from guavajam_core.bibliography import ordered_authors,author_text
         byline=author_text(ordered_authors(front),identifiers=True)
         title_index=next(i for i,b in enumerate(ast['blocks']) if b['t']=='Header' and b['c'][0]==1)
-        ast['blocks'].insert(title_index+1,{'t':'Para','c':[{'t':'Span','c':[['',['press-edition-identity'],[]],[{'t':'Str','c':byline}]]}]})
+        ast['blocks'].insert(title_index+1,{'t':'Para','c':[{'t':'Span','c':[['',['guavajam-edition-identity'],[]],[{'t':'Str','c':byline}]]}]})
         if front.get('abstract'):
             ast['blocks'].insert(title_index+2,{'t':'Div','c':[['',['guavajam-abstract'],[['role','group'],['aria-label','Abstract']]],[{'t':'Para','c':[{'t':'Strong','c':[{'t':'Str','c':'Abstract'}]}]},{'t':'Para','c':[{'t':'Str','c':front['abstract']}]}]]})
     else:
@@ -203,7 +203,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     while main_id in used:number+=1;main_id='guavajam-main-'+str(number)
     semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if facts.get('schema_type') else ''
     if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
-    rights='<p class="press-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
+    rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + ' · ' + path)
     state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Signed Git publication'
     return ('<!doctype html>\n<html lang="' + escape(language, quote=True) + '"><head>\n'
@@ -211,10 +211,10 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             '<meta http-equiv="Content-Security-Policy" content="' + escape(csp, quote=True) + '">\n'
             '<meta name="guavajam-viewer" content="guavajam.v1">\n'
             + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
-            '<a class="press-skip" href="#'+main_id+'">Skip to content</a>\n'
-            '<header class="press-status"><span>' + escape(state) + '</span></header>\n'
-            '<main id="'+main_id+'" tabindex="-1"><article class="press-edition"'+semantic+'>\n'
-            '<div class="press-source-identity"><strong>Canonical source</strong>: <code>' +
+            '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
+            '<header class="guavajam-status"><span>' + escape(state) + '</span></header>\n'
+            '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
+            '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
             '\n</article></main><footer>'+rights+'<p>The Git revision is the edition identity. '
             'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n')
@@ -231,7 +231,7 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     if not process(['pandoc','--version']).startswith(b'pandoc 3.12.1\n'):raise RenderError('Pandoc 3.12.1 is required')
     repo = Path(repo).resolve(); revision(repo, sha)
     from guavajam_core.identifiers import SLUG as WORK_SLUG
-    if not WORK_SLUG.fullmatch(work): raise RenderError('work must be a Press-compatible slug')
+    if not WORK_SLUG.fullmatch(work): raise RenderError('work must be a GuavaJam-compatible slug')
     manuscript = f'works/{work}/manuscript.md'
     source = git_blob(repo, sha, manuscript)
     if preview:
@@ -321,7 +321,7 @@ def main(argv=None):
         return site_main(argv[1:])
     if argv[:1] == ['render']:
         argv = argv[1:]
-    p=argparse.ArgumentParser(description=__doc__, epilog="Use guavajam site --help for a publication catalog and DOI landing pages; the existing render invocation remains supported.")
+    p=argparse.ArgumentParser(description=__doc__, epilog="Use guavajam site --help for a publication catalog and DOI landing pages; the render --help describes the single-work view.")
     p.add_argument('--repo',required=True, type=Path)
     p.add_argument('--revision',required=True)
     p.add_argument('--work',required=True)

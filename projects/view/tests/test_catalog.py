@@ -317,7 +317,7 @@ class CatalogBuildTests(unittest.TestCase):
                 self.assertEqual(len(labels)-1,len(parsed.links))
         reader=self.page(root+'/read/index.html')
         self.assertLess(reader.index('itemprop="headline"'),reader.index('Source and citation'))
-        self.assertLess(reader.index('Field Notes, Revised</h1>'),reader.index('<div class="press-source-identity">'))
+        self.assertLess(reader.index('Field Notes, Revised</h1>'),reader.index('<div class="guavajam-source-identity">'))
         self.assertEqual(1,reader.count('Git SHA-1 '+rev))
         self.assertNotIn('class="guavajam-source-guide"',reader)
 
@@ -587,7 +587,7 @@ class CatalogBuildTests(unittest.TestCase):
         command(repository, 'git', 'add', '-A')
         command(repository, 'git', 'commit', '-qm', 'Review a changed source fixture')
         command(repository, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish source fixture',
-                '-m', 'Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
+                '-m', 'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
         revision = command(repository, 'git', 'rev-parse', 'HEAD')
         work = self.catalog['works'][0]
         work['editions'] = [{**work['editions'][1], 'revision': revision}]

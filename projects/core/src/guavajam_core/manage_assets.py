@@ -38,7 +38,7 @@ def git(root, *args, data=None, env=None):
 
 @contextmanager
 def operator_lock(root):
-    path = os.fsdecode(git(root, "rev-parse", "--git-path", "press-assets.lock").strip())
+    path = os.fsdecode(git(root, "rev-parse", "--git-path", "guavajam-assets.lock").strip())
     with (root / path).open("a") as stream:
         try:
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -54,7 +54,7 @@ def upload(root, image, store, *, index=None):
     raw, key, media_type = prepare_image(image)
     # A server-timestamped lease protects both a new image and reuse of an old
     # orphan before its manuscript is pushed. No author or local path is stored.
-    lease = json.dumps({"schema": "press.asset-lease.v1", "key": key}, sort_keys=True).encode()
+    lease = json.dumps({"schema": "guavajam.asset-lease.v1", "key": key}, sort_keys=True).encode()
     store.upload(LEASE_PREFIX + key[len(PREFIX):], lease, "application/json", cache_control="no-store")
     existing = store.current(key)
     if existing is not None:

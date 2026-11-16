@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Export the exact GuavaJam catalog from signed publication/site conventions.
+"""Export the exact GuavaJam catalog from signed publication/repository conventions.
 
 This reads Git data, never tags or a mutable checkout. Date/DOI/status changes
-belong in the publisher's reviewed press-site.json, authorized by Press-Site: 1.
+belong in the publisher's reviewed guavajam.json, authorized by GuavaJam-Repository: 1.
 It does not sign, push, register DOIs, fetch media or deploy a site.
 """
 from .repository import repository_root
@@ -50,7 +50,7 @@ def main(argv=None):
         evidence, changed = export(args.repo, args.output, ref=args.ref, fingerprints=args.trusted_gpg_fingerprint,
                                    allowed_signers=args.ssh_allowed_signers, previous=args.previous_catalog)
     except (ValueError, OSError) as exc:
-        print('Site export failed: ' + str(exc), file=sys.stderr); return 1
+        print('Catalog export failed: ' + str(exc), file=sys.stderr); return 1
     print(('Wrote' if changed else 'Unchanged'), args.output, 'for', len(evidence['publications']),
           'publication(s) at', evidence['tip'])
     return 0

@@ -193,11 +193,11 @@ class GFMImportTests(ExtractTests):
         msg.update(create_time=1577836800.125)
         msg['metadata'].update(model_slug='gpt-6-thinking', thinking_effort='max')
         data, _ = review_gfm(transcript(self.record, 'tip'))
-        self.assertIn(b'data-press-speaker="assistant"', data)
+        self.assertIn(b'data-guavajam-speaker="assistant"', data)
         self.assertNotIn('— Assistant'.encode(), data)
         self.assertNotIn(b'## Assistant', data)
         self.assertNotIn(b'## User', data)
-        self.assertNotIn(b'data-press-speaker="user"', data)
+        self.assertNotIn(b'data-guavajam-speaker="user"', data)
         self.assertNotIn(b'<time ', data)
         self.assertIn('— gpt-6-thinking (max effort)'.encode(), data)
         self.assertNotIn(b'Model:', data)
@@ -220,9 +220,9 @@ class GFMImportTests(ExtractTests):
             path=Path(root)/'review.md';path.write_bytes(source)
             ast, anchors, *_ = load_gfm_record(path)
         details=[dict(node['c'][0][2]) for node in ast['blocks'] if node['t']=='Div' and
-                 'press-reviewed-turn-start' in node['c'][0][1]]
-        self.assertEqual([{'data-press-speaker':'assistant',
-                           'data-press-attribution':'gpt-6-thinking (max effort)'}], details)
+                 'guavajam-reviewed-turn-start' in node['c'][0][1]]
+        self.assertEqual([{'data-guavajam-speaker':'assistant',
+                           'data-guavajam-attribution':'gpt-6-thinking (max effort)'}], details)
         record['passages'][-1].pop('model')
         effort_only, _ = review_gfm(record)
         self.assertIn('— Unidentified AI model (max effort)'.encode(), effort_only)
@@ -240,13 +240,13 @@ class GFMImportTests(ExtractTests):
     def test_review_gfm_quotes_only_external_responders_regardless_of_label(self):
         record = transcript(self.record, 'tip')
         source, _ = review_gfm(record)
-        self.assertNotIn(b'data-press-speaker="user"', source)
-        self.assertIn(b'data-press-speaker="assistant"', source)
+        self.assertNotIn(b'data-guavajam-speaker="user"', source)
+        self.assertIn(b'data-guavajam-speaker="assistant"', source)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'review.md'; path.write_bytes(source)
             ast, anchors, *_ = load_gfm_record(path)
-        self.assertEqual(['assistant'], [dict(n['c'][0][2])['data-press-speaker']
-            for n in ast['blocks'] if n['t'] == 'Div' and 'press-reviewed-turn-start' in n['c'][0][1]])
+        self.assertEqual(['assistant'], [dict(n['c'][0][2])['data-guavajam-speaker']
+            for n in ast['blocks'] if n['t'] == 'Div' and 'guavajam-reviewed-turn-start' in n['c'][0][1]])
         self.assertTrue(all(key in anchors for key in [p['id'] for p in record['passages']]))
         # Neither a forged label nor an absent role can create attribution.
         alternate = copy.deepcopy(record)
@@ -254,7 +254,7 @@ class GFMImportTests(ExtractTests):
         alternate['passages'][0]['speaker'] = 'user'
         alternate['passages'][1].pop('speaker')
         text, _ = review_gfm(alternate)
-        self.assertEqual(text.count(b'data-press-speaker='), 0)
+        self.assertEqual(text.count(b'data-guavajam-speaker='), 0)
         for value in ({'forged': True}, 'system', 'ASSISTANT', '', 2, ['user']):
             bad = copy.deepcopy(record); bad['passages'][0]['speaker'] = value
             with self.subTest(value=str(value)), self.assertRaises(AssetError):

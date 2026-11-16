@@ -62,8 +62,8 @@ def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_ite
         urls=set(remote_sizes)|{v for item in all_media for k,v in item.items() if k in {'src','poster','captions'}}
         for url in sorted(urls):
             with response_factory(url,'*/*',method='HEAD') as receipt:
-                until=receipt.getheader('X-Press-Retain-Until','')
-                version=receipt.getheader('X-Press-Asset-Version','')
+                until=receipt.getheader('X-GuavaJam-Retain-Until','')
+                version=receipt.getheader('X-GuavaJam-Asset-Version','')
                 if receipt.status!=200 or not until.isdigit() or int(until)<=int(time.time()*1000) or not valid_version(unquote(version)) or not immutable_version(unquote(version)) or not valid_etag(receipt.getheader('ETag')):
                     raise AssetError('publication requires a version-pinned asset with current retention: '+url)
     if all_media:

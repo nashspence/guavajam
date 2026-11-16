@@ -23,7 +23,7 @@ def make_fixture(directory):
     for branch in ('current','alternate'):
         (work/'supporting'/('lantern-'+branch+'.md')).write_text((FIXTURES/'chatgpt'/('lantern-'+branch+'.gfm.md')).read_text())
     with (work/'supporting/note.md').open('a') as stream:
-        stream.write('\n<a name="time"></a>\n\n*<time datetime="2026-11-08T14:00:00Z">8 Nov 2026 · 14:00 UTC</time>*\n\n<a name="quote" data-press-speaker="assistant"></a>\n\n> <a name="quote-heading"></a>\n>\n> ## Quoted heading\n>\n> <a name="quote-body"></a>\n>\n> A quoted paragraph with an independently citable element.\n\n— gpt-6-thinking (max effort)\n')
+        stream.write('\n<a name="time"></a>\n\n*<time datetime="2026-11-08T14:00:00Z">8 Nov 2026 · 14:00 UTC</time>*\n\n<a name="quote" data-guavajam-speaker="assistant"></a>\n\n> <a name="quote-heading"></a>\n>\n> ## Quoted heading\n>\n> <a name="quote-body"></a>\n>\n> A quoted paragraph with an independently citable element.\n\n— gpt-6-thinking (max effort)\n')
     assets={}
     def asset(name,raw,mime):
         digest=hashlib.sha256(raw).hexdigest();key='/sha256/'+digest+'.'+name.rsplit('.',1)[1]
@@ -34,15 +34,15 @@ def make_fixture(directory):
     track=asset('captions.vtt',b'WEBVTT\n\n00:00:00.000 --> 00:00:01.500\nA short synthetic qualification recording.\n','text/vtt')
     for ident,spec in [('movie',{'kind':'video','src':movie,'poster':poster,'captions':track,'language':'en','label':'English'}),('sound',{'kind':'audio','src':sound})]:
         declaration={'id':ident,'title':'Qualification '+ident,'transcript':'#transcript',**spec}
-        source+='\n<a id="'+ident+'"></a>\n## '+ident.title()+'\n\n```press-media\n'+json.dumps(declaration,indent=2)+'\n```\n'
+        source+='\n<a id="'+ident+'"></a>\n## '+ident.title()+'\n\n```guavajam-media\n'+json.dumps(declaration,indent=2)+'\n```\n'
     source+='\n<a id="transcript"></a>\n## Recording transcript\n\nA short synthetic recording contains silence and changing color. The caption describes the qualification scene.\n'
     source+='\n<a id="wide"></a>\n## Wide structures\n\n```python\nlong_identifier = "'+'x'*240+'"\n```\n\n'
     source+='| '+' | '.join('Column '+str(i) for i in range(12))+' |\n| '+' | '.join('---' for _ in range(12))+' |\n| '+' | '.join('A long measured value' for _ in range(12))+' |\n\n: Table 2 — Wide measurements\n'
     (work/'manuscript.md').write_text(source)
     git('add','-A');git('commit','-qm','Qualification source')
-    (repo/'press-site.json').write_text(json.dumps({'schema':'press.site.v1','publisher':'Fixture Publisher',
+    (repo/'guavajam.json').write_text(json.dumps({'schema':'guavajam.repository.v1','publisher':'Fixture Publisher',
                                                       'base_url':'https://publisher.example'})+'\n')
-    git('add','press-site.json');git('commit','-qm','Review publisher site settings')
+    git('add','guavajam.json');git('commit','-qm','Review publisher repository settings')
     keys=directory/'signing';keys.mkdir(mode=0o700)
     env={**os.environ,'GNUPGHOME':str(keys)}
     def gpg(*args):return subprocess.check_output(['gpg',*args],env=env,stderr=subprocess.PIPE).decode().strip()
@@ -50,7 +50,7 @@ def make_fixture(directory):
         'Browser Preview <fixture@example.org>','ed25519','sign','0')
     fingerprint=next(line.split(':')[9] for line in gpg('--batch','--with-colons','--list-secret-keys').splitlines() if line.startswith('fpr:'))
     git('config','gpg.format','openpgp');git('config','user.signingkey',fingerprint)
-    subprocess.run(['git','commit','--allow-empty','-S','-qm','Authorize site settings\n\nPress-Site: 1'],cwd=repo,env=env,check=True,capture_output=True)
+    subprocess.run(['git','commit','--allow-empty','-S','-qm','Authorize repository settings\n\nGuavaJam-Repository: 1'],cwd=repo,env=env,check=True,capture_output=True)
     with (work/'manuscript.md').open('a') as stream:stream.write('\nA proposed additional work passage.\n')
     git('add','-A');git('commit','-qm','Proposed unsigned complete site');sha=git('rev-parse','HEAD')
     output=directory/'view';render(repo,sha,'sample-work',output,preview=True)

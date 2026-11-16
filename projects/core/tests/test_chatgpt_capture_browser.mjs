@@ -56,7 +56,7 @@ async function attach(browser, targetId) {
 }
 
 async function qualify(scenario) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'press-capture-'));
+  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'guavajam-capture-'));
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true, acceptDownloads: true,
     ignoreDefaultArgs: ['--disable-extensions'],
@@ -222,7 +222,7 @@ async function qualify(scenario) {
       const download = downloads[0];
       assert.equal(await download.failure(), null);
       assert.equal(download.suggestedFilename(), `chatgpt-capture-${id}.zip`);
-      await download.saveAs(path.join(process.env.PRESS_CAPTURE_OUTPUT_DIR, scenario + '.zip'));
+      await download.saveAs(path.join(process.env.GUAVAJAM_CAPTURE_OUTPUT_DIR, scenario + '.zip'));
     }
     return { scenario, browser: context.browser().version(), requests: requests.length, downloaded: !mustFail };
   } finally {

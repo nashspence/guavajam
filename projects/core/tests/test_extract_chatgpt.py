@@ -132,7 +132,7 @@ class ExtractTests(unittest.TestCase):
             root = Path(tmp)
             source = root / "conversations.json"
             source.write_text(json.dumps([self.record]), encoding="utf-8")
-            checkout = root / "press"
+            checkout = root / "publication"
             checkout.mkdir()
             subprocess.run(["git", "init", "-q", str(checkout)], check=True)
             (root / "linked").symlink_to(checkout, target_is_directory=True)
@@ -142,7 +142,7 @@ class ExtractTests(unittest.TestCase):
                                          source, "--conversation", "selected", "--output", output],
                                         cwd=checkout, capture_output=True, text=True)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("outside the Press checkout", result.stderr)
+                self.assertIn("outside the GuavaJam checkout", result.stderr)
                 self.assertFalse(output.exists())
 
     def test_sharded_zip_plain_json_and_output_protection(self):
@@ -157,7 +157,7 @@ class ExtractTests(unittest.TestCase):
                 archive.writestr("conversations-000.json", '[{"id":"other","title":"Unrelated"}]')
                 archive.writestr("conversations-001.json", payload)
                 archive.writestr("private-attachment", "unused")
-            checkout = root / "press"
+            checkout = root / "publication"
             checkout.mkdir()
             subprocess.run(["git", "init", "-q", str(checkout)], check=True)
             cmd = [sys.executable, "-m", "guavajam_core.extract_chatgpt"]

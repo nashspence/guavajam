@@ -88,7 +88,7 @@ def _semantic_times(value):
                 any(node.get('t') not in {'Str', 'Space'} for node in contents) or
                 plain_text(contents) != timestamp_label(instant)):
             raise AssetError('semantic time requires an exact valid datetime and canonical plain-text label')
-        result.append({'t': 'Span', 'c': [['', [], [['data-press-datetime', instant]]], contents]})
+        result.append({'t': 'Span', 'c': [['', [], [['data-guavajam-datetime', instant]]], contents]})
         index = end + 1
     return result
 
@@ -129,7 +129,7 @@ SPEAKERS = frozenset({'user', 'assistant', 'author', 'responder'})
 ATTRIBUTION_TOKEN = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}\Z')
 ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern + r')"></a>\Z')
 SPEAKER_ANCHOR = re.compile(r'<a (?:name|id)="(' + SLUG.pattern +
-                            r')" data-press-speaker="(assistant|responder)"></a>\Z')
+                            r')" data-guavajam-speaker="(assistant|responder)"></a>\Z')
 
 
 def anchor_details(block):
@@ -169,9 +169,9 @@ def _turn_caption(block):
 
 
 def _turn_boundary(kind, identifier='', speaker='', caption=None):
-    attrs = ([['data-press-speaker', speaker], ['data-press-attribution', caption['label']]]
+    attrs = ([['data-guavajam-speaker', speaker], ['data-guavajam-attribution', caption['label']]]
              if kind == 'start' else [])
-    return {'t': 'Div', 'c': [[identifier, ['press-reviewed-turn-' + kind], attrs], []]}
+    return {'t': 'Div', 'c': [[identifier, ['guavajam-reviewed-turn-' + kind], attrs], []]}
 
 
 def anchor_block(block):
@@ -248,7 +248,7 @@ def parse_gfm_record(source, *, policy=None):
     headers = []
     document_level, quotation_level, quotation = 0, 1, None
     for block in ast['blocks']:
-        if block.get('t') == 'Div' and 'press-reviewed-turn-start' in block['c'][0][1]:
+        if block.get('t') == 'Div' and 'guavajam-reviewed-turn-start' in block['c'][0][1]:
             identifier = block['c'][0][0]
             if pending or identifier in anchors:
                 raise AssetError('duplicate or unattached supporting turn anchor')
@@ -259,7 +259,7 @@ def parse_gfm_record(source, *, policy=None):
             anchors[identifier] = len(blocks)
             blocks.append(block)
             continue
-        if block.get('t') == 'Div' and 'press-reviewed-turn-end' in block['c'][0][1]:
+        if block.get('t') == 'Div' and 'guavajam-reviewed-turn-end' in block['c'][0][1]:
             if pending:
                 raise AssetError('unattached anchor inside supporting turn')
             quotation = None

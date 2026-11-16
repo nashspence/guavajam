@@ -1,8 +1,8 @@
-"""Press publication/site discovery v1. Shared data-only protocol.
+"""GuavaJam publication/repository discovery v1. Shared data-only protocol.
 
 No program, hook, signer policy or template is loaded from the indexed tree.
 Publication v1 requires a publisher-declared date and permits an edition label.
-A separately signed empty Press-Site commit authorizes press-site.json. That
+A separately signed empty GuavaJam-Repository commit authorizes guavajam.json. That
 administrative checkpoint does not issue or alter a canonical publication.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .trusted_git import verify_signature as trusted_signature
 
 OID = re.compile(r'[0-9a-f]{40}\Z')
 WORK = re.compile(r'works/([a-z0-9]+(?:-[a-z0-9]+)*)/manuscript\.md\Z')
-SITE_PATH = 'press-site.json'
+REPOSITORY_PATH = 'guavajam.json'
 MAX_HISTORY = 10000
 MAX_POLICY = 1024 * 1024
 MAX_MESSAGE = 65536
@@ -99,39 +99,39 @@ def declaration(message):
     if not isinstance(message, str) or '\x00' in message or '\r' in message:
         fail('invalid declaration text')
     lines = message.rstrip('\n').split('\n')
-    marked = [line for line in lines if line.startswith('Press-')]
+    marked = [line for line in lines if line.startswith('GuavaJam-')]
     if not marked:
         return None
-    if marked == ['Press-Site: 1']:
-        result = {'kind': 'site', 'version': 1}
-    elif len(marked) in {3, 4} and marked[0] == 'Press-Publication: 1':
-        if not marked[1].startswith('Press-Work: '):
-            fail('publication requires Press-Work')
-        path = marked[1][len('Press-Work: '):]
+    if marked == ['GuavaJam-Repository: 1']:
+        result = {'kind': 'repository', 'version': 1}
+    elif len(marked) in {3, 4} and marked[0] == 'GuavaJam-Publication: 1':
+        if not marked[1].startswith('GuavaJam-Work: '):
+            fail('publication requires GuavaJam-Work')
+        path = marked[1][len('GuavaJam-Work: '):]
         if not WORK.fullmatch(path):
             fail('publication work must use works/<slug>/manuscript.md')
-        if not marked[2].startswith('Press-Published: '):
-            fail('publication requires an explicit Press-Published: YYYY-MM-DD')
+        if not marked[2].startswith('GuavaJam-Published: '):
+            fail('publication requires an explicit GuavaJam-Published: YYYY-MM-DD')
         result = {'kind': 'publication', 'version': 1, 'manuscript': path,
-                  'published': day(marked[2][len('Press-Published: '):], 'signed publication date')}
+                  'published': day(marked[2][len('GuavaJam-Published: '):], 'signed publication date')}
         if len(marked) == 4:
-            if not marked[3].startswith('Press-Label: '):
+            if not marked[3].startswith('GuavaJam-Label: '):
                 fail('unknown publication trailer')
-            result['label'] = text(marked[3][len('Press-Label: '):], 'signed edition label')
+            result['label'] = text(marked[3][len('GuavaJam-Label: '):], 'signed edition label')
     else:
-        fail('unknown, duplicated or mixed Press declaration')
+        fail('unknown, duplicated or mixed GuavaJam declaration')
     if lines[-len(marked):] != marked or (len(lines) > len(marked) and lines[-len(marked)-1] != ''):
-        fail('Press declarations must form one final block separated from the message by a blank line')
+        fail('GuavaJam declarations must form one final block separated from the message by a blank line')
     return result
 
 
 def publication_trailers(path, published, label=None):
     if not WORK.fullmatch(path):
         fail('invalid publication manuscript path')
-    result = ['Press-Publication: 1', 'Press-Work: ' + path,
-              'Press-Published: ' + day(published, 'publication date')]
+    result = ['GuavaJam-Publication: 1', 'GuavaJam-Work: ' + path,
+              'GuavaJam-Published: ' + day(published, 'publication date')]
     if label is not None:
-        result.append('Press-Label: ' + text(label, 'publication label'))
+        result.append('GuavaJam-Label: ' + text(label, 'publication label'))
     return result
 
 
@@ -173,12 +173,12 @@ def _json(raw):
 
 def policy(raw):
     if len(raw) > MAX_POLICY:
-        fail('site settings exceed 1 MiB')
+        fail('repository settings exceed 1 MiB')
     data = _json(raw)
-    fields(data, {'schema', 'publisher', 'base_url'},
-           {'title', 'language', 'description', 'source_view', 'works', 'editions'}, 'site settings')
-    if data['schema'] != 'press.site.v1':
-        fail('unsupported publisher site settings schema')
+    fields(data, {'schema', 'publisher'},
+           {'title', 'language', 'description', 'base_url', 'source_view', 'works', 'editions'}, 'repository settings')
+    if data['schema'] != 'guavajam.repository.v1':
+        fail('unsupported publisher repository settings schema')
     for key in ('works', 'editions'):
         if not isinstance(data.get(key, {}), dict):
             fail(key + ' overrides must be an object')
@@ -246,7 +246,7 @@ def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=No
     for i in range(0, len(parts)-1, 2):
         sha = oid(parts[i].strip().decode('ascii'))
         message = parts[i+1].decode('utf-8', 'strict')
-        if not re.search(r'^Press-(?:Publication|Work|Site|Published|Label):', message, re.M):
+        if not re.search(r'^GuavaJam-(?:Publication|Work|Repository|Published|Label):', message, re.M):
             continue
         candidate = verify_shape(repo, sha)
         verify_signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
@@ -258,11 +258,11 @@ def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=No
                 ancestor(repo, checkpoints[-1], sha)
             checkpoints.append(sha)
     if not checkpoints:
-        fail('press-site.json requires a trusted signed empty commit ending with Press-Site: 1')
+        fail('guavajam.json requires a trusted signed empty commit ending with GuavaJam-Repository: 1')
     checkpoint = checkpoints[-1]
-    approved = blob(repo, checkpoint, SITE_PATH)
-    if blob(repo, tip, SITE_PATH) != approved:
-        fail('site settings changed without a new signed Press-Site checkpoint')
+    approved = blob(repo, checkpoint, REPOSITORY_PATH)
+    if blob(repo, tip, REPOSITORY_PATH) != approved:
+        fail('repository settings changed without a new signed GuavaJam-Repository checkpoint')
     settings, catalog = policy(approved)
     works, concepts, revisions = {}, {}, set()
     for sha, declared in publications:
@@ -306,6 +306,6 @@ def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=No
     validate(catalog)
     if previous is not None:
         compare(previous, catalog)
-    return catalog, {'schema': 'press.discovery.v1', 'hash_algorithm': 'sha1', 'tip': tip,
-                     'site_checkpoint': checkpoint, 'publications': [sha for sha, _ in publications],
+    return catalog, {'schema': 'guavajam.discovery.v1', 'hash_algorithm': 'sha1', 'tip': tip,
+                     'repository_checkpoint': checkpoint, 'publications': [sha for sha, _ in publications],
                      'declarations': declarations_seen, 'assets_verified': False}

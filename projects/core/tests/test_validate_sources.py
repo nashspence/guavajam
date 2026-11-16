@@ -1,4 +1,4 @@
-"""Positive/negative executable tests for Press source format v1."""
+"""Positive/negative executable tests for GuavaJam source format v1."""
 
 import yaml
 import json
@@ -20,7 +20,7 @@ MANUSCRIPT = ("# On Structure and Identity\n\n"
               "See [the section](#sec-1).\n")
 METADATA = {
     "author": "nashspence", "language": "en", "rights": "all-rights-reserved",
-    "schema": "press.work.v1", "slug": "sample", "status": "draft",
+    "schema": "guavajam.work.v1", "slug": "sample", "status": "draft",
     "title": "On Structure and Identity"
 }
 
@@ -344,7 +344,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertTrue(any("invalid YAML" in e for e in self.check(front_matter=front)))
 
     def test_unclosed_front_matter(self):
-        self.assertTrue(any("missing closing" in e for e in self.check(front_matter="---\nschema: press.work.v1\n")))
+        self.assertTrue(any("missing closing" in e for e in self.check(front_matter="---\nschema: guavajam.work.v1\n")))
 
     def test_front_matter_requires_blank_separator(self):
         front = "---\n" + yaml.safe_dump(METADATA, sort_keys=False) + "---\n"
@@ -437,7 +437,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertTrue(any("two-space identifiers" in e for e in self.check(front_matter=front)))
 
     def test_v2_schema_is_rejected(self):
-        self.assert_bad("schema must be press.work.v1", metadata={**METADATA, "schema": "press.work.v2"})
+        self.assert_bad("schema must be guavajam.work.v1", metadata={**METADATA, "schema": "guavajam.work.v2"})
 
 
 

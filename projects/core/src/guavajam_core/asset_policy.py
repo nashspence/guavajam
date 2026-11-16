@@ -240,7 +240,7 @@ def public_response(url: str, accept: str, *, timeout=TIMEOUT, method="GET", ran
     try:
         if range_value is not None and not re.fullmatch(r'bytes=(?:[0-9]+-[0-9]*|-[1-9][0-9]*)',range_value):raise AssetError('invalid internal range request')
         connection.request(method, parsed.path or "/", headers={
-            "Accept": accept, "Accept-Encoding": "identity", "User-Agent": "Press-source-verifier/1", **({"Range":range_value} if range_value else {})})
+            "Accept": accept, "Accept-Encoding": "identity", "User-Agent": "GuavaJam-source-verifier/1", **({"Range":range_value} if range_value else {})})
         yield connection.getresponse()
         if time.monotonic() >= deadline:
             raise AssetError("public download deadline exceeded")

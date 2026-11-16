@@ -1,6 +1,6 @@
-"""Portable, declarative GFM media contract, press.media.v1.
+"""Portable, declarative GFM media contract, guavajam.media.v1.
 
-This module is deliberately independent of Press's rendering and B2 clients.
+This module is independent of the optional view and storage providers.
 Its entire input is a Pandoc JSON CodeBlock plus the repository's canonical
 asset origin; GuavaJam vendors the same contract as an independent consumer.
 """
@@ -90,7 +90,7 @@ def candidates(blocks):
     """Return all media fences; nested fences are errors, never hidden bypasses."""
     def find(value, top=False):
         if isinstance(value, dict):
-            if value.get('t') == 'CodeBlock' and 'press-media' in value['c'][0][1]:
+            if value.get('t') == 'CodeBlock' and 'guavajam-media' in value['c'][0][1]:
                 yield (value, top)
             else:
                 for child in value.values():
@@ -117,7 +117,7 @@ def declarations(ast: dict, origin: str, anchors: set[str]) -> list[dict]:
     output = []
     seen = set()
     for node, top in candidates(ast.get('blocks', [])):
-        if not top or node['c'][0] != ['', ['press-media'], []]:
+        if not top or node['c'][0] != ['', ['guavajam-media'], []]:
             raise MediaError("media fences must be exact, top-level GFM code fences")
         spec = decode(node['c'][1], origin)
         if spec['id'] in seen or spec['id'] not in anchors or spec['transcript'][1:] not in anchors or spec['id']==spec['transcript'][1:]:

@@ -106,8 +106,8 @@ def read_catalog(path):
 
 
 def validate(catalog):
-    fields(catalog, {'schema', 'title', 'publisher', 'base_url', 'language', 'works'},
-           {'description', 'source_view'}, 'catalog')
+    fields(catalog, {'schema', 'title', 'publisher', 'language', 'works'},
+           {'description', 'base_url', 'source_view'}, 'catalog')
     if catalog['schema'] != SCHEMA:
         fail('unsupported schema')
     for name in ('title', 'publisher'):
@@ -116,10 +116,11 @@ def validate(catalog):
         text(catalog['description'], 'description', 4096)
     if catalog['language'] != 'en':
         fail('this catalog interface currently supports language en; source documents retain their own languages')
-    base = https(catalog['base_url'], 'base_url')
-    path = urlsplit(base).path
-    if base.endswith('/') or '%' in path or not re.fullmatch(r'(?:/[a-zA-Z0-9_-]+)*', path):
-        fail('base_url must have a simple optional path prefix and no trailing slash')
+    if 'base_url' in catalog:
+        base = https(catalog['base_url'], 'base_url')
+        path = urlsplit(base).path
+        if base.endswith('/') or '%' in path or not re.fullmatch(r'(?:/[a-zA-Z0-9_-]+)*', path):
+            fail('base_url must have a simple optional path prefix and no trailing slash')
     if 'source_view' in catalog:
         template = text(catalog['source_view'], 'source_view', 2048)
         if template.count('{revision}') != 1 or template.count('{path}') != 1:
@@ -137,7 +138,7 @@ def validate(catalog):
         fields(work, {'slug', 'metadata_revision', 'editions'}, {'concept_doi', 'recommended_revision'}, 'work')
         slug = work['slug']
         if not isinstance(slug, str) or len(slug) > 128 or not SLUG.fullmatch(slug) or slug in slugs:
-            fail('work slugs must be unique, bounded Press-compatible slugs')
+            fail('work slugs must be unique, bounded GuavaJam-compatible slugs')
         slugs.add(slug)
         if not isinstance(work['editions'], list) or not work['editions']:
             fail('each work requires at least one exact edition')
@@ -208,7 +209,7 @@ def validate(catalog):
 
 
 def compare(previous, current):
-    """Guard existing landing URLs and DOI identities; never infer prior state.
+    """Guard retained work, edition and DOI identities; never infer prior state.
 
     The caller must supply its last deployed, independently retained catalog.
     `--initial-catalog` explicitly selects a first build with no prior deployment.
@@ -219,7 +220,7 @@ def compare(previous, current):
     for old_work in previous['works']:
         slug = old_work['slug']
         if slug not in now:
-            fail('existing work pages cannot disappear; retain a tombstone: ' + slug)
+            fail('existing work records cannot disappear; retain a tombstone: ' + slug)
         work = now[slug]
         if 'concept_doi' in old_work and work.get('concept_doi') != old_work['concept_doi']:
             fail('a work DOI cannot be removed or rebound')
@@ -227,7 +228,7 @@ def compare(previous, current):
         for old in old_work['editions']:
             new = editions.get(old['revision'])
             if new is None:
-                fail('existing edition pages cannot disappear or move between works')
+                fail('existing edition records cannot disappear or move between works')
             if 'doi' in old and new.get('doi') != old['doi']:
                 fail('an edition DOI cannot be removed or rebound')
             notices = old.get('notices', [])

@@ -72,7 +72,7 @@ def _edition_link(catalog, filename, work, edition, facts, *, provisional=False)
 
 def _registry(catalog, publications, *, provisional=None):
     filename = 'index.html'
-    body = '<h1>' + e(catalog['title']) + '</h1><p class="press-edition-identity">' + e(catalog['publisher']) + '</p>'
+    body = '<h1>' + e(catalog['title']) + '</h1><p class="guavajam-edition-identity">' + e(catalog['publisher']) + '</p>'
     if catalog.get('description'):
         body += '<p>' + e(catalog['description']) + '</p>'
     body += '<p>Browse works, their DOI records and signed source editions. Reading views are optional presentations of those sources.</p>'
@@ -251,6 +251,8 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                 or not isinstance(preview_candidate['revision'], str)):
             raise CatalogError('invalid isolated preview candidate')
     catalog = read_catalog(catalog_path)
+    if 'base_url' not in catalog:
+        raise CatalogError('HTML site generation requires an explicit base_url in repository configuration')
     if previous_catalog:
         compare(read_catalog(previous_catalog), catalog)
     repo = Path(repo).resolve(strict=True)
@@ -352,7 +354,7 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', type=Path, required=True, help='read-only local Press-convention Git repository')
+    parser.add_argument('--repo', type=Path, required=True, help='read-only local GuavaJam-convention Git repository')
     parser.add_argument('--catalog', type=Path, required=True, help='reviewed administrative JSON catalog')
     parser.add_argument('--output', type=Path, required=True, help='new/empty directory outside the source repository')
     baseline = parser.add_mutually_exclusive_group(required=True)

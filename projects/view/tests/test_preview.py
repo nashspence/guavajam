@@ -86,6 +86,15 @@ class PreviewTests(unittest.TestCase):
         for name, digest in manifest['files'].items():
             self.assertEqual(digest, hashlib.sha256((self.output/name).read_bytes()).hexdigest())
 
+    def test_html_preview_requires_explicit_view_origin(self):
+        self.publisher.settings.pop('base_url')
+        self.publisher.amend_settings()
+        self.publisher.git('switch', '-c', 'work/private')
+        sha = self.source(assets=False)
+        with self.assertRaisesRegex(ValueError, 'explicit base_url'):
+            self.preview(sha)
+        self.assertFalse(self.output.exists())
+
     def test_first_edition_is_in_full_site_not_a_separate_preview_page(self):
         self.publisher.git('switch', '-c', 'work/new-title')
         self.publisher.source('new-title', 'New Title', 'A proposed first edition.')
@@ -139,7 +148,7 @@ class PreviewTests(unittest.TestCase):
     def test_unreviewed_publisher_site_change_cannot_be_previewed_as_approved(self):
         self.publisher.git('switch', '-c', 'work/unreviewed-admin')
         sha = self.source(assets=False)
-        (self.publisher.repo/'press-site.json').write_text('{"schema":"press.site.v1","publisher":"Unreviewed","base_url":"https://publisher.example"}\n')
+        (self.publisher.repo/'guavajam.json').write_text('{"schema":"guavajam.repository.v1","publisher":"Unreviewed","base_url":"https://publisher.example"}\n')
         self.publisher.git('add', '-A');self.publisher.git('commit', '-qm', 'Unsigned administrative change')
         with self.assertRaises(ValueError):
             self.preview('refs/heads/work/unreviewed-admin')

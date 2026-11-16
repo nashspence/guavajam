@@ -13,7 +13,7 @@ class DockerPreviewTests(unittest.TestCase):
     def test_launcher_mounts_only_source_and_separate_private_read_authority(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
-            repo=root/'press';repo.mkdir()
+            repo=root/'publication';repo.mkdir()
             trust=root/'allowed-signers';trust.write_text('external authority\n')
             reader=root/'readonly.env';reader.write_text('S3_ACCESS_KEY_ID=dummy\n');reader.chmod(0o600)
             snapshot=[]

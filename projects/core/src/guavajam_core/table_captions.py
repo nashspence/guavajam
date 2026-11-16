@@ -56,7 +56,7 @@ def normalize_table_captions(ast, source, relative, parse):
     Marker parses are transient evidence, never author markup or emitted HTML.
     """
     lines = source.splitlines(keepends=True)
-    seed = "PRESSCAPTION" + hashlib.sha256(source.encode()).hexdigest()
+    seed = "GUAVAJAMCAPTION" + hashlib.sha256(source.encode()).hexdigest()
     candidates = {i: seed + "C" + str(i) for i, line in enumerate(lines) if CANDIDATE.match(line)}
     if not candidates:
         return ast, []

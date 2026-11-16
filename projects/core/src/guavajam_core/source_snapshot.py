@@ -14,7 +14,7 @@ def git(repo,*args):
 @contextmanager
 def snapshot(repo,revision):
     if not re.fullmatch('[0-9a-f]{40}',revision):raise AssetError('snapshot requires a full commit identity')
-    with tempfile.TemporaryDirectory(prefix='press-source-') as directory:
+    with tempfile.TemporaryDirectory(prefix='guavajam-source-') as directory:
         root=Path(directory);files=[];total=0
         for row in git(repo,'ls-tree','-r','-z',revision).split(b'\0'):
             if not row:continue

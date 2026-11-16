@@ -20,7 +20,7 @@ test('credential files are bounded and distinct from direct values',async()=>{
 
 test('HTTP adapter preserves the shared gateway identity, ranges and isolation',async()=>{
  const digest='b'.repeat(64),key='sha256/'+digest+'.mp4';
- const mapping={schema:'press.asset.v1',sha256:digest,extension:'mp4',version_id:null,etag:'"fixture-etag"',retention_mode:null,retain_until:null,byte_count:1000,content_type:'video/mp4'};
+ const mapping={schema:'guavajam.asset.v1',sha256:digest,extension:'mp4',version_id:null,etag:'"fixture-etag"',retention_mode:null,retain_until:null,byte_count:1000,content_type:'video/mp4'};
  const realFetch=globalThis.fetch;
  const listener=server(env);await new Promise(resolve=>listener.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+listener.address().port;
@@ -28,7 +28,7 @@ test('HTTP adapter preserves the shared gateway identity, ranges and isolation',
   if(!String(target).startsWith(env.S3_ENDPOINT))return realFetch(target,options);
   assert.equal(options.cache,'no-store');
   if(String(target).includes('/released/sha256/')){
-   const raw=JSON.stringify({schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:mapping});return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
+   const raw=JSON.stringify({schema:'guavajam.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:mapping});return new Response(raw,{headers:{'Content-Type':'application/json','Content-Length':String(Buffer.byteLength(raw))}});
   }
   assert.equal(options.headers['if-match'],'"fixture-etag"');
   const partial=Boolean(options.headers.range);const length=partial?10:1000;

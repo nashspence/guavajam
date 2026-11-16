@@ -43,7 +43,7 @@ def export(repo,revision,output,*,fingerprints=(),allowed_signers=None,response_
     output=output_directory(output,repo)
     # Build under the new directory's parent and publish it atomically after verification.
     output.parent.mkdir(parents=True,exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='.press-archive-',dir=output.parent) as directory:
+    with tempfile.TemporaryDirectory(prefix='.guavajam-archive-',dir=output.parent) as directory:
         stage=Path(directory)/'archive';stage.mkdir(mode=0o700)
         bundle=stage/'source.bundle'
         git(repo,'bundle','create',str(bundle),'--all')
@@ -61,7 +61,7 @@ def export(repo,revision,output,*,fingerprints=(),allowed_signers=None,response_
                     for chunk in response_chunks(received,limit):size+=len(chunk);hasher.update(chunk);saved.write(chunk)
                 if hasher.hexdigest()!=digest:raise AssetError('archive asset SHA-256 differs from signed source')
                 objects[key]={'url':url,'sha256':digest,'byte_count':size,'content_type':mime}
-        data={'schema':'press.source-archive.v1','revision':revision,'manuscript':record['manuscript'],
+        data={'schema':'guavajam.source-archive.v1','revision':revision,'manuscript':record['manuscript'],
               'git_bundle_sha256':file_hash(bundle),'objects':objects}
         (stage/'ARCHIVE.json').write_text(json.dumps(data,ensure_ascii=False,indent=2,sort_keys=True)+'\n')
         check(stage,revision,fingerprints=fingerprints,allowed_signers=allowed_signers)
@@ -81,11 +81,11 @@ def check(archive,revision,*,fingerprints=(),allowed_signers=None):
     if allowed_signers and Path(allowed_signers).resolve().is_relative_to(archive):raise AssetError('archive cannot supply its own signing authority')
     if not manifest.is_file() or manifest.is_symlink() or manifest.stat().st_size>1024*1024:raise AssetError('invalid archive inventory')
     data=json.loads(manifest.read_text('utf-8'))
-    if not isinstance(data,dict) or set(data)!={'schema','revision','manuscript','git_bundle_sha256','objects'} or data['schema']!='press.source-archive.v1' or data['revision']!=revision:
+    if not isinstance(data,dict) or set(data)!={'schema','revision','manuscript','git_bundle_sha256','objects'} or data['schema']!='guavajam.source-archive.v1' or data['revision']!=revision:
         raise AssetError('archive differs from the externally selected source revision')
     bundle=archive/'source.bundle'
     if bundle.is_symlink() or not bundle.is_file() or file_hash(bundle)!=data['git_bundle_sha256']:raise AssetError('Git bundle digest differs')
-    with tempfile.TemporaryDirectory(prefix='press-restore-') as directory:
+    with tempfile.TemporaryDirectory(prefix='guavajam-restore-') as directory:
         restored=Path(directory)/'source.git'
         result=subprocess.run(['git','clone','--bare','--no-hardlinks',str(bundle),str(restored)],capture_output=True,check=False)
         if result.returncode:raise AssetError('Git bundle could not restore source objects')

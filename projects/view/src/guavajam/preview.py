@@ -81,7 +81,7 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
                   published=None, label=None):
     """Build the entire hypothetical site, atomically and without public effects.
 
-    A signed last-known main is mandatory: no fake site settings or implicit
+    A signed last-known main is mandatory: no fake repository settings or implicit
     bootstrap. The base must be an ancestor of the candidate; divergent
     integration is not predicted. Unsigned previews use a provisional Git SHA
     until the separate empty signed publication commit exists.
@@ -104,7 +104,7 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
     declared = declaration(commit(repo, revision)[1])
     signed = declared is not None and declared.get('kind') == 'publication'
     if declared is not None and not signed:
-        raise AssetError('select a content draft or a signed publication, not a site checkpoint')
+        raise AssetError('select a content draft or a signed publication, not a repository checkpoint')
     if signed and declared['manuscript'] != f'works/{work}/manuscript.md':
         raise AssetError('selected signed publication declares a different work')
     if signed and (published is not None and published != declared['published'] or
@@ -118,7 +118,7 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref='refs/heads/m
         if published is None:
             raise AssetError('unsigned full-site preview requires PUBLISHED=YYYY-MM-DD')
         from guavajam_core.publication_protocol import blob
-        settings = json.loads(blob(repo, revision, 'press-site.json'))
+        settings = json.loads(blob(repo, revision, 'guavajam.json'))
         locked = 'recommended_revision' in settings.get('works', {}).get(work, {})
         catalog = proposed_catalog(catalog, revision, work, published, label,
                                    git_blob(repo, revision, f'works/{work}/manuscript.md'),

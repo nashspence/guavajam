@@ -28,10 +28,10 @@ class SourceProofTests(PublicationCommitTests):
         self.signed=cmd(self.repo,'git','rev-parse','HEAD')
         with self.assertRaisesRegex(PublicationError,'empty, single-parent'):self._verify()
     def test_external_policy_is_required_and_real_gpg_public_policy_verifies_incoming_commits(self):
-        with patch.dict(os.environ,{'PRESS_PUBLISHER_GPG_FINGERPRINTS':'','PRESS_PUBLISHER_SSH_SIGNERS':''}):
+        with patch.dict(os.environ,{'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':'','GUAVAJAM_PUBLISHER_SSH_SIGNERS':''}):
             with self.assertRaisesRegex(PublicationError,'externally configured'):check(self.repo,self.draft,online=False)
         public=cmd(self.repo,'gpg','--armor','--export',self.fingerprint,env=self.env)
-        with patch.dict(os.environ,{'PRESS_PUBLISHER_GPG_FINGERPRINTS':self.fingerprint,'PRESS_PUBLISHER_GPG_PUBLIC_KEYS':public,'PRESS_PUBLISHER_SSH_SIGNERS':''}):
+        with patch.dict(os.environ,{'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':self.fingerprint,'GUAVAJAM_PUBLISHER_GPG_PUBLIC_KEYS':public,'GUAVAJAM_PUBLISHER_SSH_SIGNERS':''}):
             self.assertEqual([self.signed],[r['revision'] for r in check(self.repo,self.draft,online=False)])
     def test_every_source_asset_check_verifies_media_declarations(self):
         verifier=Mock(return_value={})
@@ -68,12 +68,12 @@ class SourceProofTests(PublicationCommitTests):
         store=MemoryStore(object_lock=True,seed=True);until=int(time.time()*1000)+100000
         pin_key(store,Index(store),KEY,retain_until=until,mode='governance')
         source=self.repo/'works/recorded-notes/manuscript.md'
-        source.write_text(re.sub(r'```press-media\n.*?\n```','![A circle](https://assets.example.org/'+KEY+')',source.read_text(),flags=re.S))
+        source.write_text(re.sub(r'```guavajam-media\n.*?\n```','![A circle](https://assets.example.org/'+KEY+')',source.read_text(),flags=re.S))
         self.commit_source()
         with patch('guavajam_core.asset_policy.public_addresses', side_effect=AssertionError('preparation disclosed an asset')):
             result=prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store,require_retention=True)
-            self.assertEqual(['Press-Publication: 1', 'Press-Work: works/recorded-notes/manuscript.md',
-                              'Press-Published: 2026-11-13'],result['publication_trailers'])
+            self.assertEqual(['GuavaJam-Publication: 1', 'GuavaJam-Work: works/recorded-notes/manuscript.md',
+                              'GuavaJam-Published: 2026-11-13'],result['publication_trailers'])
             self.assertTrue(result['retention_verified'])
             self.assertFalse(result['public_delivery_verified'])
             self.assertEqual(until,result['assets'][0]['retain_until'])
