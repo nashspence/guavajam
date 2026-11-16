@@ -143,7 +143,7 @@ If a file is missing or unreadable, identify that gap rather than inferring its 
 
 Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond to my follow-up questions and corrections naturally. - If I change the data or assumptions, carry that change into subsequent calculations and files. - Keep tool use, citations, and attachments genuine; state unavailable capabilities explicitly. - Write only your own responses. I will supply the intervening user messages.
 
-<a name="m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf" data-press-speaker="assistant"></a>
+<a name="m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -300,7 +300,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 
 Continue to stage 2, but exclude the final observation. Carry that change through the subsequent stages.
 
-<a name="m-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5" data-press-speaker="assistant"></a>
+<a name="m-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-037994337aa636e67616aa3ec1f36aa6c57f9483adfc8bd41fb77e561177edd5-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -618,7 +618,7 @@ Continue to stage 2, but exclude the final observation. Carry that change throug
 
 Continue to stage 3
 
-<a name="m-ddcaaebf6283a549fe75949527d087a51f7d28b0ce3b077474303c0cc02a5a4b" data-press-speaker="assistant"></a>
+<a name="m-ddcaaebf6283a549fe75949527d087a51f7d28b0ce3b077474303c0cc02a5a4b" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-ddcaaebf6283a549fe75949527d087a51f7d28b0ce3b077474303c0cc02a5a4b-9ef0833221bc32e83302cea31e7c757ac0b8bd575bab5bcbb1c193f8ecaa4af4-1"></a>
@@ -627,7 +627,7 @@ Continue to stage 3
 
 — gpt-6-thinking (max effort)
 
-<a name="m-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de" data-press-speaker="assistant"></a>
+<a name="m-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-ceff11c6f96bdb921901f6e881e07b58595f3e54294a3a28e2d3bbf1078206de-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -846,7 +846,7 @@ Continue to stage 3
 
 Continue to stage 4
 
-<a name="m-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3" data-press-speaker="assistant"></a>
+<a name="m-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-a69d6dd02db6647981a76753073d41fa3f3adc2c956e3707cf8b244f5b8695d3-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -1069,7 +1069,7 @@ Continue to stage 4
 
 Continue to stage 5
 
-<a name="m-115144cc702cfb5641ae2fb5357e3e33bfb108f1a7654ee9b2208f065ced70bc" data-press-speaker="assistant"></a>
+<a name="m-115144cc702cfb5641ae2fb5357e3e33bfb108f1a7654ee9b2208f065ced70bc" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-115144cc702cfb5641ae2fb5357e3e33bfb108f1a7654ee9b2208f065ced70bc-815e1dd8bba41bbcef24bf79f605f801507c7221530caf7d210011a23b9b423f-1"></a>
@@ -1078,7 +1078,7 @@ Continue to stage 5
 
 — gpt-6-thinking (max effort)
 
-<a name="m-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5" data-press-speaker="assistant"></a>
+<a name="m-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-0d4726c9f90add4aacc2c7976e2c1652117c5cb34c117ef9c3b6f152c80d84a5-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -1174,7 +1174,7 @@ Continue to stage 5
 
 Continue to stage 6
 
-<a name="m-cb2c63023615a9b4ed410a9f6239013c3ee5eb5d21aba07eb90cb2d11e041cc6" data-press-speaker="assistant"></a>
+<a name="m-cb2c63023615a9b4ed410a9f6239013c3ee5eb5d21aba07eb90cb2d11e041cc6" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-cb2c63023615a9b4ed410a9f6239013c3ee5eb5d21aba07eb90cb2d11e041cc6-f9a591726ad4cf109a00968d833d896c625cfe5fe0d11623d9b5fe5d9a6dbc09-1"></a>
@@ -1183,7 +1183,7 @@ Continue to stage 6
 
 — gpt-6-thinking (max effort)
 
-<a name="m-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a" data-press-speaker="assistant"></a>
+<a name="m-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-9fb77272c6c4c82dab9a6d4c983523f491cbd240fbe62e7f459710184a9a731a-5488312d10b47df9d8e22b18062b359d369fa12d437f3c4a7f1f2b8294b94390-1"></a>
@@ -1192,7 +1192,7 @@ Continue to stage 6
 
 — gpt-6-thinking (max effort)
 
-<a name="m-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104" data-press-speaker="assistant"></a>
+<a name="m-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-47ca3a03f5747e6eeea5da65a9b279e78373ad445f85011e7ba2c97e0649a104-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>

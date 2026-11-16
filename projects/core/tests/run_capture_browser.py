@@ -47,7 +47,7 @@ def verify(directory):
             native_bytes = contents['conversations.json']
             assert json.loads(native_bytes) == [fixture], 'all forks and private context retained without synthesis'
             report = json.loads(contents['capture-manifest.json'])
-            assert report['schema'] == 'press-chatgpt-capture-reference/v1'
+            assert report['schema'] == 'guavajam.chatgpt-capture-reference.v1'
             assert report['native_graph']['sha256_conversations_json'] == hashlib.sha256(native_bytes).hexdigest()
             assert report['native_graph']['mapping_nodes'] == (9 if live else 8)
             assert report['native_graph']['branch_points'] == 2
@@ -86,7 +86,7 @@ def verify(directory):
             ast, anchors, *_ = load_gfm_record(markdown)
             assert ast['blocks'][anchors[ids[0]]]['t'] in {'Para','Header','Div'}
             assert ast['blocks'][anchors[ids[1]]]['t'] == 'Div'
-            assert 'press-reviewed-turn-start' in ast['blocks'][anchors[ids[1]]]['c'][0][1]
+            assert 'guavajam-reviewed-turn-start' in ast['blocks'][anchors[ids[1]]]['c'][0][1]
             native_text={'passages':[{'text':part} for part in expected_text]}
             assert native_code(native_text) == [node['c'][1] for node in walk(ast['blocks']) if node['t']=='CodeBlock']
             assert native_math(native_text) == [(node['c'][0]['t'],node['c'][1].strip())
@@ -100,11 +100,11 @@ def verify(directory):
                 role = fixture['mapping'][key]['message']['author']['role']
                 assert role in {'user', 'assistant'}
                 if role == 'assistant':
-                    assert f'<a name="{identifier}" data-press-speaker="assistant"></a>' in text
+                    assert f'<a name="{identifier}" data-guavajam-speaker="assistant"></a>' in text
                 else:
                     assert f'<a name="{identifier}"></a>' in text
             assert '— ' in text and '> ' in text and '— Assistant' not in text
-            assert 'data-press-speaker="user"' not in text
+            assert 'data-guavajam-speaker="user"' not in text
             assert '## User' not in text and '## Assistant' not in text
             assert '<time datetime=' not in text
             assert 'Model: gpt-6-thinking' not in text
@@ -121,9 +121,9 @@ def verify(directory):
 
 
 if __name__ == '__main__':
-    with tempfile.TemporaryDirectory(prefix='press-capture-import-') as scratch:
+    with tempfile.TemporaryDirectory(prefix='guavajam-capture-import-') as scratch:
         result = subprocess.run(['node', '--test', 'tests/test_chatgpt_capture_browser.mjs'], cwd=ROOT,
-                                env={**os.environ, 'PRESS_CAPTURE_OUTPUT_DIR': scratch})
+                                env={**os.environ, 'GUAVAJAM_CAPTURE_OUTPUT_DIR': scratch})
         if result.returncode:
             raise SystemExit(result.returncode)
         verify(Path(scratch))

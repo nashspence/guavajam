@@ -25,7 +25,7 @@ def prepare(repo, revision, work, *, published, store=None, label=None, require_
         from .asset_policy import AssetPolicy
         settings = _json(blob(repo, revision, 'asset-policy.json'))
         origin = AssetPolicy(settings['origin']).origin
-    return {'schema': 'press.publication-preparation.v1', 'revision': revision,
+    return {'schema': 'guavajam.publication-preparation.v1', 'revision': revision,
             'source_tree': git(repo, 'rev-parse', revision + '^{tree}').strip().decode(), 'manuscript': manuscript,
             'assets_verified': True, 'public_delivery_verified': False,
             'retention_verified': bool(assets) and all((item['retain_until'] or 0) > int(time.time() * 1000) for item in assets),

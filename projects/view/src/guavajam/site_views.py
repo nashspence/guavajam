@@ -107,7 +107,7 @@ def page(catalog, filename, title, body, *, head='', work=None, edition=None, wo
             ('' if indexable else '<meta name="robots" content="noindex">\n') + head + '\n'
             '<title>' + e(title) + ' — ' + e(catalog['publisher']) + '</title>\n'
             '<style>' + stylesheet() + '</style></head><body class="guavajam-site">\n'
-            '<a class="press-skip" href="#guavajam-catalog-main">Skip to content</a>\n' +
+            '<a class="guavajam-skip" href="#guavajam-catalog-main">Skip to content</a>\n' +
             navigation(catalog, filename, work=work, edition=edition, work_title=work_title) +
             '<main id="guavajam-catalog-main" tabindex="-1">' + body + '</main>\n'
             '<footer><p>' + e(catalog['publisher']) +
@@ -117,7 +117,7 @@ def page(catalog, filename, title, body, *, head='', work=None, edition=None, wo
 
 
 def authors(facts):
-    return '<p class="press-edition-identity">' + e(author_text(ordered_authors(facts), identifiers=True)) + '</p>'
+    return '<p class="guavajam-edition-identity">' + e(author_text(ordered_authors(facts), identifiers=True)) + '</p>'
 
 
 def doi_display(identifier, label):
@@ -174,7 +174,7 @@ def edition_advisory(catalog, filename, work, edition):
 
 
 def canonical_record(sha, manuscript, document=None, anchor=None):
-    result = {'schema': 'press.citation.v1', 'hash_algorithm': 'sha1', 'revision': sha, 'manuscript': manuscript}
+    result = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1', 'revision': sha, 'manuscript': manuscript}
     if document and document != manuscript:
         result['document'] = document
     if anchor:
@@ -230,7 +230,7 @@ def _add_passage_links(html, anchors, href):
             values = dict(attrs)
             target = values.get('href', '')
             ident = target[1:] if target.startswith('#') else None
-            cite = tag == 'a' and 'press-permalink' in values.get('class', '').split() and ident in anchors
+            cite = tag == 'a' and 'guavajam-permalink' in values.get('class', '').split() and ident in anchors
             if tag not in void:
                 stack.append((tag, ident if cite else None))
 
@@ -289,7 +289,7 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     html = html.replace('</style>', css + '</style>', 1)
     nav = navigation(catalog, filename, work=work, edition=edition, work_title=work_title)
     html = html.replace('</header>', '</header>' + nav, 1)
-    marker = '<div class="press-source-identity">'
+    marker = '<div class="guavajam-source-identity">'
     if html.count(marker) != 1:
         raise ValueError('expected exactly one generated source identity block')
     start = html.index(marker)
@@ -301,7 +301,7 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     # The first H1 belongs to the source. The author byline, when present, is
     # renderer-generated immediately after it; group bibliographic provenance
     # beneath both rather than let the reader reach it before the publication.
-    match = re.search(r'</h1>(?:\s*<p><span class="press-edition-identity">.*?</span></p>)?', html, re.S)
+    match = re.search(r'</h1>(?:\s*<p><span class="guavajam-edition-identity">.*?</span></p>)?', html, re.S)
     if match is None:
         raise ValueError('generated reading has no H1 for its source identity')
     context = edition_advisory(catalog, filename, work, edition) + ('<aside class="guavajam-reading-context" lang="en" aria-label="Source and citation">'

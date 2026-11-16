@@ -63,7 +63,7 @@ class PresentationTests(unittest.TestCase):
                 html,_=self.build();text=(self.out/'supporting/note.html').read_text();page=Page(text)
                 _,anchors=parse_gfm_record(source)
                 self.assertTrue(set(anchors)<=set(page.ids));self.assertEqual(len(page.ids),len(set(page.ids)))
-                self.assertIn('press-turn-quotation',text);self.assertIn('press-turn-attribution',text);self.assertEqual(source.count('<time datetime='),text.count('<time datetime='))
+                self.assertIn('guavajam-turn-quotation',text);self.assertIn('guavajam-turn-attribution',text);self.assertEqual(source.count('<time datetime='),text.count('<time datetime='))
                 self.assertGreater(page.tags.count('math'),10);self.assertGreater(page.tags.count('table'),1)
                 import shutil;shutil.rmtree(self.out)
     def test_submitter_metadata_is_document_scoped_literal_and_citable(self):
@@ -83,17 +83,17 @@ class PresentationTests(unittest.TestCase):
         with note.open('a') as stream:stream.write('\n<a name="timestamp"></a>\n\n*<time datetime="2026-11-08T14:00:00Z">8 Nov 2026 · 14:00 UTC</time>*\n\n<a name="tooltip"></a>\n\n<span title="&lt;icon name=&quot;alert-triangle&quot;/&gt;">□</span>\n')
         self.build();text=(self.out/'supporting/note.html').read_text()
         self.assertIn('<time datetime="2026-11-08T14:00:00Z">',text)
-        self.assertIn('press-passage-datetime',text);self.assertIn('id="timestamp"',text)
+        self.assertIn('guavajam-passage-datetime',text);self.assertIn('id="timestamp"',text)
         self.assertIn('&lt;icon name=&quot;alert-triangle&quot;/&gt;',text)
 
     def test_source_ids_cannot_collide_with_view_navigation_footnotes_or_code(self):
         source=self.work/'manuscript.md'
         with source.open('a') as stream:
-            for anchor in ['press-main','guavajam-main','guavajam-contents','fn1','fnref1','cb1','cb1-1','footnotes']:
+            for anchor in ['guavajam-main','guavajam-main-2','guavajam-contents','fn1','fnref1','cb1','cb1-1','footnotes']:
                 stream.write('\n<a id="'+anchor+'"></a>\n## '+anchor+'\n\nSource content.\n')
         html,_=self.build();page=Page(html)
         self.assertEqual(len(page.ids),len(set(page.ids)))
-        for anchor in ['press-main','guavajam-main','guavajam-contents','fn1','fnref1','cb1','cb1-1','footnotes']:self.assertIn(anchor,page.ids)
+        for anchor in ['guavajam-main','guavajam-main-2','guavajam-contents','fn1','fnref1','cb1','cb1-1','footnotes']:self.assertIn(anchor,page.ids)
         self.assertTrue(any('guavajam-view-' in target for target in page.links))
 
     def test_literal_html_anchor_examples_are_never_dom_identity(self):

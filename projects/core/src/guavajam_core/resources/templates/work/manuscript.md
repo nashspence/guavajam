@@ -1,5 +1,5 @@
 ---
-schema: press.work.v1
+schema: guavajam.work.v1
 title: Sample Work
 author: Example Author
 slug: sample-work
@@ -86,9 +86,9 @@ def identity(value):
 
 The following is a reference-style image with a stable, content-addressed HTTPS URL:
 
-![Press asset preview: white text on a blue rectangle][sample-figure]
+![GuavaJam asset preview: white text on a blue rectangle][sample-figure]
 
-[sample-figure]: https://media.example.org/sha256/035f32814cb199ba20d1c14a8e422facfa46b1166622396a8bb237d1712364bd.svg
+[sample-figure]: https://media.example.org/sha256/6ae3cd651812304b0e523f7499756ff0bc3ecb784096144c89b167842b40b3de.svg
 
 Supporting sources include a [reviewed claim](supporting/note.md#claim) and its
 [code](supporting/note.md#code).

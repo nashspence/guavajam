@@ -50,7 +50,7 @@ def _contents_blocks(blocks):
     for block in blocks:
         if block.get('t')=='Header' and block['c'][0]==2:
             inlines=block['c'][2]
-            if len(inlines)>=2 and inlines[-1].get('t')=='Link' and 'press-permalink' in inlines[-1]['c'][0][1]:inlines=inlines[:-2]
+            if len(inlines)>=2 and inlines[-1].get('t')=='Link' and 'guavajam-permalink' in inlines[-1]['c'][0][1]:inlines=inlines[:-2]
             sections.append((block['c'][1][0],plain_text(inlines)))
     if len(sections)<3:return []
     def fresh(base):
@@ -59,7 +59,7 @@ def _contents_blocks(blocks):
         used.add(name);return name
     contents,label=fresh('guavajam-contents'),fresh('guavajam-contents-label')
     items=[[{'t':'Plain','c':[{'t':'Link','c':[['',[],[]],[{'t':'Str','c':title}],['#'+anchor,'']]}]}] for anchor,title in sections]
-    return [{'t':'RawBlock','c':['html','<nav id="'+contents+'" class="press-contents" aria-labelledby="'+label+'"><p id="'+label+'" class="press-contents-label" lang="en">Contents</p>']},{'t':'BulletList','c':items},{'t':'RawBlock','c':['html','</nav>']}]
+    return [{'t':'RawBlock','c':['html','<nav id="'+contents+'" class="guavajam-contents" aria-labelledby="'+label+'"><p id="'+label+'" class="guavajam-contents-label" lang="en">Contents</p>']},{'t':'BulletList','c':items},{'t':'RawBlock','c':['html','</nav>']}]
 
 
 def prepare_presentation_ast(ast: dict) -> dict:
@@ -96,13 +96,13 @@ def prepare_presentation_ast(ast: dict) -> dict:
                     kind = label.group(1).lower()
                     if kind not in FORMAL_KINDS:
                         raise AssetError("unsupported formal block")
-                    attr[1].append("press-formal-heading")
-                    attr[1].append("press-" + kind)
-                    attr[2].append(["data-press-kind", kind])
+                    attr[1].append("guavajam-formal-heading")
+                    attr[1].append("guavajam-" + kind)
+                    attr[2].append(["data-guavajam-kind", kind])
                 if anchored:
                     # Author-written #fragment links stay local in downloaded copies.
                     # Keep the permalink separate from any links in the heading text.
-                    link_attr = ["", ["press-permalink"], [
+                    link_attr = ["", ["guavajam-permalink"], [
                         ["lang", "en"], ["aria-label", "Permalink to section " + anchored],
                     ]]
                     title.extend([{"t": "Space"}, {"t": "Link", "c": [
@@ -121,7 +121,7 @@ def prepare_presentation_ast(ast: dict) -> dict:
             raise AssetError("reader identity and contents require a manuscript title")
         new[title_index + 1:title_index + 1] = contents
     if contents:
-        ast.setdefault("meta", {})["press_has_contents"] = {"t": "MetaBool", "c": True}
+        ast.setdefault("meta", {})["guavajam_has_contents"] = {"t": "MetaBool", "c": True}
     ast["blocks"]=new
     return wrap_reading_blocks(ast)
 
@@ -173,9 +173,9 @@ def wrap_reading_blocks(ast):
         ))
         if kind == "Table" or display_math:
             label = "Table" if kind == "Table" else "Displayed mathematics"
-            cls = "press-table-scroll" if kind == "Table" else "press-math-scroll"
+            cls = "guavajam-table-scroll" if kind == "Table" else "guavajam-math-scroll"
             return {"t": "Div", "c": [
-                ["", ["press-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
+                ["", ["guavajam-scroll", cls], [["role", "group"], ["aria-label", label], ["tabindex", "0"]]], [block],
             ]}
         return block
     ast["blocks"] = [wrap(block) for block in ast["blocks"]]

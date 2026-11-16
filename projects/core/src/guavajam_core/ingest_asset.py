@@ -25,7 +25,7 @@ def upload_media(root,path,store,index):
         after=os.fstat(source.fileno())
         if (before.st_ino,before.st_size,before.st_mtime_ns)!=(after.st_ino,after.st_size,after.st_mtime_ns):raise AssetError('media changed during validation')
     key=PREFIX+hasher.hexdigest()+'.'+extension;url=policy.origin+'/'+key
-    store.upload(LEASE_PREFIX+key[len(PREFIX):],json.dumps({'schema':'press.asset-lease.v1','key':key}).encode(),'application/json',cache_control='no-store')
+    store.upload(LEASE_PREFIX+key[len(PREFIX):],json.dumps({'schema':'guavajam.asset-lease.v1','key':key}).encode(),'application/json',cache_control='no-store')
     existing=store.current(key)
     if existing is not None:
         if existing.delete_marker:raise AssetError('stored media is hidden or unfinished; inspect before restoring it')

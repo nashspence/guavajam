@@ -1,5 +1,5 @@
 # Publisher command recipes owned and shipped by guavajam-core.
-.PHONY: check check-source check-assets work capture asset-credentials site-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare site-export assets-qualify assets-release preview
+.PHONY: check check-source check-assets work capture asset-credentials repository-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release preview
 export TITLE AUTHOR LANGUAGE
 export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV GUAVAJAM_PREVIEW_IMAGE GUAVAJAM_SSH_ALLOWED_SIGNERS GUAVAJAM_TRUSTED_GPG_FINGERPRINTS GUAVAJAM_GPG_PUBLIC_KEYS PORT BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
@@ -20,9 +20,9 @@ capture: ## OUTPUT=new-directory Export the installed capture extension for load
 asset-credentials: ## OUTPUT=.env.assets Write a new credential template; fill it locally and keep it owner-only.
 	@$(PYTHON) -m guavajam_core resources credentials --output "$${OUTPUT:-.env.assets}"
 
-site-template: ## [OUTPUT=.build/press-site.json] Export an unsigned publisher settings starter for review.
-	@mkdir -p "$$(dirname "$${OUTPUT:-.build/press-site.json}")"
-	@$(PYTHON) -m guavajam_core resources site-settings --output "$${OUTPUT:-.build/press-site.json}"
+repository-template: ## [OUTPUT=.build/guavajam.json] Export an unsigned publisher settings starter for review.
+	@mkdir -p "$$(dirname "$${OUTPUT:-.build/guavajam.json}")"
+	@$(PYTHON) -m guavajam_core resources repository-settings --output "$${OUTPUT:-.build/guavajam.json}"
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) -m guavajam_core.prepare_asset -- "$${FILE:?Set FILE to the asset path}"
@@ -74,10 +74,10 @@ publication-prepare: ## REV=full-draft-sha WORK=slug PUBLISHED=YYYY-MM-DD [LABEL
 	@set --; case "$${REQUIRE_RETENTION:-0}" in 1) set -- --require-retention;; 0) ;; *) echo "REQUIRE_RETENTION must be 0 or 1" >&2; exit 1;; esac; \
 	$(PYTHON) -m guavajam_core.prepare_publication --revision "$${REV:?Set REV}" --work "$${WORK:?Set WORK}" --published "$${PUBLISHED:?Set PUBLISHED to the reviewed edition date}" $${LABEL:+"--label=$$LABEL"} "$$@"
 
-site-export: ## [SOURCE_REF=refs/heads/main OUTPUT=.build/guavajam/CATALOG.json] external signer trust as publication-check; emit exact GuavaJam input from signed commits and press-site.json.
+catalog-export: ## [SOURCE_REF=refs/heads/main OUTPUT=.build/guavajam/CATALOG.json] external signer trust as publication-check; emit exact GuavaJam input from signed commits and guavajam.json.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.' >&2; exit 1; }
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signer trust}"; fi; \
-	$(PYTHON) -m guavajam_core.export_site $${REPO:+"--repo=$$REPO"} --ref "$${SOURCE_REF:-refs/heads/main}" --output "$${OUTPUT:-.build/guavajam/CATALOG.json}" $${PREVIOUS_CATALOG:+"--previous-catalog=$$PREVIOUS_CATALOG"} "$$@"
+	$(PYTHON) -m guavajam_core.export_catalog $${REPO:+"--repo=$$REPO"} --ref "$${SOURCE_REF:-refs/heads/main}" --output "$${OUTPUT:-.build/guavajam/CATALOG.json}" $${PREVIOUS_CATALOG:+"--previous-catalog=$$PREVIOUS_CATALOG"} "$$@"
 
 assets-qualify: ## REV=full-draft-sha WORK=slug [S3_ENV=private-read.env REQUIRE_RETENTION=1] Verify committed draft dependencies without exposing them.
 	@set --; case "$${REQUIRE_RETENTION:-0}" in 1) set -- --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \

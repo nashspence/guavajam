@@ -90,7 +90,7 @@ def retire(root, repo, branch, expected, token):
             try:
                 declared = declaration(message)
             except ValueError as exc:
-                raise AssetError('cannot classify a signed Press declaration; preserve it in protected main before retirement') from exc
+                raise AssetError('cannot classify a signed GuavaJam declaration; preserve it in protected main before retirement') from exc
             if declared and declared['kind'] == 'publication':
                 raise AssetError('branch retirement would orphan a declared publication; preserve it in protected main first')
     # Compare-and-delete in Git, rather than a separate API read followed by an
@@ -114,7 +114,7 @@ def main():
             repo = repository(root)
             require_action(repo)
             retire(root, repo, os.environ.get("RETIRE_BRANCH", ""), os.environ.get("RETIRE_HEAD_SHA", ""),
-                   os.environ.get("PRESS_ASSET_RETIRE_TOKEN", ""))
+                   os.environ.get("GUAVAJAM_ASSET_RETIRE_TOKEN", ""))
         return 0
     except AssetError as exc:
         print("ERROR:", exc, file=sys.stderr)

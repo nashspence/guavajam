@@ -28,9 +28,9 @@ site: ## REPO=path CATALOG=reviewed.json OUTPUT=new-directory; PREVIOUS_CATALOG=
 	if [ -n "$$PREVIOUS_CATALOG" ]; then set -- "$$@" --previous-catalog "$$PREVIOUS_CATALOG"; elif [ "$$INITIAL_CATALOG" = 1 ]; then set -- "$$@" --initial-catalog; else echo 'Set PREVIOUS_CATALOG or INITIAL_CATALOG=1.' >&2; exit 1; fi; \
 	$(PYTHON) -m guavajam site --repo "$${REPO:?Set REPO}" --catalog "$${CATALOG:?Set CATALOG}" --output "$${OUTPUT:?Set OUTPUT}" "$$@"
 
-update: ## [REPO=../press OUTPUT=.build/site] Fetch origin/main, verify Press conventions, reuse unchanged views, atomically select OUTPUT/current. External trust once; safe for periodic invocation.
+update: ## REPO=path [OUTPUT=.build/site] Fetch origin/main, verify GuavaJam conventions, reuse unchanged views, atomically select OUTPUT/current. External trust once; safe for periodic invocation.
 	@set --; if [ "$$NO_FETCH" = 1 ]; then set -- --no-fetch; fi; if [ "$$REBUILD" = 1 ]; then set -- "$$@" --rebuild; fi; \
-	$(PYTHON) -m guavajam update --repo "$${REPO:-../press}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" "$$@"
+	$(PYTHON) -m guavajam update --repo "$${REPO:?Set REPO}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" "$$@"
 
 test-capture-browser: ## Qualify the capture extension and installed import commands.
 	@$(PYTHON) projects/core/tests/run_capture_browser.py

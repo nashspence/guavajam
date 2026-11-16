@@ -103,10 +103,10 @@ async function deliver(request,env,previewMapping=null) {
       else {
         const released=await mappingFor(env,key);
         if(!released)return failure(404,'Not found');
-        if(Object.keys(released).sort().join(',')!=='asset,origin,publication,schema'||released.schema!=='press.asset-release.v1'||released.origin!=='https://'+env.ASSET_HOST||!/^[0-9a-f]{40}$/.test(released.publication))throw Error('release');
+        if(Object.keys(released).sort().join(',')!=='asset,origin,publication,schema'||released.schema!=='guavajam.asset-release.v1'||released.origin!=='https://'+env.ASSET_HOST||!/^[0-9a-f]{40}$/.test(released.publication))throw Error('release');
         mapping=released.asset;publication=released.publication;
       }
-      if(Object.keys(mapping).sort().join(',')!=='byte_count,content_type,etag,extension,retain_until,retention_mode,schema,sha256,version_id'||(mapping.retain_until!==null&&(!Number.isSafeInteger(mapping.retain_until)||mapping.retain_until<=0))||mapping.schema!=='press.asset.v1'||mapping.sha256!==match[1]||mapping.extension!==match[2]||
+      if(Object.keys(mapping).sort().join(',')!=='byte_count,content_type,etag,extension,retain_until,retention_mode,schema,sha256,version_id'||(mapping.retain_until!==null&&(!Number.isSafeInteger(mapping.retain_until)||mapping.retain_until<=0))||mapping.schema!=='guavajam.asset.v1'||mapping.sha256!==match[1]||mapping.extension!==match[2]||
         (mapping.version_id!==null&&!validVersion(mapping.version_id))||!validETag(mapping.etag)||!Number.isSafeInteger(mapping.byte_count)||mapping.byte_count<0||(mapping.byte_count===0&&match[2]!=='bin')||
         mapping.byte_count>(['mp3','mp4'].includes(match[2])?LARGE:SMALL)||mapping.content_type!==MIME[match[2]]||
         (mapping.retain_until===null?mapping.retention_mode!==null:(!fixedVersion(mapping.version_id)||!['governance','compliance'].includes(mapping.retention_mode))))throw Error('mapping');
@@ -128,10 +128,10 @@ async function deliver(request,env,previewMapping=null) {
     }
     const headers=new Headers({'Content-Type':mapping.content_type,'Content-Length':String(expected),
       'Cache-Control':previewMapping?'private, no-store':'public, max-age=31536000, immutable, no-transform','X-Content-Type-Options':'nosniff',
-      ...(!previewMapping?{'Access-Control-Allow-Origin':'*'}:{}),'Access-Control-Expose-Headers':'Content-Length, Content-Range, Accept-Ranges, ETag, X-Press-Asset-Version, X-Press-Retain-Until, X-Press-Asset-Publication',
-      'ETag':mapping.etag,'X-Press-Retain-Until':String(mapping.retain_until||0)});
-    if(publication)headers.set('X-Press-Asset-Publication',publication);
-    if(fixedVersion(mapping.version_id))headers.set('X-Press-Asset-Version',encode(mapping.version_id));
+      ...(!previewMapping?{'Access-Control-Allow-Origin':'*'}:{}),'Access-Control-Expose-Headers':'Content-Length, Content-Range, Accept-Ranges, ETag, X-GuavaJam-Asset-Version, X-GuavaJam-Retain-Until, X-GuavaJam-Asset-Publication',
+      'ETag':mapping.etag,'X-GuavaJam-Retain-Until':String(mapping.retain_until||0)});
+    if(publication)headers.set('X-GuavaJam-Asset-Publication',publication);
+    if(fixedVersion(mapping.version_id))headers.set('X-GuavaJam-Asset-Version',encode(mapping.version_id));
     if(['mp3','mp4'].includes(match[2]))headers.set('Accept-Ranges','bytes');
     if(part)headers.set('Content-Range',`bytes ${part.start}-${part.end}/${mapping.byte_count}`);
     if(match[2]==='bin')headers.set('Content-Disposition','attachment; filename="'+key.split('/')[1]+'"');

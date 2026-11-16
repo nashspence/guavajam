@@ -13,7 +13,7 @@ def validate(value, key):
     match = re.fullmatch(r'sha256/([0-9a-f]{64})\.(png|jpg|jpeg|webp|svg|bin|mp3|mp4|vtt)', key)
     if not isinstance(value, dict) or not match or set(value) != FIELDS:
         raise AssetError('invalid asset mapping fields')
-    if value['schema'] != 'press.asset.v1' or value['sha256'] != match[1] or value['extension'] != match[2]:
+    if value['schema'] != 'guavajam.asset.v1' or value['sha256'] != match[1] or value['extension'] != match[2]:
         raise AssetError('asset mapping identity differs')
     version = value['version_id']
     if (version is not None and not valid_version(version)) or not valid_etag(value['etag']):

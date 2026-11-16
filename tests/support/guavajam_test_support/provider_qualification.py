@@ -213,7 +213,7 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
             for method in ['HEAD', 'GET']:
                 with public_response(origin + '/' + key, '*/*', method=method) as received:
                     require(received.status == 200 and received.getheader('ETag') == mapping['etag'])
-                    require(received.getheader('X-Press-Asset-Publication') == edition)
+                    require(received.getheader('X-GuavaJam-Asset-Publication') == edition)
                     require(received.getheader('Content-Length') in ({str(len(raw))} if method == 'HEAD' else {None, str(len(raw))}))
                     if method == 'GET': require(b''.join(response_chunks(received, len(raw))) == raw)
             if name.endswith(('.mp3', '.mp4')):

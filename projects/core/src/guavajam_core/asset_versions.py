@@ -82,7 +82,7 @@ def pin_key(store: ObjectStore, index: Index, key: str, *, version=None, retain_
     # An already-expired backend lock does not create a new retention promise.
     if until is not None and until <= now and previous is None:
         until = None
-    value = {'schema': 'press.asset.v1', 'sha256': digest, 'extension': extension,
+    value = {'schema': 'guavajam.asset.v1', 'sha256': digest, 'extension': extension,
              'version_id': info.version_id, 'etag': info.etag, 'byte_count': total,
              'content_type': mime, 'retain_until': until,
              'retention_mode': info.retention_mode if until else None}

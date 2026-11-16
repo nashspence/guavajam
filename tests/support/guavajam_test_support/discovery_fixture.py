@@ -24,10 +24,10 @@ class Publisher:
         listing = command(self.repo, 'gpg', '--with-colons', '--list-secret-keys', env=self.env)
         self.fingerprint = next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
         self.git('config', 'user.signingkey', self.fingerprint)
-        self.settings = {'schema': 'press.site.v1', 'publisher': 'Independent Publisher', 'base_url': 'https://publisher.example'}
+        self.settings = {'schema': 'guavajam.repository.v1', 'publisher': 'Independent Publisher', 'base_url': 'https://publisher.example'}
         self.source('field-notes', 'Field Notes', 'The first observation.')
         self.write_settings()
-        self.git('add', '-A'); self.git('commit', '-qm', 'Review source and site settings')
+        self.git('add', '-A'); self.git('commit', '-qm', 'Review source and repository settings')
         self.seal()
         self.revisions = []
 
@@ -37,7 +37,7 @@ class Publisher:
     def source(self, slug, title, body):
         directory = self.repo / 'works' / slug; directory.mkdir(parents=True, exist_ok=True)
         (directory/'manuscript.md').write_text(f'''---
-schema: press.work.v1
+schema: guavajam.work.v1
 title: {title}
 author: Example Author
 slug: {slug}
@@ -55,14 +55,14 @@ rights: CC-BY-4.0
 ''')
 
     def write_settings(self):
-        (self.repo / 'press-site.json').write_text(json.dumps(self.settings, sort_keys=True) + '\n')
+        (self.repo / 'guavajam.json').write_text(json.dumps(self.settings, sort_keys=True) + '\n')
 
     def seal(self, signed=True):
-        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve site settings\n\nPress-Site: 1')
+        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve repository settings\n\nGuavaJam-Repository: 1')
         return self.git('rev-parse', 'HEAD')
 
     def amend_settings(self, signed=True):
-        self.write_settings(); self.git('add', 'press-site.json'); self.git('commit', '-qm', 'Review site settings')
+        self.write_settings(); self.git('add', 'guavajam.json'); self.git('commit', '-qm', 'Review repository settings')
         return self.seal(signed=signed)
 
     def publish(self, day='2026-11-13', slug='field-notes', label=None):

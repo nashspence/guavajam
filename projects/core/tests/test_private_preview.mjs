@@ -9,7 +9,7 @@ import worker,{previewFetch} from '../src/guavajam_core/resources/storage/worker
 import {previewServer,privateHtml} from '../src/guavajam_core/resources/storage/preview.mjs';
 const digest='c'.repeat(64),key='sha256/'+digest+'.mp4';
 const env={ASSET_HOST:'assets.publisher.test',S3_ENDPOINT:'https://storage.publisher.test',S3_REGION:'us-east-1',S3_BUCKET:'assets',S3_ACCESS_KEY_ID:'private-id',S3_SECRET_ACCESS_KEY:'private-secret'};
-const pin={schema:'press.asset.v1',sha256:digest,extension:'mp4',version_id:'fixed',etag:'"exact"',content_type:'video/mp4',byte_count:100,retain_until:null,retention_mode:null};
+const pin={schema:'guavajam.asset.v1',sha256:digest,extension:'mp4',version_id:'fixed',etag:'"exact"',content_type:'video/mp4',byte_count:100,retain_until:null,retention_mode:null};
 function data(range=false,etag='"exact"'){
  return new Response(new Uint8Array(range?10:100),{status:range?206:200,headers:{'Content-Type':'video/mp4','Content-Length':String(range?10:100),ETag:etag,'x-amz-version-id':'fixed',...(range?{'Content-Range':'bytes 0-9/100'}:{})}});
 }
@@ -47,9 +47,9 @@ test('only an exact release envelope enables anonymous content; an old pin is re
  };
  try{
   assert.equal((await worker.fetch(new Request('https://'+env.ASSET_HOST+'/'+key),env)).status,503);
-  envelope={schema:'press.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:pin};
+  envelope={schema:'guavajam.asset-release.v1',origin:'https://'+env.ASSET_HOST,publication:'a'.repeat(40),asset:pin};
   const result=await worker.fetch(new Request('https://'+env.ASSET_HOST+'/'+key),env);
-  assert.equal(result.status,200);assert.equal(result.headers.get('X-Press-Asset-Publication'),'a'.repeat(40));
+  assert.equal(result.status,200);assert.equal(result.headers.get('X-GuavaJam-Asset-Publication'),'a'.repeat(40));
   assert.match(result.headers.get('Cache-Control'),/^public,/);
  }finally{globalThis.fetch=fetch;}
 });

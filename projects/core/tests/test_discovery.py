@@ -1,8 +1,8 @@
 """Publisher-owned automatic index; signed metadata, not tags or Git timestamps.
 
-Copy templates/site.json to press-site.json, choose the publisher's real origin,
-review/commit it, then sign an empty checkpoint ending in Press-Site: 1. New
-publications use Press-Publication: 1, Press-Work and Press-Published trailers.
+Copy templates/repository.json to guavajam.json, choose the publisher's real origin,
+review/commit it, then sign an empty checkpoint ending in GuavaJam-Repository: 1. New
+publications use GuavaJam-Publication: 1, GuavaJam-Work and GuavaJam-Published trailers.
 Later DOI/status/notices live in that same signed publisher settings file.
 The exact downstream output is guavajam.catalog.v1; no duplicate renderer config.
 """
@@ -26,14 +26,14 @@ class DeclarationTests(unittest.TestCase):
         unlabelled = publication_trailers('works/essay/manuscript.md', '2026-11-13')
         self.assertEqual({'kind': 'publication', 'version': 1, 'manuscript': 'works/essay/manuscript.md',
                           'published': '2026-11-13'}, declaration('Publish\n\n' + '\n'.join(unlabelled)))
-        for invalid in [unlabelled[:2], ['Press-Publication: 2', *unlabelled[1:]]]:
+        for invalid in [unlabelled[:2], ['GuavaJam-Publication: 2', *unlabelled[1:]]]:
             with self.assertRaises(ValueError):
                 declaration('Publish\n\n' + '\n'.join(invalid))
         lines = publication_trailers('works/essay/manuscript.md', '2026-11-13', 'Second edition')
         parsed = declaration('Publish\n\n' + '\n'.join(lines))
         self.assertEqual('Second edition', parsed['label'])
         self.assertEqual('2026-11-13', parsed['published'])
-        for bad in ['\nPress-Published: 2026-11-13', '\nPress-Site: 1', '\nPress-Unknown: value', '\nTrailing prose']:
+        for bad in ['\nGuavaJam-Published: 2026-11-13', '\nGuavaJam-Repository: 1', '\nGuavaJam-Unknown: value', '\nTrailing prose']:
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 declaration('Publish\n\n' + '\n'.join(lines) + bad)
         for date in (None, 'today', '2026-02-30', '2026-11-13T10:00:00Z'):
@@ -41,7 +41,7 @@ class DeclarationTests(unittest.TestCase):
                 publication_trailers('works/essay/manuscript.md', date)
 
     def test_configuration_is_closed_data_not_a_template_or_authority(self):
-        good = {'schema': 'press.site.v1', 'publisher': 'Publisher', 'base_url': 'https://example.org'}
+        good = {'schema': 'guavajam.repository.v1', 'publisher': 'Publisher', 'base_url': 'https://example.org'}
         _, catalog = policy(json.dumps(good).encode())
         self.assertEqual('Publications', catalog['title'])
         self.assertEqual([], catalog['works'])
@@ -101,7 +101,7 @@ class DiscoveryTests(unittest.TestCase):
         self.p.settings['publisher'] = 'Unapproved'; self.p.write_settings()
         # A dirty checkout is ignored: publication discovery reads committed blobs.
         self.assertEqual('Independent Publisher', self.discover()[0]['publisher'])
-        self.p.git('add', 'press-site.json'); self.p.git('commit', '-qm', 'Unsigned settings change')
+        self.p.git('add', 'guavajam.json'); self.p.git('commit', '-qm', 'Unsigned settings change')
         with self.assertRaisesRegex(ValueError, 'without a new signed'):
             self.discover()
         self.p.seal(signed=False)
@@ -112,15 +112,15 @@ class DiscoveryTests(unittest.TestCase):
         first = self.p.publish()
         self.p.git('checkout', '-qb', 'unaccepted')
         self.p.publish('2026-11-14')
-        self.p.git('tag', 'press/unaccepted')
+        self.p.git('tag', 'guavajam/unaccepted')
         self.p.git('checkout', '-q', 'main')
         self.assertEqual([first], self.discover()[1]['publications'])
         with self.assertRaisesRegex(ValueError, 'never a tag'):
-            self.discover(ref='refs/tags/press/unaccepted')
+            self.discover(ref='refs/tags/guavajam/unaccepted')
 
     def test_invalid_publication_cannot_be_skipped_or_whitelisted_by_source(self):
         self.p.publish()
-        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nPress-Publication: 1\nPress-Work: works/field-notes/manuscript.md\nPress-Published: 2026-11-13')
+        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nGuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
         with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
         with self.assertRaises(ValueError):
@@ -152,7 +152,7 @@ class DiscoveryTests(unittest.TestCase):
         signers = self.p.root / 'allowed-signers'
         signers.write_text('publisher@example.org ' + key.with_suffix('.pub').read_text())
         catalog, evidence = discover(self.p.repo, allowed_signers=signers)
-        self.assertEqual(checkpoint, evidence['site_checkpoint'])
+        self.assertEqual(checkpoint, evidence['repository_checkpoint'])
         self.assertEqual([revision], evidence['publications'])
         self.assertEqual(revision, catalog['works'][0]['recommended_revision'])
         untrusted = self.p.root / 'untrusted-signers'
@@ -171,7 +171,7 @@ class DiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'undiscovered'):
             self.discover()
         self.p.settings.pop('editions'); self.p.amend_settings()
-        file = self.p.repo/'press-site.json'; file.unlink(); file.symlink_to('README.md')
+        file = self.p.repo/'guavajam.json'; file.unlink(); file.symlink_to('README.md')
         self.p.git('add','-A');self.p.git('commit','-qm','Symlink settings');self.p.seal()
         with self.assertRaisesRegex(ValueError, 'regular'):
             self.discover()

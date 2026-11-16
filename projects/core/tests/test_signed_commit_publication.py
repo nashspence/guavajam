@@ -18,7 +18,7 @@ from guavajam_core.verify_media_sources import verify_one, verify_items
 from guavajam_core.asset_policy import AssetError
 
 MANUSCRIPT='''---
-schema: press.work.v1
+schema: guavajam.work.v1
 title: Recorded Notes
 author: Fixture Author
 slug: recorded-notes
@@ -37,7 +37,7 @@ A reviewed recorded scene with [media](#field-audio) and a visible transcript.
 <a id="field-audio"></a>
 ### Field audio
 
-```press-media
+```guavajam-media
 {
   "id": "field-audio",
   "kind": "audio",
@@ -84,7 +84,7 @@ class PublicationCommitTests(unittest.TestCase):
         self.fingerprint=next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
         cmd(self.repo,'git','config','user.signingkey',self.fingerprint)
         cmd(self.repo,'git','config','gpg.format','openpgp')
-        self.signed_message='Press-Publication: 1\nPress-Work: works/recorded-notes/manuscript.md\nPress-Published: 2026-11-13'
+        self.signed_message='GuavaJam-Publication: 1\nGuavaJam-Work: works/recorded-notes/manuscript.md\nGuavaJam-Published: 2026-11-13'
         self._sign(self.signed_message)
 
     def _sign(self,message):
@@ -107,7 +107,7 @@ class PublicationCommitTests(unittest.TestCase):
         self.assertIn('field-audio',record['anchors'])
         self.assertEqual('audio',record['media'][0]['kind'])
         self.assertEqual('#transcript',record['media'][0]['transcript'])
-        self.assertEqual({'schema':'press.citation.v1','hash_algorithm':'sha1',
+        self.assertEqual({'schema':'guavajam.source-citation.v1','hash_algorithm':'sha1',
                           'revision':self.signed,'manuscript':record['manuscript'],
                           'anchor':'transcript'},citation(record,'transcript'))
         (self.repo/'works/recorded-notes/manuscript.md').write_text('Uncommitted, unrelated contents.')
@@ -130,13 +130,13 @@ class PublicationCommitTests(unittest.TestCase):
             citation(self._verify(), 'nonexistent-passage')
 
     def test_publication_trailers_are_exact_and_unique(self):
-        self._sign('Press-Publication: 1\nPress-Work: works/another/manuscript.md\nPress-Published: 2026-11-13')
+        self._sign('GuavaJam-Publication: 1\nGuavaJam-Work: works/another/manuscript.md\nGuavaJam-Published: 2026-11-13')
         with self.assertRaises(PublicationError):
             self._verify()
         self._sign(self.signed_message+'\nOther: trailer')
         with self.assertRaisesRegex(PublicationError,'final block'):
             self._verify()
-        self._sign(self.signed_message+'\nPress-Publication: 1')
+        self._sign(self.signed_message+'\nGuavaJam-Publication: 1')
         with self.assertRaisesRegex(PublicationError,'unknown publication trailer'):
             self._verify()
 

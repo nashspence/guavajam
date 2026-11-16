@@ -143,7 +143,7 @@ If a file is missing or unreadable, identify that gap rather than inferring its 
 
 Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond to my follow-up questions and corrections naturally. - If I change the data or assumptions, carry that change into subsequent calculations and files. - Keep tool use, citations, and attachments genuine; state unavailable capabilities explicitly. - Write only your own responses. I will supply the intervening user messages.
 
-<a name="m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf" data-press-speaker="assistant"></a>
+<a name="m-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-b6b215d328e8aa9d28b054f7d1333a6ac28628ea817d220516447591a0228ecf-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -300,7 +300,7 @@ Conversation rules: - Produce stage 1 now and wait before proceeding. - Respond 
 
 Continue to stage 2
 
-<a name="m-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2" data-press-speaker="assistant"></a>
+<a name="m-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-f2f10c3a2b22138f7a098c027509fb6b8551f9ab8da74c45a3fb8da65b01bea2-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -692,7 +692,7 @@ Continue to stage 2
 
 Continue to stage 3
 
-<a name="m-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665" data-press-speaker="assistant"></a>
+<a name="m-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-5b5b8b3b2c83bbdd13a8c0e626a81468e680e6bd33a9d36c6d11f77c6cdd0665-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -1002,7 +1002,7 @@ Continue to stage 3
 
 Continue to stage 4
 
-<a name="m-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39" data-press-speaker="assistant"></a>
+<a name="m-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-3ad538b0414551fad4a467f27c7333b0ad36a70b34f3f54fe9005192dfb1aa39-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -1261,7 +1261,7 @@ Continue to stage 4
 
 Continue to stage 5
 
-<a name="m-4a6cbe121392f7d1136d13330b4faa13612d0a0ac0fd6ce865943c8a8c10dc19" data-press-speaker="assistant"></a>
+<a name="m-4a6cbe121392f7d1136d13330b4faa13612d0a0ac0fd6ce865943c8a8c10dc19" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-4a6cbe121392f7d1136d13330b4faa13612d0a0ac0fd6ce865943c8a8c10dc19-2b78a258abe639845f90976af25caf62985b6566a568c9bc5761427e6d1cff0a-1"></a>
@@ -1270,7 +1270,7 @@ Continue to stage 5
 
 — gpt-6-thinking (max effort)
 
-<a name="m-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067" data-press-speaker="assistant"></a>
+<a name="m-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-3736668afc6258dfc64b291b16416b6eef25b0e3afe61dc883685202a1167067-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>
@@ -1419,7 +1419,7 @@ Continue to stage 5
 
 Continue to stage 6 - note: the csv was not downloadable from the link provided
 
-<a name="m-b3ed9efbb18d8be99294c65b9582ff60767a53fc28efa4c60e6fa9488dadbadf" data-press-speaker="assistant"></a>
+<a name="m-b3ed9efbb18d8be99294c65b9582ff60767a53fc28efa4c60e6fa9488dadbadf" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-b3ed9efbb18d8be99294c65b9582ff60767a53fc28efa4c60e6fa9488dadbadf-0d9e7978dcf74b8978b7b2482fefd9f16e3ebeeb5c92e5bf21dff840420d9709-1"></a>
@@ -1428,7 +1428,7 @@ Continue to stage 6 - note: the csv was not downloadable from the link provided
 
 — gpt-6-thinking (max effort)
 
-<a name="m-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587" data-press-speaker="assistant"></a>
+<a name="m-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587" data-guavajam-speaker="assistant"></a>
 
 >
 > <a name="b-0846c1393a8f91bf0925ff0b3f2e0a5ca6d4a365923f91e01a60b416fc38d587-d54d467ab9d0c0617e6f9de910f755fac41867fb197c95a706bce0b4a5f132d0-1"></a>

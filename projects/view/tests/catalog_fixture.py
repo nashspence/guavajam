@@ -34,7 +34,7 @@ def make_catalog_fixture(directory):
         work = repo / 'works' / slug
         (work / 'supporting').mkdir(parents=True, exist_ok=True)
         (work / 'manuscript.md').write_text('''---
-schema: press.work.v1
+schema: guavajam.work.v1
 title: "TITLE"
 author: "Example & Colleague"
 slug: SLUG
@@ -68,7 +68,7 @@ The exact, independently citable claim.
         command(repo, 'git', 'add', '-A')
         command(repo, 'git', 'commit', '-qm', 'Review ' + title)
         command(repo, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish ' + title,
-                '-m', 'Press-Publication: 1\nPress-Work: works/' + slug + '/manuscript.md\nPress-Published: ' +
+                '-m', 'GuavaJam-Publication: 1\nGuavaJam-Work: works/' + slug + '/manuscript.md\nGuavaJam-Published: ' +
                 ['2026-10-01', '2026-11-01', '2026-11-03'][len(revisions)], env=env)
         revisions.append(command(repo, 'git', 'rev-parse', 'HEAD'))
     catalog = {

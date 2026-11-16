@@ -113,7 +113,7 @@ class StorageTests(unittest.TestCase):
 class CollectionTests(unittest.TestCase):
     def run_gc(self, store, scan=lambda *args: set(), **kwargs):
         with contextlib.redirect_stdout(io.StringIO()):
-            return collect(Path("."), "publisher/press", store, now=NOW, scan=scan, **kwargs)
+            return collect(Path("."), "publisher/publications", store, now=NOW, scan=scan, **kwargs)
 
     def test_shared_digest_and_recent_asset_or_lease_protect_all_versions(self):
         recent = int((NOW - 1) * 1000)
@@ -170,16 +170,16 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual([], store.deleted)
 
     def test_apply_gate_requires_trusted_main_workflow(self):
-        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "publisher/press",
-               "GITHUB_WORKFLOW_REF": "publisher/press/.github/workflows/maintain-assets.yml@refs/heads/main",
+        env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": "publisher/publications",
+               "GITHUB_WORKFLOW_REF": "publisher/publications/.github/workflows/maintain-assets.yml@refs/heads/main",
                "GITHUB_EVENT_NAME": "workflow_dispatch"}
         with patch.dict(os.environ, env, clear=True):
-            require_action("publisher/press")
+            require_action("publisher/publications")
         with patch.dict(os.environ, {**env, "GITHUB_EVENT_NAME": "schedule"}, clear=True), self.assertRaises(AssetError):
-            require_action("publisher/press")
+            require_action("publisher/publications")
         for name in env:
             with patch.dict(os.environ, {**env, name: "untrusted"}, clear=True), self.assertRaises(AssetError):
-                require_action("publisher/press")
+                require_action("publisher/publications")
 
 
 class GitRetentionTests(unittest.TestCase):
@@ -229,7 +229,7 @@ class GitRetentionTests(unittest.TestCase):
         (self.root / ".env.assets").write_text(hashes[7])
         roots = {"branch:main": main, "branch:active": branch, "pr:9": pr}
         with patch("guavajam_core.manage_assets.remote_roots", return_value=roots):
-            retained = retained_assets(self.root, "publisher/press")
+            retained = retained_assets(self.root, "publisher/publications")
         self.assertTrue(set(hashes[:7]) <= retained)
         self.assertNotIn(hashes[7], retained)
 
@@ -243,12 +243,12 @@ class GitRetentionTests(unittest.TestCase):
         self.g("push", "-q", "origin", "main")
         roots = {"branch:main": main}
         with patch("guavajam_core.manage_assets.remote_roots", side_effect=[roots, {**roots, "pr:1": main}]), self.assertRaises(AssetError):
-            retained_assets(self.root, "publisher/press")
+            retained_assets(self.root, "publisher/publications")
         original = git
         def shallow(root, *args, **kwargs):
             return b"true\n" if args == ("rev-parse", "--is-shallow-repository") else original(root, *args, **kwargs)
         with patch("guavajam_core.manage_assets.git", side_effect=shallow), self.assertRaises(AssetError):
-            retained_assets(self.root, "publisher/press")
+            retained_assets(self.root, "publisher/publications")
 
     @contextlib.contextmanager
     def retirement(self, head):
@@ -262,7 +262,7 @@ class GitRetentionTests(unittest.TestCase):
         def local_git(root, *args, **kwargs):
             if "push" in args:
                 pushes.append(args)
-            args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
+            args = tuple(str(self.origin) if arg == "https://github.com/publisher/publications.git" else arg for arg in args)
             return git(root, *args, **kwargs)
         with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
              patch("guavajam_core.asset_workflow.pages", return_value=[]), \
@@ -292,7 +292,7 @@ class GitRetentionTests(unittest.TestCase):
                     "works/field-notes/manuscript.md", "2026-11-13", label)))
                 with self.retirement(head) as pushes:
                     with self.assertRaisesRegex(AssetError, "would orphan a declared publication"):
-                        asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+                        asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
                     self.assertEqual([], pushes)
                 retained = subprocess.check_output(["git", "--git-dir", str(self.origin), "rev-parse", "retire-me"]).decode().strip()
                 self.assertEqual(head, retained)
@@ -300,7 +300,7 @@ class GitRetentionTests(unittest.TestCase):
                 self.g("merge", "--ff-only", "retire-me")
                 self.g("push", "-q", "origin", "main")
                 with self.retirement(head) as pushes:
-                    asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+                    asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
                     self.assertEqual(1, len(pushes))
                     self.assertIn("--force-with-lease=refs/heads/retire-me:" + head, pushes[0])
                 result = subprocess.run(["git", "--git-dir", str(self.origin), "show-ref", "--verify", "refs/heads/retire-me"], capture_output=True)
@@ -308,16 +308,16 @@ class GitRetentionTests(unittest.TestCase):
                 self.g("branch", "-D", "retire-me")
 
     def test_malformed_signed_declaration_stops_retirement_before_push(self):
-        head = self.signed_branch("Press-Publication: 1\nPress-Work: works/field-notes/manuscript.md")
+        head = self.signed_branch("GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md")
         with self.retirement(head) as pushes:
-            with self.assertRaisesRegex(AssetError, "cannot classify a signed Press declaration"):
-                asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+            with self.assertRaisesRegex(AssetError, "cannot classify a signed GuavaJam declaration"):
+                asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
             self.assertEqual([], pushes)
 
-    def test_site_checkpoint_alone_can_be_retired(self):
-        head = self.signed_branch("Press-Site: 1")
+    def test_repository_checkpoint_alone_can_be_retired(self):
+        head = self.signed_branch("GuavaJam-Repository: 1")
         with self.retirement(head) as pushes:
-            asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-token")
+            asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
             self.assertEqual(1, len(pushes))
 
     def test_compare_and_delete_refuses_concurrent_branch_push(self):
@@ -328,7 +328,7 @@ class GitRetentionTests(unittest.TestCase):
         second = self.commit("new tip")
         def push(root, *args, **kwargs):
             self.g("push", "-q", "origin", "HEAD:refs/heads/retire-me")
-            args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
+            args = tuple(str(self.origin) if arg == "https://github.com/publisher/publications.git" else arg for arg in args)
             return git(root, *args, **kwargs)
         original_run = subprocess.run
         def read_ref(args, **kwargs):
@@ -338,7 +338,7 @@ class GitRetentionTests(unittest.TestCase):
         with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
              patch("guavajam_core.asset_workflow.pages", return_value=[]), patch("guavajam_core.asset_workflow.git", side_effect=push), \
              patch("guavajam_core.asset_workflow.subprocess.run", side_effect=read_ref), self.assertRaises(AssetError):
-            asset_workflow.retire(self.root, "publisher/press", "retire-me", first, "fixture-token")
+            asset_workflow.retire(self.root, "publisher/publications", "retire-me", first, "fixture-token")
         actual = subprocess.check_output(["git", "--git-dir", str(self.origin), "rev-parse", "retire-me"]).decode().strip()
         self.assertEqual(second, actual)
 
@@ -355,12 +355,12 @@ class GitRetentionTests(unittest.TestCase):
         def push(root, *args, **kwargs):
             if "push" not in args:return git(root,*args,**kwargs)
             observed.append((args, kwargs["env"]["GH_TOKEN"]))
-            args = tuple(str(self.origin) if arg == "https://github.com/publisher/press.git" else arg for arg in args)
+            args = tuple(str(self.origin) if arg == "https://github.com/publisher/publications.git" else arg for arg in args)
             return git(root, *args, **kwargs)
         with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
              patch("guavajam_core.asset_workflow.pages", return_value=[]), patch("guavajam_core.asset_workflow.git", side_effect=push), \
              patch("guavajam_core.asset_workflow.subprocess.run", side_effect=read_ref), contextlib.redirect_stdout(io.StringIO()):
-            asset_workflow.retire(self.root, "publisher/press", "retire-me", head, "fixture-app-token")
+            asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-app-token")
         self.assertEqual("fixture-app-token", observed[0][1])
         self.assertNotIn("fixture-app-token", " ".join(observed[0][0]))
         self.assertIn("--force-with-lease=refs/heads/retire-me:" + head, observed[0][0])
@@ -374,7 +374,7 @@ class WorkflowTests(unittest.TestCase):
         lines = (RESOURCES / "storage/credentials.env.example").read_text().splitlines()
         self.assertEqual(asset_storage.VARIABLES, {line.split("=", 1)[0] for line in lines if line and not line.startswith("#")})
     def test_dispatch_always_uses_main_and_does_not_need_storage_credentials(self):
-        with patch("guavajam_core.asset_workflow.repository", return_value="publisher/press"), \
+        with patch("guavajam_core.asset_workflow.repository", return_value="publisher/publications"), \
              patch("guavajam_core.asset_workflow.subprocess.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run, \
              contextlib.redirect_stdout(io.StringIO()):
             asset_workflow.request(Path("."), "request-gc", {})
@@ -382,12 +382,12 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual({"ref": "main", "inputs": {"operation": "preview"}}, json.loads(run.call_args.kwargs["input"]))
 
     def test_retire_command_requires_no_storage_inventory_or_credentials(self):
-        repo = "publisher/press"
+        repo = "publisher/publications"
         head = "a" * 40
         env = {"GITHUB_ACTIONS": "true", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": repo,
                "GITHUB_WORKFLOW_REF": repo + "/.github/workflows/maintain-assets.yml@refs/heads/main",
                "GITHUB_EVENT_NAME": "workflow_dispatch", "RETIRE_BRANCH": "feature", "RETIRE_HEAD_SHA": head,
-               "PRESS_ASSET_RETIRE_TOKEN": "fixture"}
+               "GUAVAJAM_ASSET_RETIRE_TOKEN": "fixture"}
         with patch.dict(os.environ, env, clear=True), patch.object(sys, "argv", ["guavajam_core.asset_workflow.py", "retire"]), \
              patch("guavajam_core.asset_workflow.repository_root", return_value=Path(".")), patch("guavajam_core.asset_workflow.repository", return_value=repo), patch("guavajam_core.asset_workflow.retire") as retire:
             self.assertEqual(0, asset_workflow.main())
@@ -395,11 +395,11 @@ class WorkflowTests(unittest.TestCase):
 
     def test_main_and_open_prs_cannot_be_retired(self):
         with self.assertRaises(AssetError):
-            asset_workflow.retire(Path("."), "publisher/press", "main", "a" * 40, "fixture")
-        pr = {"head": {"repo": {"full_name": "publisher/press"}, "ref": "active"}, "base": {"ref": "main"}}
+            asset_workflow.retire(Path("."), "publisher/publications", "main", "a" * 40, "fixture")
+        pr = {"head": {"repo": {"full_name": "publisher/publications"}, "ref": "active"}, "base": {"ref": "main"}}
         with patch("guavajam_core.asset_workflow.gh", return_value=json.dumps({"default_branch": "main"})), \
              patch("guavajam_core.asset_workflow.pages", return_value=[pr]), self.assertRaises(AssetError):
-            asset_workflow.retire(Path("."), "publisher/press", "active", "a" * 40, "fixture")
+            asset_workflow.retire(Path("."), "publisher/publications", "active", "a" * 40, "fixture")
 
 
     def test_deletion_ruleset_cannot_grant_a_main_protection_bypass(self):
@@ -410,7 +410,7 @@ class WorkflowTests(unittest.TestCase):
         with patch("guavajam_core.configure_asset_maintenance.gh", return_value=json.dumps(app)), \
              patch("guavajam_core.configure_asset_maintenance.pages", return_value=[]), \
              patch("guavajam_core.configure_asset_maintenance.subprocess.run") as run, self.assertRaises(AssetError):
-            configure("publisher/press", "fixture", apply=True)
+            configure("publisher/publications", "fixture", apply=True)
         run.assert_not_called()
 
 

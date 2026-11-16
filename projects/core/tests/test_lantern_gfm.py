@@ -125,10 +125,10 @@ class LanternConversionTests(unittest.TestCase):
                     # GitHub's native GFM reading surface now distinguishes
                     # responder turns without any publisher-provided CSS.
                     self.assertEqual(sum(p.get('speaker') == 'assistant' for p in record['passages']),
-                                     data.count(b'data-press-speaker="assistant"'))
+                                     data.count(b'data-guavajam-speaker="assistant"'))
                     self.assertNotIn(b'\n## Assistant\n', data)
                     self.assertNotIn(b'\n## User\n', data)
-                    self.assertNotIn(b'data-press-speaker="user"', data)
+                    self.assertNotIn(b'data-guavajam-speaker="user"', data)
                     credits = sum(p.get('speaker') == 'assistant' for p in record['passages'])
                     self.assertEqual(credits, data.count(
                         '— gpt-6-thinking (max effort)\n'.encode()))

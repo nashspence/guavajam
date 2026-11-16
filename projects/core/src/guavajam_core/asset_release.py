@@ -44,7 +44,7 @@ class Releases:
         from .publication_protocol import _json
         value = _json(raw)
         if (not isinstance(value, dict) or set(value) != {'schema', 'publication', 'origin', 'asset'}
-                or value['schema'] != 'press.asset-release.v1'):
+                or value['schema'] != 'guavajam.asset-release.v1'):
             raise AssetError('invalid release record')
         oid(value['publication'])
         AssetPolicy(value['origin'])
@@ -87,7 +87,7 @@ class Releases:
         # Only a retention extension may update an existing record. Preserve
         # its original issuing authority and exact byte/version identity.
         authority = previous['publication'] if previous else publication
-        value = {'schema': 'press.asset-release.v1', 'publication': authority, 'origin': origin, 'asset': mapping}
+        value = {'schema': 'guavajam.asset-release.v1', 'publication': authority, 'origin': origin, 'asset': mapping}
         raw = (json.dumps(value, sort_keys=True) + '\n').encode()
         self.store.upload(self.path(key), raw, 'application/json', cache_control='no-store',
                           previous=observed, create_only=observed is None,
@@ -131,7 +131,7 @@ def release(repo, revision, expected_main, *, store, release_store, fingerprints
     mappings = {item['key']: {k: v for k, v in item.items() if k != 'key'} for item in prepared['assets']}
     for key, mapping in mappings.items():
         releases.check(key, mapping, origin)
-    result = {'schema': 'press.asset-release-result.v1', 'revision': revision, 'main_tip': tip,
+    result = {'schema': 'guavajam.asset-release-result.v1', 'revision': revision, 'main_tip': tip,
               'assets': len(mappings), 'applied': False, 'public_delivery_verified': False}
     if not apply:
         return result

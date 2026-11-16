@@ -1,4 +1,4 @@
-"""Launch the optional GuavaJam *whole site* preview from a Press checkout.
+"""Launch the optional GuavaJam *whole site* preview from a publication checkout.
 
 Only the signed-main baseline and exact committed author branch are read.
 Docker runs an independently pinned GuavaJam image with read-only source,
@@ -114,7 +114,7 @@ def run(repo, work, published, *, label=None, port=8082):
                     '-e', 'GUAVAJAM_GPG_PUBLIC_KEYS=/trust/publisher.asc']
             trusted_destination = '/trust/publisher.asc'
         if pin and command('docker', 'image', 'inspect', selected, check=False).returncode:
-            # Build only the exact source revision pinned by Press's installed core;
+            # Build only the exact source revision pinned by the installed core;
             # never select an unreviewed feature branch or floating latest image.
             subprocess.run(['docker', 'build', '--target', 'preview', '--tag', selected,
                             'https://github.com/nashspence/guavajam.git?ref='+pin], check=True)

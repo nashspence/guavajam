@@ -34,7 +34,7 @@ def media_items(root: Path, relative: Path) -> list[dict]:
     if issues or syntax_issues:
         raise AssetError('invalid media source anchors: ' + '; '.join(issues + syntax_issues))
     if policy is None:
-        if any(n.get('t') == 'CodeBlock' and 'press-media' in n['c'][0][1]
+        if any(n.get('t') == 'CodeBlock' and 'guavajam-media' in n['c'][0][1]
                for n in _walk(ast.get('blocks', []))):
             raise AssetError('media requires asset policy')
         return []

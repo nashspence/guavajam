@@ -37,7 +37,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual('updated', poll(self.state, self.env)['status'])
         self.assertIn(revision, (self.state / 'site/current/CATALOG.json').read_text())
         self.assertEqual('unchanged', poll(self.state, self.env)['status'])
-        self.assertFalse((self.state / 'source/press-site.json').exists(), 'source clone never checks out publisher code')
+        self.assertFalse((self.state / 'source/guavajam.json').exists(), 'source clone never checks out publisher code')
 
     def test_failed_signature_and_changed_source_keep_last_good_generation(self):
         poll(self.state, self.env)
