@@ -184,7 +184,7 @@ def verify_public_delivery(repo, catalog, *, previous=None, fingerprints=(), all
                        allowed_signers=allowed_signers, online_media=True)
 
 
-def update(repo=Path('.'), output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
+def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
            no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False):
     repo = Path(repo).expanduser().resolve(strict=True)
     with locked_root(output, repo) as root:
@@ -264,7 +264,7 @@ def update(repo=Path('.'), output=Path('.build/site'), *, ref='refs/heads/main',
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', type=Path, default=Path('.'))
+    parser.add_argument('--repo', type=Path, required=True)
     parser.add_argument('--output', type=Path, default=Path('.build/site'))
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--remote', default='origin')
