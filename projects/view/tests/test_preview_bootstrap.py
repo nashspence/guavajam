@@ -73,6 +73,27 @@ class BootstrapPreviewTests(unittest.TestCase):
             build_site(self.draft.repo, self.output/'CATALOG.json', self.root/'production', initial_catalog=True)
         self.assertFalse((self.root/'production').exists())
 
+    def test_all_first_works_share_one_snapshot_without_crossing_source_identity(self):
+        self.draft.source('second-work', 'Second Work', 'A second independent manuscript.')
+        self.draft.source('third-work', 'Third Work', 'A third independent manuscript.')
+        self.commit()
+        manifest = self.preview()
+        catalog = json.loads((self.output/'CATALOG.json').read_text())
+        self.assertEqual(3, len(catalog['works']))
+        self.assertEqual(3, len(manifest['candidates']))
+        from guavajam_core.catalog import read_catalog
+        with self.assertRaisesRegex(ValueError, 'unique'): read_catalog(self.output/'CATALOG.json')
+        for work in catalog['works']:
+            slug = work['slug']; sha = manifest['revision']
+            edition = self.output/'works'/slug/'editions'/sha
+            expected = (self.draft.repo/'works'/slug/'manuscript.md').read_bytes()
+            self.assertEqual(expected, (edition/'read/source.gfm').read_bytes())
+            citation = json.loads((edition/'citation.json').read_text())
+            self.assertEqual('works/'+slug+'/manuscript.md', citation['canonical']['manuscript'])
+            self.assertEqual(sha, citation['canonical']['revision'])
+            self.assertTrue(citation['provisional'])
+            self.assertIn(citation['bibliography']['title'], (self.output/'index.html').read_text())
+
     def test_make_preview_accepts_fresh_source_without_signer_arguments(self):
         root = Path(__file__).resolve().parents[3]
         result = subprocess.run(['make', '--no-print-directory', '--file', str(root/'Makefile'), 'preview',

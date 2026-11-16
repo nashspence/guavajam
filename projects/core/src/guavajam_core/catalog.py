@@ -90,7 +90,7 @@ def _unique(pairs):
     return result
 
 
-def read_catalog(path):
+def read_catalog(path, *, provisional=()):
     """Read bounded JSON; reject duplicate keys rather than accepting last-wins."""
     with Path(path).open('rb') as stream:
         raw = stream.read(MAX_BYTES + 1)
@@ -101,11 +101,11 @@ def read_catalog(path):
                             parse_constant=lambda _: fail('non-finite JSON number'))
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise CatalogError('catalog: invalid UTF-8 JSON') from exc
-    validate(result)
+    validate(result, provisional=provisional)
     return result
 
 
-def validate(catalog):
+def validate(catalog, *, provisional=()):
     fields(catalog, {'schema', 'title', 'publisher', 'language', 'works'},
            {'description', 'base_url', 'source_view'}, 'catalog')
     if catalog['schema'] != SCHEMA:
@@ -133,7 +133,9 @@ def validate(catalog):
     works = catalog['works']
     if not isinstance(works, list) or len(works) > MAX_EDITIONS:
         fail('works must be a bounded list')
-    slugs, revisions, dois = set(), set(), set()
+    slugs, revisions, dois = set(), {}, set()
+    provisional = frozenset(provisional)
+    edition_count = 0
     for work in works:
         fields(work, {'slug', 'metadata_revision', 'editions'}, {'concept_doi', 'recommended_revision'}, 'work')
         slug = work['slug']
@@ -146,10 +148,13 @@ def validate(catalog):
         for edition in work['editions']:
             fields(edition, {'revision', 'published', 'status'}, {'label', 'doi', 'notices', 'successor_revision'}, 'edition')
             sha = edition['revision']
-            if not isinstance(sha, str) or not REVISION.fullmatch(sha) or sha in revisions:
+            if (not isinstance(sha, str) or not REVISION.fullmatch(sha) or sha in editions
+                    or sha in revisions and ((slug, sha) not in provisional
+                                            or (revisions[sha], sha) not in provisional)):
                 fail('each edition requires a unique full lowercase SHA-1 commit')
-            revisions.add(sha)
-            if len(revisions) > MAX_EDITIONS:
+            revisions[sha] = slug
+            edition_count += 1
+            if edition_count > MAX_EDITIONS:
                 fail('catalog exceeds 256 editions')
             editions[sha] = edition
             day(edition['published'], 'published')
@@ -208,14 +213,14 @@ def validate(catalog):
     return catalog
 
 
-def compare(previous, current):
+def compare(previous, current, *, provisional=()):
     """Guard retained work, edition and DOI identities; never infer prior state.
 
     The caller must supply its last deployed, independently retained catalog.
     `--initial-catalog` explicitly selects a first build with no prior deployment.
     """
-    validate(previous)
-    validate(current)
+    validate(previous, provisional=provisional)
+    validate(current, provisional=provisional)
     now = {w['slug']: w for w in current['works']}
     for old_work in previous['works']:
         slug = old_work['slug']

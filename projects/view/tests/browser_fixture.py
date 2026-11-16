@@ -74,7 +74,9 @@ def make_fixture(directory):
     bootstrap.git('rm', '-r', 'works/field-notes')
     shutil.copytree(work, bootstrap.repo/'works/sample-work')
     shutil.copyfile(repo/'asset-policy.json', bootstrap.repo/'asset-policy.json')
-    bootstrap.git('add', '-A'); bootstrap.git('commit', '-qm', 'Review first private work')
+    bootstrap.source('field-guide', 'A Second Draft', 'Another privately committed work.')
+    bootstrap.source('review-note', 'A Third Draft', 'A third privately committed work.')
+    bootstrap.git('add', '-A'); bootstrap.git('commit', '-qm', 'Review first private works')
     bootstrap_sha = bootstrap.git('rev-parse', 'HEAD')
     bootstrap_output = directory/'bootstrap-private'
     bootstrap_manifest = build_preview(bootstrap.repo, bootstrap_sha, 'sample-work', bootstrap_output,
