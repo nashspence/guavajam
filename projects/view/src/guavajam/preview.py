@@ -105,7 +105,8 @@ def mark_private_preview(stage, *, provisional_repository):
             # Avoid falsely describing a fresh unsigned catalog as trusted.
             html = html.replace('Browse works, their DOI records and signed source editions.',
                                 'Browse works, their DOI records and source editions.')
-        if 'guavajam-preview-change' in html:
+        if ('class="guavajam-preview-change"' in html or
+                ' guavajam-preview-change"' in html):
             # Preview-only footer wording never claims an unsigned revision
             # has obtained independent signing or publication authority.
             html = html.replace('The independently trusted signed Git revision identifies the publication.',
