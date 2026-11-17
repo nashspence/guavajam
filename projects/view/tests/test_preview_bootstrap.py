@@ -126,6 +126,31 @@ class BootstrapPreviewTests(unittest.TestCase):
             self.assertTrue(citation['provisional'])
             self.assertIn(citation['bibliography']['title'], (self.output/'index.html').read_text())
 
+    def test_initial_root_commit_marks_every_page_as_new(self):
+        # Multiple first works may share the repository's literal root commit.
+        self.draft.source('second-work', 'Second Work', 'Another initial manuscript.')
+        self.draft.source('third-work', 'Third Work', 'A further initial manuscript.')
+        self.draft.git('add', '-A')
+        self.draft.git('commit', '--amend', '-qm', 'Initial three-work snapshot')
+        revision = self.draft.git('rev-parse', 'HEAD')
+        self.assertEqual(revision, self.draft.git('rev-list', '--parents', '-n', '1', revision))
+
+        manifest = self.preview()
+        self.assertTrue(manifest['provisional_repository'])
+        self.assertEqual(3, len(manifest['candidates']))
+        pages = sorted(self.output.rglob('*.html'))
+        # Home + three work records + three edition records + three readers +
+        # three citation pages: none existed before this parentless commit.
+        self.assertEqual(13, len(pages))
+        for path in pages:
+            with self.subTest(page=path.relative_to(self.output)):
+                html = path.read_text('utf-8')
+                self.assertIn('<html class="guavajam-preview-new-page"', html)
+                self.assertIn('html.guavajam-preview-new-page::after', html)
+                self.assertIn('.guavajam-preview-new-page .guavajam-preview-change::after { display: none; }', html)
+                self.assertNotIn('UNSIGNED REPOSITORY PREVIEW', html)
+                self.assertIn('<meta name="guavajam:repository-settings" content="provisional">', html)
+
     def test_make_preview_accepts_fresh_source_without_signer_arguments(self):
         root = Path(__file__).resolve().parents[3]
         result = subprocess.run(['make', '--no-print-directory', '--file', str(root/'Makefile'), 'preview',
