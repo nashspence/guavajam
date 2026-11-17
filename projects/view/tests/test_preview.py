@@ -70,6 +70,9 @@ class PreviewTests(unittest.TestCase):
         workpage = (self.output/'works/field-notes/index.html').read_text()
         self.assertIn('field-notes', homepage)
         self.assertIn('Proposed (unsigned)', workpage)
+        # Existing catalog pages contain edits, not a new full-page route.
+        self.assertNotIn('<html class="guavajam-preview-new-page"', homepage)
+        self.assertNotIn('<html class="guavajam-preview-new-page"', workpage)
         self.assertEqual(1, workpage.count('<li class="guavajam-preview-change"><article>'))
         self.assertEqual(1, workpage.count('<li><article>'))
         self.assertIn('<li class="guavajam-preview-change"><article>', homepage)
@@ -84,8 +87,13 @@ class PreviewTests(unittest.TestCase):
         self.assertIn('https://assets.example.org/'+KEY, html) # Literal code remains text.
         self.assertNotIn('UNSIGNED PREVIEW', html)
         self.assertIn('class="guavajam-edition guavajam-preview-change"', html)
+        self.assertIn('<html class="guavajam-preview-new-page"', html)
+        self.assertIn('<html class="guavajam-preview-new-page"',
+                      (self.output/draft/'index.html').read_text())
+        self.assertIn('<html class="guavajam-preview-new-page"',
+                      (self.output/draft/'read/cite.html').read_text())
         self.assertIn('Unsigned proposed edition, not issued.', html)
-        self.assertIn('--guavajam-preview-rail: #285b42', html)
+        self.assertIn('--guavajam-preview-rail: #2da44e', html)
         original_html = (self.output/original/'read/index.html').read_text()
         self.assertNotIn('guavajam-preview-change', original_html)
         self.assertNotIn('--guavajam-preview-rail', original_html)
@@ -114,6 +122,9 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(['new-title'], [w['slug'] for w in catalog['works']])
         self.assertIn('New Title', (self.output/'index.html').read_text())
         self.assertIn('Proposed', (self.output/'works/new-title/index.html').read_text())
+        self.assertIn('<html class="guavajam-preview-new-page"',
+                      (self.output/'works/new-title/index.html').read_text())
+        self.assertNotIn('<html class="guavajam-preview-new-page"', (self.output/'index.html').read_text())
         self.assertTrue((self.output/'works/new-title/editions'/sha/'read/index.html').exists())
         self.assertFalse((self.output/'works/new-title/preview/index.html').exists())
         self.assertFalse((self.output/'SITE.json').exists())

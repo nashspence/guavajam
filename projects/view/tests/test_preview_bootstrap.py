@@ -61,7 +61,10 @@ class BootstrapPreviewTests(unittest.TestCase):
             self.assertNotIn('UNSIGNED REPOSITORY PREVIEW', html)
             self.assertNotIn('publisher settings are provisional', html)
             self.assertIn('<meta name="guavajam:repository-settings" content="provisional">', html)
-            self.assertIn('--guavajam-preview-rail: #285b42', html)
+            self.assertIn('--guavajam-preview-rail: #2da44e', html)
+            # A first repository has no issued site: every generated HTML route
+            # is new, and each receives a single full-height document rail.
+            self.assertIn('<html class="guavajam-preview-new-page"', html)
         home = (self.output/'index.html').read_text()
         self.assertIn('<h1 class="guavajam-preview-change">', home)
         self.assertEqual(1, home.count('<li class="guavajam-preview-change"><article>'))

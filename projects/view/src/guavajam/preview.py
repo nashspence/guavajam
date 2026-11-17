@@ -86,7 +86,7 @@ def preview_refs(repo):
     return dict(row.split(' ', 1) for row in rows)
 
 
-def mark_private_preview(stage, *, provisional_repository):
+def mark_private_preview(stage, *, provisional_repository, previous, candidates):
     """Add visual cues only to provisional content, never to signed views.
 
     The shared renderer selects the exact affected work/edition surfaces.
@@ -94,8 +94,23 @@ def mark_private_preview(stage, *, provisional_repository):
     signed canonical bytes remain untouched. Source downloads are not edited.
     """
     css = (Path(__file__).parent / 'styles/preview.css').read_text('utf-8')
+    previous_works = {item['slug'] for item in previous['works']}
+    new_work_pages = {f"works/{item['work']}/index.html" for item in candidates
+                      if item['work'] not in previous_works}
+    new_edition_roots = tuple(f"works/{item['work']}/editions/{item['revision']}/"
+                              for item in candidates)
     for path in stage.rglob('*.html'):
+        route = path.relative_to(stage).as_posix()
+        # Complete new work/edition routes get one continuous document-height rail;
+        # existing homepage/work routes keep their individual changed-section cues.
+        new_page = ((provisional_repository and route == 'index.html') or
+                    route in new_work_pages or
+                    route.startswith(new_edition_roots))
         html = path.read_text('utf-8')
+        if new_page:
+            if '<html ' not in html:
+                raise AssetError('preview has no document root')
+            html = html.replace('<html ', '<html class="guavajam-preview-new-page" ', 1)
         if provisional_repository:
             html = html.replace('</head>',
                                 '<meta name="guavajam:repository-settings" content="provisional">\n</head>', 1)
@@ -105,7 +120,7 @@ def mark_private_preview(stage, *, provisional_repository):
             # Avoid falsely describing a fresh unsigned catalog as trusted.
             html = html.replace('Browse works, their DOI records and signed source editions.',
                                 'Browse works, their DOI records and source editions.')
-        if ('class="guavajam-preview-change"' in html or
+        if (new_page or 'class="guavajam-preview-change"' in html or
                 ' guavajam-preview-change"' in html):
             # Preview-only footer wording never claims an unsigned revision
             # has obtained independent signing or publication authority.
@@ -216,7 +231,8 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         build_site(repo, catalog_path, stage, fingerprints=fingerprints, allowed_signers=allowed_signers,
                    previous_catalog=prior_path, preview_candidates=candidates)
         if not signed:
-            mark_private_preview(stage, provisional_repository=provisional_repository)
+            mark_private_preview(stage, provisional_repository=provisional_repository,
+                                 previous=previous, candidates=candidates)
         if not signed:
             # Never export an issuance-shaped SITE manifest for an unsigned
             # proposed edition; PREVIEW.json is its only private inventory.

@@ -50,6 +50,7 @@ try{
       if(fixture.preview_manifest.provisional_repository){
         assert.equal(await page.locator('meta[name="guavajam:repository-settings"]').getAttribute('content'),'provisional');
         assert.equal(await page.locator('h1.guavajam-preview-change').count(),1);
+        assert.equal(await page.locator('html.guavajam-preview-new-page').count(),1);
         assert.equal(await page.locator('.guavajam-works > li.guavajam-preview-change').count(),3);
         const catalog=await (await context.request.get(origin+'/CATALOG.json')).json();
         assert.equal(catalog.works.length,3);
@@ -67,8 +68,21 @@ try{
       assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
       assert.equal(await page.locator('aside[aria-label="Private preview"]').count(),0);
       assert.equal(await page.locator('article.guavajam-edition.guavajam-preview-change').count(),1);
+      assert.equal(await page.locator('html.guavajam-preview-new-page').count(),1);
+      assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').width),'2px');
       assert.equal(await page.locator('article.guavajam-edition').evaluate(
-        element=>getComputedStyle(element,'::after').width),'2px');
+        element=>getComputedStyle(element,'::after').display),'none');
+      for(const [scheme,color] of [['light','rgb(45, 164, 78)'],['dark','rgb(63, 185, 80)']]){
+        await page.emulateMedia({colorScheme:scheme});
+        const rail=await page.evaluate(()=>{
+          const style=getComputedStyle(document.documentElement,'::after');
+          return {color:style.backgroundColor,height:parseFloat(style.height),
+                  documentHeight:document.documentElement.scrollHeight};
+        });
+        assert.equal(rail.color,color);
+        assert(Math.abs(rail.height-rail.documentHeight)<2,'new page rail must reach full document height');
+      }
+      await page.emulateMedia({colorScheme:'light'});
       assert.equal(await page.locator('.guavajam-preview-accessible').isVisible(),false);
       assert.equal(await page.evaluate(()=>document.referrer),'');
       const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');

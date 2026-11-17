@@ -1,11 +1,11 @@
 /* Private, unsigned presentation only. No preview chrome covers the real site. */
-:root { --guavajam-preview-rail: #285b42; }
+:root { --guavajam-preview-rail: #2da44e; }
 @media (prefers-color-scheme: dark) {
-  :root { --guavajam-preview-rail: #85af94; }
+  :root { --guavajam-preview-rail: #3fb950; }
 }
 
-/* Rails attach to the changed element, never to the viewport or the page shell.
-   The content width, line breaks, navigation and scrolling are unchanged. */
+/* Partial edits keep scoped rails; new routes use one document-height rail.
+   Neither kind alters the content width, line breaks, navigation or scrolling. */
 .guavajam-preview-change { position: relative; }
 .guavajam-preview-change::after {
   content: "";
@@ -17,12 +17,33 @@
   background: var(--guavajam-preview-rail);
   pointer-events: none;
 }
+
+/* A new page is one addition, including the heading, navigation and footer.
+   Anchor its rail to the document (not the viewport) so it also follows long
+   pages, and align it with the same content-edge rails used for partial edits. */
+html.guavajam-preview-new-page { position: relative; min-block-size: 100vh; }
+html.guavajam-preview-new-page::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(max(0px, (100% - 70ch) / 2) + clamp(1rem, 4vw, 2.5rem) - .95rem);
+  inline-size: 2px;
+  border-radius: 2px;
+  background: var(--guavajam-preview-rail);
+  pointer-events: none;
+  z-index: 1;
+}
+/* Avoid a doubled line when a new page contains individually marked content. */
+.guavajam-preview-new-page .guavajam-preview-change::after { display: none; }
 @media (max-width: 36rem) {
   .guavajam-preview-change::after { inset-inline-end: -.55rem; }
+  html.guavajam-preview-new-page::after {
+    inset-inline-end: calc(max(0px, (100% - 70ch) / 2) + clamp(1rem, 4vw, 2.5rem) - .55rem);
+  }
 }
 @media (forced-colors: active) {
-  .guavajam-preview-change::after { background: CanvasText; }
+  .guavajam-preview-change::after, html.guavajam-preview-new-page::after { background: CanvasText; }
 }
 @media print {
-  .guavajam-preview-change::after { display: none; }
+  .guavajam-preview-change::after, html.guavajam-preview-new-page::after { display: none; }
 }
