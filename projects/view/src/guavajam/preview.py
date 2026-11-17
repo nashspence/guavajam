@@ -117,9 +117,6 @@ def mark_private_preview(stage, *, provisional_repository, previous, candidates)
             if path == stage / 'index.html':
                 # The homepage's site title comes from unapproved settings.
                 html = html.replace('<h1>', '<h1 class="guavajam-preview-change">', 1)
-            # Avoid falsely describing a fresh unsigned catalog as trusted.
-            html = html.replace('Browse works, their DOI records and signed source editions.',
-                                'Browse works, their DOI records and source editions.')
         if (new_page or 'class="guavajam-preview-change"' in html or
                 ' guavajam-preview-change"' in html):
             # Preview-only footer wording never claims an unsigned revision

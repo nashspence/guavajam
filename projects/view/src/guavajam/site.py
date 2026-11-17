@@ -63,10 +63,12 @@ def _edition_link(catalog, filename, work, edition, facts, *, provisional=False)
     content = ('<h3><a href="' + e(relative(filename, root + '/index.html')) + '">' +
                e(_edition_label(edition)) + '</a></h3><p>' + e(facts['title']) + '</p>' +
                '<p><time datetime="' + e(edition['published']) + '">' + e(edition['published']) +
-               '</time> · ' + ('Proposed (unsigned)' if provisional else status(edition)) + '</p>')
+               '</time> · ' + status(edition) +
+               ('<span class="guavajam-preview-accessible"> Unsigned, unissued edition.</span>'
+                if provisional else '') + '</p>')
     if edition.get('doi'):
         content += doi_display(edition['doi'], 'Edition identifier')
-    content += '<p class="guavajam-administration">' + ('Draft commit SHA-1' if provisional else 'Git SHA-1') + ' <code>' + e(edition['revision']) + '</code></p>'
+    content += '<p class="guavajam-administration">Git SHA-1 <code>' + e(edition['revision']) + '</code></p>'
     return '<li' + (' class="guavajam-preview-change"' if provisional else '') + '><article>' + content + '</article></li>'
 
 
@@ -75,7 +77,7 @@ def _registry(catalog, publications, *, provisional=()):
     body = '<h1>' + e(catalog['title']) + '</h1><p class="guavajam-edition-identity">' + e(catalog['publisher']) + '</p>'
     if catalog.get('description'):
         body += '<p>' + e(catalog['description']) + '</p>'
-    body += '<p>Browse works, their DOI records and signed source editions. Reading views are optional presentations of those sources.</p>'
+    body += '<p>Browse works, their DOI records and ' + ('source' if provisional else 'signed source') + ' editions. Reading views are optional presentations of those sources.</p>'
     if not catalog['works']:
         body += '<p>No publications have been listed in this catalog yet.</p>'
     body += '<ol class="guavajam-works">'
@@ -123,7 +125,10 @@ def _work_page(catalog, work, publications, *, provisional=()):
         body += '<p>No edition is currently recommended by this catalog.</p>'
     basis_link = relative(filename, edition_root(work['slug'], work['metadata_revision']) + '/index.html')
     body += ('<p class="guavajam-administration">The displayed title, authors and abstract come from '
-             '<a href="' + e(basis_link) + '">' + ('provisional draft' if (work['slug'], work['metadata_revision']) in provisional else 'signed revision') + ' <code>' + e(work['metadata_revision']) + '</code></a>.</p>')
+             '<a href="' + e(basis_link) + '">' + ('Git revision' if metadata_provisional else 'signed revision') +
+             ' <code>' + e(work['metadata_revision']) + '</code>' +
+             ('<span class="guavajam-preview-accessible"> (unsigned draft)</span>' if metadata_provisional else '') +
+             '</a>.</p>')
     body += '<h2>Editions</h2><ol class="guavajam-editions">'
     for edition in _ordered(work):
         body += _edition_link(catalog, filename, work, edition, publications[work['slug'], edition['revision']]['facts'],
@@ -143,7 +148,7 @@ def _edition_page(catalog, work, edition, publication, *, provisional=False):
     if edition.get('doi'):
         body += doi_display(edition['doi'], 'Edition identifier')
     else:
-        body += ('<p>Unsigned proposed edition; the draft Git SHA is provisional and not an issued citation identity.</p>'
+        body += ('<p>No edition DOI is listed. This committed source is not an issued publication.</p>'
                  if provisional else '<p>No edition DOI is listed. The signed source identity is sufficient to identify this edition.</p>')
     if work.get('concept_doi'):
         body += doi_display(work['concept_doi'], 'Work across editions')
@@ -163,7 +168,7 @@ def _edition_page(catalog, work, edition, publication, *, provisional=False):
             body += '<p><a href="' + e(other) + '">Open the pinned source in another viewer</a></p>'
     else:
         body += ('<p class="guavajam-source-guide">This is a retained bibliographic record. The unavailable edition has no distributed reading view or source download in this build. Its signed source identity is unchanged.</p>')
-    body += ('<h2>Provisional citation preview — not issued</h2>' if provisional else '<h2>Cite the committed source</h2>') + citation(catalog, facts, edition, canonical)
+    body += '<h2>Cite the committed source</h2>' + citation(catalog, facts, edition, canonical)
     body += '<p><a download href="citation.json">Download citation data</a></p><p class="guavajam-administration">The page URL locates a presentation; it is not the canonical source identifier.</p>'
     body += '<p>Rights: ' + e(facts['rights']) + '</p>'
     return page(catalog, filename, facts['title'] + ' — ' + _edition_label(edition), body,

@@ -70,8 +70,14 @@ class BootstrapPreviewTests(unittest.TestCase):
         self.assertEqual(1, home.count('<li class="guavajam-preview-change"><article>'))
         self.assertIn('<p>1 edition<span class="guavajam-preview-accessible">', home)
         self.assertNotIn('including a proposed unsigned edition', home)
+        self.assertIn('Browse works, their DOI records and source editions.', home)
+        self.assertNotIn('signed source editions.', home)
         self.assertNotIn('1 editions', home)
-        self.assertIn('class="guavajam-preview-change"', (self.output/edition/'index.html').read_text())
+        record = (self.output/edition/'index.html').read_text()
+        self.assertIn('class="guavajam-preview-change"', record)
+        self.assertIn('Cite the committed source', record)
+        self.assertIn('This committed source is not an issued publication.', record)
+        self.assertNotIn('Provisional citation preview', record)
         reader = (self.output/edition/'read/index.html').read_text()
         self.assertIn('class="guavajam-edition guavajam-preview-change"', reader)
         self.assertNotIn('UNSIGNED PREVIEW', reader)
@@ -108,6 +114,7 @@ class BootstrapPreviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unique'): read_catalog(self.output/'CATALOG.json')
         homepage = (self.output/'index.html').read_text()
         self.assertEqual(3, homepage.count('<li class="guavajam-preview-change"><article>'))
+        self.assertNotIn('Proposed (unsigned)', homepage)
         for work in catalog['works']:
             slug = work['slug']; sha = manifest['revision']
             edition = self.output/'works'/slug/'editions'/sha
