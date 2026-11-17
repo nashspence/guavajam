@@ -57,7 +57,24 @@ class BootstrapPreviewTests(unittest.TestCase):
                      edition+'/read/supporting/note.html', 'feed.xml', 'sitemap.xml']:
             self.assertTrue((self.output / name).is_file(), name)
         for path in self.output.rglob('*.html'):
-            self.assertIn('publisher settings are provisional', path.read_text())
+            html = path.read_text()
+            self.assertNotIn('UNSIGNED REPOSITORY PREVIEW', html)
+            self.assertNotIn('publisher settings are provisional', html)
+            self.assertIn('<meta name="guavajam:repository-settings" content="provisional">', html)
+            self.assertIn('--guavajam-preview-rail: #285b42', html)
+        home = (self.output/'index.html').read_text()
+        self.assertIn('<h1 class="guavajam-preview-change">', home)
+        self.assertEqual(1, home.count('<li class="guavajam-preview-change"><article>'))
+        self.assertIn('class="guavajam-preview-change"', (self.output/edition/'index.html').read_text())
+        reader = (self.output/edition/'read/index.html').read_text()
+        self.assertIn('class="guavajam-edition guavajam-preview-change"', reader)
+        self.assertNotIn('UNSIGNED PREVIEW', reader)
+        cite = (self.output/edition/'read/cite.html').read_text()
+        self.assertIn('guavajam-preview-change', cite)
+        self.assertIn('citation identifies the exact committed source', cite)
+        self.assertNotIn('citation identifies the exact signed source', cite)
+        self.assertNotIn('independently trusted signed Git revision', home)
+        self.assertIn('guavajam-preview-change', (self.output/edition/'read/supporting/note.html').read_text())
         for path in self.output.rglob('citation.json'):
             self.assertTrue(json.loads(path.read_text())['provisional'])
         self.assertEqual(config, (self.draft.repo / 'guavajam.json').read_bytes())
@@ -83,6 +100,8 @@ class BootstrapPreviewTests(unittest.TestCase):
         self.assertEqual(3, len(manifest['candidates']))
         from guavajam_core.catalog import read_catalog
         with self.assertRaisesRegex(ValueError, 'unique'): read_catalog(self.output/'CATALOG.json')
+        homepage = (self.output/'index.html').read_text()
+        self.assertEqual(3, homepage.count('<li class="guavajam-preview-change"><article>'))
         for work in catalog['works']:
             slug = work['slug']; sha = manifest['revision']
             edition = self.output/'works'/slug/'editions'/sha

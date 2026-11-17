@@ -137,7 +137,7 @@ test('signed canonical HTML is untouched at rest; private delivery rewrites only
   candidate_signed:true,assets:{[key]:pin},files:{}};
  const original=Buffer.from(html),hash=createHash('sha256').update(original).digest('hex');
  const presented=privateHtml(original,manifest).toString('utf8');
- assert.match(presented, /PRIVATE SIGNED PREVIEW/);
+ assert.doesNotMatch(presented, /PRIVATE SIGNED PREVIEW|PRIVATE PROPOSED EDITION|aria-label="Private preview"/);
  assert.match(presented, new RegExp('src="/_assets/'+key+'"'));
  assert.match(presented, new RegExp('href="/_assets/'+key+'"'));
  assert.match(presented, /https:\/\/other\.example\/x\.mp4/);

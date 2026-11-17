@@ -67,7 +67,7 @@ def _edition_link(catalog, filename, work, edition, facts, *, provisional=False)
     if edition.get('doi'):
         content += doi_display(edition['doi'], 'Edition identifier')
     content += '<p class="guavajam-administration">' + ('Draft commit SHA-1' if provisional else 'Git SHA-1') + ' <code>' + e(edition['revision']) + '</code></p>'
-    return '<li><article>' + content + '</article></li>'
+    return '<li' + (' class="guavajam-preview-change"' if provisional else '') + '><article>' + content + '</article></li>'
 
 
 def _registry(catalog, publications, *, provisional=()):
@@ -81,7 +81,8 @@ def _registry(catalog, publications, *, provisional=()):
     body += '<ol class="guavajam-works">'
     for work in catalog['works']:
         facts = publications[work['slug'], work['metadata_revision']]['facts']
-        body += '<li><article><h2><a href="' + e('works/' + work['slug'] + '/index.html') + '">' + e(facts['title']) + '</a></h2>'
+        changed = any((work['slug'], edition['revision']) in provisional for edition in work['editions'])
+        body += '<li' + (' class="guavajam-preview-change"' if changed else '') + '><article><h2><a href="' + e('works/' + work['slug'] + '/index.html') + '">' + e(facts['title']) + '</a></h2>'
         body += authors(facts) + abstract(facts)
         if work.get('concept_doi'):
             body += doi_display(work['concept_doi'], 'Work identifier')
@@ -100,7 +101,8 @@ def _work_page(catalog, work, publications, *, provisional=()):
     filename = 'works/' + work['slug'] + '/index.html'
     basis = publications[work['slug'], work['metadata_revision']]
     facts = basis['facts']
-    body = '<h1 lang="' + e(facts['language']) + '">' + e(facts['title']) + '</h1>' + authors(facts) + abstract(facts)
+    metadata_provisional = (work['slug'], work['metadata_revision']) in provisional
+    body = '<h1' + (' class="guavajam-preview-change"' if metadata_provisional else '') + ' lang="' + e(facts['language']) + '">' + e(facts['title']) + '</h1>' + authors(facts) + abstract(facts)
     if work.get('concept_doi'):
         body += doi_display(work['concept_doi'], 'Work identifier')
     else:
@@ -109,7 +111,8 @@ def _work_page(catalog, work, publications, *, provisional=()):
     selected = work.get('recommended_revision')
     if selected:
         root = edition_root(work['slug'], selected)
-        body += ('<p class="guavajam-actions"><a href="' + e(relative(filename, root + '/read/index.html')) + '">Read the recommended edition</a>'
+        proposed_recommendation = (work['slug'], selected) in provisional
+        body += ('<p class="guavajam-actions' + (' guavajam-preview-change' if proposed_recommendation else '') + '"><a href="' + e(relative(filename, root + '/read/index.html')) + '">Read the recommended edition</a>'
                  '<a href="' + e(relative(filename, root + '/index.html')) + '">Recommended edition record</a></p>')
     else:
         body += '<p>No edition is currently recommended by this catalog.</p>'
@@ -161,7 +164,7 @@ def _edition_page(catalog, work, edition, publication, *, provisional=False):
     return page(catalog, filename, facts['title'] + ' — ' + _edition_label(edition), body,
                 head=metadata(facts, catalog['publisher'], identifier=edition.get('doi'),
                               published=edition['published'], canonical=canonical),
-                work=work, edition=edition, work_title=facts['title'])
+                work=work, edition=edition, work_title=facts['title'], provisional=provisional)
 
 
 def _discovery(catalog, publications, pages):
@@ -313,12 +316,14 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                         text = (render_dir / document['view']).read_text('utf-8')
                         # The signed renderer owns source validation. The site layer
                         # adds navigation/citations, never edits publication text.
-                        text = decorate_reading(text, catalog, filename, work, edition, document, selected, work_title=facts['title'])
+                        text = decorate_reading(text, catalog, filename, work, edition, document, selected,
+                                                work_title=facts['title'], provisional=provisional)
                         writer.put(filename, text)
                         file_hashes[document['view']] = writer.files[filename]
                         indexable.add(filename)
                         cite_name = citation_filename(filename)
-                        writer.put(cite_name, citation_page(catalog, cite_name, work, edition, facts, document, selected, filename))
+                        writer.put(cite_name, citation_page(catalog, cite_name, work, edition, facts, document,
+                                                            selected, filename, provisional=provisional))
                         writer.put(str(PurePosixPath(cite_name).with_suffix('.json')),
                                    encoded(citation_data(catalog, facts, edition, selected, document['anchors'], provisional=provisional)))
                         raw = git_blob(repo, sha, document_path)

@@ -42,7 +42,7 @@ class PreviewServiceTests(unittest.TestCase):
                 target='http://127.0.0.1:'+str(port)+'/works/field-notes/index.html'
                 req=urllib.request.Request(target,headers={'Host':'preview.publisher.test','Cookie':'guavajam_preview='+'e'*64})
                 with urllib.request.urlopen(req) as response:
-                    self.assertIn(b'PRIVATE PROPOSED EDITION',response.read())
+                    self.assertIn(b'guavajam-preview-change',response.read())
                 with self.assertRaises(urllib.error.HTTPError):
                     urllib.request.urlopen(urllib.request.Request(target,headers={'Host':'preview.publisher.test'}))
                 publisher.source('field-notes','Field Notes','A privately revised observation.')
@@ -102,7 +102,7 @@ class PreviewServiceTests(unittest.TestCase):
                     request = urllib.request.Request('http://127.0.0.1:'+str(port)+'/',
                               headers={'Cookie':'guavajam_preview='+'e'*64})
                     with urllib.request.urlopen(request) as response:
-                        self.assertIn(b'publisher settings are provisional', response.read())
+                        self.assertIn(b'guavajam:repository-settings', response.read())
                         self.assertEqual('private, no-store', response.getheader('Cache-Control'))
                     self.assertFalse((state/'baseline.json').exists())
                     # A declaration appearing on another branch invalidates the fast path.

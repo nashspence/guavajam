@@ -1,0 +1,28 @@
+/* Private, unsigned presentation only. No preview chrome covers the real site. */
+:root { --guavajam-preview-rail: #285b42; }
+@media (prefers-color-scheme: dark) {
+  :root { --guavajam-preview-rail: #85af94; }
+}
+
+/* Rails attach to the changed element, never to the viewport or the page shell.
+   The content width, line breaks, navigation and scrolling are unchanged. */
+.guavajam-preview-change { position: relative; }
+.guavajam-preview-change::after {
+  content: "";
+  position: absolute;
+  inset-block: .2rem;
+  inset-inline-end: -.95rem;
+  inline-size: 2px;
+  border-radius: 2px;
+  background: var(--guavajam-preview-rail);
+  pointer-events: none;
+}
+@media (max-width: 36rem) {
+  .guavajam-preview-change::after { inset-inline-end: -.55rem; }
+}
+@media (forced-colors: active) {
+  .guavajam-preview-change::after { background: CanvasText; }
+}
+@media print {
+  .guavajam-preview-change::after { display: none; }
+}

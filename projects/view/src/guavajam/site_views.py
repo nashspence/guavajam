@@ -95,7 +95,8 @@ def stylesheet():
     return (root / 'reading.css').read_text('utf-8') + '\n' + (root / 'catalog.css').read_text('utf-8')
 
 
-def page(catalog, filename, title, body, *, head='', work=None, edition=None, work_title=None, indexable=True):
+def page(catalog, filename, title, body, *, head='', work=None, edition=None, work_title=None,
+         indexable=True, provisional=False):
     feed = ('<link rel="alternate" type="application/atom+xml" title="Publication updates" href="' +
             e(relative(filename, 'feed.xml')) + '">') if catalog['works'] else ''
     csp = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
@@ -109,7 +110,8 @@ def page(catalog, filename, title, body, *, head='', work=None, edition=None, wo
             '<style>' + stylesheet() + '</style></head><body class="guavajam-site">\n'
             '<a class="guavajam-skip" href="#guavajam-catalog-main">Skip to content</a>\n' +
             navigation(catalog, filename, work=work, edition=edition, work_title=work_title) +
-            '<main id="guavajam-catalog-main" tabindex="-1">' + body + '</main>\n'
+            '<main id="guavajam-catalog-main" tabindex="-1"' +
+            (' class="guavajam-preview-change"' if provisional else '') + '>' + body + '</main>\n'
             '<footer><p>' + e(catalog['publisher']) +
             '. This catalog and its reading views are presentations. The independently trusted signed Git revision identifies the publication.</p>'
             '<p>DOI assignments, publication dates and editorial notices are reviewed catalog records, not claims made by the source signature or an independent timestamp service.</p>'
@@ -264,7 +266,7 @@ def _add_passage_links(html, anchors, href):
     return html
 
 
-def decorate_reading(html, catalog, filename, work, edition, document, canonical, work_title=None):
+def decorate_reading(html, catalog, filename, work, edition, document, canonical, work_title=None, *, provisional=False):
     """Add breadcrumbs and citation guidance without changing citable source text.
 
     The renderer's generated source identity is moved from *before* the H1 to
@@ -288,7 +290,14 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     css = (Path(__file__).parent / 'styles/catalog.css').read_text('utf-8')
     html = html.replace('</style>', css + '</style>', 1)
     nav = navigation(catalog, filename, work=work, edition=edition, work_title=work_title)
-    html = html.replace('</header>', '</header>' + nav, 1)
+    # Unsigned source readers omit the publication status bar. Preserve the
+    # same breadcrumb location without introducing a substitute banner.
+    if provisional:
+        html = html.replace('<main ', nav + '<main ', 1)
+        html = html.replace('<article class="guavajam-edition"',
+                            '<article class="guavajam-edition guavajam-preview-change"', 1)
+    else:
+        html = html.replace('</header>', '</header>' + nav, 1)
     marker = '<div class="guavajam-source-identity">'
     if html.count(marker) != 1:
         raise ValueError('expected exactly one generated source identity block')
@@ -312,11 +321,12 @@ def decorate_reading(html, catalog, filename, work, edition, document, canonical
     return html
 
 
-def citation_page(catalog, filename, work, edition, facts, document, canonical, view_page):
+def citation_page(catalog, filename, work, edition, facts, document, canonical, view_page, *, provisional=False):
     source_path = canonical.get('document', canonical['manuscript'])
     title = 'Cite committed source: ' + document['title']
     body = '<h1>' + e(title) + '</h1>' + edition_advisory(catalog, filename, work, edition)
-    body += '<p>The citation identifies the exact signed source. A reading URL is only an access path.</p>'
+    body += ('<p>The citation identifies the exact committed source. A reading URL is only an access path.</p>'
+             if provisional else '<p>The citation identifies the exact signed source. A reading URL is only an access path.</p>')
     body += citation(catalog, facts, edition, canonical)
     body += ('<p><a href="' + e(relative(filename, view_page)) + '">Return to reading</a> · '
              '<a download href="' + e(relative(filename, source_filename(view_page))) + '">Download exact GFM source</a> · '
@@ -334,7 +344,8 @@ def citation_page(catalog, filename, work, edition, facts, document, canonical, 
         body += '<p><a href="' + e(relative(filename, view_page) + '#' + quote(anchor, safe='')) + '">Read this passage</a></p></section>'
     # Source anchors could be named guavajam-catalog-main. The shell's only ID
     # is chosen outside the declared source namespace on citation pages.
-    result = page(catalog, filename, title, body, work=work, edition=edition, work_title=facts['title'], indexable=False)
+    result = page(catalog, filename, title, body, work=work, edition=edition,
+                  work_title=facts['title'], indexable=False, provisional=provisional)
     main_id = 'guavajam-catalog-main'
     while main_id in document['anchors']:
         main_id += '-view'

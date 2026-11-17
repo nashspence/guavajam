@@ -48,7 +48,9 @@ try{
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
       if(fixture.preview_manifest.provisional_repository){
-        assert.match(await page.getByRole('note',{name:'Provisional repository',exact:true}).innerText(),/publisher settings are provisional/);
+        assert.equal(await page.locator('meta[name="guavajam:repository-settings"]').getAttribute('content'),'provisional');
+        assert.equal(await page.locator('h1.guavajam-preview-change').count(),1);
+        assert.equal(await page.locator('.guavajam-works > li.guavajam-preview-change').count(),3);
         const catalog=await (await context.request.get(origin+'/CATALOG.json')).json();
         assert.equal(catalog.works.length,3);
         for(const work of catalog.works){
@@ -63,7 +65,11 @@ try{
       assert(page.url().includes('/works/sample-work/'));
       await page.getByRole('link',{name:/Read the recommended edition/}).click();
       assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
-      assert.equal(await page.getByRole('note',{name:'Private preview'}).innerText(),'PRIVATE PROPOSED EDITION — UNSIGNED');
+      assert.equal(await page.locator('aside[aria-label="Private preview"]').count(),0);
+      assert.equal(await page.locator('article.guavajam-edition.guavajam-preview-change').count(),1);
+      assert.equal(await page.locator('article.guavajam-edition').evaluate(
+        element=>getComputedStyle(element,'::after').width),'2px');
+      assert.equal(await page.locator('.guavajam-preview-accessible').isVisible(),false);
       assert.equal(await page.evaluate(()=>document.referrer),'');
       const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
       assert.match(csp,/media-src[^;]*'self'/);

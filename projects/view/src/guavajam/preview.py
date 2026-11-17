@@ -7,7 +7,6 @@ served privately with staged-asset access; neither publishes, signs or pushes.
 """
 import argparse
 import copy
-import re
 import hashlib
 import json
 import os
@@ -87,15 +86,35 @@ def preview_refs(repo):
     return dict(row.split(' ', 1) for row in rows)
 
 
-def provisional_settings(stage):
-    """Mark every derived HTML surface; exact source downloads stay untouched."""
-    notice = ('<aside role="note" aria-label="Provisional repository" '
-              'style="background:#222;color:#fff;padding:1rem">'
-              'UNSIGNED REPOSITORY PREVIEW — publisher settings are provisional; '
-              'no publication has been issued.</aside>')
+def mark_private_preview(stage, *, provisional_repository):
+    """Add visual cues only to provisional content, never to signed views.
+
+    The shared renderer selects the exact affected work/edition surfaces.
+    Preview-only CSS is appended after rendering so production styles and
+    signed canonical bytes remain untouched. Source downloads are not edited.
+    """
+    css = (Path(__file__).parent / 'styles/preview.css').read_text('utf-8')
     for path in stage.rglob('*.html'):
         html = path.read_text('utf-8')
-        html = re.sub(r'(<body\b[^>]*>)', lambda match: match[1] + notice, html, count=1)
+        if provisional_repository:
+            html = html.replace('</head>',
+                                '<meta name="guavajam:repository-settings" content="provisional">\n</head>', 1)
+            if path == stage / 'index.html':
+                # The homepage's site title comes from unapproved settings.
+                html = html.replace('<h1>', '<h1 class="guavajam-preview-change">', 1)
+            # Avoid falsely describing a fresh unsigned catalog as trusted.
+            html = html.replace('Browse works, their DOI records and signed source editions.',
+                                'Browse works, their DOI records and source editions.')
+        if 'guavajam-preview-change' in html:
+            # Preview-only footer wording never claims an unsigned revision
+            # has obtained independent signing or publication authority.
+            html = html.replace('The independently trusted signed Git revision identifies the publication.',
+                                'The committed Git revision identifies the source.')
+            html = html.replace('DOI assignments, publication dates and editorial notices are reviewed catalog records, not claims made by the source signature or an independent timestamp service.',
+                                'DOI assignments, publication dates and editorial notices are catalog records, not proofs of independent signing or issuance.')
+            html = html.replace('</head>', '<style>' + css + '</style></head>', 1)
+        # Do not change an existing signed edition merely because another
+        # work is being previewed on this branch.
         path.write_text(html, encoding='utf-8')
 
 
@@ -195,8 +214,8 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         prior_path.write_bytes(encoded(previous))
         build_site(repo, catalog_path, stage, fingerprints=fingerprints, allowed_signers=allowed_signers,
                    previous_catalog=prior_path, preview_candidates=candidates)
-        if provisional_repository:
-            provisional_settings(stage)
+        if not signed:
+            mark_private_preview(stage, provisional_repository=provisional_repository)
         if not signed:
             # Never export an issuance-shaped SITE manifest for an unsigned
             # proposed edition; PREVIEW.json is its only private inventory.

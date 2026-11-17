@@ -205,18 +205,25 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + ' · ' + path)
-    state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Signed Git publication'
+    status = ('' if preview else '<header class="guavajam-status"><span>Signed Git publication</span></header>\n')
+    accessible = ('<span class="guavajam-preview-accessible">Unsigned proposed edition, not issued.</span>'
+                  if preview else '')
+    preview_css = ('.guavajam-preview-accessible{position:absolute;inline-size:1px;block-size:1px;'
+                   'padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}'
+                   if preview else '')
     return ('<!doctype html>\n<html lang="' + escape(language, quote=True) + '"><head>\n'
             '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
             '<meta http-equiv="Content-Security-Policy" content="' + escape(csp, quote=True) + '">\n'
             '<meta name="guavajam-viewer" content="guavajam.v1">\n'
-            + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
+            + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + preview_css + '</style></head><body>\n'
             '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
-            '<header class="guavajam-status"><span>' + escape(state) + '</span></header>\n'
-            '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
+            + status + '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
+            + accessible +
             '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
-            '\n</article></main><footer>'+rights+'<p>The Git revision is the edition identity. '
+            '\n</article></main><footer>'+rights+'<p>' +
+            ('The committed Git revision identifies the draft source. ' if preview
+             else 'The Git revision is the edition identity. ') +
             'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n')
 
 

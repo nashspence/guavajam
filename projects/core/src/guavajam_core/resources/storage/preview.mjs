@@ -28,10 +28,7 @@ export function privateHtml(raw,manifest) {
   html=html.replace(/(<meta http-equiv="Content-Security-Policy" content=")([^"]+)(")/, (full,start,csp,end)=>
     start+csp.replace(/((?:img-src|media-src)\s+)([^;]+)/g,(directive,kind,values)=>
       kind+(values.includes('&#x27;self&#x27;')?values:values.trimEnd()+' &#x27;self&#x27;'))+end);
-  // Fixed-position notice does not alter the real content/navigation layout.
-  const marker='<aside role="note" aria-label="Private preview" style="position:fixed;right:0;bottom:0;z-index:9999;background:#222;color:#fff;padding:5px 9px;font:12px system-ui;pointer-events:none">'+
-    (manifest.candidate_signed?'PRIVATE SIGNED PREVIEW':'PRIVATE PROPOSED EDITION — UNSIGNED')+'</aside>';
-  return Buffer.from(html.replace('</body>',marker+'</body>'));
+  return Buffer.from(html);
 }
 function deny(res,status=404){res.writeHead(status,{'Cache-Control':'no-store','Content-Type':'text/plain','X-Content-Type-Options':'nosniff'});res.end('Not found');}
 function equal(a,b){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
