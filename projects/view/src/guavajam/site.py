@@ -89,8 +89,13 @@ def _registry(catalog, publications, *, provisional=()):
         else:
             body += '<p class="guavajam-administration">No work DOI is listed.</p>'
         count = len(work['editions'])
-        kind = (' editions, including a proposed unsigned edition' if any((work['slug'], e['revision']) in provisional for e in work['editions']) else ' signed source edition' + ('s' if count != 1 else ''))
-        body += '<p>' + str(count) + kind + '</p></article></li>'
+        # The scoped green rail identifies a changed work. Don't repeat that
+        # announcement in the visible edition count; keep it accessible to
+        # nonvisual readers without changing the signed-catalog markup.
+        kind = (' edition' if changed else ' signed source edition') + ('s' if count != 1 else '')
+        accessible = ('<span class="guavajam-preview-accessible"> This work contains an unsigned proposed edition.</span>'
+                      if changed else '')
+        body += '<p>' + str(count) + kind + accessible + '</p></article></li>'
     body += '</ol>'
     if catalog['works']:
         body += '<p><a href="feed.xml">Publication updates (Atom)</a></p>'
