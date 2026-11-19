@@ -23,6 +23,8 @@ def run(args,*,env=None):
     if result.returncode:
         diagnostic=ROOT/'.build/compose-failure.log'
         diagnostic.write_text(result.stdout+result.stderr);diagnostic.chmod(0o600)
+        # This harness provisions only synthetic identities and disposable services.
+        print((result.stdout+result.stderr)[-32768:],file=sys.stderr,flush=True)
         raise RuntimeError('qualification command failed; diagnostic in .build/compose-failure.log')
     return result.stdout.strip()
 
@@ -104,7 +106,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 # The service deliberately exposes only coarse failures, so qualify independently
                 # in fresh temporary state to reveal the actual clone/verification exception.
                 commands=[
-                    ('container logs',['logs','--no-color','--tail','60','source','updater','web']),
+                    ('container logs',['logs','--no-color','--tail','60','source','updater','web','assets','seaweedfs','tls']),
                     ('updater identity and health',['exec','-T','updater','python','-c',
                      'import os,pwd;from pathlib import Path;print(pwd.getpwuid(os.getuid()));print(Path("/state/health.json").read_text())']),
                     ('independent collection qualification',['exec','-T','updater','python','-m','guavajam','index',

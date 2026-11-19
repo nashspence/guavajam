@@ -130,7 +130,8 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
     releaser = S3(roles['release'], operation='release')
     maintenance = S3(roles['maintenance'], operation='delete')
     lock = retention_seconds > 0
-    (root / 'asset-policy.json').write_text(json.dumps({'origin': origin}))
+    (root / 'content').mkdir()
+    (root / 'content/asset-policy.json').write_text(json.dumps({'origin': origin}))
     for name, key in zip(NAMES, keys):
         file = root / name
         result = upload(root, file, staged, index=Index(staged)) if file.suffix == '.png' else upload_media(root, file, staged, Index(staged))
