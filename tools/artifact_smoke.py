@@ -2,6 +2,7 @@
 from pathlib import Path
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 
@@ -24,20 +25,25 @@ def main():
                  'templates/work/manuscript.md', 'commands.mk'):
         assert (resources / name).is_file(), name
     if not repo.exists():
-        repo.mkdir()
-        run('git', 'init', '-q', '-b', 'main', cwd=repo)
-        run('git', 'config', 'user.name', 'Artifact Publisher', cwd=repo)
-        run('git', 'config', 'user.email', 'fixture@example.org', cwd=repo)
-        run(sys.executable, '-m', 'guavajam_core', 'new-work',
-            '--title', 'Artifact Work', '--author', 'Example Author', cwd=repo)
         key = root / 'signing-key'
         run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
-        run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
-        run('git', 'config', 'user.signingkey', str(key), cwd=repo)
-        run('git', 'add', 'content', cwd=repo)
+        config = root / 'publisher.gitconfig'
+        for setting, value in [('user.name', 'Artifact Publisher'), ('user.email', 'fixture@example.org'),
+                               ('gpg.format', 'ssh'), ('user.signingkey', str(key))]:
+            run('git', 'config', '--file', str(config), setting, value)
+        os.environ['GIT_CONFIG_GLOBAL'] = str(config)
+        os.environ['GIT_CONFIG_SYSTEM'] = os.devnull
+        signers = root / 'allowed-signers'
+        signers.write_text('fixture ' + key.with_suffix('.pub').read_text())
+        settings = root / 'bootstrap.env'
+        settings.write_text('GUAVAJAM_REPO=example/publisher\n'
+                            'GUAVAJAM_TITLE=Artifact Work\n'
+                            'GUAVAJAM_AUTHOR=Example Author\n'
+                            'GUAVAJAM_ALLOWED_SIGNERS=' + str(signers) + '\n'
+                            'GUAVAJAM_TOOL_REF=' + '0' * 40 + '\n')
+        run(sys.executable, '-m', 'guavajam_core', 'init', 'work', '--env', str(settings),
+            '--output', str(repo), '--local', cwd=root)
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
-        run('git', 'commit', '-S', '-m', 'Publish the initial work', cwd=repo)
-        (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'content')
         run(sys.executable, '-m', 'guavajam_core', 'resources', 'capture', '--output', str(root / 'capture'), cwd=repo)
