@@ -35,6 +35,8 @@ jobs:
           version: 2026.11.0
           install: false
       - run: cd .guavajam-tool && mise install
+      - name: Expose pinned Pandoc to work/index commands
+        run: echo "$(cd .guavajam-tool && mise where pandoc)/bin" >> "$GITHUB_PATH"
       - run: cd .guavajam-tool && mise exec -- uv sync --locked --all-packages --no-dev
       - name: Fetch retained verification checkpoint
         run: |
