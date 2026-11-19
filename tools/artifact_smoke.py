@@ -3,6 +3,7 @@ from pathlib import Path
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -41,7 +42,7 @@ def main():
         run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
         run('git', 'config', 'user.signingkey', str(key), cwd=repo)
         manuscript = repo/'works/artifact-work/manuscript.md'
-        manuscript.write_text(manuscript.read_text().replace('edition: "0"', 'edition: "1"'))
+        manuscript.write_text(re.sub(r'^edition: .*$', 'edition: "1"', manuscript.read_text(), flags=re.M))
         run('git', 'add', str(manuscript), cwd=repo)
         run('git', 'commit', '-S', '-m', 'Publish Artifact Work', cwd=repo)
         (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())

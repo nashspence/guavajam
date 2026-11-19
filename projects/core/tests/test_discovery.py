@@ -22,7 +22,7 @@ class DeclarationTests(unittest.TestCase):
     def test_source_edition_is_explicit_bounded_and_unambiguous(self):
         source = '---\nschema: guavajam.work.v1\nslug: essay\nedition: "1"\n---\n\n# Essay\n'
         self.assertEqual('1',work_metadata(source.encode())['edition'])
-        for invalid in ['1','true','"01"','"-1"','"2147483648"','"one"']:
+        for invalid in ['1','true','"01"','"-1"','"2147483648"','"one"','>-\n  1']:
             with self.subTest(edition=invalid),self.assertRaises(ValueError):
                 work_metadata(source.replace('"1"',invalid).encode())
         with self.assertRaisesRegex(ValueError,'duplicate'):

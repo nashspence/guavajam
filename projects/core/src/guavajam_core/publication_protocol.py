@@ -307,14 +307,15 @@ def publication_history(repo, ref='refs/heads/main', *, additional_refs=(), stri
         authorities = {state[1][1] for state in parent_states if state[1][1]}
         matches = [state[1][1] for state in parent_states
                    if state[1][0] == config and state[1][1]]
-        authority = matches[0] if matches else None
-        if authority and len(authorities) > 1:
-            for other in authorities - {authority}:
-                try:
-                    ancestor(repo, other, authority)
-                except CatalogError:
-                    authority = None
-                    break
+        authority = None
+        for candidate in dict.fromkeys(matches):
+            try:
+                for other in authorities - {candidate}:
+                    ancestor(repo, other, candidate)
+            except CatalogError:
+                continue
+            authority = candidate
+            break
         approve = bool(config and signed and authority is None)
         if approve:
             authority = sha

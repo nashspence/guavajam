@@ -306,6 +306,18 @@ class EditionHistoryTests(unittest.TestCase):
         self.assertEqual('Reviewed Publisher', catalog['publisher'])
         self.assertEqual(approved, evidence['repository_checkpoint'])
 
+    def test_unsigned_merge_carries_a_later_matching_approval_after_signed_reversion(self):
+        self.p.git('checkout', '-qb', 'reviewed-settings')
+        self.p.settings['publisher'] = 'Reviewed Publisher'
+        self.p.amend_settings()
+        self.p.settings['publisher'] = 'Independent Publisher'
+        approved = self.p.amend_settings()
+        self.p.git('checkout', '-q', 'main')
+        self.p.git('merge', '--no-ff', '-qm', 'Integrate the reviewed settings reversion', 'reviewed-settings')
+        catalog, evidence = self.discover()
+        self.assertEqual('Independent Publisher', catalog['publisher'])
+        self.assertEqual(approved, evidence['repository_checkpoint'])
+
     def restore_old_settings_in_merge(self, *, signed):
         settings = self.p.repo / 'guavajam.json'
         old = settings.read_bytes()
