@@ -56,8 +56,8 @@ def valid_timestamp(value) -> bool:
 
 def record_path(relative: Path) -> bool:
     parts = relative.parts
-    return (len(parts) == 4 and parts[0] == "works" and bool(SLUG.fullmatch(parts[1]))
-            and parts[2] == "supporting" and relative.suffix == ".md" and bool(SLUG.fullmatch(relative.stem)))
+    return (len(parts) == 3 and parts[:2] == ("content", "supporting")
+            and relative.suffix == ".md" and bool(SLUG.fullmatch(relative.stem)))
 
 
 

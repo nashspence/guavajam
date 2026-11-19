@@ -1,7 +1,7 @@
 // Exercise the actual rendered draft and authenticated loopback handler in browsers.
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright';
 import {previewServer} from '../../core/src/guavajam_core/resources/storage/preview.mjs';
 
 const fixture=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
@@ -35,11 +35,11 @@ const listener=previewServer(env,fixture.preview_root,fixture.preview_manifest,t
 await new Promise(resolve=>listener.listen(0,'127.0.0.1',resolve));
 const origin='http://127.0.0.1:'+listener.address().port;
 try{
-  for(const [engine,type] of Object.entries({chromium,firefox,webkit})){
+  for(const [engine,type] of Object.entries({chromium, firefox, webkit})){
     const browser=await type.launch(),context=await browser.newContext();
     try{
       const page=await context.newPage();page.setDefaultTimeout(15000);
-      const anonymous=await page.goto(origin+'/works/sample-work/index.html');
+      const anonymous=await page.goto(origin+'/');
       assert.equal(anonymous.status(),404);
       const before=storageReads;
       const key=Object.keys(fixture.preview_manifest.assets)[0];
@@ -47,22 +47,7 @@ try{
       assert.equal(storageReads,before);
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
-      if(fixture.preview_manifest.provisional_repository){
-        assert.match(await page.getByRole('note',{name:'Provisional repository',exact:true}).innerText(),/publisher settings are provisional/);
-        const catalog=await (await context.request.get(origin+'/CATALOG.json')).json();
-        assert.equal(catalog.works.length,3);
-        for(const work of catalog.works){
-          const record=await context.request.get(origin+'/works/'+work.slug+'/editions/'+fixture.revision+'/citation.json');
-          const citation=await record.json();
-          assert.equal(citation.canonical.manuscript,'works/'+work.slug+'/manuscript.md');
-          assert(citation.provisional);
-        }
-      }
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
-      await page.getByRole('link',{name:/Sample Work/}).first().click();
-      assert(page.url().includes('/works/sample-work/'));
-      await page.getByRole('link',{name:/Read the recommended edition/}).click();
-      assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
       assert.equal(await page.getByRole('note',{name:'Private preview'}).innerText(),'PRIVATE PROPOSED EDITION — UNSIGNED');
       assert.equal(await page.evaluate(()=>document.referrer),'');
       const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
@@ -79,7 +64,7 @@ try{
       await page.locator('video').evaluate(video=>{video.textTracks[0].mode='showing';});
       await page.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length>0);
       assert(requests.every(value=>{const url=new URL(value);return url.origin===origin&&['http:','blob:'].includes(url.protocol);}));
-      const source=await context.request.get(origin+'/works/sample-work/editions/'+fixture.revision+'/read/source.gfm');
+      const source=await context.request.get(origin+'/source.gfm');
       assert.equal(source.headers()['cache-control'],'private, no-store');
       assert((await source.text()).includes(fixture.origin));
       assert.equal((await context.request.get(origin+'/PREVIEW.json')).status(),404);
@@ -97,4 +82,3 @@ try{
 
 }
 await qualify(fixture);
-await qualify({...fixture,...fixture.bootstrap});

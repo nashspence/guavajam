@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Export the exact GuavaJam catalog from signed publication/repository conventions.
-
-This reads Git data, never tags or a mutable checkout. Date/DOI/status changes
-belong in the publisher's reviewed guavajam.json, authorized by GuavaJam-Repository: 1.
-It does not sign, push, register DOIs, fetch media or deploy a site.
-"""
-from .repository import repository_root
+"""Export one work's verified first-parent edition history from Git objects."""
 import argparse
 import os
 from pathlib import Path
@@ -38,7 +32,7 @@ def export(repo, output, *, ref='refs/heads/main', fingerprints=(), allowed_sign
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--repo', type=Path, default=repository_root())
+    parser.add_argument('--repo', type=Path, default=Path('.'))
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--output', type=Path, default=Path('.build/guavajam/CATALOG.json'))
     parser.add_argument('--previous-catalog', type=Path)

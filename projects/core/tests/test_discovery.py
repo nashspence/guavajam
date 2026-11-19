@@ -1,179 +1,261 @@
-"""Publisher-owned automatic index; signed metadata, not tags or Git timestamps.
+"""Executable protocol: a work is content/, editions follow signed Git history.
 
-Copy templates/repository.json to guavajam.json, choose the publisher's real origin,
-review/commit it, then sign an empty checkpoint ending in GuavaJam-Repository: 1. New
-publications use GuavaJam-Publication: 1, GuavaJam-Work and GuavaJam-Published trailers.
-Later DOI/status/notices live in that same signed publisher settings file.
-The exact downstream output is guavajam.catalog.v1; no duplicate renderer config.
+Only the selected first-parent history is accepted. Each changed content tree
+requires an independently trusted signature and valid source. Ordinary messages,
+merges, reverts and housekeeping retain their normal Git meaning.
 """
-import copy
+from pathlib import Path
 import json
 import os
-from pathlib import Path
-import subprocess
-import sys
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from guavajam_core.publication_protocol import discover, declaration, publication_trailers, policy, verify_shape
 from guavajam_core.catalog import CatalogError
-from guavajam_test_support.discovery_fixture import Publisher
-
-
-class DeclarationTests(unittest.TestCase):
-    def test_exact_v1_requires_a_signed_date_and_accepts_an_optional_label(self):
-        unlabelled = publication_trailers('works/essay/manuscript.md', '2026-11-13')
-        self.assertEqual({'kind': 'publication', 'version': 1, 'manuscript': 'works/essay/manuscript.md',
-                          'published': '2026-11-13'}, declaration('Publish\n\n' + '\n'.join(unlabelled)))
-        for invalid in [unlabelled[:2], ['GuavaJam-Publication: 2', *unlabelled[1:]]]:
-            with self.assertRaises(ValueError):
-                declaration('Publish\n\n' + '\n'.join(invalid))
-        lines = publication_trailers('works/essay/manuscript.md', '2026-11-13', 'Second edition')
-        parsed = declaration('Publish\n\n' + '\n'.join(lines))
-        self.assertEqual('Second edition', parsed['label'])
-        self.assertEqual('2026-11-13', parsed['published'])
-        for bad in ['\nGuavaJam-Published: 2026-11-13', '\nGuavaJam-Repository: 1', '\nGuavaJam-Unknown: value', '\nTrailing prose']:
-            with self.subTest(bad=bad), self.assertRaises(ValueError):
-                declaration('Publish\n\n' + '\n'.join(lines) + bad)
-        for date in (None, 'today', '2026-02-30', '2026-11-13T10:00:00Z'):
-            with self.assertRaises(ValueError):
-                publication_trailers('works/essay/manuscript.md', date)
-
-    def test_configuration_is_closed_data_not_a_template_or_authority(self):
-        good = {'schema': 'guavajam.repository.v1', 'publisher': 'Publisher', 'base_url': 'https://example.org'}
-        _, catalog = policy(json.dumps(good).encode())
-        self.assertEqual('Publications', catalog['title'])
-        self.assertEqual([], catalog['works'])
-        for extra in ({'trusted_keys': []}, {'template': 'code.py'}, {'works': []}, {'schema': 'unknown'}):
-            with self.subTest(extra=extra), self.assertRaises(ValueError):
-                policy(json.dumps({**good, **extra}).encode())
-        with self.assertRaises(ValueError):
-            policy(b'{"schema":1,"schema":2}')
+from guavajam_core.publication_protocol import discover, content_tree, verify_shape
+from guavajam_core.publication_commit import verify
+from guavajam_test_support.discovery_fixture import Publisher, Draft
 
 
 class DiscoveryTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
         self.p = Publisher(self.temp.name)
-        patcher = patch.dict(os.environ, {'GNUPGHOME': str(self.p.home)})
-        patcher.start(); self.addCleanup(patcher.stop)
+        self.first = self.p.revisions[0]
 
     def discover(self, **kwargs):
-        return discover(self.p.repo, fingerprints=[self.p.fingerprint], **kwargs)
+        return discover(self.p.repo, **self.p.trust, **kwargs)[0]
 
-    def test_minimal_publisher_configuration_discovers_editions_and_deterministic_defaults(self):
-        first = self.p.publish('2026-11-01', label='Initial edition')
-        second = self.p.publish('2026-11-13', label='Revised edition')
-        catalog, evidence = self.discover()
-        work, = catalog['works']
-        self.assertEqual(first, work['metadata_revision'])
-        self.assertEqual(second, work['recommended_revision'])
-        self.assertEqual([first, second], [e['revision'] for e in work['editions']])
-        self.assertEqual('Revised edition', work['editions'][1]['label'])
-        self.assertEqual((catalog, evidence), self.discover())
-        self.assertFalse(evidence['assets_verified'])
+    def change(self, body='A second observation.', message='Revise the observation', **kwargs):
+        self.p.source('Field Notes', body)
+        return self.p.publish(message, **kwargs)
 
-    def test_signed_configuration_changes_do_not_reissue_source_or_need_renderer_metadata(self):
-        sha = self.p.publish(); original = self.p.git('cat-file', '-p', sha)
-        self.p.settings['editions'] = {sha: {'doi': '10.1234/example.v1'}}
-        self.p.settings['works'] = {'field-notes': {'concept_doi': '10.1234/example'}}
-        self.p.amend_settings()
-        catalog, _ = self.discover()
-        self.assertEqual('10.1234/example.v1', catalog['works'][0]['editions'][0]['doi'])
-        self.assertEqual(original, self.p.git('cat-file', '-p', sha))
+    def test_one_work_needs_no_registry_declared_version_or_view(self):
+        result = self.discover()
+        self.assertEqual({'schema', 'hash_algorithm', 'tip', 'editions'}, result.keys())
+        self.assertEqual([self.first], [e['revision'] for e in result['editions']])
+        edition = result['editions'][0]
+        self.assertEqual(content_tree(self.p.repo, self.first), edition['tree'])
+        self.assertEqual('Initial edition\n', edition['message'])
+        self.assertFalse((self.p.repo / 'guavajam.json').exists())
+        proof = verify(self.p.repo, self.first, online_media=False, **self.p.trust)
+        self.assertEqual('content/manuscript.md', proof['manuscript'])
 
-    def test_signed_date_is_required_and_corrections_require_a_notice(self):
-        sha = self.p.publish('2026-10-01')
-        catalog, _ = self.discover()
-        self.assertEqual('2026-10-01', catalog['works'][0]['editions'][0]['published'])
-        self.p.settings['editions'] = {sha: {'published': '2026-10-02'}}
-        self.p.amend_settings()
-        with self.assertRaisesRegex(ValueError, 'explanatory notice'):
-            self.discover()
-        self.p.settings['editions'][sha]['notices'] = [{'date': '2026-11-13', 'text': 'Corrected the edition date.'}]
-        self.p.amend_settings()
-        corrected, _ = self.discover(previous=catalog)
-        self.assertEqual('2026-10-02', corrected['works'][0]['editions'][0]['published'])
+    def test_messages_are_opaque_even_when_they_look_like_old_protocol_trailers(self):
+        message = 'Correct an observation\n\nWhy this changed.\n\nGuavaJam-Publication: anything\nGuavaJam-Work: prose'
+        second = self.change(message=message)
+        edition = self.discover()['editions'][-1]
+        self.assertEqual(second, edition['revision'])
+        self.assertEqual(message + '\n', edition['message'])
 
-    def test_unsigned_or_unapproved_policy_is_not_applied(self):
-        self.p.publish()
-        self.p.settings['publisher'] = 'Unapproved'; self.p.write_settings()
-        # A dirty checkout is ignored: publication discovery reads committed blobs.
-        self.assertEqual('Independent Publisher', self.discover()[0]['publisher'])
-        self.p.git('add', 'guavajam.json'); self.p.git('commit', '-qm', 'Unsigned settings change')
-        with self.assertRaisesRegex(ValueError, 'without a new signed'):
-            self.discover()
-        self.p.seal(signed=False)
+    def test_unsigned_housekeeping_and_empty_commits_do_not_publish(self):
+        (self.p.repo / 'Makefile').write_text('all:\n\t@true\n')
+        self.p.git('add', 'Makefile')
+        self.p.git('commit', '-qm', 'Maintain tooling\n\nGuavaJam-Publication: 1')
+        self.p.git('commit', '-S', '--allow-empty', '-qm', 'A signed empty commit')
+        result = self.discover()
+        self.assertEqual(1, len(result['editions']))
+        self.assertEqual(self.p.git('rev-parse', 'HEAD'), result['tip'])
+        with self.assertRaisesRegex(ValueError, 'must change content'):
+            verify_shape(self.p.repo, result['tip'])
+
+    def test_unsigned_content_is_rejected_not_skipped_before_a_later_signed_change(self):
+        self.p.source('Field Notes', 'Unsigned change.')
+        self.p.git('add', 'content')
+        self.p.git('commit', '-qm', 'An unsigned revision')
+        self.change('Signed after unsigned.')
         with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
 
-    def test_only_the_selected_history_counts_never_tags_or_side_branches(self):
-        first = self.p.publish()
-        self.p.git('checkout', '-qb', 'unaccepted')
-        self.p.publish('2026-11-14')
-        self.p.git('tag', 'guavajam/unaccepted')
-        self.p.git('checkout', '-q', 'main')
-        self.assertEqual([first], self.discover()[1]['publications'])
-        with self.assertRaisesRegex(ValueError, 'never a tag'):
-            self.discover(ref='refs/tags/guavajam/unaccepted')
-
-    def test_invalid_publication_cannot_be_skipped_or_whitelisted_by_source(self):
-        self.p.publish()
-        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nGuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
-        with self.assertRaisesRegex(ValueError, 'signed commit'):
-            self.discover()
+    def test_trust_cannot_be_asserted_by_the_source_repository(self):
+        bad = Path(self.temp.name) / 'untrusted-signers'
+        bad.write_text('somebody ssh-ed25519 AAAA\n')
         with self.assertRaises(ValueError):
-            discover(self.p.repo, fingerprints=['A'*40])
-
-    def test_prior_catalog_keeps_dois_notices_and_withdrawn_sources(self):
-        sha = self.p.publish()
-        self.p.settings['editions'] = {sha: {'doi': '10.1234/example.v1'}}
-        self.p.amend_settings(); old, _ = self.discover()
-        override = self.p.settings['editions'][sha]
-        override.update(status='withdrawn', notices=[{'date': '2026-11-14', 'text': 'Withdrawn, historical access retained.'}])
-        self.p.amend_settings(); new, _ = self.discover(previous=old)
-        self.assertEqual('withdrawn', new['works'][0]['editions'][0]['status'])
-        self.assertNotIn('recommended_revision', new['works'][0])
-        override['doi'] = '10.1234/rebound'; self.p.amend_settings()
-        with self.assertRaisesRegex(ValueError, 'rebound'):
-            self.discover(previous=new)
-
-    def test_ssh_discovery_uses_only_independently_managed_signers(self):
-        # Replace the fixture's GPG checkpoint with an SSH-authorized history.
-        self.p.git('reset', '--hard', 'HEAD^')
-        key = self.p.root / 'publisher-ssh'
-        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)],
-                       check=True, capture_output=True)
-        self.p.git('config', 'gpg.format', 'ssh')
-        self.p.git('config', 'user.signingkey', str(key))
-        checkpoint = self.p.seal()
-        revision = self.p.publish(label='SSH-authorized edition')
-        signers = self.p.root / 'allowed-signers'
-        signers.write_text('publisher@example.org ' + key.with_suffix('.pub').read_text())
-        catalog, evidence = discover(self.p.repo, allowed_signers=signers)
-        self.assertEqual(checkpoint, evidence['repository_checkpoint'])
-        self.assertEqual([revision], evidence['publications'])
-        self.assertEqual(revision, catalog['works'][0]['recommended_revision'])
-        untrusted = self.p.root / 'untrusted-signers'
-        untrusted.write_text('')
-        with self.assertRaisesRegex(ValueError, 'invalid or unauthorized'):
-            discover(self.p.repo, allowed_signers=untrusted)
-        source_signers = self.p.repo / 'allowed-signers'
-        source_signers.write_bytes(signers.read_bytes())
+            discover(self.p.repo, allowed_signers=bad)
+        inside = self.p.repo / 'allowed-signers'
+        shutil.copyfile(self.p.allowed_signers, inside)
         with self.assertRaisesRegex(ValueError, 'outside the publication repository'):
-            discover(self.p.repo, allowed_signers=source_signers)
+            discover(self.p.repo, allowed_signers=inside)
+        with self.assertRaisesRegex(ValueError, 'external'):
+            discover(self.p.repo)
 
-    def test_missing_unknown_symlink_and_shallow_data_fail_closed(self):
-        self.p.publish()
-        self.p.settings['editions'] = {'f'*40: {'published': '2026-11-13'}}
-        self.p.amend_settings()
-        with self.assertRaisesRegex(ValueError, 'undiscovered'):
+    def test_first_content_can_be_the_signed_root_commit(self):
+        self.p.git('checkout', '--orphan', 'root-publication')
+        self.p.git('add', '-A')
+        self.p.git('commit', '-S', '-qm', 'Publish the initial tree')
+        sha = self.p.git('rev-parse', 'HEAD')
+        result = self.discover(ref='refs/heads/root-publication')
+        self.assertEqual([sha], [e['revision'] for e in result['editions']])
+
+    def test_bootstrap_history_without_content_has_no_editions(self):
+        first_parent = self.p.git('rev-parse', self.first + '^')
+        result, _ = discover(self.p.repo, ref=first_parent)
+        self.assertEqual([], result['editions'])
+
+    def test_side_branch_drafts_are_not_published_by_being_reachable(self):
+        self.p.git('switch', '-c', 'draft')
+        self.p.source('Field Notes', 'Intermediate unsigned draft.')
+        self.p.git('add', 'content')
+        self.p.git('commit', '-qm', 'Explore the argument')
+        branch_sha = self.change('Reviewed branch result.')
+        self.p.git('switch', 'main')
+        self.p.git('merge', '--no-ff', '-S', '-m', 'Revise the argument\n\nExplain the integrated result.', 'draft')
+        merge = self.p.git('rev-parse', 'HEAD')
+        editions = self.discover()['editions']
+        self.assertEqual([self.first, merge], [e['revision'] for e in editions])
+        self.assertNotIn(branch_sha, [e['revision'] for e in editions])
+        self.assertEqual(content_tree(self.p.repo, branch_sha), editions[-1]['tree'])
+        # The branch revision still provides an independently verifiable source
+        # snapshot; branch acceptance is a separate discovery operation.
+        self.assertEqual(branch_sha, verify(self.p.repo, branch_sha, online_media=False, **self.p.trust)['revision'])
+
+    def test_unsigned_merge_of_signed_content_is_rejected(self):
+        self.p.git('switch', '-c', 'draft')
+        self.change()
+        self.p.git('switch', 'main')
+        self.p.git('merge', '--no-ff', '-m', 'Merge reviewed work without signing', 'draft')
+        with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
-        self.p.settings.pop('editions'); self.p.amend_settings()
-        file = self.p.repo/'guavajam.json'; file.unlink(); file.symlink_to('README.md')
-        self.p.git('add','-A');self.p.git('commit','-qm','Symlink settings');self.p.seal()
+
+    def test_fast_forward_preserves_individual_signed_editions(self):
+        self.p.git('switch', '-c', 'draft')
+        second = self.change()
+        third = self.change('A third observation.')
+        self.p.git('switch', 'main')
+        self.p.git('merge', '--ff-only', 'draft')
+        self.assertEqual([self.first, second, third], [e['revision'] for e in self.discover()['editions']])
+
+    def test_fast_forward_of_unsigned_drafts_is_not_a_publication_shortcut(self):
+        self.p.git('switch', '-c', 'draft')
+        self.p.source('Field Notes', 'Unsigned branch draft.')
+        self.p.git('add', 'content')
+        self.p.git('commit', '-qm', 'Draft')
+        self.p.git('switch', 'main')
+        self.p.git('merge', '--ff-only', 'draft')
+        with self.assertRaisesRegex(ValueError, 'signed commit'):
+            self.discover()
+
+    def test_revert_is_a_new_edition_even_when_a_previous_tree_returns(self):
+        second = self.change()
+        self.p.git('revert', '--no-edit', '-S', second)
+        reverted = self.p.git('rev-parse', 'HEAD')
+        editions = self.discover()['editions']
+        self.assertEqual([self.first, second, reverted], [e['revision'] for e in editions])
+        self.assertEqual(editions[0]['tree'], editions[-1]['tree'])
+
+    def test_content_mode_supplement_and_asset_policy_changes_are_editions(self):
+        notes = self.p.repo / 'content' / 'calculation.py'
+        notes.write_text('print(1 + 1)\n')
+        added = self.p.publish('Add a supporting calculation')
+        self.p.git('update-index', '--chmod=+x', 'content/calculation.py')
+        self.p.git('commit', '-S', '-qm', 'Make the calculation executable')
+        executable = self.p.git('rev-parse', 'HEAD')
+        (self.p.repo / 'content' / 'asset-policy.json').write_text('{"origin":"https://media.example.org"}\n')
+        policy = self.p.publish('Set the asset origin')
+        self.assertEqual([self.first, added, executable, policy],
+                         [e['revision'] for e in self.discover()['editions']])
+
+    def test_commit_date_is_utc_and_never_controls_chronology(self):
+        second = self.change(date='2026-01-02T00:30:00+02:00')
+        third = self.change('Backdated deliberately.', date='2025-12-31T23:30:00-02:00')
+        editions = self.discover()['editions']
+        self.assertEqual([self.first, second, third], [e['revision'] for e in editions])
+        self.assertEqual('2026-01-01', editions[-2]['published'])
+        self.assertEqual('2026-01-01', editions[-1]['published'])
+
+    def test_current_checkout_and_checkout_filters_cannot_replace_source(self):
+        (self.p.repo / 'content' / 'manuscript.md').write_text('Dirty checkout')
+        self.p.git('config', 'filter.substitute.smudge', 'false')
+        self.assertEqual(self.first, self.discover()['editions'][0]['revision'])
+
+    def test_content_deletion_is_rejected(self):
+        self.p.git('rm', '-r', 'content')
+        self.p.git('commit', '-S', '-qm', 'Remove the work')
+        with self.assertRaisesRegex(ValueError, 'cannot be deleted'):
+            self.discover()
+
+    def test_content_and_manuscript_must_be_real_tree_and_regular_blob(self):
+        source = self.p.repo / 'content' / 'manuscript.md'
+        source.unlink()
+        source.symlink_to('../README.md')
+        self.p.publish('Try a symlink')
         with self.assertRaisesRegex(ValueError, 'regular'):
+            self.discover()
+
+    def test_invalid_manuscript_is_not_discoverable_even_with_a_trusted_signature(self):
+        (self.p.repo / 'content' / 'manuscript.md').write_text('# No required metadata\n')
+        self.p.publish('An invalid source')
+        with self.assertRaisesRegex(ValueError, 'conventions'):
+            self.discover()
+
+    def test_independently_retained_tip_and_exact_editions_are_preserved(self):
+        previous = self.discover()
+        self.change()
+        current = self.discover(previous=previous)
+        self.assertEqual(previous['editions'], current['editions'][:1])
+        changed = json.loads(json.dumps(previous))
+        changed['editions'][0]['message'] = 'Fabricated description'
+        with self.assertRaisesRegex(ValueError, 'cannot disappear, change or be reordered'):
+            self.discover(previous=changed)
+        self.p.git('reset', '--hard', self.first)
+        with self.assertRaisesRegex(ValueError, 'first-parent'):
+            self.discover(previous=current)
+
+    def test_accepted_tip_cannot_be_demoted_into_second_parent_ancestry(self):
+        second = self.change()
+        previous = self.discover()
+        self.p.git('switch', '-c', 'alternative', self.first)
+        (self.p.repo / 'README.md').write_text('An alternative integration line.\n')
+        self.p.git('add', 'README.md')
+        self.p.git('commit', '-qm', 'Different first parent')
+        self.p.git('merge', '--no-ff', '-S', '-m', 'Merge old main as second parent', 'main')
+        self.p.git('branch', '-f', 'main', 'HEAD')
+        self.p.git('merge-base', '--is-ancestor', second, 'main')
+        with self.assertRaisesRegex(ValueError, 'first-parent'):
+            self.discover(previous=previous)
+
+    def test_empty_housekeeping_merge_does_not_publish(self):
+        self.p.git('switch', '-c', 'housekeeping')
+        (self.p.repo / 'README.md').write_text('Improve authoring documentation.\n')
+        self.p.git('add', 'README.md')
+        self.p.git('commit', '-qm', 'Document tools')
+        self.p.git('switch', 'main')
+        self.p.git('merge', '--no-ff', '-m', 'Merge tooling documentation', 'housekeeping')
+        self.assertEqual(1, len(self.discover()['editions']))
+
+    def test_shallow_history_is_not_silently_treated_as_the_first_edition(self):
+        clone = Path(self.temp.name) / 'shallow'
+        self.p.git('clone', '-q', '--depth=1', self.p.repo.as_uri(), str(clone))
+        with self.assertRaisesRegex(ValueError, 'complete history'):
+            discover(clone, **self.p.trust)
+
+    def test_history_budget_fails_closed(self):
+        self.change()
+        with patch('guavajam_core.publication_protocol.MAX_HISTORY', 1):
+            with self.assertRaisesRegex(ValueError, 'silent truncation'):
+                self.discover()
+
+    def test_local_grafts_cannot_hide_an_unsigned_content_ancestor(self):
+        self.p.source('Field Notes', 'Unsigned content.')
+        self.p.git('add', 'content')
+        self.p.git('commit', '-qm', 'Unsigned ancestor')
+        second = self.change('A signed descendant.')
+        grafts = self.p.repo / '.git' / 'info' / 'grafts'
+        grafts.parent.mkdir(exist_ok=True)
+        grafts.write_text(second + ' ' + self.first + '\n')
+        with self.assertRaisesRegex(ValueError, 'signed commit'):
+            self.discover()
+
+    def test_local_replace_refs_do_not_change_the_verified_history(self):
+        self.p.source('Field Notes', 'Unsigned content.')
+        self.p.git('add', 'content')
+        self.p.git('commit', '-qm', 'Unsigned ancestor')
+        unsigned = self.p.git('rev-parse', 'HEAD')
+        second = self.change('A signed descendant.')
+        self.p.git('replace', unsigned, self.first)
+        with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
 
 

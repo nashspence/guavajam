@@ -1,6 +1,7 @@
 """Executable deployment lifecycle: make test-compose; owns only disposable resources."""
 from pathlib import Path
 import json
+import hashlib
 import os
 import socket
 import subprocess
@@ -46,31 +47,47 @@ class ComposeLifecycleTests(unittest.TestCase):
         (ROOT/'.build').mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='compose-',dir=ROOT/'.build') as temporary:
             work=Path(temporary);work.chmod(0o755)
-            p=Publisher(work);p.publish()
+            p=Publisher(work)
             for path in [p.repo,*p.repo.rglob('*')]:
                 if not path.is_symlink():path.chmod(0o755 if path.is_dir() else 0o644)
             trust=work/'trust';trust.mkdir();trust.chmod(0o755)
-            public=trust/'publisher.asc'
-            public.write_text(run(['gpg','--batch','--armor','--export',p.fingerprint],env=p.env));public.chmod(0o644)
-            gitconfig=trust/'gitconfig';gitconfig.write_text('[safe]\n\tdirectory = /fixture-source\n\tdirectory = /fixture-source/.git\n');gitconfig.chmod(0o644)
+            public=trust/'allowed-signers'
+            public.write_text(p.allowed_signers.read_text());public.chmod(0o644)
+            source_url='https://source.publisher.test/work.git'
+            source_id=hashlib.sha256(source_url.encode()).hexdigest()
+            repositories=trust/'repositories.yaml'
+            repositories.write_text(json.dumps({source_url:{'allowed_signers':'/trust/allowed-signers'}}))
+            repositories.chmod(0o644)
+            served=work/'git-http';served.mkdir();served.chmod(0o755)
+            bare=served/'work.git'
+            p.git('clone','--bare','-q',str(p.repo),str(bare))
+            p.git('remote','add','origin',str(bare))
+            (served/'index.yaml').write_text(json.dumps({'repositories':[source_url]}))
+            def publish_server():
+                p.git('push','-q','origin','main')
+                run(['git','--git-dir',str(bare),'update-server-info'])
+                for path in [served,*served.rglob('*')]:
+                    if not path.is_symlink():path.chmod(0o755 if path.is_dir() else 0o644)
+            publish_server()
             private=initialize(work/'identities')
             # Synthetic test-only credentials, readable by the non-root image on CI UID mappings.
             for name in ['delivery-access-key','delivery-secret-key','s3-identities.json']:
                 target=work/name;target.write_bytes((private/name).read_bytes());target.chmod(0o644)
-            env={**os.environ,'GUAVAJAM_SOURCE_URL':'file:///fixture-source','GUAVAJAM_TRUST_DIR':str(trust),
-                 'GUAVAJAM_SSH_ALLOWED_SIGNERS':'','GUAVAJAM_TRUSTED_GPG_FINGERPRINTS':p.fingerprint,
-                 'GUAVAJAM_GPG_PUBLIC_KEYS':'/trust/publisher.asc','GUAVAJAM_POLL_SECONDS':'5',
+            env={**os.environ,'GUAVAJAM_INDEX_URL':'https://source.publisher.test/index.yaml',
+                 'GUAVAJAM_TRUST_DIR':str(trust),'GUAVAJAM_TRUST_FILE':'/trust/repositories.yaml',
+                 'GUAVAJAM_POLL_SECONDS':'5',
                  'GUAVAJAM_PORT':port(),'GUAVAJAM_ASSET_PORT':port(),'GUAVAJAM_S3_PORT':port(),
                  'SEAWEEDFS_IDENTITIES':str(work/'s3-identities.json'),
                  'S3_ACCESS_KEY_ID_FILE':str(work/'delivery-access-key'),'S3_SECRET_ACCESS_KEY_FILE':str(work/'delivery-secret-key'),
                  'S3_ENDPOINT':'https://storage.publisher.test','ASSET_HOST':'assets.publisher.test'}
             cert=work/'tls';cert.mkdir();cert.chmod(0o755)
-            run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(cert/'key.pem'),'-out',str(cert/'cert.pem'),'-days','1','-subj','/CN=assets.publisher.test','-addext','subjectAltName=DNS:assets.publisher.test,DNS:storage.publisher.test'])
+            run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-keyout',str(cert/'key.pem'),'-out',str(cert/'cert.pem'),'-days','1','-subj','/CN=assets.publisher.test','-addext','subjectAltName=DNS:assets.publisher.test,DNS:storage.publisher.test,DNS:source.publisher.test'])
             (cert/'cert.pem').chmod(0o644)
             config=work/'tls.conf'
             config.write_bytes((ROOT/'tests/deployment/ingress.conf').read_bytes())
             override={'services':{
-                'updater':{'environment':{'GIT_CONFIG_GLOBAL':'/trust/gitconfig'},'volumes':[str(p.repo)+':/fixture-source:ro']},
+                'updater':{'environment':{'SSL_CERT_FILE':'/tls/cert.pem','GIT_SSL_CAINFO':'/tls/cert.pem'},'volumes':[str(cert)+':/tls:ro']},
+                'source':{'image':'nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a','entrypoint':['nginx'],'command':['-g','daemon off;'],'volumes':[str(ROOT/'tests/deployment/source.conf')+':/etc/nginx/nginx.conf:ro',str(cert)+':/tls:ro',str(served)+':/source:ro'],'networks':{'default':{'aliases':['source.publisher.test']}}},
                 'assets':{'environment':{'NODE_EXTRA_CA_CERTS':'/tls/cert.pem'},'volumes':[str(cert)+':/tls:ro']},
                 'tls':{'profiles':['local-assets'],'image':'nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a','entrypoint':['nginx'],'command':['-g','daemon off;'],'volumes':[str(config)+':/etc/nginx/nginx.conf:ro',str(cert)+':/tls:ro'],'networks':{'default':{'aliases':['assets.publisher.test','storage.publisher.test']}}}}}
             override_path=work/'override.json';override_path.write_text(json.dumps(override))
@@ -79,13 +96,13 @@ class ComposeLifecycleTests(unittest.TestCase):
             def dc(*args):return run(compose+list(args),env=env)
             origin='http://127.0.0.1:'+env['GUAVAJAM_PORT']
             def catalog():
-                with urllib.request.urlopen(origin+'/CATALOG.json',timeout=3) as received:return json.load(received)
+                with urllib.request.urlopen(origin+'/sources/'+source_id+'/CATALOG.json',timeout=3) as received:return json.load(received)
             def service_health():
                 return json.loads(dc('exec','-T','updater','python','-c','from pathlib import Path;print(Path("/state/health.json").read_text())'))
             try:
-                dc('up','-d','--no-build','updater','web')
-                wait_for(lambda:catalog()['works'][0]['recommended_revision']==p.revisions[-1])
-                assert set(dc('ps','--services','--status','running').splitlines())=={'updater','web'}
+                dc('up','-d','--no-build','source','updater','web')
+                wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
+                assert set(dc('ps','--services','--status','running').splitlines())=={'source','updater','web'}
                 selected=dc('exec','-T','updater','readlink','/state/site/current')
                 wait_for(lambda:service_health()['status']=='unchanged')
                 assert selected==dc('exec','-T','updater','readlink','/state/site/current')
@@ -93,15 +110,15 @@ class ComposeLifecycleTests(unittest.TestCase):
                     try:
                         with urllib.request.urlopen(origin+path,timeout=3) as received:assert received.status!=200
                     except urllib.error.HTTPError as error:assert error.code in {403,404}
-                p.source('field-notes','Field Notes','An updated observation.');p.git('add','-A');p.git('commit','-qm','Review updated source');p.publish('2026-11-15')
+                p.source('Field Notes','An updated observation.');p.publish('Publish updated observation');publish_server()
                 for path in [p.repo,*p.repo.rglob('*')]:
                     if not path.is_symlink():path.chmod(0o755 if path.is_dir() else 0o644)
-                wait_for(lambda:catalog()['works'][0]['recommended_revision']==p.revisions[-1])
+                wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
                 selected=dc('exec','-T','updater','readlink','/state/site/current')
-                saved=public.read_text();public.write_text('invalid test public key')
+                saved=public.read_text();public.write_text('invalid test signer policy')
                 wait_for(lambda:service_health()['passed'] is False)
                 assert selected==dc('exec','-T','updater','readlink','/state/site/current')
-                assert catalog()['works'][0]['recommended_revision']==p.revisions[-1]
+                assert catalog()['editions'][-1]['revision']==p.revisions[-1]
                 public.write_text(saved)
                 dc('restart','updater','web')
                 wait_for(lambda:service_health()['passed'] is True)
@@ -132,7 +149,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 assert set(retained.splitlines())=={project+'_state',project+'_objects'}
                 dc('--profile','local-assets','up','-d','--no-build')
                 wait_for(lambda:service_health()['passed'] is True)
-                wait_for(lambda:catalog()['works'][0]['recommended_revision']==p.revisions[-1])
+                wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
                 assert selected==dc('exec','-T','updater','readlink','/state/site/current')
                 wait_for(lambda:subprocess.run(compose+['exec','-T','updater','python','-c',"import socket;socket.create_connection(('seaweedfs',8333),2).close();socket.create_connection(('tls',443),2).close()"],env=env,capture_output=True).returncode==0)
                 asset_check('--persistence','verify')

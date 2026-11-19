@@ -21,9 +21,7 @@ MANUSCRIPT='''---
 schema: guavajam.work.v1
 title: Recorded Notes
 author: Fixture Author
-slug: recorded-notes
 language: en
-status: draft
 rights: all-rights-reserved
 ---
 
@@ -68,41 +66,40 @@ class PublicationCommitTests(unittest.TestCase):
         cmd(self.repo,'git','init','-q','-b','main')
         cmd(self.repo,'git','config','user.name','Fixture Author')
         cmd(self.repo,'git','config','user.email','fixture@example.org')
-        (self.repo/'asset-policy.json').write_text('{"origin":"https://assets.example.org"}\n')
-        manuscript=self.repo/'works/recorded-notes/manuscript.md'
+        (self.repo/'README.md').write_text('Authoring tools.\n')
+        cmd(self.repo,'git','add','README.md')
+        cmd(self.repo,'git','commit','-qm','Initialize authoring repository')
+        self.draft=cmd(self.repo,'git','rev-parse','HEAD')
+        home=Path(self.temporary.name)/'keys';home.mkdir(mode=0o700)
+        self.env={**os.environ}
+        self.key=home/'publisher'
+        cmd(self.repo,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(self.key))
+        self.allowed_signers=home/'allowed-signers'
+        self.allowed_signers.write_text('publisher '+self.key.with_suffix('.pub').read_text())
+        self.trust={'allowed_signers': self.allowed_signers}
+        cmd(self.repo,'git','config','user.signingkey',str(self.key))
+        cmd(self.repo,'git','config','gpg.format','ssh')
+        manuscript=self.repo/'content/manuscript.md'
         manuscript.parent.mkdir(parents=True)
         manuscript.write_text(MANUSCRIPT)
-        cmd(self.repo,'git','add','-A')
-        cmd(self.repo,'git','commit','-qm','Draft')
-        self.draft=cmd(self.repo,'git','rev-parse','HEAD')
-        if not shutil.which('gpg'):self.skipTest('GPG required for signed publication tests')
-        home=Path(self.temporary.name)/'gpg';home.mkdir(mode=0o700)
-        self.env={**os.environ,'GNUPGHOME':str(home)}
-        cmd(self.repo,'gpg','--batch','--pinentry-mode','loopback','--passphrase','',
-            '--quick-generate-key','Test Publisher <fixture@example.org>','ed25519','sign','0',env=self.env)
-        listing=cmd(self.repo,'gpg','--batch','--with-colons','--list-secret-keys',env=self.env)
-        self.fingerprint=next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
-        cmd(self.repo,'git','config','user.signingkey',self.fingerprint)
-        cmd(self.repo,'git','config','gpg.format','openpgp')
-        self.signed_message='GuavaJam-Publication: 1\nGuavaJam-Work: works/recorded-notes/manuscript.md\nGuavaJam-Published: 2026-11-13'
+        (self.repo/'content/asset-policy.json').write_text('{"origin":"https://assets.example.org"}\n')
+        self.signed_message='Record the field observation\n\nInclude the audio and reviewed transcript.'
         self._sign(self.signed_message)
 
     def _sign(self,message):
-        cmd(self.repo,'git','-c','commit.gpgSign=true','commit','--allow-empty','-S',
-            '-m','Publish Recorded Notes','-m',message,env=self.env)
+        cmd(self.repo,'git','add','-A')
+        cmd(self.repo,'git','commit','-S','-m',message,env=self.env)
         self.signed=cmd(self.repo,'git','rev-parse','HEAD')
 
     def _verify(self,**kwargs):
-        kwargs.setdefault("online_media",False)
-        with patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}):
-            return verify(self.repo,self.signed,fingerprints=[self.fingerprint],
-                          pandoc_version=False,**kwargs)
+        kwargs.setdefault('online_media',False)
+        return verify(self.repo,self.signed,**self.trust,pandoc_version=False,**kwargs)
 
     def test_commit_and_source_path_are_canonical_not_url_or_tag(self):
         record=self._verify()
         self.assertEqual(self.signed,record['revision'])
         self.assertEqual('sha1',record['hash_algorithm'])
-        self.assertEqual('works/recorded-notes/manuscript.md',record['manuscript'])
+        self.assertEqual('content/manuscript.md',record['manuscript'])
         self.assertFalse(record['media_verified'])
         self.assertIn('field-audio',record['anchors'])
         self.assertEqual('audio',record['media'][0]['kind'])
@@ -110,18 +107,19 @@ class PublicationCommitTests(unittest.TestCase):
         self.assertEqual({'schema':'guavajam.source-citation.v1','hash_algorithm':'sha1',
                           'revision':self.signed,'manuscript':record['manuscript'],
                           'anchor':'transcript'},citation(record,'transcript'))
-        (self.repo/'works/recorded-notes/manuscript.md').write_text('Uncommitted, unrelated contents.')
+        (self.repo/'content/manuscript.md').write_text('Uncommitted, unrelated contents.')
         self.assertEqual(self.signed,self._verify()['revision'])
         for invalid in ('HEAD', 'main', self.signed[:12], 'A'*40):
             with self.subTest(invalid=invalid),self.assertRaises(PublicationError):
                 commit_identity(self.repo,invalid)
 
     def test_signature_must_be_independently_trusted(self):
-        with patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}):
-            with self.assertRaisesRegex(PublicationError,'not in the independent trust policy'):
-                verify(self.repo,self.signed,fingerprints=['0'*40],pandoc_version=False)
-            with self.assertRaisesRegex(PublicationError,'must be in a signed commit'):
-                verify(self.repo,self.draft,fingerprints=[self.fingerprint],pandoc_version=False)
+        wrong=Path(self.temporary.name)/'wrong-signers'
+        wrong.write_text('')
+        with self.assertRaisesRegex(PublicationError,'untrusted'):
+            verify(self.repo,self.signed,allowed_signers=wrong,pandoc_version=False)
+        with self.assertRaisesRegex(PublicationError,'signed commit'):
+            verify(self.repo,self.draft,**self.trust,pandoc_version=False)
         with self.assertRaises(PublicationError):
             signature(self.repo,self.signed)
         with self.assertRaises(PublicationError):
@@ -129,15 +127,13 @@ class PublicationCommitTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicationError, 'existing stable source anchor'):
             citation(self._verify(), 'nonexistent-passage')
 
-    def test_publication_trailers_are_exact_and_unique(self):
-        self._sign('GuavaJam-Publication: 1\nGuavaJam-Work: works/another/manuscript.md\nGuavaJam-Published: 2026-11-13')
-        with self.assertRaises(PublicationError):
-            self._verify()
-        self._sign(self.signed_message+'\nOther: trailer')
-        with self.assertRaisesRegex(PublicationError,'final block'):
-            self._verify()
-        self._sign(self.signed_message+'\nGuavaJam-Publication: 1')
-        with self.assertRaisesRegex(PublicationError,'unknown publication trailer'):
+    def test_signature_authenticates_ordinary_message_and_exact_content_tree(self):
+        record=self._verify()
+        self.assertEqual(self.signed_message+'\n', record['message'])
+        self.assertEqual(cmd(self.repo,'git','rev-parse',self.signed+':content'),record['tree'])
+        cmd(self.repo,'git','commit','--allow-empty','-S','-m','Signed housekeeping',env=self.env)
+        self.signed=cmd(self.repo,'git','rev-parse','HEAD')
+        with self.assertRaisesRegex(PublicationError,'must change content'):
             self._verify()
 
     def test_online_verification_is_the_publication_default(self):

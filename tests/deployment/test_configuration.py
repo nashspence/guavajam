@@ -29,7 +29,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual({'/source', '/run/preview'}, {m['target'] for m in mounts})
         self.assertTrue(all(m['read_only'] and not m['bind']['create_host_path'] for m in mounts))
         self.assertEqual('/run/preview/readonly.env', preview['environment']['S3_ENV'])
-        self.assertEqual('${GUAVAJAM_SSH_ALLOWED_SIGNERS:-}', preview['environment']['GUAVAJAM_SSH_ALLOWED_SIGNERS'])
+        self.assertNotIn('GUAVAJAM_PREVIEW_WORK', preview['environment'])
+        self.assertNotIn('GUAVAJAM_SSH_ALLOWED_SIGNERS', preview['environment'])
         self.assertEqual('/run/preview/session.key', preview['environment']['GUAVAJAM_PREVIEW_TOKEN_FILE'])
         self.assertEqual(['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080'], preview['ports'])
         self.assertFalse(preview.get('depends_on'))
@@ -89,6 +90,18 @@ class DeploymentConfigurationTests(unittest.TestCase):
             'ssh -F /trust/ssh_config -o BatchMode=yes -o StrictHostKeyChecking=yes',
             self.services['updater']['environment']['GIT_SSH_COMMAND'])
         self.assertIn('-s3.config=/run/secrets/s3-identities.json', self.services['seaweedfs']['command'])
+
+    def test_index_lists_locations_and_trust_is_operator_owned(self):
+        updater = self.services['updater']['environment']
+        self.assertEqual('${GUAVAJAM_INDEX_URL:-}', updater['GUAVAJAM_INDEX_URL'])
+        self.assertEqual('${GUAVAJAM_TRUST_FILE:-/trust/repositories.yaml}', updater['GUAVAJAM_TRUST_FILE'])
+        self.assertNotIn('GUAVAJAM_SOURCE_URL', updater)
+        index = yaml.safe_load((ROOT / 'deploy/index.example.yaml').read_text())
+        trust = yaml.safe_load((ROOT / 'deploy/trust.example.yaml').read_text())
+        self.assertEqual({'repositories'}, set(index))
+        self.assertEqual(set(index['repositories']), set(trust))
+        self.assertTrue(all(url.startswith('https://') for url in index['repositories']))
+        self.assertTrue(all(set(policy) <= {'allowed_signers', 'fingerprints', 'public_keys'} for policy in trust.values()))
 
     def test_only_view_delivery_and_s3_ports_are_published_on_loopback_by_default(self):
         for name, host_port, container_port in [('web', 'GUAVAJAM_PORT:-8080', '8080'),

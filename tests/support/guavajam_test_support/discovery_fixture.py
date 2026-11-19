@@ -1,6 +1,5 @@
-"""Generate disposable, actually signed publisher history; never production keys."""
+"""Disposable one-work repositories with real publisher signatures."""
 from pathlib import Path
-import json
 import os
 import subprocess
 
@@ -11,33 +10,35 @@ def command(repo, *args, env=None):
 
 
 class Draft:
-    """Fresh local repository; no keys, signer configuration, main or remote."""
-    def __init__(self, directory, *, branch='draft', base_url=None):
-        self.root = Path(directory); self.root.mkdir(parents=True, exist_ok=True)
-        self.repo = self.root / 'source'; self.repo.mkdir()
+    """A local authoring branch needs no signer setup or publication history."""
+    def __init__(self, directory, *, branch='draft', commit=True):
+        self.root = Path(directory)
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.repo = self.root / 'source'
+        self.repo.mkdir()
         self.env = {**os.environ, 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null'}
         for args in [('init', '-q', '-b', branch), ('config', 'user.name', 'Independent Publisher'),
                      ('config', 'user.email', 'publisher@example.org')]:
             self.git(*args)
-        self.settings = {'schema': 'guavajam.repository.v1', 'publisher': 'Independent Publisher'}
-        if base_url:
-            self.settings['base_url'] = base_url
-        self.source('field-notes', 'Field Notes', 'The first observation.')
-        self.write_settings()
-        self.git('add', '-A'); self.git('commit', '-qm', 'Review source and repository settings')
+        (self.repo / 'README.md').write_text('Authoring repository.\n')
+        self.git('add', 'README.md')
+        self.git('commit', '-qm', 'Initialize authoring tools')
+        self.source('Field Notes', 'The first observation.')
+        if commit:
+            self.git('add', 'content')
+            self.git('commit', '-qm', 'Write an unpublished draft')
 
-    def git(self, *args):
-        return command(self.repo, 'git', *args, env=self.env)
+    def git(self, *args, env=None):
+        return command(self.repo, 'git', *args, env=self.env if env is None else {**self.env, **env})
 
-    def source(self, slug, title, body):
-        directory = self.repo / 'works' / slug; directory.mkdir(parents=True, exist_ok=True)
-        (directory/'manuscript.md').write_text(f'''---
+    def source(self, title, body):
+        directory = self.repo / 'content'
+        directory.mkdir(exist_ok=True)
+        (directory / 'manuscript.md').write_text(f'''---
 schema: guavajam.work.v1
 title: {title}
 author: Example Author
-slug: {slug}
 language: en
-status: draft
 rights: CC-BY-4.0
 ---
 
@@ -49,35 +50,28 @@ rights: CC-BY-4.0
 {body}
 ''')
 
-    def write_settings(self):
-        (self.repo / 'guavajam.json').write_text(json.dumps(self.settings, sort_keys=True) + '\n')
-
 
 class Publisher(Draft):
+    """An independent SSH identity, outside the signed repository under test."""
     def __init__(self, directory):
-        super().__init__(directory, branch='main', base_url='https://publisher.example')
-        self.home = self.root / 'keys'; self.home.mkdir(mode=0o700)
-        self.env['GNUPGHOME'] = str(self.home)
-        command(self.repo, 'gpg', '--batch', '--pinentry-mode', 'loopback', '--passphrase', '',
-                '--quick-generate-key', 'Discovery Fixture <publisher@example.org>', 'ed25519', 'sign', '0', env=self.env)
-        listing = command(self.repo, 'gpg', '--with-colons', '--list-secret-keys', env=self.env)
-        self.fingerprint = next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
-        self.git('config', 'gpg.format', 'openpgp')
-        self.git('config', 'user.signingkey', self.fingerprint)
-        self.seal()
+        super().__init__(directory, branch='main', commit=False)
+        self.home = self.root / 'keys'
+        self.home.mkdir(mode=0o700)
+        self.key = self.home / 'publisher'
+        command(self.repo, 'ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(self.key), env=self.env)
+        self.allowed_signers = self.home / 'allowed-signers'
+        self.allowed_signers.write_text('publisher namespaces="git" ' + self.key.with_suffix('.pub').read_text())
+        self.allowed_signers.chmod(0o600)
+        self.trust = {'allowed_signers': self.allowed_signers}
+        self.git('config', 'gpg.format', 'ssh')
+        self.git('config', 'user.signingkey', str(self.key))
         self.revisions = []
+        self.publish('Initial edition')
 
-    def seal(self, signed=True):
-        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve repository settings\n\nGuavaJam-Repository: 1')
-        return self.git('rev-parse', 'HEAD')
-
-    def amend_settings(self, signed=True):
-        self.write_settings(); self.git('add', 'guavajam.json'); self.git('commit', '-qm', 'Review repository settings')
-        return self.seal(signed=signed)
-
-    def publish(self, day='2026-11-13', slug='field-notes', label=None):
-        from guavajam_core.publication_protocol import publication_trailers
-        trailers = publication_trailers('works/' + slug + '/manuscript.md', day, label)
-        self.git('commit', '--allow-empty', '-S', '-qm', 'Publish work\n\n' + '\n'.join(trailers))
-        sha = self.git('rev-parse', 'HEAD'); self.revisions.append(sha)
+    def publish(self, message='Revise the work', *, date=None):
+        self.git('add', 'content')
+        env = {'GIT_AUTHOR_DATE': date, 'GIT_COMMITTER_DATE': date} if date else None
+        self.git('commit', '-S', '-qm', message, env=env)
+        sha = self.git('rev-parse', 'HEAD')
+        self.revisions.append(sha)
         return sha

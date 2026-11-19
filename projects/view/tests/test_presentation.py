@@ -27,15 +27,16 @@ class PresentationTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)/'repo';self.root.mkdir()
         for args in [('init','-q','-b','main'),('config','user.name','Fixture'),('config','user.email','fixture@example.org')]:self.git(*args)
-        self.work=self.root/'works/sample-work';(self.work/'supporting').mkdir(parents=True)
-        (self.root/'asset-policy.json').write_text('{"origin":"https://media.example.org"}')
+        self.work=self.root/'content';(self.work/'supporting').mkdir(parents=True)
+        (self.root/'content').mkdir(exist_ok=True)
+        (self.root/'content/asset-policy.json').write_text('{"origin":"https://media.example.org"}')
         (self.work/'manuscript.md').write_text((RESOURCES / 'templates/work/manuscript.md').read_text())
         (self.work/'supporting/note.md').write_text((RESOURCES / 'templates/work/supporting/note.md').read_text())
         self.out=Path(self.temp.name)/'view'
     def git(self,*args):return subprocess.check_output(['git',*args],cwd=self.root,stderr=subprocess.PIPE).decode().strip()
     def build(self):
         self.git('add','-A');self.git('commit','-qm','Reviewed fixture');sha=self.git('rev-parse','HEAD')
-        render(self.root,sha,'sample-work',self.out,preview=True);return (self.out/'index.html').read_text(),sha
+        render(self.root,sha,self.out,preview=True);return (self.out/'index.html').read_text(),sha
     def test_copied_starter_has_real_captions_math_navigation_svg_and_element_links(self):
         html,sha=self.build();page=Page(html)
         self.assertEqual(len(page.ids),len(set(page.ids)))

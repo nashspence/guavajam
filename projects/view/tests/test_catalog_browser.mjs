@@ -29,14 +29,10 @@ const server = http.createServer(async (req, res) => {
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}/collection/`;
 const revision = fixture.revisions[1];
-const edition = `works/field-notes/editions/${revision}/`;
-const unavailable = `works/other-work/editions/${fixture.revisions[2]}/`;
-const withdrawn = `works/field-notes/editions/${fixture.revisions[0]}/`;
-const pages = ['index.html', 'works/field-notes/index.html', edition + 'index.html',
-  edition + 'read/index.html', edition + 'read/cite.html', edition + 'read/supporting/note.html',
-  edition + 'read/supporting/note.cite.html', unavailable + 'index.html',
-  withdrawn + 'index.html', withdrawn + 'read/index.html',
-  withdrawn + 'read/cite.html', withdrawn + 'read/supporting/note.html'];
+const edition = `editions/${revision}/`;
+const first = `editions/${fixture.revisions[0]}/`;
+const pages = ['index.html', edition + 'index.html', edition + 'read/index.html',
+  edition + 'read/supporting/note.html', first + 'index.html', first + 'read/index.html'];
 const results = [];
 try {
   for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
@@ -53,25 +49,18 @@ try {
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
       assert.equal(await page.locator(':focus').evaluate(n => n.tagName), 'MAIN');
-      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Collected Publications');
-      await page.getByRole('link', {name: 'Field Notes, Revised', exact: true}).click();
-      await page.getByRole('link', {name: 'Recommended edition record'}).click();
-      assert.equal(await page.locator('meta[name="citation_doi"]').getAttribute('content'), '10.1234/field-notes.v2');
-      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Revised edition');
-      await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
-      assert.equal(await page.getByRole('navigation', {name: 'Breadcrumb'}).locator('[aria-current="page"]').textContent(), 'Reading');
-      assert((await page.locator('main').evaluate(el => {const h=el.querySelector('h1');const s=el.querySelector('.guavajam-reading-context');return h&&s&&Boolean(h.compareDocumentPosition(s)&Node.DOCUMENT_POSITION_FOLLOWING);})));
-      await page.getByRole('link', {name: 'Cite committed source passage opening', exact: true}).click();
-      assert(page.url().endsWith('/read/cite.html#opening'));
-      assert((await page.locator('#opening').textContent()).includes(revision));
-      assert((await page.locator('#opening').textContent()).includes('works/field-notes/manuscript.md'));
+      await page.getByRole('link', {name: 'Improve the field observations', exact: true}).click();
+      assert(page.url().includes(edition));
       const downloaded = page.waitForEvent('download');
-      await page.getByRole('link', {name: 'Download exact GFM source'}).click();
+      await page.getByRole('link', {name: 'Download exact Markdown'}).click();
       const download = await downloaded;
       assert.equal(download.suggestedFilename(), 'source.gfm');
       assert.deepEqual(await fs.readFile(await download.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
-      await page.locator('#opening').getByRole('link', {name: 'Read this passage', exact: true}).click();
-      assert(page.url().includes('/read/index.html#'));
+      await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
+      assert(page.url().endsWith('/read/index.html'));
+      await page.getByRole('link', {name: 'the supporting claim', exact: true}).click();
+      assert(page.url().endsWith('/supporting/note.html#claim'));
+      assert((await page.locator('#claim').textContent()).includes('exact independently citable'));
       for (const filename of pages) {
         for (const [width, scheme, enlarge] of [[320, 'light', false], [1280, 'dark', false], [360, 'light', true]]) {
           await page.setViewportSize({width, height: 900});
@@ -90,38 +79,12 @@ try {
           results.push({engine: name, filename, width, scheme, enlarge, overflow: false});
         }
       }
-      // A withdrawal is an editorial warning, not a request to delete an
-      // immutable historical reading or exact-source download.
-      await page.goto(base + withdrawn + 'index.html');
-      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
-      assert.equal(await page.getByText('Withdrawn after review. The exact original remains readable.').count(), 1);
+      await page.goto(base + first + 'index.html');
       assert.equal(await page.getByRole('link', {name: 'Read this edition', exact: true}).count(), 1);
       await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
-      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
-      assert((await page.locator('main').evaluate(el => {
-        const warning=el.querySelector('.guavajam-edition-advisory');
-        const prose=el.querySelector('h2#opening');
-        return !!(warning && prose && warning.compareDocumentPosition(prose) & Node.DOCUMENT_POSITION_FOLLOWING);
-      })));
-      await page.getByRole('link', {name: 'Source citations and download'}).click();
-      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).count(), 1);
-      const withdrawnDownload = page.waitForEvent('download');
-      await page.getByRole('link', {name: 'Download exact GFM source'}).click();
-      const withdrawnFile = await withdrawnDownload;
-      assert.deepEqual(await fs.readFile(await withdrawnFile.path()),
-        await fs.readFile(path.join(root, withdrawn, 'read/source.gfm')));
-      await page.goto(base + withdrawn + 'read/index.html');
+      assert((await page.locator('main').textContent()).includes('The first observation.'));
       await page.emulateMedia({media: 'print', colorScheme: 'light'});
-      assert.equal(await page.getByRole('heading', {name: 'Withdrawn edition'}).isVisible(), true);
-      await page.emulateMedia({media: 'screen', colorScheme: 'light'});
-      await page.goto(base + unavailable + 'index.html');
-      assert.equal(await page.getByRole('link', {name: 'Read this edition', exact: true}).count(), 0);
-      assert.equal((await page.request.get(base + unavailable + 'read/index.html')).status(), 404);
-      await page.goto(base + edition + 'index.html');
-      await page.emulateMedia({media: 'print', colorScheme: 'light'});
-      assert.equal(await page.locator('.guavajam-navigation').isVisible(), false);
-      assert.equal(await page.getByRole('heading', {name: 'Cite the committed source'}).isVisible(), true);
-      assert.equal(await page.locator('.guavajam-citation').isVisible(), true);
+      assert.equal(await page.locator('main').isVisible(), true);
       assert.deepEqual(unexpected, [], `${name}: unexpected external requests`);
       await context.close();
       // axe runs in a separate instrumentation context; CSP is not bypassed.
@@ -136,7 +99,7 @@ try {
       await review.goto(base);
       await review.screenshot({path: path.join(output, name + '-catalog.png'), fullPage: true});
       await auditContext.close();
-      console.log(name + ': catalog, DOI, source citation, downloads, reflow, print and accessibility passed');
+      console.log(name + ': edition history, source citation, downloads, reflow, print and accessibility passed');
     } finally { await browser.close(); }
   }
 } finally { await new Promise(resolve => server.close(resolve)); }

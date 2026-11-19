@@ -20,7 +20,7 @@ MANUSCRIPT = ("# On Structure and Identity\n\n"
               "See [the section](#sec-1).\n")
 METADATA = {
     "author": "nashspence", "language": "en", "rights": "all-rights-reserved",
-    "schema": "guavajam.work.v1", "slug": "sample", "status": "draft",
+    "schema": "guavajam.work.v1",
     "title": "On Structure and Identity"
 }
 
@@ -30,7 +30,7 @@ class StrictSourceTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
-        self.source = Path("works/sample/manuscript.md")
+        self.source = Path("content/manuscript.md")
         (self.root / self.source.parent).mkdir(parents=True)
 
     def check(self, source=MANUSCRIPT, metadata=METADATA, other=None, front_matter=None):
@@ -59,10 +59,10 @@ class StrictSourceTests(unittest.TestCase):
 
     def test_starter_manuscript(self):
         repository = Path(__file__).resolve().parents[1]
-        source = Path("works/sample-work/manuscript.md")
-        (self.root / source.parent).mkdir(parents=True)
+        source = Path("content/manuscript.md")
+        (self.root / source.parent).mkdir(parents=True, exist_ok=True)
         (self.root / source).write_bytes((RESOURCES / "templates/work/manuscript.md").read_bytes())
-        (self.root / "asset-policy.json").write_bytes((RESOURCES / "asset-policy.json").read_bytes())
+        (self.root / "content/asset-policy.json").write_bytes((RESOURCES / "asset-policy.json").read_bytes())
         import shutil
         shutil.copytree(RESOURCES / 'templates/work/supporting',self.root/source.parent/'supporting')
         supporting = [p.relative_to(self.root) for p in (self.root/source.parent/'supporting').iterdir()]
@@ -95,20 +95,20 @@ class StrictSourceTests(unittest.TestCase):
 
     def test_plain_document_without_yaml_renders(self):
         self.check()
-        notes = Path("notes.md")
+        notes = Path("content/notes.md")
         (self.root / notes).write_text("# Notes\n\nOrdinary Markdown.\n", encoding="utf-8")
         self.assertEqual([], validate_repository(self.root, [self.source, notes]))
 
     def test_ordinary_markdown_explicit_anchor_links(self):
         self.check()
-        notes = Path("notes.md")
+        notes = Path("content/notes.md")
         (self.root / notes).write_text('# Notes\n\n<a id="stable-section"></a>\n## Section\n\n[Go](#stable-section)\n',
                          encoding="utf-8")
         self.assertEqual([], validate_repository(self.root, [self.source, notes]))
 
     def test_ordinary_markdown_ignores_anchors_inside_code(self):
         self.check()
-        notes = Path("notes.md")
+        notes = Path("content/notes.md")
         (self.root / notes).write_text('# Notes\n\n```html\n<a id="not-an-anchor"></a>\n```\n\n'
                          '[Broken](#not-an-anchor)\n', encoding="utf-8")
         errors = validate_repository(self.root, [self.source, notes])
@@ -133,8 +133,8 @@ class StrictSourceTests(unittest.TestCase):
     def test_bidi_override_prohibited(self):
         self.assert_bad("bidirectional override", MANUSCRIPT + "Suspicious \u202e reversal.\n")
 
-    def test_unknown_work_source_file(self):
-        self.assert_bad("unsupported file path", other={"works/sample/random.txt": "unvalidated material\n"})
+    def test_supplementary_regular_files_are_publication_sources(self):
+        self.assertEqual([], self.check(other={"content/calculations.py": "print(2 + 2)\n", "content/references.bib": "@book{example}\n"}))
 
     def test_crlf(self):
         self.assert_bad("CR/CRLF", MANUSCRIPT.replace("\n", "\r\n"))
@@ -220,22 +220,22 @@ class StrictSourceTests(unittest.TestCase):
         self.assert_bad("duplicate footnote", MANUSCRIPT + "A note[^x].\n\n[^x]: One.\n[^x]: Two.\n")
 
     def test_manuscript_link_to_tracked_file_is_not_portable(self):
-        self.assert_bad("standalone manuscript links", MANUSCRIPT + "[rights](../../COPYRIGHT.md)\n",
+        self.assert_bad("link escapes content/", MANUSCRIPT + "[rights](../COPYRIGHT.md)\n",
                         other={"COPYRIGHT.md": "# Rights\n"})
 
     def test_local_link_broken(self):
-        self.assert_bad("broken local link", other={"notes.md": "[missing](missing.md)\n"})
+        self.assert_bad("broken local link", other={"content/notes.md": "[missing](missing.md)\n"})
 
     def test_local_link_untracked(self):
-        dest = self.root / "works/sample/untracked.md"
+        dest = self.root / "content/untracked.md"
         dest.write_text("# Local\n", encoding="utf-8")
-        self.assert_bad("linked file is not tracked", other={"notes.md": "[untracked](works/sample/untracked.md)\n"})
+        self.assert_bad("linked file is not tracked", other={"content/notes.md": "[untracked](untracked.md)\n"})
 
     def test_manuscript_links_use_the_published_section_id(self):
         section = MANUSCRIPT.replace("§ 1 — Foundations", "Introduction")
         self.assert_bad("unresolved Markdown section link", section.replace("(#sec-1)", "(#introduction)"))
         self.assertEqual([], self.check(section.replace("sec-1", "introduction")))
-        preview = {"notes.md": "[Introduction](works/sample/manuscript.md#introduction)\n"}
+        preview = {"content/notes.md": "[Introduction](manuscript.md#introduction)\n"}
         self.assertEqual([], self.check(section, other=preview))
 
 
@@ -247,23 +247,23 @@ class StrictSourceTests(unittest.TestCase):
 
     def test_reject_image_missing_alt(self):
         self.assert_bad("image alt text required", MANUSCRIPT + "![](assets/sample.svg)\n",
-                        other={"works/sample/assets/sample.svg": '<svg xmlns="http://www.w3.org/2000/svg"/>\n'})
+                        other={"content/assets/sample.svg": '<svg xmlns="http://www.w3.org/2000/svg"/>\n'})
 
     def test_reject_external_image(self):
         self.assert_bad("unsupported/external URI", MANUSCRIPT + "![pic](https://example.com/image.png)\n")
 
     def test_valid_svg_asset(self):
         source = MANUSCRIPT + "![plot](assets/figure.svg)\n"
-        other = {"works/sample/assets/figure.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>\n'}
+        other = {"content/assets/figure.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0L1 1"/></svg>\n'}
         self.assertEqual([], self.check(source, other=other))
 
     def test_local_raster_with_valid_magic_but_truncated_pixels(self):
         self.assert_bad("invalid or unsafe raster image", MANUSCRIPT + "![Chart](assets/chart.png)\n",
-                        other={"works/sample/assets/chart.png": b"\x89PNG\r\n\x1a\n" + b"x" * 50})
+                        other={"content/assets/chart.png": b"\x89PNG\r\n\x1a\n" + b"x" * 50})
 
     def test_reject_executable_svg(self):
         source = MANUSCRIPT + "![plot](assets/figure.svg)\n"
-        other = {"works/sample/assets/figure.svg": '<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>\n'}
+        other = {"content/assets/figure.svg": '<svg xmlns="http://www.w3.org/2000/svg"><script/></svg>\n'}
         self.assert_bad("SVG element", source, other=other)
 
     def test_requires_metadata(self):
@@ -280,14 +280,14 @@ class StrictSourceTests(unittest.TestCase):
     def test_metadata_title_mismatch(self):
         self.assert_bad("title must exactly match", metadata={**METADATA, "title": "Incorrect"})
 
-    def test_metadata_slug_mismatch(self):
-        self.assert_bad("slug must match", metadata={**METADATA, "slug": "other"})
+    def test_metadata_slug_is_not_part_of_the_protocol(self):
+        self.assert_bad("schema keys mismatch", metadata={**METADATA, "slug": "other"})
 
     def test_metadata_invalid_rights(self):
         self.assert_bad("rights must be one of", metadata={**METADATA, "rights": "MIT"})
 
     def test_metadata_published_status_disallowed(self):
-        self.assert_bad("status must remain draft", metadata={**METADATA, "status": "published"})
+        self.assert_bad("schema keys mismatch", metadata={**METADATA, "status": "published"})
 
     def test_does_not_validate_heading_inside_code(self):
         content = MANUSCRIPT + '````\n<a id="fake"></a>\n## Not a section\n````\n'
@@ -366,20 +366,31 @@ class StrictSourceTests(unittest.TestCase):
             "author: nashspence", 'author: "*nashspence*"') + "---\n\n"
         self.assertTrue(any("Pandoc metadata differs" in e for e in self.check(front_matter=front)))
 
-    def test_old_json_metadata_not_allowed(self):
-        self.assert_bad("unsupported file path", other={"works/sample/metadata.json": "{}\n"})
+    def test_json_supplements_do_not_replace_manuscript_front_matter(self):
+        self.assert_bad("requires YAML front matter", metadata=None, other={"content/metadata.json": "{}\n"})
 
     def test_work_directory_requires_manuscript(self):
-        asset = Path("works/sample/assets/figure.svg")
+        asset = Path("content/assets/figure.svg")
         (self.root / asset.parent).mkdir()
         (self.root / asset).write_text('<svg xmlns="http://www.w3.org/2000/svg"/>\n', encoding="utf-8")
         errors = validate_repository(self.root, [asset])
         self.assertTrue(any("requires manuscript.md" in e for e in errors))
 
-    def test_work_directories_contain_only_publication_sources(self):
-        for path in ('works/README.md','works/sample/README.md','works/sample/supporting/README.md'):
-            self.assert_bad('unsupported file path',other={path:'# Notes\n'})
+    def test_repository_infrastructure_is_outside_the_publication_boundary(self):
+        self.assertEqual([], self.check(other={'README.md': '[broken](missing.md)\n', '.github/workflows/check.yml': 'infrastructure: true\n'}))
+        self.assert_bad('supporting Markdown requires', other={'content/supporting/README.md': '# Notes\n'})
 
+
+    def test_content_symlink_cannot_import_repository_infrastructure(self):
+        self.check()
+        outside = self.root / 'outside.md'
+        outside.write_text('# Outside\n')
+        linked = self.root / 'content/linked.md'
+        linked.symlink_to(outside)
+        self.assertTrue(any('symlinks' in e for e in validate_repository(self.root, [self.source, Path('content/linked.md')])))
+
+    def test_local_supplement_is_tracked_inside_content(self):
+        self.assertEqual([], self.check(MANUSCRIPT + '[Calculation](calculations.py)\n', other={'content/calculations.py': 'print(2 + 2)\n'}))
 
     def test_identifiers_mapping_and_orcid(self):
         metadata = {**METADATA,

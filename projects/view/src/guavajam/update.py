@@ -52,13 +52,13 @@ def atomic(path, data):
 
 
 @contextmanager
-def locked_root(output, repo):
+def locked_root(output, repo=None, *, marker_text=MARKER):
     try:
         import fcntl
     except ImportError as exc:
         raise CatalogError('periodic updates require POSIX file locking and atomic symlinks') from exc
     output = Path(output).absolute()
-    if output.resolve() != output or output.is_relative_to(repo):
+    if output.resolve() != output or (repo is not None and output.is_relative_to(repo)):
         raise CatalogError('updater output must be outside the source repository, without symlink ancestors')
     output.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -84,12 +84,12 @@ def locked_root(output, repo):
             yield None
             return
         if marker.exists():
-            if marker.is_symlink() or marker.read_text('utf-8') != MARKER:
+            if marker.is_symlink() or marker.read_text('utf-8') != marker_text:
                 raise CatalogError('unrecognized updater root')
         else:
             if any(p.name != '.update.lock' for p in output.iterdir()):
                 raise CatalogError('destination changed during initialization')
-            atomic(marker, MARKER.encode())
+            atomic(marker, marker_text.encode())
         for name in ('generations', '.cache'):
             directory = output / name
             if directory.is_symlink():
@@ -174,14 +174,11 @@ def verify_public_delivery(repo, catalog, *, previous=None, fingerprints=(), all
     the existing site. This is readiness evidence, never release authority.
     """
     from guavajam_core.publication_commit import verify
-    from guavajam_core.catalog import READABLE_STATUSES
-    checked = {e['revision'] for w in (previous or {}).get('works', []) for e in w['editions']
-               if e['status'] in READABLE_STATUSES}
-    for work in catalog['works']:
-        for edition in work['editions']:
-            if edition['status'] in READABLE_STATUSES and edition['revision'] not in checked:
-                verify(repo, edition['revision'], fingerprints=fingerprints,
-                       allowed_signers=allowed_signers, online_media=True)
+    checked = {e['revision'] for e in (previous or {}).get('editions', [])}
+    for edition in catalog['editions']:
+        if edition['revision'] not in checked:
+            verify(repo, edition['revision'], fingerprints=fingerprints,
+                   allowed_signers=allowed_signers, online_media=True)
 
 
 def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
@@ -226,18 +223,12 @@ def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='o
         destination = root / 'generations' / generation_id
         with tempfile.TemporaryDirectory(prefix='.staging-', dir=root) as temporary:
             temporary = Path(temporary)
-            catalog_path = temporary / 'catalog.json'
-            catalog_path.write_bytes(encoded(catalog))
-            prior_path = None
-            if previous is not None:
-                prior_path = temporary / 'previous.json'; prior_path.write_bytes(encoded(previous))
             staged = temporary / 'generation'; staged.mkdir()
-            build_site(repo, catalog_path, staged / 'site', fingerprints=fingerprints,
-                       allowed_signers=allowed_signers, previous_catalog=prior_path,
-                       initial_catalog=previous is None, view_cache=cache)
+            build_site(repo, staged / 'site', ref=tip, fingerprints=fingerprints,
+                       allowed_signers=allowed_signers, previous=previous, view_cache=cache)
             state = {'schema': 'guavajam.update.v1', 'public_delivery_verified': True, 'source_tip': tip, 'identity': identity,
                      'catalog_sha256': catalog_hash, 'renderer': renderer, 'trust_sha256': trusted,
-                     'repository_checkpoint': evidence['repository_checkpoint'], 'publications': evidence['publications'],
+                     'publications': evidence['publications'],
                      'cache_namespace': namespace}
             (staged / 'STATE.json').write_bytes(encoded(state))
             # Flush completed files before the sole public switch point.

@@ -1,0 +1,6 @@
+https://github.com/example/field-notes.git:
+  allowed_signers: /trust/field-notes.allowed-signers
+https://github.com/example/another-work.git:
+  fingerprints:
+    - 0123456789ABCDEF0123456789ABCDEF01234567
+  public_keys: /trust/another-work.asc
