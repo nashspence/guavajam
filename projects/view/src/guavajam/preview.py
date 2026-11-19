@@ -20,8 +20,9 @@ import tempfile
 
 from guavajam_core.asset_policy import AssetError, load_policy
 from guavajam_core.asset_storage import S3, credentials
-from guavajam_core.catalog import encoded, validate, compare, day
-from guavajam_core.publication_protocol import discover, resolve, ancestor, declared_history, run, blob, policy
+from guavajam_core.catalog import encoded, validate, compare
+from guavajam_core.publication_protocol import (discover, resolve, ancestor, publication_history,
+                                               commit_facts, run, blob, policy)
 from guavajam_core.qualify_assets import qualify
 from guavajam_core.resources import ROOT as RESOURCES
 from guavajam_core.source_snapshot import snapshot
@@ -29,29 +30,29 @@ from .renderer import git_blob
 from .site import build_site
 
 
-def proposed_catalog(catalog, revision, work, published, label, manuscript, *, recommendation_locked=False, provisional=()):
+def proposed_catalog(catalog, revision, work, facts, manuscript, *, recommendation_locked=False, provisional=()):
     """Add one non-authoritative edition to the reviewed signed catalog.
 
     The current signed catalog supplies all existing works and editorial settings.
-    Never infer an editorial date, mutate existing DOI bindings or imply that a
-    draft SHA is a signed publication identity.
+    Ordinary Git metadata describes the draft. Its SHA and edition remain
+    explicitly provisional; existing DOI bindings and authority are preserved.
     """
     from guavajam_core.validate_sources import validate_front_matter
     from guavajam_core.identifiers import SLUG
     if not SLUG.fullmatch(work):
         raise AssetError('invalid preview work slug')
-    date = day(published, 'proposed publication date')
+    date = facts['published']
     from pathlib import Path
     metadata, _, _, errors = validate_front_matter(Path('works')/work/'manuscript.md', manuscript.decode('utf-8', 'strict'))
     if errors or metadata is None or metadata.get('slug') != work:
         raise AssetError('invalid proposed manuscript metadata')
-    item = {'revision': revision, 'published': date, 'status': 'available'}
-    if label is not None:
-        from guavajam_core.catalog import text
-        item['label'] = text(label, 'proposed edition label')
+    item = {'revision': revision, 'published': date, 'message': facts['message'], 'status': 'available'}
     matches = [item for item in catalog['works'] if item['slug'] == work]
     if len(matches) > 1 or (matches and any(e['revision'] == revision for e in matches[0]['editions'])):
         raise AssetError('proposed edition conflicts with a discovered publication')
+    number = int(metadata['edition'])
+    if number and (not matches or number > max(e.get('edition', 0) for e in matches[0]['editions'])):
+        item['edition'] = number
     if matches:
         existing = matches[0]
         original_doi = existing.get('concept_doi')
@@ -59,13 +60,12 @@ def proposed_catalog(catalog, revision, work, published, label, manuscript, *, r
         if proposed_doi and proposed_doi != original_doi:
             raise AssetError('changing an issued work DOI requires reviewed repository administration')
         previous_latest = max((e for e in existing['editions'] if e['status'] == 'available'),
-                              key=lambda e: e['published'], default=None)
+                              key=lambda e: (e.get('edition', 0), e['published']), default=None)
         existing['editions'].append(item)
         # Only advance an implicit/default recommendation. An explicitly
         # disabled or older recommendation remains under signed repository control.
-        existing['editions'].sort(key=lambda x: x['published'])
-        if (not recommendation_locked and previous_latest and existing.get('recommended_revision') == previous_latest['revision']
-                and date >= previous_latest['published']):
+        if (not recommendation_locked and previous_latest
+                and existing.get('recommended_revision') == previous_latest['revision']):
             existing['recommended_revision'] = revision
     else:
         candidate = {'slug': work, 'metadata_revision': revision, 'recommended_revision': revision,
@@ -101,15 +101,15 @@ def provisional_settings(stage):
 
 def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
                   fingerprints=(), allowed_signers=None, require_retention=False,
-                  published=None, label=None, baseline=None):
+                  baseline=None):
     """Build the entire hypothetical site, atomically and without public effects.
 
-    A declaration-free repository needs no signer policy or protected branch.
-    Declared history always uses independent verification, never a fallback.
+    A fresh draft repository needs no signer policy or protected branch.
+    Publication history always uses independent verification, never a fallback.
     A saved verified baseline prevents session downgrade and lost publications.
     """
     repo = Path(repo).resolve(strict=True)
-    revision, declarations = declared_history(repo, ref)
+    revision, events = publication_history(repo, ref, strict=False)
     if fingerprints and allowed_signers:
         raise AssetError('choose exactly one publisher signing policy')
     output = Path(output).absolute()
@@ -120,11 +120,15 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
             raise AssetError('invalid verified preview baseline')
         validate(baseline['catalog'])
         ancestor(repo, baseline['checkpoint'], revision)
-    provisional_repository = not declarations
+    provisional_repository = not events
+    selected_event = next((event for sha, event in events if sha == revision), None)
+    signed = selected_event is not None and selected_event['kind'] == 'publication'
+    if signed and selected_event['manuscript'] != f'works/{work}/manuscript.md':
+        raise AssetError('selected signed publication identifies a different work')
     if provisional_repository:
-        _, known = declared_history(repo, revision, additional_refs=tuple(preview_refs(repo)))
+        _, known = publication_history(repo, revision, additional_refs=tuple(preview_refs(repo)), strict=False)
         if known or baseline is not None:
-            raise AssetError('preview branch omits known repository declarations')
+            raise AssetError('preview branch omits known publication history')
         base = resolve(repo, base_ref) if base_ref else revision
         ancestor(repo, base, revision)
         settings, catalog = policy(blob(repo, revision, 'guavajam.json'))
@@ -135,29 +139,28 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         checkpoint, verified_catalog = None, None
     else:
         if not (fingerprints or allowed_signers):
-            raise AssetError('declared history requires independently trusted publisher signing policy')
+            raise AssetError('publication history requires independently trusted publisher signing policy')
         refs = preview_refs(repo)
         default_base = next((name for name in ('refs/heads/main', 'refs/remotes/origin/main') if name in refs), revision)
         base = resolve(repo, base_ref or default_base)
         ancestor(repo, base, revision)
-        previous, _ = discover(repo, ref=base, fingerprints=fingerprints, allowed_signers=allowed_signers)
-        catalog, evidence = discover(repo, ref=revision, fingerprints=fingerprints, allowed_signers=allowed_signers,
-                                    previous=previous)
+        previous, evidence = discover(repo, ref=base, fingerprints=fingerprints, allowed_signers=allowed_signers)
+        if signed:
+            catalog, evidence = discover(repo, ref=revision, fingerprints=fingerprints,
+                                         allowed_signers=allowed_signers, previous=previous)
+        else:
+            # Draft branches may contain intermediate states that are not valid
+            # publication history. Only the reviewed base supplies authority.
+            # A newly signed event must be reviewed as part of that base first.
+            _, accepted = publication_history(repo, base, strict=False)
+            if {sha for sha, _ in events} - {sha for sha, _ in accepted}:
+                raise AssetError('unsigned preview requires a base containing its signed publication history')
+            if blob(repo, revision, 'guavajam.json') != blob(repo, base, 'guavajam.json'):
+                raise AssetError('unsigned preview changes the reviewed repository settings')
+            catalog = copy.deepcopy(previous)
         if baseline is not None:
             compare(baseline['catalog'], catalog)
         checkpoint, verified_catalog = evidence['repository_checkpoint'], copy.deepcopy(catalog)
-    # The exact candidate must either declare the selected signed edition, or
-    # be a committed draft to be represented provisionally in the whole catalog.
-    from guavajam_core.publication_protocol import declaration, commit
-    declared = declaration(commit(repo, revision)[1])
-    signed = declared is not None and declared.get('kind') == 'publication'
-    if declared is not None and not signed:
-        raise AssetError('select a content draft or a signed publication, not a repository checkpoint')
-    if signed and declared['manuscript'] != f'works/{work}/manuscript.md':
-        raise AssetError('selected signed publication declares a different work')
-    if signed and (published is not None and published != declared['published'] or
-                   label is not None and label != declared.get('label')):
-        raise AssetError('preview facts differ from the signed publication declaration')
     selected = [work]
     if provisional_repository:
         from guavajam_core.publication_protocol import WORK
@@ -177,12 +180,10 @@ def build_preview(repo, ref, work, output, *, store=None, base_ref=None,
         asset_policy = load_policy(root)
         origin = asset_policy.origin if asset_policy else None
     if not signed:
-        if published is None:
-            raise AssetError('unsigned full-site preview requires PUBLISHED=YYYY-MM-DD')
         settings = json.loads(blob(repo, revision, 'guavajam.json'))
         for slug in selected:
             locked = 'recommended_revision' in settings.get('works', {}).get(slug, {})
-            catalog = proposed_catalog(catalog, revision, slug, published, label,
+            catalog = proposed_catalog(catalog, revision, slug, commit_facts(repo, revision),
                                        git_blob(repo, revision, f'works/{slug}/manuscript.md'),
                                        recommendation_locked=locked, provisional=provisional)
     compare(previous, catalog, provisional=provisional)
@@ -255,9 +256,7 @@ def main(argv=None):
     parser.add_argument('--ref', required=True, help='full commit or explicit local refs/heads/<branch>')
     parser.add_argument('--work', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--base-ref', help='optional ancestor baseline; defaults to main for declared history')
-    parser.add_argument('--published', help='required YYYY-MM-DD date for an unsigned proposed edition')
-    parser.add_argument('--label', help='optional proposed edition label')
+    parser.add_argument('--base-ref', help='reviewed publication ancestor; defaults to main for signed history')
     parser.add_argument('--serve', action='store_true', help='serve only on 127.0.0.1 with a private session')
     parser.add_argument('--port', type=int, default=0, help='0 selects an unused loopback port')
     parser.add_argument('--require-retention', action='store_true')
@@ -271,7 +270,7 @@ def main(argv=None):
         # No credentials are requested for an asset-free draft.
         manifest = build_preview(args.repo, args.ref, args.work, args.output, base_ref=args.base_ref,
                                  fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers,
-                                 require_retention=args.require_retention, published=args.published, label=args.label)
+                                 require_retention=args.require_retention)
         if args.serve:
             values = credentials(args.repo) if manifest['assets'] else {}
             return serve(args.output.absolute(), manifest, values, port=args.port)

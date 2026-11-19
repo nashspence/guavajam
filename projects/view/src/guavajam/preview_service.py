@@ -63,8 +63,6 @@ class Preview:
         self.repo = Path(env['GUAVAJAM_PREVIEW_REPO']).resolve(strict=True)
         self.ref, self.work = env['GUAVAJAM_PREVIEW_REF'], env['GUAVAJAM_PREVIEW_WORK']
         self.base_ref = env.get('GUAVAJAM_PREVIEW_BASE_REF') or None
-        self.published = env.get('GUAVAJAM_PREVIEW_PUBLISHED') or None
-        self.label = env.get('GUAVAJAM_PREVIEW_LABEL') or None
         configured = any(env.get(key) for key in ('GUAVAJAM_SSH_ALLOWED_SIGNERS',
                          'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS', 'GUAVAJAM_GPG_PUBLIC_KEYS'))
         self.policy = trust(state, self.repo, env) if configured else {}
@@ -89,7 +87,7 @@ class Preview:
         pending = self.state / ('preview-' + uuid.uuid4().hex)
         try:
             manifest = build_preview(self.repo, revision, self.work, pending,
-                                     base_ref=self.base_ref, published=self.published, label=self.label, baseline=self.baseline,
+                                     base_ref=self.base_ref, baseline=self.baseline,
                                      require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1',
                                      **self.policy)
             values = credentials(self.repo) if manifest['assets'] else {}

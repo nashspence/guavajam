@@ -145,8 +145,9 @@ def validate(catalog, *, provisional=()):
         if not isinstance(work['editions'], list) or not work['editions']:
             fail('each work requires at least one exact edition')
         editions = {}
+        numbers = set()
         for edition in work['editions']:
-            fields(edition, {'revision', 'published', 'status'}, {'label', 'doi', 'notices', 'successor_revision'}, 'edition')
+            fields(edition, {'revision', 'published', 'status'}, {'edition', 'message', 'label', 'doi', 'notices', 'successor_revision'}, 'edition')
             sha = edition['revision']
             if (not isinstance(sha, str) or not REVISION.fullmatch(sha) or sha in editions
                     or sha in revisions and ((slug, sha) not in provisional
@@ -157,6 +158,15 @@ def validate(catalog, *, provisional=()):
             if edition_count > MAX_EDITIONS:
                 fail('catalog exceeds 256 editions')
             editions[sha] = edition
+            if 'edition' in edition:
+                number = edition['edition']
+                if type(number) is not int or not 1 <= number <= 2147483647 or number in numbers:
+                    fail('edition numbers must be unique positive integers within a work')
+                numbers.add(number)
+            if 'message' in edition:
+                message = edition['message']
+                if not isinstance(message, str) or len(message.encode('utf-8')) > 65536:
+                    fail('commit message must be bounded UTF-8 text')
             day(edition['published'], 'published')
             if not isinstance(edition['status'], str) or edition['status'] not in STATUSES:
                 fail('status must be available, superseded, withdrawn or unavailable')
@@ -186,7 +196,9 @@ def validate(catalog, *, provisional=()):
                     fail('only withdrawn or superseded editions may name a successor')
                 if (not isinstance(successor, str) or successor not in editions
                         or successor == edition['revision']
-                        or editions[successor]['published'] < edition['published']):
+                        or (editions[successor]['edition'] <= edition['edition']
+                            if 'edition' in edition and 'edition' in editions[successor]
+                            else editions[successor]['published'] < edition['published'])):
                     fail('successor_revision must identify a later or same-day distinct edition of this work')
         # Validate every edge before walking chains: a later edition may name
         # an invalid target, regardless of the catalog's edition ordering.
@@ -234,6 +246,8 @@ def compare(previous, current, *, provisional=()):
             new = editions.get(old['revision'])
             if new is None:
                 fail('existing edition records cannot disappear or move between works')
+            if any(key in old and old[key] != new.get(key) for key in ('edition', 'message')):
+                fail('signed edition number and commit message cannot be changed')
             if 'doi' in old and new.get('doi') != old['doi']:
                 fail('an edition DOI cannot be removed or rebound')
             notices = old.get('notices', [])

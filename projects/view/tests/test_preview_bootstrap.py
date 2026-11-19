@@ -26,8 +26,7 @@ class BootstrapPreviewTests(unittest.TestCase):
         self.output = self.root / 'preview'
 
     def preview(self, **kwargs):
-        return build_preview(self.draft.repo, 'refs/heads/draft', 'field-notes', self.output,
-                             published='2026-11-16', **kwargs)
+        return build_preview(self.draft.repo, 'refs/heads/draft', 'field-notes', self.output, **kwargs)
 
     def commit(self):
         self.draft.git('add', '-A'); self.draft.git('commit', '-qm', 'Review draft')
@@ -99,7 +98,7 @@ class BootstrapPreviewTests(unittest.TestCase):
         result = subprocess.run(['make', '--no-print-directory', '--file', str(root/'Makefile'), 'preview',
                                  'PYTHON='+sys.executable, 'REPO='+str(self.draft.repo),
                                  'SOURCE_REF=refs/heads/draft', 'WORK=field-notes',
-                                 'OUTPUT='+str(self.output), 'PUBLISHED=2026-11-16',
+                                 'OUTPUT='+str(self.output),
                                  'SSH_ALLOWED_SIGNERS=', 'TRUSTED_GPG_FINGERPRINT='],
                                 cwd=self.draft.repo, text=True, capture_output=True)
         self.assertEqual(0, result.returncode, result.stderr)
@@ -116,23 +115,33 @@ class BootstrapPreviewTests(unittest.TestCase):
         self.assertEqual({KEY}, set(manifest['assets']))
         self.assertEqual(writes, (len(store.uploads), len(store.deleted), len(store.retentions)))
 
-    def test_declarations_never_fall_back_to_provisional_verification(self):
-        before = self.draft.git('rev-parse', 'HEAD')
-        declarations = ['GuavaJam-Repository: 1', 'GuavaJam-Repository: 2', 'GuavaJam-Unrecognized: 1',
-                        'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-16']
-        for index, declaration in enumerate(declarations):
-            self.draft.git('switch', '-C', 'draft', before)
-            self.draft.git('commit', '--allow-empty', '-qm', 'Unapproved declaration\n\n'+declaration)
-            with self.subTest(declaration=declaration), self.assertRaises(ValueError):
-                self.preview()
-            self.assertFalse(self.output.exists())
+    def sign_draft(self):
+        key = self.root/'preview-key'
+        if not key.exists():
+            subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+        self.draft.git('config', 'gpg.format', 'ssh')
+        self.draft.git('config', 'user.signingkey', str(key))
+        self.draft.settings['description'] = 'Reviewed publisher settings.'
+        self.draft.write_settings()
+        self.draft.git('add', 'guavajam.json')
+        self.draft.git('commit', '-S', '-qm', 'Describe this publisher')
+
+    def test_commit_message_text_does_not_assign_publication_authority(self):
+        self.draft.git('commit', '--allow-empty', '-qm',
+                       'Discuss the retired protocol\n\nGuavaJam-Repository: 1\nGuavaJam-Unrecognized: arbitrary prose')
+        self.assertTrue(self.preview()['provisional_repository'])
+
+    def test_signed_history_never_falls_back_to_provisional_verification(self):
+        self.sign_draft()
+        with self.assertRaisesRegex(ValueError, 'publisher signing policy'):
+            self.preview()
         with self.assertRaises(ValueError):
             self.preview(fingerprints=['a'*40], base_ref=self.draft.git('rev-parse','HEAD'))
         self.assertFalse(self.output.exists())
 
     def test_other_branches_and_saved_authority_cannot_be_hidden(self):
         self.draft.git('switch', '-c', 'known')
-        self.draft.git('commit', '--allow-empty', '-qm', 'Declare settings\n\nGuavaJam-Repository: 1')
+        self.sign_draft()
         self.draft.git('switch', 'draft')
         with self.assertRaisesRegex(ValueError, 'omits known'):
             self.preview()

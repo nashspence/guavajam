@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check incoming publication declarations against repository-external signer policy."""
+"""Check incoming editions and settings against repository-external signer policy."""
 from .repository import repository_root
 from pathlib import Path
 import argparse,json,os,re,subprocess,tempfile,sys
@@ -18,12 +18,18 @@ def incoming(root,base,*,all_history=False):
         selector=result.stdout.strip().decode()+'..HEAD' if result.returncode==0 else 'HEAD'
     revisions=git(root,'rev-list','--reverse',selector).decode().splitlines()
     if len(revisions)>1000:raise PublicationError('incoming publication audit exceeds commit budget')
-    return [sha for sha in revisions if re.search(rb'^GuavaJam-(?:Publication|Work|Repository|Published|Label):',git(root,'show','-s','--format=%B',sha),re.M)]
+    return revisions
 
 
 def check(root,base,*,online=True,all_history=False,require_retention=False):
     if require_retention and not online:raise PublicationError('retention verification requires online checks')
-    candidates=incoming(root,base,all_history=all_history)
+    selected=set(incoming(root,base,all_history=all_history))
+    from .publication_protocol import publication_history, verify_signature, blob, policy
+    try:
+        _, history=publication_history(root,git(root,'rev-parse','HEAD').decode().strip())
+    except ValueError as exc:
+        raise PublicationError(str(exc)) from exc
+    candidates=[(sha,event) for sha,event in history if sha in selected]
     if not candidates:return []
     fingerprints=os.environ.get('GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS','').split()
     signers=os.environ.get('GUAVAJAM_PUBLISHER_SSH_SIGNERS','')
@@ -39,14 +45,13 @@ def check(root,base,*,online=True,all_history=False,require_retention=False):
                 home=Path(directory)/'gpg';home.mkdir(mode=0o700);os.environ['GNUPGHOME']=str(home)
                 imported=subprocess.run(['gpg','--batch','--import'],input=key.encode(),capture_output=True,check=False)
                 if imported.returncode:raise PublicationError('independent GPG policy import failed')
-            from .publication_protocol import commit, declaration, verify_shape, verify_signature, blob, policy
             results=[]
-            for sha in candidates:
-                declared=declaration(commit(root,sha)[1])
-                if declared and declared['kind']=='repository':
-                    verify_shape(root,sha,'repository')
-                    verify_signature(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None)
+            for sha, event in history:
+                verify_signature(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None)
+                if event['kind']=='repository' or event.get('repository'):
                     policy(blob(root,sha,'guavajam.json'))
+            for sha,event in candidates:
+                if event['kind']=='repository':
                     results.append({'repository_checkpoint':sha})
                 else:
                     results.append(verify(root,sha,fingerprints=fingerprints,allowed_signers=path if signers else None,online_media=online,require_retention=require_retention))
@@ -60,5 +65,5 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--base',default=os.environ.get('GUAVAJAM_BASE_SHA',''));parser.add_argument('--offline',action='store_true');parser.add_argument('--all',action='store_true',dest='all_history');parser.add_argument('--require-retention',action='store_true');args=parser.parse_args()
     try:results=check(repository_root(),args.base,online=not args.offline,all_history=args.all_history,require_retention=args.require_retention)
     except (PublicationError,OSError,ValueError) as exc:print('Publication policy failed: '+str(exc),file=sys.stderr);return 1
-    print('Verified incoming publication declarations:',len(results));return 0
+    print('Verified incoming editions and repository approvals:',len(results));return 0
 if __name__=='__main__':sys.exit(main())

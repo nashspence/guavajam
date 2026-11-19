@@ -39,7 +39,7 @@ title: "TITLE"
 author: "Example & Colleague"
 slug: SLUG
 language: en
-status: draft
+edition: "EDITION"
 rights: CC-BY-4.0
 abstract: "A reviewed abstract with literal <markup> & Unicode: Élan."
 schema_type: ScholarlyArticle
@@ -56,7 +56,8 @@ PHRASE See [the supporting claim](supporting/note.md#claim).
 ## A deliberate viewer identifier collision
 
 The source anchor remains unchanged.
-'''.replace('TITLE', title).replace('SLUG', slug).replace('PHRASE', phrase))
+'''.replace('TITLE', title).replace('SLUG', slug).replace('PHRASE', phrase)
+           .replace('EDITION', str(2 if len(revisions) == 1 else 1)))
         (work / 'supporting/note.md').write_text('''<a name="document"></a>
 
 # A supporting note
@@ -65,11 +66,17 @@ The source anchor remains unchanged.
 
 The exact, independently citable claim.
 ''')
+        if not revisions:
+            manuscript = work/'manuscript.md'
+            first_edition = manuscript.read_text()
+            manuscript.write_text(first_edition.replace('edition: "1"', 'edition: "0"'))
+            command(repo, 'git', 'add', '-A')
+            command(repo, 'git', 'commit', '-qm', 'Review the initial draft')
+            manuscript.write_text(first_edition)
         command(repo, 'git', 'add', '-A')
-        command(repo, 'git', 'commit', '-qm', 'Review ' + title)
-        command(repo, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish ' + title,
-                '-m', 'GuavaJam-Publication: 1\nGuavaJam-Work: works/' + slug + '/manuscript.md\nGuavaJam-Published: ' +
-                ['2026-10-01', '2026-11-01', '2026-11-03'][len(revisions)], env=env)
+        day = ['2026-10-01', '2026-11-01', '2026-11-03'][len(revisions)]
+        command(repo, 'git', 'commit', '-S', '-m', 'Publish ' + title,
+                env={**env, 'GIT_AUTHOR_DATE': day+'T12:00:00Z', 'GIT_COMMITTER_DATE': day+'T12:00:00Z'})
         revisions.append(command(repo, 'git', 'rev-parse', 'HEAD'))
     catalog = {
         'schema': 'guavajam.catalog.v1', 'title': 'Collected Publications',
@@ -81,12 +88,12 @@ The exact, independently citable claim.
             {'slug': 'field-notes', 'concept_doi': '10.1234/field-notes',
              'metadata_revision': revisions[1], 'recommended_revision': revisions[1],
              'editions': [
-                 {'revision': revisions[0], 'published': '2026-10-01', 'label': 'First edition',
+                 {'revision': revisions[0], 'edition': 1, 'published': '2026-10-01', 'label': 'First edition',
                   'status': 'available', 'doi': '10.1234/field-notes.v1'},
-                 {'revision': revisions[1], 'published': '2026-11-01', 'label': 'Revised edition',
+                 {'revision': revisions[1], 'edition': 2, 'published': '2026-11-01', 'label': 'Revised edition',
                   'status': 'available', 'doi': '10.1234/field-notes.v2'}]},
             {'slug': 'other-work', 'metadata_revision': revisions[2],
-             'editions': [{'revision': revisions[2], 'published': '2026-11-03',
+             'editions': [{'revision': revisions[2], 'edition': 1, 'published': '2026-11-03',
                            'status': 'unavailable',
                            'notices': [{'date': '2026-11-04', 'text': 'Reading distribution is unavailable; the record remains.'}]}]}
         ]}

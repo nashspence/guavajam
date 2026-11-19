@@ -240,13 +240,12 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     else:
         if bool(fingerprints) == bool(allowed_signers):
             raise RenderError('signed rendering requires an external GPG fingerprint or SSH allowed signers')
-        from guavajam_core.publication_protocol import verify_shape
-        from guavajam_core.trusted_git import verify_signature
+        from guavajam_core.publication_commit import verify
         try:
-            verify_signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
-            declared = verify_shape(repo, sha, 'publication')
-            if declared['manuscript'] != manuscript:
-                raise RenderError('revision declares a different work')
+            publication = verify(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers,
+                                 online_media=False)
+            if publication['manuscript'] != manuscript:
+                raise RenderError('revision publishes a different work')
         except (ValueError, OSError) as exc:
             raise RenderError(str(exc)) from exc
     policy_entry=process(['git','--no-replace-objects','ls-tree',sha,'--','asset-policy.json'],cwd=repo)

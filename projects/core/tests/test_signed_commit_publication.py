@@ -23,7 +23,7 @@ title: Recorded Notes
 author: Fixture Author
 slug: recorded-notes
 language: en
-status: draft
+edition: "0"
 rights: all-rights-reserved
 ---
 
@@ -84,11 +84,17 @@ class PublicationCommitTests(unittest.TestCase):
         self.fingerprint=next(row.split(':')[9] for row in listing.splitlines() if row.startswith('fpr:'))
         cmd(self.repo,'git','config','user.signingkey',self.fingerprint)
         cmd(self.repo,'git','config','gpg.format','openpgp')
-        self.signed_message='GuavaJam-Publication: 1\nGuavaJam-Work: works/recorded-notes/manuscript.md\nGuavaJam-Published: 2026-11-13'
+        self.signed_message='Add the reviewed field recording and transcript.'
         self._sign(self.signed_message)
 
     def _sign(self,message):
-        cmd(self.repo,'git','-c','commit.gpgSign=true','commit','--allow-empty','-S',
+        import re
+        manuscript = self.repo/'works/recorded-notes/manuscript.md'
+        source = manuscript.read_text()
+        number = int(re.search(r'^edition: "([0-9]+)"', source, re.M)[1])
+        manuscript.write_text(re.sub(r'^edition: .*$', 'edition: "'+str(number+1)+'"', source, flags=re.M))
+        cmd(self.repo,'git','add','-A')
+        cmd(self.repo,'git','-c','commit.gpgSign=true','commit','-S',
             '-m','Publish Recorded Notes','-m',message,env=self.env)
         self.signed=cmd(self.repo,'git','rev-parse','HEAD')
 
@@ -129,15 +135,17 @@ class PublicationCommitTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicationError, 'existing stable source anchor'):
             citation(self._verify(), 'nonexistent-passage')
 
-    def test_publication_trailers_are_exact_and_unique(self):
-        self._sign('GuavaJam-Publication: 1\nGuavaJam-Work: works/another/manuscript.md\nGuavaJam-Published: 2026-11-13')
-        with self.assertRaises(PublicationError):
-            self._verify()
-        self._sign(self.signed_message+'\nOther: trailer')
-        with self.assertRaisesRegex(PublicationError,'final block'):
-            self._verify()
-        self._sign(self.signed_message+'\nGuavaJam-Publication: 1')
-        with self.assertRaisesRegex(PublicationError,'unknown publication trailer'):
+    def test_commit_messages_are_opaque_and_do_not_select_a_work(self):
+        message = 'GuavaJam-Publication: 900\nGuavaJam-Work: works/another/manuscript.md\n\nAny ordinary prose.'
+        self._sign(message)
+        record = self._verify()
+        self.assertEqual('works/recorded-notes/manuscript.md', record['manuscript'])
+        self.assertEqual(2, record['edition'])
+        self.assertIn(message, record['message'])
+        # A signature without a new edition does not issue another publication.
+        cmd(self.repo,'git','commit','--allow-empty','-S','-qm',message,env=self.env)
+        self.signed=cmd(self.repo,'git','rev-parse','HEAD')
+        with self.assertRaisesRegex(PublicationError,'does not introduce'):
             self._verify()
 
     def test_online_verification_is_the_publication_default(self):

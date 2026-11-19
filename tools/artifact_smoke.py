@@ -40,10 +40,10 @@ def main():
         run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
         run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
         run('git', 'config', 'user.signingkey', str(key), cwd=repo)
-        run('git', 'commit', '--allow-empty', '-S', '-m', 'Approve repository settings', '-m',
-            'GuavaJam-Repository: 1', cwd=repo)
-        run('git', 'commit', '--allow-empty', '-S', '-m', 'Publish', '-m',
-            'GuavaJam-Publication: 1\nGuavaJam-Work: works/artifact-work/manuscript.md\nGuavaJam-Published: 2026-11-13', cwd=repo)
+        manuscript = repo/'works/artifact-work/manuscript.md'
+        manuscript.write_text(manuscript.read_text().replace('edition: "0"', 'edition: "1"'))
+        run('git', 'add', str(manuscript), cwd=repo)
+        run('git', 'commit', '-S', '-m', 'Publish Artifact Work', cwd=repo)
         (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'works')

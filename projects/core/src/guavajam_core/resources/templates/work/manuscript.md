@@ -4,7 +4,7 @@ title: Sample Work
 author: Example Author
 slug: sample-work
 language: en
-status: draft
+edition: "0"
 rights: all-rights-reserved
 ---
 

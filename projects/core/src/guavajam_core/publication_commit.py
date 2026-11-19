@@ -35,11 +35,10 @@ def git(repo, *arguments, env=None):
 
 
 def commit_identity(repo: Path, sha: str):
-    from .publication_protocol import resolve, verify_shape, blob, run
+    from .publication_protocol import resolve, verify_shape, blob
     try:
         if resolve(repo, sha) != sha:
             raise ValueError('revision is not an exact commit identity')
-        run(repo, 'fsck', '--strict', '--no-reflogs', '--no-dangling', sha)
         declared = verify_shape(repo, sha, 'publication')
         work = declared['manuscript']
         source = blob(repo, sha, work, maximum=8 * 1024 * 1024).decode('utf-8', 'strict')
@@ -59,7 +58,16 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
            online_media=True, validate_tree=True, pandoc_version=True, require_retention=False):
     repo = Path(repo).resolve()
     work, source = commit_identity(repo, sha)
-    signer = signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
+    from .publication_protocol import publication_history
+    _, history = publication_history(repo, sha)
+    signer = None
+    edition = None
+    for revision, event in history:
+        if event['kind'] != 'publication':
+            continue
+        identity = signature(repo, revision, fingerprints=fingerprints, allowed_signers=allowed_signers)
+        if revision == sha:
+            signer, edition = identity, event
     # Validate the committed object graph, not the mutable checkout or HEAD.
     from .source_snapshot import snapshot
     from .validate_sources import validate_repository
@@ -95,6 +103,9 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
         'schema': 'guavajam.source-citation.v1',
         'hash_algorithm': 'sha1',
         'revision': sha,
+        'edition': edition['edition'],
+        'published': edition['published'],
+        'message': edition['message'],
         'manuscript': work,
         'signer': signer,
         'media': [{key: item[key] for key in ('kind', 'id', 'src', 'transcript')}

@@ -17,7 +17,7 @@ from .asset_policy import AssetError, AssetPolicy, response_chunks
 from .asset_storage import S3, credentials
 from .gateway_index import validate as validate_pin
 from .object_store import RELEASE_PREFIX, check_response
-from .publication_protocol import ancestor, oid, resolve, run, verify_shape
+from .publication_protocol import ancestor, oid, resolve, run, verify_shape, publication_history
 from .publication_commit import verify
 from .prepare_publication import prepare
 
@@ -119,13 +119,16 @@ def release(repo, revision, expected_main, *, store, release_store, fingerprints
     tip = remote_main(repo, expected_main, remote)
     ancestor(repo, revision, tip)
     trust = {'fingerprints': fingerprints, 'allowed_signers': allowed_signers}
-    # A signed ordinary commit, changed-tree declaration, or branch-only edition
-    # cannot qualify. Source programs, hooks and filters never run.
+    # Main must preserve the issuing SHA through a valid edition history. A
+    # carry merge is not a new edition, and conflicting edition origins fail.
+    # Source programs, hooks and filters never run.
+    _, history = publication_history(repo, tip)
+    if revision not in {sha for sha, event in history if event['kind'] == 'publication'}:
+        raise AssetError('revision is not an issuing edition in remote main')
     verify(repo, revision, online_media=False, **trust)
     declared = verify_shape(repo, revision, 'publication')
     work = declared['manuscript'].split('/')[1]
-    prepared = prepare(repo, revision, work, published=declared['published'],
-                       label=declared.get('label'), store=store, require_retention=require_retention)
+    prepared = prepare(repo, revision, work, store=store, require_retention=require_retention)
     releases = Releases(release_store)
     origin = prepared['asset_origin']
     mappings = {item['key']: {k: v for k, v in item.items() if k != 'key'} for item in prepared['assets']}

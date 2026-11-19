@@ -11,7 +11,7 @@ from guavajam_core.verify_source_assets import verify_source_assets
 
 class SourceProofTests(PublicationCommitTests):
     def commit_source(self):
-        cmd(self.repo,'git','add','-A');cmd(self.repo,'git','commit','-qm','Review source change');self._sign(self.signed_message)
+        self._sign(self.signed_message)
     def test_archive_export_attributes_cannot_hide_native_private_input(self):
         (self.repo/'private.dat').write_bytes((FIXTURES/'capture/conversation.json').read_bytes())
         (self.repo/'.gitattributes').write_text('private.dat export-ignore\n')
@@ -22,11 +22,11 @@ class SourceProofTests(PublicationCommitTests):
         with source.open('a') as stream:stream.write('\n```html\n<a id="phantom"></a>\n```\n')
         self.commit_source();record=self._verify()
         with self.assertRaisesRegex(PublicationError,'existing stable'):citation(record,'phantom')
-    def test_signed_publication_cannot_change_the_reviewed_content_tree(self):
+    def test_signed_work_changes_require_an_edition_bump(self):
         source=self.repo/'works/recorded-notes/manuscript.md';source.write_text(source.read_text().replace('quiet field','changed field'))
         cmd(self.repo,'git','-c','commit.gpgSign=true','commit','-am','Publish changed content','-m',self.signed_message,env=self.env)
         self.signed=cmd(self.repo,'git','rev-parse','HEAD')
-        with self.assertRaisesRegex(PublicationError,'empty, single-parent'):self._verify()
+        with self.assertRaisesRegex(PublicationError,'advance its edition'):self._verify()
     def test_external_policy_is_required_and_real_gpg_public_policy_verifies_incoming_commits(self):
         with patch.dict(os.environ,{'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':'','GUAVAJAM_PUBLISHER_SSH_SIGNERS':''}):
             with self.assertRaisesRegex(PublicationError,'externally configured'):check(self.repo,self.draft,online=False)
@@ -50,12 +50,12 @@ class SourceProofTests(PublicationCommitTests):
         self.assertEqual('works/recorded-notes/supporting/note.md',result['document'])
         with self.assertRaises(PublicationError):citation(record,'missing',result['document'])
 
-    def test_owner_preparation_requires_reviewed_date_before_asset_inspection(self):
+    def test_owner_preparation_reports_source_edition_without_message_instructions(self):
         from guavajam_core.prepare_publication import prepare
-        with patch('guavajam_core.qualify_assets.snapshot') as inspect:
-            with self.assertRaisesRegex(ValueError, 'publication date'):
-                prepare(self.repo,self.signed,'recorded-notes',published=None)
-            inspect.assert_not_called()
+        with patch('guavajam_core.qualify_assets.qualify', return_value={}):
+            result = prepare(self.repo,self.signed,'recorded-notes')
+        self.assertEqual(1,result['edition'])
+        self.assertNotIn('publication_trailers',result)
 
     def test_owner_preparation_reads_actual_private_retention_without_public_access(self):
         from guavajam_core.prepare_publication import prepare
@@ -71,14 +71,13 @@ class SourceProofTests(PublicationCommitTests):
         source.write_text(re.sub(r'```guavajam-media\n.*?\n```','![A circle](https://assets.example.org/'+KEY+')',source.read_text(),flags=re.S))
         self.commit_source()
         with patch('guavajam_core.asset_policy.public_addresses', side_effect=AssertionError('preparation disclosed an asset')):
-            result=prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store,require_retention=True)
-            self.assertEqual(['GuavaJam-Publication: 1', 'GuavaJam-Work: works/recorded-notes/manuscript.md',
-                              'GuavaJam-Published: 2026-11-13'],result['publication_trailers'])
+            result=prepare(self.repo,self.signed,'recorded-notes',store=store,require_retention=True)
+            self.assertEqual(2,result['edition'])
             self.assertTrue(result['retention_verified'])
             self.assertFalse(result['public_delivery_verified'])
             self.assertEqual(until,result['assets'][0]['retain_until'])
             row=store.head(KEY,'version_0');store.records[store.records.index(row)]=replace(row,retain_until=None,retention_mode=None)
             with self.assertRaisesRegex(AssetError,'private retention'):
-                prepare(self.repo,self.signed,'recorded-notes',published='2026-11-13',store=store,require_retention=True)
+                prepare(self.repo,self.signed,'recorded-notes',store=store,require_retention=True)
 
 def load_tests(loader,tests,pattern):return unittest.TestSuite(loader.loadTestsFromName(n,SourceProofTests) for n in SourceProofTests.__dict__ if n.startswith('test_'))

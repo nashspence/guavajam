@@ -271,7 +271,7 @@ class GitRetentionTests(unittest.TestCase):
              contextlib.redirect_stdout(io.StringIO()):
             yield pushes
 
-    def signed_branch(self, message):
+    def signed_branch(self, message, *, edition=None, settings=False):
         key = self.temp / "signer"
         if not key.exists():
             subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
@@ -279,19 +279,26 @@ class GitRetentionTests(unittest.TestCase):
         self.g("config", "gpg.format", "ssh")
         self.g("config", "user.signingkey", str(key))
         self.g("switch", "-qc", "retire-me")
-        self.g("commit", "--allow-empty", "-S", "-qm", "Publish\n\n" + message)
+        if edition is not None:
+            manuscript = self.root / 'works/field-notes/manuscript.md'
+            manuscript.parent.mkdir(parents=True, exist_ok=True)
+            manuscript.write_text('---\nschema: guavajam.work.v1\nslug: field-notes\n'
+                                  'title: Field Notes\nauthor: Fixture\nlanguage: en\nrights: CC-BY-4.0\n'
+                                  'edition: "' + str(edition) + '"\n---\n\n# Field Notes\n')
+        if settings:
+            (self.root / 'guavajam.json').write_text('{"schema":"guavajam.repository.v1","publisher":"Fixture"}\n')
+        self.g('add', '-A')
+        self.g("commit", "--allow-empty", "-S", "-qm", message)
         head = self.g("rev-parse", "HEAD")
         self.g("push", "-q", "origin", "main", "retire-me")
         return head
 
     def test_signed_publications_must_reach_main_before_compare_and_delete(self):
-        from guavajam_core.publication_protocol import publication_trailers
-        for label in (None, "Initial edition"):
-            with self.subTest(label=label):
-                head = self.signed_branch("\n".join(publication_trailers(
-                    "works/field-notes/manuscript.md", "2026-11-13", label)))
+        for edition in (1, 2):
+            with self.subTest(edition=edition):
+                head = self.signed_branch("Describe the reviewed change", edition=edition)
                 with self.retirement(head) as pushes:
-                    with self.assertRaisesRegex(AssetError, "would orphan a declared publication"):
+                    with self.assertRaisesRegex(AssetError, "would orphan a signed edition"):
                         asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
                     self.assertEqual([], pushes)
                 retained = subprocess.check_output(["git", "--git-dir", str(self.origin), "rev-parse", "retire-me"]).decode().strip()
@@ -307,18 +314,41 @@ class GitRetentionTests(unittest.TestCase):
                 self.assertNotEqual(0, result.returncode)
                 self.g("branch", "-D", "retire-me")
 
-    def test_malformed_signed_declaration_stops_retirement_before_push(self):
-        head = self.signed_branch("GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md")
+    def test_malformed_signed_edition_stops_retirement_before_push(self):
+        head = self.signed_branch("An invalid edition number", edition='invalid')
         with self.retirement(head) as pushes:
-            with self.assertRaisesRegex(AssetError, "cannot classify a signed GuavaJam declaration"):
+            with self.assertRaisesRegex(AssetError, "cannot classify work history"):
                 asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
             self.assertEqual([], pushes)
 
-    def test_repository_checkpoint_alone_can_be_retired(self):
-        head = self.signed_branch("GuavaJam-Repository: 1")
+    def test_signed_repository_settings_alone_can_be_retired(self):
+        head = self.signed_branch("Set repository title", settings=True)
         with self.retirement(head) as pushes:
             asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
             self.assertEqual(1, len(pushes))
+
+    def test_commit_message_text_does_not_declare_an_edition(self):
+        head = self.signed_branch("Explain the removed protocol\n\nGuavaJam-Publication: 1\nGuavaJam-Repository: 1")
+        with self.retirement(head) as pushes:
+            asset_workflow.retire(self.root, "publisher/publications", "retire-me", head, "fixture-token")
+            self.assertEqual(1, len(pushes))
+
+    def test_signed_draft_edit_without_a_bump_can_be_retired(self):
+        published = self.signed_branch('Publish first edition', edition=1)
+        self.g('switch', '-q', 'main')
+        self.g('merge', '--ff-only', 'retire-me')
+        self.g('push', '-q', 'origin', 'main')
+        self.g('switch', '-q', 'retire-me')
+        manuscript = self.root / 'works/field-notes/manuscript.md'
+        manuscript.write_text(manuscript.read_text() + '\nAn abandoned draft change.\n')
+        self.g('add', '-A')
+        self.g('commit', '-S', '-qm', 'Experiment with wording without issuing an edition')
+        head = self.g('rev-parse', 'HEAD')
+        self.g('push', '-q', 'origin', 'retire-me')
+        with self.retirement(head) as pushes:
+            asset_workflow.retire(self.root, 'publisher/publications', 'retire-me', head, 'fixture-token')
+            self.assertEqual(1, len(pushes))
+        self.assertEqual(published, self.g('rev-parse', 'main'))
 
     def test_compare_and_delete_refuses_concurrent_branch_push(self):
         first = self.g("rev-parse", "HEAD")

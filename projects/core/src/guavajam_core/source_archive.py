@@ -90,7 +90,7 @@ def check(archive,revision,*,fingerprints=(),allowed_signers=None):
         result=subprocess.run(['git','clone','--bare','--no-hardlinks',str(bundle),str(restored)],capture_output=True,check=False)
         if result.returncode:raise AssetError('Git bundle could not restore source objects')
         record=verify(restored,revision,fingerprints=fingerprints,allowed_signers=allowed_signers,online_media=False)
-        if record['manuscript']!=data['manuscript']:raise AssetError('archive manuscript differs from the signed declaration')
+        if record['manuscript']!=data['manuscript']:raise AssetError('archive manuscript differs from the signed edition')
         with snapshot(restored,revision) as (root,files):
             policy=load_policy(root);urls=references(root,files,record['manuscript'])
             expected={'sha256/'+'.'.join(policy.parse(url)):url for url in urls}

@@ -42,7 +42,7 @@ def make_fixture(directory):
     git('add','-A');git('commit','-qm','Qualification source')
     (repo/'guavajam.json').write_text(json.dumps({'schema':'guavajam.repository.v1','publisher':'Fixture Publisher',
                                                       'base_url':'https://publisher.example'})+'\n')
-    git('add','guavajam.json');git('commit','-qm','Review publisher repository settings')
+    git('add','guavajam.json')
     keys=directory/'signing';keys.mkdir(mode=0o700)
     env={**os.environ,'GNUPGHOME':str(keys)}
     def gpg(*args):return subprocess.check_output(['gpg',*args],env=env,stderr=subprocess.PIPE).decode().strip()
@@ -50,7 +50,7 @@ def make_fixture(directory):
         'Browser Preview <fixture@example.org>','ed25519','sign','0')
     fingerprint=next(line.split(':')[9] for line in gpg('--batch','--with-colons','--list-secret-keys').splitlines() if line.startswith('fpr:'))
     git('config','gpg.format','openpgp');git('config','user.signingkey',fingerprint)
-    subprocess.run(['git','commit','--allow-empty','-S','-qm','Authorize repository settings\n\nGuavaJam-Repository: 1'],cwd=repo,env=env,check=True,capture_output=True)
+    subprocess.run(['git','commit','-S','-qm','Set publisher repository settings'],cwd=repo,env=env,check=True,capture_output=True)
     with (work/'manuscript.md').open('a') as stream:stream.write('\nA proposed additional work passage.\n')
     git('add','-A');git('commit','-qm','Proposed unsigned complete site');sha=git('rev-parse','HEAD')
     output=directory/'view';render(repo,sha,'sample-work',output,preview=True)
@@ -66,7 +66,7 @@ def make_fixture(directory):
     from unittest.mock import patch
     with patch.dict(os.environ,{'GNUPGHOME':str(keys)}):
         manifest=build_preview(repo,sha,'sample-work',private,store=store,
-                               fingerprints=[fingerprint],published='2026-11-15')
+                               fingerprints=[fingerprint])
     # The same full media journey must also work before any signer bootstrap.
     from guavajam_test_support.discovery_fixture import Draft
     import shutil
@@ -80,7 +80,7 @@ def make_fixture(directory):
     bootstrap_sha = bootstrap.git('rev-parse', 'HEAD')
     bootstrap_output = directory/'bootstrap-private'
     bootstrap_manifest = build_preview(bootstrap.repo, bootstrap_sha, 'sample-work', bootstrap_output,
-                                       store=store, published='2026-11-15')
+                                       store=store)
     fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha,
              'preview_root':str(private),'preview_manifest':manifest,
              'bootstrap':{'revision':bootstrap_sha,'preview_root':str(bootstrap_output),

@@ -29,7 +29,6 @@ class PrivateComposeTests(unittest.TestCase):
             env={**os.environ,'GUAVAJAM_PREVIEW_SOURCE':str(p.repo),'GUAVAJAM_PREVIEW_WORK':'field-notes',
                  'GUAVAJAM_PREVIEW_ORIGIN':'http://127.0.0.1:'+selected,
                  'GUAVAJAM_PREVIEW_INPUTS':str(inputs),'GUAVAJAM_PREVIEW_PORT':selected,'GUAVAJAM_POLL_SECONDS':'5',
-                 'GUAVAJAM_PREVIEW_PUBLISHED':'2026-11-15',
                  'GUAVAJAM_SSH_ALLOWED_SIGNERS':'','GUAVAJAM_TRUSTED_GPG_FINGERPRINTS':p.fingerprint,
                  'GUAVAJAM_GPG_PUBLIC_KEYS':'/run/preview/publisher.asc'}
             override=work/'override.json'
@@ -79,7 +78,7 @@ class PrivateComposeTests(unittest.TestCase):
                    'GUAVAJAM_PREVIEW_WORK':'field-notes', 'GUAVAJAM_PREVIEW_INPUTS':str(inputs),
                    'GUAVAJAM_PREVIEW_ORIGIN':'http://127.0.0.1:'+selected,
                    'GUAVAJAM_PREVIEW_PORT':selected, 'GUAVAJAM_POLL_SECONDS':'5',
-                   'GUAVAJAM_PREVIEW_PUBLISHED':'2026-11-16', 'GUAVAJAM_PREVIEW_BASE_REF':'',
+                   'GUAVAJAM_PREVIEW_BASE_REF':'',
                    'GUAVAJAM_SSH_ALLOWED_SIGNERS':'', 'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS':'',
                    'GUAVAJAM_GPG_PUBLIC_KEYS':''}
             override = work/'override.json'

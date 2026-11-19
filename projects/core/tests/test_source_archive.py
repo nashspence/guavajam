@@ -15,7 +15,7 @@ class ArchiveTests(PublicationCommitTests):
         source=self.repo/'works/recorded-notes/manuscript.md'
         source.write_text(source.read_text().replace('a'*64,self.digest)+f'\n[Same recording](https://assets.example.org/sha256/{self.digest}.mp3)\n')
         from test_signed_commit_publication import cmd
-        cmd(self.repo,'git','add','-A');cmd(self.repo,'git','commit','-qm','Review archive fixture');self._sign(self.signed_message)
+        self._sign(self.signed_message)
         self.archive=Path(self.temporary.name)/'archive'
         self.enterContext(patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}))
     @contextlib.contextmanager

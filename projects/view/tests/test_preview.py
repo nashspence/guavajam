@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -13,7 +14,7 @@ from guavajam.update import verify_public_delivery
 from guavajam_core.asset_policy import AssetError
 from guavajam_core.asset_versions import pin_key
 from guavajam_core.gateway_index import Index
-from guavajam_test_support.discovery_fixture import Publisher
+from guavajam_test_support.discovery_fixture import Draft, Publisher
 from guavajam_test_support.storage_fixture import MemoryStore, RAW, KEY
 
 
@@ -37,10 +38,9 @@ class PreviewTests(unittest.TestCase):
         self.publisher.git('add', '-A'); self.publisher.git('commit', '-qm', 'Unpublished change')
         return self.publisher.git('rev-parse', 'HEAD')
 
-    def preview(self, revision, *, work='field-notes', published='2026-11-15', label=None, output=None):
+    def preview(self, revision, *, work='field-notes', output=None):
         return build_preview(self.publisher.repo, revision, work, output or self.output,
-                             fingerprints=[self.publisher.fingerprint], store=self.store,
-                             published=published, label=label)
+                             fingerprints=[self.publisher.fingerprint], store=self.store)
 
     def test_whole_site_unsigned_includes_current_edition_and_proposed_revision(self):
         published = self.publisher.publish('2026-11-01')
@@ -116,8 +116,9 @@ class PreviewTests(unittest.TestCase):
         published = self.publisher.publish('2026-11-01')
         self.publisher.git('switch', '-c', 'work/revised')
         self.source(assets=False)
+        self.publisher.git('reset', '--soft', published)
         edition = self.publisher.publish('2026-11-15')
-        manifest = self.preview(edition, published=None)
+        manifest = self.preview(edition)
         self.assertTrue(manifest['candidate_signed'])
         self.assertFalse(manifest['provisional_identity'])
         catalog, _ = discover(self.publisher.repo, ref=edition, fingerprints=[self.publisher.fingerprint])
@@ -137,7 +138,7 @@ class PreviewTests(unittest.TestCase):
     def test_signed_first_repository_without_main_uses_verified_candidate_history(self):
         self.publisher.git('branch', '-m', 'draft')
         edition = self.publisher.publish('2026-11-15')
-        manifest = self.preview(edition, published=None)
+        manifest = self.preview(edition)
         self.assertTrue(manifest['candidate_signed'])
         self.assertFalse(manifest['provisional_repository'])
         self.assertTrue(manifest['repository_checkpoint'])
@@ -147,7 +148,7 @@ class PreviewTests(unittest.TestCase):
         sha = self.source(assets=False)
         with self.assertRaises(ValueError):
             build_preview(self.publisher.repo, sha, 'field-notes', self.output,
-                          fingerprints=['a'*40], published='2026-11-15')
+                          fingerprints=['a'*40])
         self.assertFalse(self.output.exists())
 
     def test_explicit_signed_work_recommendation_is_not_silently_overwritten(self):
@@ -176,11 +177,7 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(AssetError):
             self.preview(sha, output=self.publisher.repo/'preview')
         with self.assertRaisesRegex(ValueError, 'publisher signing policy'):
-            build_preview(self.publisher.repo, sha, 'field-notes', self.output, store=self.store,
-                          published='2026-11-15')
-        with self.assertRaisesRegex(ValueError, 'PUBLISHED'):
-            build_preview(self.publisher.repo, sha, 'field-notes', self.output, store=self.store,
-                          fingerprints=[self.publisher.fingerprint])
+            build_preview(self.publisher.repo, sha, 'field-notes', self.output, store=self.store)
         self.store.bytes[(KEY, 'version_0')] = b'!'*len(RAW)
         with self.assertRaises(AssetError):
             self.preview(sha)
@@ -230,6 +227,75 @@ class ReadinessTests(unittest.TestCase):
         with patch('guavajam_core.publication_commit.verify', side_effect=AssetError('not released')):
             with self.assertRaises(AssetError):
                 verify_public_delivery(Path('.'), catalog, fingerprints=['F'*40])
+
+
+class EditionPreviewTests(unittest.TestCase):
+    """Edition metadata and ordinary commit prose flow through the optional view."""
+    def setUp(self):
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.p = Draft(self.root, branch='main', base_url='https://publisher.example')
+        self.key = self.root/'signing-key'
+        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(self.key)], check=True)
+        self.p.git('config', 'gpg.format', 'ssh')
+        self.p.git('config', 'user.signingkey', str(self.key))
+        self.signers = self.root/'allowed-signers'
+        self.signers.write_text('publisher@example.org '+self.key.with_suffix('.pub').read_text())
+        self.output = self.root/'preview'
+        source = self.p.repo/'works/field-notes/manuscript.md'
+        source.write_text(source.read_text().replace('edition: "0"', 'edition: "1"'))
+        self.p.git('add', '-A')
+        self.p.git('commit', '-S', '-qm', 'Explain <changes> & reasons\n\nOrdinary multiline prose.\n\nGuavaJam-Anything: plain text')
+        self.revision = self.p.git('rev-parse', 'HEAD')
+
+    def test_signed_preview_displays_git_metadata_and_matches_production_bytes(self):
+        from guavajam.site import build_site
+        from guavajam_core.publication_protocol import commit_facts
+        manifest = build_preview(self.p.repo, self.revision, 'field-notes', self.output,
+                                 allowed_signers=self.signers)
+        self.assertTrue(manifest['candidate_signed'])
+        catalog = json.loads((self.output/'CATALOG.json').read_text())
+        edition, = catalog['works'][0]['editions']
+        self.assertEqual(1, edition['edition'])
+        self.assertEqual(commit_facts(self.p.repo, self.revision)['message'], edition['message'])
+        self.assertNotIn('label', edition)
+        html = (self.output/'works/field-notes/editions'/self.revision/'index.html').read_text()
+        self.assertIn('Edition 1', html)
+        self.assertIn('Explain &lt;changes&gt; &amp; reasons', html)
+        self.assertIn('GuavaJam-Anything: plain text', html)
+        production = self.root/'production'
+        build_site(self.p.repo, self.output/'CATALOG.json', production,
+                   allowed_signers=self.signers, initial_catalog=True)
+        for name in manifest['files']:
+            self.assertEqual((production/name).read_bytes(), (self.output/name).read_bytes(), name)
+
+    def test_unsigned_draft_uses_verified_base_without_claiming_an_edition_bump(self):
+        from guavajam_core.publication_protocol import discover
+        self.p.git('switch', '-c', 'draft')
+        self.p.source('field-notes', 'Field Notes', 'An intermediate unpublished correction.')
+        self.p.git('add', '-A'); self.p.git('commit', '-qm', 'Work in progress')
+        draft = self.p.git('rev-parse', 'HEAD')
+        with self.assertRaisesRegex(ValueError, 'advance its edition'):
+            discover(self.p.repo, ref=draft, allowed_signers=self.signers)
+        manifest = build_preview(self.p.repo, draft, 'field-notes', self.output,
+                                 allowed_signers=self.signers)
+        self.assertFalse(manifest['candidate_signed'])
+        catalog = json.loads((self.output/'CATALOG.json').read_text())
+        self.assertEqual(2, len(catalog['works'][0]['editions']))
+        proposed = next(e for e in catalog['works'][0]['editions'] if e['revision'] == draft)
+        self.assertNotIn('edition', proposed)
+        self.assertEqual(self.revision, manifest['base_revision'])
+        self.assertFalse((self.output/'SITE.json').exists())
+
+    def test_catalog_cannot_relabel_source_number_or_rewrite_commit_prose(self):
+        from guavajam.site import build_site
+        from guavajam_core.publication_protocol import discover
+        for field, value in [('edition', 2), ('message', 'An invented explanation')]:
+            catalog, _ = discover(self.p.repo, allowed_signers=self.signers)
+            catalog['works'][0]['editions'][0][field] = value
+            path = self.root/'catalog.json'; path.write_text(json.dumps(catalog))
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'catalog .* differs'):
+                build_site(self.p.repo, path, self.output, allowed_signers=self.signers, initial_catalog=True)
+            self.assertFalse(self.output.exists())
 
 
 if __name__ == '__main__':

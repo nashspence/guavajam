@@ -1,6 +1,6 @@
 """Launch the optional GuavaJam *whole site* preview from a publication checkout.
 
-Only exact committed author branches and any declared baseline are read.
+Only exact committed author branches and any published baseline are read.
 Docker runs an independently pinned GuavaJam image with read-only source,
 optional external signer trust and read-only private S3 access; no source program
 runs with either credential. No Docker socket is mounted inside the container.
@@ -69,7 +69,7 @@ def safe_file(repo, file, *, owner_only=False):
     return candidate
 
 
-def run(repo, work, published, *, label=None, port=8082):
+def run(repo, work, *, port=8082):
     repo = Path(repo).expanduser().resolve(strict=True)
     if not SLUG.fullmatch(work) or not 1 <= port <= 65535:
         raise AssetError('select a valid work slug and preview port')
@@ -97,10 +97,6 @@ def run(repo, work, published, *, label=None, port=8082):
                '-e', 'GUAVAJAM_PREVIEW_TOKEN_FILE=/run/secrets/session.key']
         if private_env:
             env += ['-e', 'S3_ENV=/run/secrets/readonly.env']
-        if published:
-            env += ['-e', 'GUAVAJAM_PREVIEW_PUBLISHED='+published]
-        if label:
-            env += ['-e', 'GUAVAJAM_PREVIEW_LABEL='+label]
         if signer:
             env += ['-e', 'GUAVAJAM_SSH_ALLOWED_SIGNERS=/trust/allowed_signers']
             trusted_destination = '/trust/allowed_signers'
@@ -136,12 +132,10 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', default='.')
     parser.add_argument('--work', required=True)
-    parser.add_argument('--published')
-    parser.add_argument('--label')
     parser.add_argument('--port', type=int, default=8082)
     args=parser.parse_args(argv)
     try:
-        return run(args.repo, args.work, args.published, label=args.label, port=args.port)
+        return run(args.repo, args.work, port=args.port)
     except (AssetError, OSError, subprocess.SubprocessError):
         print('Unable to start private preview. Check Docker, independent signer trust and private read credentials.', file=sys.stderr)
         return 1

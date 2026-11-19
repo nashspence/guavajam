@@ -50,7 +50,6 @@ class PeriodicUpdateTests(unittest.TestCase):
             self.p.git('commit','--allow-empty','-qm','Unrelated administrative change')
             self.assertFalse(self.update()['changed']);self.assertEqual(0,called.call_count)
             self.p.source('field-notes','Revised Field Notes','A new observation.')
-            self.p.git('add','-A');self.p.git('commit','-qm','Review new content')
             sha=self.p.publish('2026-11-14')
             self.assertTrue(self.update()['changed']);self.assertEqual(1,called.call_count)
             self.assertIn(sha,(self.output/'current/CATALOG.json').read_text())

@@ -584,13 +584,13 @@ class CatalogBuildTests(unittest.TestCase):
         return repository
 
     def signed_variant(self, repository):
+        manuscript = repository/'works/field-notes/manuscript.md'
+        manuscript.write_text(manuscript.read_text().replace('edition: "2"', 'edition: "3"'))
         command(repository, 'git', 'add', '-A')
-        command(repository, 'git', 'commit', '-qm', 'Review a changed source fixture')
-        command(repository, 'git', 'commit', '--allow-empty', '-S', '-m', 'Publish source fixture',
-                '-m', 'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        command(repository, 'git', 'commit', '-S', '-m', 'Publish source fixture')
         revision = command(repository, 'git', 'rev-parse', 'HEAD')
         work = self.catalog['works'][0]
-        work['editions'] = [{**work['editions'][1], 'revision': revision}]
+        work['editions'] = [{**work['editions'][1], 'revision': revision, 'edition': 3}]
         work['metadata_revision'] = revision
         work['recommended_revision'] = revision
         self.catalog['works'] = [work]

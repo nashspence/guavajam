@@ -31,6 +31,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual('/run/preview/readonly.env', preview['environment']['S3_ENV'])
         self.assertEqual('${GUAVAJAM_SSH_ALLOWED_SIGNERS:-}', preview['environment']['GUAVAJAM_SSH_ALLOWED_SIGNERS'])
         self.assertEqual('/run/preview/session.key', preview['environment']['GUAVAJAM_PREVIEW_TOKEN_FILE'])
+        self.assertNotIn('GUAVAJAM_PREVIEW_PUBLISHED', preview['environment'])
+        self.assertNotIn('GUAVAJAM_PREVIEW_LABEL', preview['environment'])
         self.assertEqual(['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080'], preview['ports'])
         self.assertFalse(preview.get('depends_on'))
         self.assertIn('COPY --from=node /usr/local/bin/node /usr/local/bin/node', self.stages['preview'])

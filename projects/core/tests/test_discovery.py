@@ -1,10 +1,7 @@
-"""Publisher-owned automatic index; signed metadata, not tags or Git timestamps.
+"""Publisher-owned discovery from signed versioned trees and ordinary Git facts.
 
-Copy templates/repository.json to guavajam.json, choose the publisher's real origin,
-review/commit it, then sign an empty checkpoint ending in GuavaJam-Repository: 1. New
-publications use GuavaJam-Publication: 1, GuavaJam-Work and GuavaJam-Published trailers.
-Later DOI/status/notices live in that same signed publisher settings file.
-The exact downstream output is guavajam.catalog.v1; no duplicate renderer config.
+An edition is a complete immutable work subtree introduced by one signed commit.
+Repository administration remains signed data, independent of any optional view.
 """
 import copy
 import json
@@ -16,29 +13,20 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from guavajam_core.publication_protocol import discover, declaration, publication_trailers, policy, verify_shape
+from guavajam_core.publication_protocol import discover, work_metadata, policy, verify_shape
 from guavajam_core.catalog import CatalogError
 from guavajam_test_support.discovery_fixture import Publisher
 
 
 class DeclarationTests(unittest.TestCase):
-    def test_exact_v1_requires_a_signed_date_and_accepts_an_optional_label(self):
-        unlabelled = publication_trailers('works/essay/manuscript.md', '2026-11-13')
-        self.assertEqual({'kind': 'publication', 'version': 1, 'manuscript': 'works/essay/manuscript.md',
-                          'published': '2026-11-13'}, declaration('Publish\n\n' + '\n'.join(unlabelled)))
-        for invalid in [unlabelled[:2], ['GuavaJam-Publication: 2', *unlabelled[1:]]]:
-            with self.assertRaises(ValueError):
-                declaration('Publish\n\n' + '\n'.join(invalid))
-        lines = publication_trailers('works/essay/manuscript.md', '2026-11-13', 'Second edition')
-        parsed = declaration('Publish\n\n' + '\n'.join(lines))
-        self.assertEqual('Second edition', parsed['label'])
-        self.assertEqual('2026-11-13', parsed['published'])
-        for bad in ['\nGuavaJam-Published: 2026-11-13', '\nGuavaJam-Repository: 1', '\nGuavaJam-Unknown: value', '\nTrailing prose']:
-            with self.subTest(bad=bad), self.assertRaises(ValueError):
-                declaration('Publish\n\n' + '\n'.join(lines) + bad)
-        for date in (None, 'today', '2026-02-30', '2026-11-13T10:00:00Z'):
-            with self.assertRaises(ValueError):
-                publication_trailers('works/essay/manuscript.md', date)
+    def test_source_edition_is_explicit_bounded_and_unambiguous(self):
+        source = '---\nschema: guavajam.work.v1\nslug: essay\nedition: "1"\n---\n\n# Essay\n'
+        self.assertEqual('1',work_metadata(source.encode())['edition'])
+        for invalid in ['1','true','"01"','"-1"','"2147483648"','"one"']:
+            with self.subTest(edition=invalid),self.assertRaises(ValueError):
+                work_metadata(source.replace('"1"',invalid).encode())
+        with self.assertRaisesRegex(ValueError,'duplicate'):
+            work_metadata(source.replace('edition: "1"','edition: "1"\nedition: "2"').encode())
 
     def test_configuration_is_closed_data_not_a_template_or_authority(self):
         good = {'schema': 'guavajam.repository.v1', 'publisher': 'Publisher', 'base_url': 'https://example.org'}
@@ -70,7 +58,8 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(first, work['metadata_revision'])
         self.assertEqual(second, work['recommended_revision'])
         self.assertEqual([first, second], [e['revision'] for e in work['editions']])
-        self.assertEqual('Revised edition', work['editions'][1]['label'])
+        self.assertEqual('Revised edition\n', work['editions'][1]['message'])
+        self.assertEqual([1,2],[edition['edition'] for edition in work['editions']])
         self.assertEqual((catalog, evidence), self.discover())
         self.assertFalse(evidence['assets_verified'])
 
@@ -83,7 +72,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual('10.1234/example.v1', catalog['works'][0]['editions'][0]['doi'])
         self.assertEqual(original, self.p.git('cat-file', '-p', sha))
 
-    def test_signed_date_is_required_and_corrections_require_a_notice(self):
+    def test_commit_date_is_derived_and_corrections_require_a_notice(self):
         sha = self.p.publish('2026-10-01')
         catalog, _ = self.discover()
         self.assertEqual('2026-10-01', catalog['works'][0]['editions'][0]['published'])
@@ -105,7 +94,7 @@ class DiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'without a new signed'):
             self.discover()
         self.p.seal(signed=False)
-        with self.assertRaisesRegex(ValueError, 'signed commit'):
+        with self.assertRaisesRegex(ValueError, 'signed approval'):
             self.discover()
 
     def test_only_the_selected_history_counts_never_tags_or_side_branches(self):
@@ -120,7 +109,9 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_invalid_publication_cannot_be_skipped_or_whitelisted_by_source(self):
         self.p.publish()
-        self.p.git('commit', '--allow-empty', '-qm', 'Bad\n\nGuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        source=self.p.repo/'works/field-notes/manuscript.md'
+        source.write_text(source.read_text().replace('edition: "1"','edition: "2"'))
+        self.p.git('add','works');self.p.git('commit','-qm','An unsigned edition bump')
         with self.assertRaisesRegex(ValueError, 'signed commit'):
             self.discover()
         with self.assertRaises(ValueError):

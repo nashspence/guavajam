@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import os
+import re
 import subprocess
 
 
@@ -31,13 +32,16 @@ class Draft:
 
     def source(self, slug, title, body):
         directory = self.repo / 'works' / slug; directory.mkdir(parents=True, exist_ok=True)
-        (directory/'manuscript.md').write_text(f'''---
+        manuscript = directory / 'manuscript.md'
+        previous = re.search(r'^edition: [\"\']?([0-9]+)', manuscript.read_text(), re.M) if manuscript.exists() else None
+        edition = previous[1] if previous else '0'
+        manuscript.write_text(f'''---
 schema: guavajam.work.v1
 title: {title}
 author: Example Author
 slug: {slug}
 language: en
-status: draft
+edition: "{edition}"
 rights: CC-BY-4.0
 ---
 
@@ -68,16 +72,29 @@ class Publisher(Draft):
         self.revisions = []
 
     def seal(self, signed=True):
-        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve repository settings\n\nGuavaJam-Repository: 1')
+        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Approve repository settings')
         return self.git('rev-parse', 'HEAD')
 
     def amend_settings(self, signed=True):
-        self.write_settings(); self.git('add', 'guavajam.json'); self.git('commit', '-qm', 'Review repository settings')
-        return self.seal(signed=signed)
+        self.write_settings(); self.git('add', 'guavajam.json')
+        self.git('commit', '--allow-empty', *(['-S'] if signed else []), '-qm', 'Review repository settings')
+        return self.git('rev-parse', 'HEAD')
 
     def publish(self, day='2026-11-13', slug='field-notes', label=None):
-        from guavajam_core.publication_protocol import publication_trailers
-        trailers = publication_trailers('works/' + slug + '/manuscript.md', day, label)
-        self.git('commit', '--allow-empty', '-S', '-qm', 'Publish work\n\n' + '\n'.join(trailers))
+        """Issue a real content/version commit; label is ordinary commit prose."""
+        manuscript = self.repo / 'works' / slug / 'manuscript.md'
+        source = manuscript.read_text()
+        current = int(re.search(r'^edition: ["\']?([0-9]+)', source, re.M)[1])
+        manuscript.write_text(re.sub(r'^edition: .*$', 'edition: "' + str(current + 1) + '"', source, flags=re.M))
+        self.git('add', 'works/' + slug)
+        original = self.env.get('GIT_COMMITTER_DATE')
+        self.env['GIT_COMMITTER_DATE'] = day + 'T12:00:00+00:00'
+        try:
+            self.git('commit', '-S', '-qm', label if label is not None else 'Publish ' + slug)
+        finally:
+            if original is None:
+                self.env.pop('GIT_COMMITTER_DATE', None)
+            else:
+                self.env['GIT_COMMITTER_DATE'] = original
         sha = self.git('rev-parse', 'HEAD'); self.revisions.append(sha)
         return sha

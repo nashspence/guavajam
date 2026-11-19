@@ -233,7 +233,6 @@ class ReleaseAuthorityTests(unittest.TestCase):
         pin_key(self.store, Index(self.store), key)
         self.publisher.source('field-notes', 'Field Notes',
                               '![One](https://assets.example.org/'+KEY+')\n\n![Two](https://assets.example.org/'+key+')')
-        self.publisher.git('add', '-A'); self.publisher.git('commit', '-qm', 'Review second asset')
         self.revision = self.publisher.publish()
         self.merge()
         original = self.store.upload
@@ -297,6 +296,20 @@ class ReleaseAuthorityTests(unittest.TestCase):
             release(self.publisher.repo, self.revision, self.tip, store=self.store, release_store=self.store,
                     fingerprints=['0'*40], apply=True)
         self.assertIsNone(Releases(self.store).get(KEY))
+
+    def test_changed_work_without_an_edition_bump_on_main_blocks_release(self):
+        self.merge()
+        manuscript = self.publisher.repo / 'works/field-notes/manuscript.md'
+        manuscript.write_text(manuscript.read_text() + '\nA later unversioned change.\n')
+        self.publisher.git('add', str(manuscript.relative_to(self.publisher.repo)))
+        self.publisher.git('commit', '-qm', 'Change published source without a bump')
+        self.publisher.git('push', '-q', 'origin', 'main')
+        self.tip = self.publisher.git('rev-parse', 'main')
+        before = list(self.store.uploads)
+        with self.assertRaises(ValueError):
+            self.run_release(apply=True)
+        self.assertEqual(before, self.store.uploads)
+        self.assertEqual(0, self.public_calls)
 
     def test_main_movement_before_first_write_stops_release(self):
         self.merge()

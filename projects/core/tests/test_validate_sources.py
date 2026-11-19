@@ -20,7 +20,7 @@ MANUSCRIPT = ("# On Structure and Identity\n\n"
               "See [the section](#sec-1).\n")
 METADATA = {
     "author": "nashspence", "language": "en", "rights": "all-rights-reserved",
-    "schema": "guavajam.work.v1", "slug": "sample", "status": "draft",
+    "schema": "guavajam.work.v1", "slug": "sample", "edition": "0",
     "title": "On Structure and Identity"
 }
 
@@ -286,8 +286,19 @@ class StrictSourceTests(unittest.TestCase):
     def test_metadata_invalid_rights(self):
         self.assert_bad("rights must be one of", metadata={**METADATA, "rights": "MIT"})
 
-    def test_metadata_published_status_disallowed(self):
-        self.assert_bad("status must remain draft", metadata={**METADATA, "status": "published"})
+    def test_metadata_edition_is_a_canonical_decimal_string(self):
+        for edition in ("0", "1", "2147483647"):
+            with self.subTest(edition=edition):
+                self.assertEqual([], self.check(metadata={**METADATA, "edition": edition}))
+        for edition in ("-1", "+1", "01", "1.0", "1e2", "2147483648", "1" * 100, "draft"):
+            with self.subTest(edition=edition):
+                self.assert_bad("edition must be a canonical decimal string", metadata={**METADATA, "edition": edition})
+        for edition in (0, 1, True):
+            with self.subTest(edition=edition):
+                self.assert_bad("YAML string scalar", metadata={**METADATA, "edition": edition})
+
+    def test_metadata_has_no_separate_publication_status(self):
+        self.assert_bad("schema keys mismatch", metadata={**METADATA, "status": "draft"})
 
     def test_does_not_validate_heading_inside_code(self):
         content = MANUSCRIPT + '````\n<a id="fake"></a>\n## Not a section\n````\n'

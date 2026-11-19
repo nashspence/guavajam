@@ -32,7 +32,6 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual('unchanged', poll(self.state, self.env)['status'])
         self.assertEqual(selected, os.readlink(self.state / 'site/current'))
         self.publisher.source('field-notes', 'Field Notes', 'Revised observation.')
-        self.publisher.git('add', '-A'); self.publisher.git('commit', '-qm', 'Review revision')
         revision = self.publisher.publish('2026-11-15')
         self.assertEqual('updated', poll(self.state, self.env)['status'])
         self.assertIn(revision, (self.state / 'site/current/CATALOG.json').read_text())

@@ -93,7 +93,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                     try:
                         with urllib.request.urlopen(origin+path,timeout=3) as received:assert received.status!=200
                     except urllib.error.HTTPError as error:assert error.code in {403,404}
-                p.source('field-notes','Field Notes','An updated observation.');p.git('add','-A');p.git('commit','-qm','Review updated source');p.publish('2026-11-15')
+                p.source('field-notes','Field Notes','An updated observation.');p.publish('2026-11-15')
                 for path in [p.repo,*p.repo.rglob('*')]:
                     if not path.is_symlink():path.chmod(0o755 if path.is_dir() else 0o644)
                 wait_for(lambda:catalog()['works'][0]['recommended_revision']==p.revisions[-1])

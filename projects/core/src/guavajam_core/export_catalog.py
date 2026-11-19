@@ -2,7 +2,7 @@
 """Export the exact GuavaJam catalog from signed publication/repository conventions.
 
 This reads Git data, never tags or a mutable checkout. Date/DOI/status changes
-belong in the publisher's reviewed guavajam.json, authorized by GuavaJam-Repository: 1.
+belong in the publisher's reviewed guavajam.json, authorized by an independently trusted signed commit.
 It does not sign, push, register DOIs, fetch media or deploy a site.
 """
 from .repository import repository_root

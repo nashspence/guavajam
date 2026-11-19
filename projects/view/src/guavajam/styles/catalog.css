@@ -34,6 +34,7 @@
 .guavajam-citation-entry { margin-top: 2rem; scroll-margin-top: 1rem; }
 .guavajam-citation-entry:target { outline: 2px solid var(--guavajam-focus); outline-offset: .4rem; }
 .guavajam-source-identity { overflow-wrap: anywhere; }
+.guavajam-edition-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media print {
   .guavajam-navigation, .guavajam-passage-cite, .guavajam-source-guide { display: none; }
   .guavajam-edition-advisory, .guavajam-notices, .guavajam-citation, .guavajam-editions > li { break-inside: avoid; }

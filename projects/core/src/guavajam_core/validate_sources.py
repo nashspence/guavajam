@@ -31,7 +31,7 @@ ATX = re.compile(r"^#{1,6}[ \t]+\S")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
-META_REQUIRED = {"schema", "slug", "title", "language", "rights", "status"}
+META_REQUIRED = {"schema", "slug", "title", "language", "rights", "edition"}
 META_OPTIONAL = {"author", "author_orcid", "authors", "identifiers", "abstract", "schema_type"}
 
 
@@ -401,8 +401,8 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
         errors.append(issue(relative, "title must exactly match the manuscript H1 plain text"))
     if data["rights"] not in RIGHTS:
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
-    if data["status"] != "draft":
-        errors.append(issue(relative, "source status must remain draft; publication status comes from a signed publication commit"))
+    if not re.fullmatch(r"0|[1-9][0-9]{0,9}", data["edition"]) or int(data["edition"]) > 2147483647:
+        errors.append(issue(relative, 'edition must be a canonical decimal string from "0" to "2147483647"; "0" is unpublished'))
     if "identifiers" in data:
         errors.extend(issue(relative, message) for message in check_identifier_map(data["identifiers"], WORK_IDS, str(relative)))
     return errors

@@ -67,7 +67,8 @@ def navigation(catalog, filename, *, work=None, edition=None, work_title=None):
                        work_title or work['slug']))
     if edition is not None:
         record = edition_root(work['slug'], edition['revision']) + '/index.html'
-        label = edition.get('label', 'Revision ' + edition['revision'][:12])
+        label = edition.get('label', 'Edition ' + str(edition['edition']) if 'edition' in edition
+                            else 'Revision ' + edition['revision'][:12])
         crumbs.append((relative(filename, record) if filename != record else None, label))
         if filename != record:
             supporting = '/read/supporting/' in filename

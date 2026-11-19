@@ -51,11 +51,14 @@ class Output:
 
 
 def _ordered(work):
-    return sorted(work['editions'], key=lambda item: (item['published'], item['revision']), reverse=True)
+    proposed = max((item.get('edition', 0) for item in work['editions']), default=0) + 1
+    return sorted(work['editions'],
+                  key=lambda item: (item.get('edition', proposed), item['published'], item['revision']), reverse=True)
 
 
 def _edition_label(edition):
-    return edition.get('label', 'Revision ' + edition['revision'][:12])
+    return edition.get('label', 'Edition ' + str(edition['edition']) if 'edition' in edition
+                       else 'Revision ' + edition['revision'][:12])
 
 
 def _edition_link(catalog, filename, work, edition, facts, *, provisional=False):
@@ -140,6 +143,8 @@ def _edition_page(catalog, work, edition, publication, *, provisional=False):
     if work.get('concept_doi'):
         body += doi_display(work['concept_doi'], 'Work across editions')
     body += abstract(facts) + edition_advisory(catalog, filename, work, edition)
+    if edition.get('message'):
+        body += '<h2>Commit message</h2><pre class="guavajam-edition-message">' + e(edition['message']) + '</pre>'
     if edition['status'] in READABLE_STATUSES:
         body += ('<p class="guavajam-actions"><a href="read/index.html">Read this edition</a>'
                  '<a href="read/cite.html">Cite committed passages</a><a download href="read/source.gfm">Download exact GFM source</a></p>')
@@ -295,6 +300,12 @@ def build_site(repo, catalog_path, output, *, fingerprints=(), allowed_signers=N
                     raise CatalogError('site edition verification disagrees with its selected authority')
                 canonical = canonical_record(sha, view['canonical']['manuscript'])
                 facts = view['facts']
+                if 'edition' in edition and edition['edition'] != int(facts['edition']):
+                    raise CatalogError('catalog edition number differs from the committed source')
+                if 'message' in edition:
+                    from guavajam_core.publication_protocol import commit_facts
+                    if edition['message'] != commit_facts(repo, sha)['message']:
+                        raise CatalogError('catalog message differs from the edition commit')
                 concept = facts.get('identifiers', {}).get('concept_doi')
                 if concept and work.get('concept_doi') != concept:
                     raise CatalogError('catalog work DOI conflicts with the signed source declaration')

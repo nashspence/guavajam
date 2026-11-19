@@ -13,7 +13,7 @@ from urllib.parse import quote
 from .asset_policy import AssetError
 from .manage_assets import SHA, git, pages, repository, require_action
 from .github import gh
-from .publication_protocol import declaration
+from .publication_protocol import publication_history
 
 
 def branch_name(root, branch):
@@ -82,17 +82,16 @@ def retire(root, repo, branch, expected, token):
         raise AssetError("branch tip differs from the requested SHA; review it before retiring")
     main="refs/remotes/origin/main"
     git(root,"fetch","--no-tags","--no-write-fetch-head","origin","refs/heads/main:"+main,expected)
-    # All declared publications must survive branch retirement in protected main.
-    for commit in git(root,'rev-list',main+'..'+expected).decode().splitlines():
-        message=git(root,'show','-s','--format=%B',commit).decode('utf-8','replace')
-        signed=b'\ngpgsig ' in b'\n'+git(root,'cat-file','-p',commit).split(b'\n\n',1)[0]
-        if signed:
-            try:
-                declared = declaration(message)
-            except ValueError as exc:
-                raise AssetError('cannot classify a signed GuavaJam declaration; preserve it in protected main before retirement') from exc
-            if declared and declared['kind'] == 'publication':
-                raise AssetError('branch retirement would orphan a declared publication; preserve it in protected main first')
+    # Every signed edition must survive branch retirement in protected main.
+    # Ordinary signed draft edits need not satisfy the acceptance policy merely
+    # to retire a branch; only signed bumps express publication intent.
+    unmerged = set(git(root, 'rev-list', main + '..' + expected).decode().splitlines())
+    try:
+        _, history = publication_history(root, expected, strict=False)
+    except ValueError as exc:
+        raise AssetError('cannot classify work history; preserve it in protected main before retirement') from exc
+    if any(sha in unmerged and event['kind'] == 'publication' for sha, event in history):
+        raise AssetError('branch retirement would orphan a signed edition; preserve it in protected main first')
     # Compare-and-delete in Git, rather than a separate API read followed by an
     # unconditional DELETE. A concurrent push makes the lease fail atomically.
     git(root, "-c", "credential.helper=", "-c", "credential.https://github.com.helper=!gh auth git-credential",

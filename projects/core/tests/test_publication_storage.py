@@ -29,10 +29,12 @@ class PublicationStorageTests(unittest.TestCase):
         ast = {'blocks': [{'t': 'Para', 'c': [{'t': 'Image', 'c': [['', [], []], [{'t': 'Str', 'c': 'figure'}], ['https://assets.example.org/'+KEY, '']]}]}]}
         self.enterContext(patch('guavajam_core.verify_source_assets.parse_document', return_value=(ast, [])))
         self.enterContext(patch('guavajam_core.prepare_publication.git', return_value=b'a'*40))
-        self.enterContext(patch('guavajam_core.publication_protocol.blob', return_value=b'{"origin":"https://assets.example.org"}'))
+        self.enterContext(patch('guavajam_core.publication_protocol.blob', side_effect=lambda repo, revision, path, **kwargs:
+                               b'---\nschema: guavajam.work.v1\nslug: test\nedition: "0"\n---\n\n# Test\n'
+                               if path.endswith('/manuscript.md') else b'{"origin":"https://assets.example.org"}'))
 
     def prepare(self, store, **kwargs):
-        return prepare(self.root, 'a'*40, 'test', published='2026-11-13', store=store, **kwargs)
+        return prepare(self.root, 'a'*40, 'test', store=store, **kwargs)
 
     def no_public_requests(self):
         # Preparation must never use anonymous HTTPS, regardless of the reply.
@@ -49,6 +51,8 @@ class PublicationStorageTests(unittest.TestCase):
             self.assertEqual(mapping['version_id'], result['assets'][0]['version_id'])
             self.assertIsNone(result['assets'][0]['retain_until'])
             self.assertFalse(result['public_delivery_verified'])
+            self.assertEqual(0, result['edition'])
+            self.assertNotIn('publication_trailers', result)
             with self.no_public_requests(), self.assertRaisesRegex(AssetError, 'retention'):
                 self.prepare(store, require_retention=True)
 
@@ -76,8 +80,9 @@ class PublicationStorageTests(unittest.TestCase):
         from guavajam_core.publication_commit import PublicationError
         env = {'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':'', 'GUAVAJAM_PUBLISHER_SSH_SIGNERS':'publisher ssh-ed25519 fixture'}
         with patch.dict('os.environ', env), patch('guavajam_core.check_publications.incoming', return_value=['a'*40]), \
-             patch('guavajam_core.publication_protocol.commit', return_value=(None, 'GuavaJam-Publication: 1')), \
-             patch('guavajam_core.publication_protocol.declaration', return_value={'kind':'publication'}), \
+             patch('guavajam_core.check_publications.git', return_value=b'a'*40), \
+             patch('guavajam_core.publication_protocol.publication_history', return_value=('a'*40, [('a'*40, {'kind':'publication'})])), \
+             patch('guavajam_core.publication_protocol.verify_signature'), \
              patch('guavajam_core.check_publications.verify', return_value={}) as verify:
             check(self.root, 'b'*40)
             self.assertFalse(verify.call_args.kwargs['require_retention'])

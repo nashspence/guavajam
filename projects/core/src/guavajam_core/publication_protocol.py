@@ -1,20 +1,22 @@
-"""GuavaJam publication/repository discovery v1. Shared data-only protocol.
+"""Discover signed editions from ordinary Git trees, never commit-message syntax.
 
+Edition zero is an unpublished draft. In accepted history, every change to a
+numbered work's complete subtree introduces its next edition in a signed commit.
+Merges carry existing editions by exact subtree identity. One commit can issue
+one edition; its unmodified message and UTC committer date describe that edition.
 No program, hook, signer policy or template is loaded from the indexed tree.
-Publication v1 requires a publisher-declared date and permits an edition label.
-A separately signed empty GuavaJam-Repository commit authorizes guavajam.json. That
-administrative checkpoint does not issue or alter a canonical publication.
 """
 from __future__ import annotations
 
 import copy
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 
-from .catalog import validate, compare, encoded, fields, text, day, CatalogError
+from .catalog import validate, compare, fields, CatalogError
 from .trusted_git import verify_signature as trusted_signature
 
 OID = re.compile(r'[0-9a-f]{40}\Z')
@@ -94,59 +96,30 @@ def commit(repo, revision):
     return header, message
 
 
-def declaration(message):
-    """Strict terminal trailer block; a signature on an ordinary commit is not publication."""
-    if not isinstance(message, str) or '\x00' in message or '\r' in message:
-        fail('invalid declaration text')
-    lines = message.rstrip('\n').split('\n')
-    marked = [line for line in lines if line.startswith('GuavaJam-')]
-    if not marked:
-        return None
-    if marked == ['GuavaJam-Repository: 1']:
-        result = {'kind': 'repository', 'version': 1}
-    elif len(marked) in {3, 4} and marked[0] == 'GuavaJam-Publication: 1':
-        if not marked[1].startswith('GuavaJam-Work: '):
-            fail('publication requires GuavaJam-Work')
-        path = marked[1][len('GuavaJam-Work: '):]
-        if not WORK.fullmatch(path):
-            fail('publication work must use works/<slug>/manuscript.md')
-        if not marked[2].startswith('GuavaJam-Published: '):
-            fail('publication requires an explicit GuavaJam-Published: YYYY-MM-DD')
-        result = {'kind': 'publication', 'version': 1, 'manuscript': path,
-                  'published': day(marked[2][len('GuavaJam-Published: '):], 'signed publication date')}
-        if len(marked) == 4:
-            if not marked[3].startswith('GuavaJam-Label: '):
-                fail('unknown publication trailer')
-            result['label'] = text(marked[3][len('GuavaJam-Label: '):], 'signed edition label')
-    else:
-        fail('unknown, duplicated or mixed GuavaJam declaration')
-    if lines[-len(marked):] != marked or (len(lines) > len(marked) and lines[-len(marked)-1] != ''):
-        fail('GuavaJam declarations must form one final block separated from the message by a blank line')
-    return result
-
-
-def publication_trailers(path, published, label=None):
-    if not WORK.fullmatch(path):
-        fail('invalid publication manuscript path')
-    result = ['GuavaJam-Publication: 1', 'GuavaJam-Work: ' + path,
-              'GuavaJam-Published: ' + day(published, 'publication date')]
-    if label is not None:
-        result.append('GuavaJam-Label: ' + text(label, 'publication label'))
-    return result
+def commit_facts(repo, revision):
+    """Project signed Git facts without interpreting or normalizing the message."""
+    header, message = commit(repo, revision)
+    match = re.search(rb'^committer .* ([0-9]+) ([+-][0-9]{4})$', header, re.M)
+    if match is None:
+        fail('commit lacks a valid committer timestamp')
+    try:
+        published = datetime.fromtimestamp(int(match[1]), timezone.utc).date().isoformat()
+    except (ValueError, OverflowError, OSError) as exc:
+        raise CatalogError('discovery: unsupported committer timestamp') from exc
+    return {'published': published, 'message': message}
 
 
 def verify_shape(repo, revision, expected=None):
-    header, message = commit(repo, revision)
+    """Check immutable edition lineage; cryptographic trust is supplied separately."""
+    header, _ = commit(repo, revision)
     if not re.search(rb'^gpgsig ', header, re.M):
-        fail('declaration must be in a signed commit')
-    declared = declaration(message)
-    if declared is None or (expected and declared['kind'] != expected):
-        fail('revision lacks the expected explicit declaration')
-    parents = re.findall(rb'^parent ([0-9a-f]{40})$', header, re.M)
-    tree = re.search(rb'^tree ([0-9a-f]{40})$', header, re.M)
-    if len(parents) != 1 or tree is None or run(repo, 'rev-parse', parents[0].decode() + '^{tree}').strip() != tree[1]:
-        fail('declaration must be an empty, single-parent commit preserving its reviewed tree')
-    return declared
+        fail('publication or repository approval must be in a signed commit')
+    _, events = publication_history(repo, revision)
+    event = next((event for sha, event in events if sha == revision), None)
+    if event is None or (expected and event['kind'] != expected
+                         and not (expected == 'repository' and event.get('repository'))):
+        fail('revision does not introduce the expected edition or repository approval')
+    return event
 
 
 def verify_signature(repo, revision, *, fingerprints=(), allowed_signers=None):
@@ -190,116 +163,220 @@ def policy(raw):
     return data, catalog
 
 
-def _concept_doi(raw):
-    # Only bounded bibliographic data is inspected here. Full source validation
-    # remains in the reader/publication checker; no template or code executes.
-    import yaml
-    source = raw.decode('utf-8', 'strict')
-    if not source.startswith('---\n'):
-        fail('publication lacks source front matter')
+def work_metadata(raw):
+    """Read only bounded, unambiguous source metadata; rendering is unnecessary."""
+    from .validate_sources import validate_front_matter
+    try:
+        source = raw.decode('utf-8', 'strict')
+    except UnicodeError as exc:
+        raise CatalogError('discovery: source must be UTF-8') from exc
     end = source.find('\n---\n', 4)
     if end < 0 or end > 65536:
         fail('source metadata is absent or oversized')
-    front = source[4:end]
     try:
-        for token in yaml.scan(front):
-            if isinstance(token, (yaml.tokens.AliasToken, yaml.tokens.AnchorToken, yaml.tokens.TagToken)):
-                fail('source metadata aliases/tags are not accepted')
-        class UniqueLoader(yaml.SafeLoader):
-            pass
-        def mapping(loader, node):
-            result = {}
-            for key_node, value_node in node.value:
-                key = loader.construct_object(key_node, deep=True)
-                if not isinstance(key, str) or key in result:
-                    fail('source metadata has duplicate or non-string keys')
-                result[key] = loader.construct_object(value_node, deep=True)
-            return result
-        UniqueLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, mapping)
-        facts = yaml.load(front, Loader=UniqueLoader)
-    except yaml.YAMLError as exc:
-        raise CatalogError('discovery: malformed source metadata') from exc
-    if not isinstance(facts, dict):
-        fail('source metadata requires a mapping')
-    identifiers = facts.get('identifiers', {})
-    if not isinstance(identifiers, dict):
+        facts, _, _, errors = validate_front_matter(Path('manuscript.md'), source)
+    except RecursionError as exc:
+        raise CatalogError('discovery: source metadata nesting exceeds its limit') from exc
+    if errors:
+        fail('; '.join(errors[:4]))
+    if not isinstance(facts, dict) or facts.get('schema') != 'guavajam.work.v1':
+        fail('source requires guavajam.work.v1 metadata')
+    edition = facts.get('edition')
+    if (not isinstance(edition, str) or not re.fullmatch(r'0|[1-9][0-9]{0,9}', edition)
+            or int(edition) > 2147483647):
+        fail('edition must be a quoted canonical integer from 0 to 2147483647')
+    if not isinstance(facts.get('identifiers', {}), dict):
         fail('source identifiers require a mapping')
-    return identifiers.get('concept_doi')
+    return facts
 
 
-def declared_history(repo, ref='refs/heads/main', *, additional_refs=()):
-    """Bounded complete history and parsed declarations, without assigning trust."""
-    repo = Path(repo).resolve(strict=True)
+def _entry(repo, revision, path):
+    rows = run(repo, 'ls-tree', '-z', revision, '--', path, limit=8192).split(b'\0')
+    if rows == [b'']:
+        return None
+    if len(rows) != 2 or rows[1]:
+        fail('ambiguous tree entry: ' + path)
+    record, name = rows[0].split(b'\t', 1)
+    if name.decode('utf-8', 'strict') != path:
+        fail('unexpected tree entry')
+    mode, kind, object_id = record.decode('ascii').split()
+    return mode, kind, object_id
+
+
+def _snapshot(repo, revision, cache):
+    """The Git subtree OID covers every byte, path, and file mode in a work."""
+    works = {}
+    root = _entry(repo, revision, 'works')
+    if root:
+        if root[:2] != ('040000', 'tree'):
+            fail('works must be a directory')
+        rows = run(repo, 'ls-tree', '-z', root[2], limit=1024 * 1024).split(b'\0')[:-1]
+        if len(rows) > 256:
+            fail('too many works')
+        for row in rows:
+            record, raw_slug = row.split(b'\t', 1)
+            slug = raw_slug.decode('utf-8', 'strict')
+            mode, kind, tree = record.decode('ascii').split()
+            path = 'works/' + slug + '/manuscript.md'
+            if not WORK.fullmatch(path) or (mode, kind) != ('040000', 'tree'):
+                fail('works must contain only named work directories')
+            if (slug, tree) not in cache:
+                metadata = work_metadata(blob(repo, revision, path, maximum=8 * 1024 * 1024))
+                if metadata.get('slug') != slug:
+                    fail('source slug differs from its work path')
+                cache[slug, tree] = int(metadata['edition'])
+            works[slug] = (cache[slug, tree], tree)
+    config = _entry(repo, revision, REPOSITORY_PATH)
+    if config and config[:2] not in {('100644', 'blob'), ('100755', 'blob')}:
+        fail('repository settings must be a committed regular data file')
+    return works, config[2] if config else None
+
+
+def _history_ids(repo, ref, additional_refs):
     if len(additional_refs) > 128:
-        fail('too many preview history roots')
+        fail('too many history roots')
     tip = resolve(repo, ref)
     tips = list(dict.fromkeys([tip, *(resolve(repo, value) for value in additional_refs)]))
-    ids = run(repo, 'rev-list', '--max-count=' + str(MAX_HISTORY + 1), *tips).splitlines()
+    ids = run(repo, 'rev-list', '--reverse', '--topo-order',
+              '--max-count=' + str(MAX_HISTORY + 1), *tips).decode('ascii').splitlines()
     if len(ids) > MAX_HISTORY:
         fail('history exceeds 10,000 commits; use an explicitly reviewed protocol upgrade, not silent truncation')
-    raw = run(repo, 'log', '--no-show-signature', '--reverse', '--topo-order', '--format=%H%x00%B%x00', *tips)
-    parts = raw.split(b'\x00')
-    if parts[-1].strip():
-        fail('invalid Git message framing')
-    declarations = []
-    for i in range(0, len(parts)-1, 2):
-        sha = oid(parts[i].strip().decode('ascii'))
-        message = parts[i+1].decode('utf-8', 'strict')
-        if not any(line.startswith('GuavaJam-') for line in message.splitlines()):
-            continue
-        declarations.append((sha, declaration(message)))
-    return tip, declarations
+    return tip, ids, tips
+
+
+def publication_history(repo, ref='refs/heads/main', *, additional_refs=(), strict=True):
+    """Return structural publication/configuration events, without assigning trust.
+
+    Strict mode validates the complete selected DAG, including intermediate
+    commits. Draft branches may be edited freely, but invalid numbered draft
+    history must be squashed/fixed before acceptance. Non-strict mode is only an
+    intent inventory for private previews and branch preservation, never proof.
+    """
+    repo = Path(repo).resolve(strict=True)
+    tip, ids, tips = _history_ids(repo, ref, additional_refs)
+    if strict:
+        run(repo, 'fsck', '--strict', '--no-reflogs', '--no-dangling', *tips)
+    states, cache, issued, events = {}, {}, {}, []
+    for sha in ids:
+        header, _ = commit(repo, sha)
+        parents = re.findall(rb'^parent ([0-9a-f]{40})$', header, re.M)
+        if any(parent.decode() not in states for parent in parents):
+            fail('complete unmodified parent history is required')
+        parent_states = [states[parent.decode()] for parent in parents]
+        signed = bool(re.search(rb'^gpgsig ', header, re.M))
+        works, config = _snapshot(repo, sha, cache)
+        origins, new = {}, []
+        slugs = set(works).union(*(set(state[0]) for state in parent_states))
+        for slug in sorted(slugs):
+            previous = [state[0][slug] for state in parent_states if slug in state[0]]
+            maximum = max((state[0] for state in previous), default=0)
+            current = works.get(slug)
+            if current is None:
+                if strict and maximum:
+                    fail('a numbered work cannot be deleted: ' + slug)
+                continue
+            number, tree = current
+            matches = [state for state in previous if state[:2] == current]
+            if number == 0 and maximum == 0:
+                origins[slug] = (*current, None)
+                continue
+            if matches and number == maximum:
+                origins[slug] = matches[0]
+                continue
+            if not strict:
+                # Only a signed bump expresses publication intent. Ordinary
+                # signed edits to an unbumped draft are still just draft edits.
+                origins[slug] = (*current, None)
+                if signed and number > maximum:
+                    new.append((slug, number))
+                continue
+            if number != maximum + 1:
+                fail('every changed numbered work must advance its edition by exactly one: ' + slug)
+            if not signed:
+                fail('an edition bump must be in a signed commit: ' + slug)
+            key = (slug, number)
+            if key in issued and issued[key] != sha:
+                fail('an edition number has distinct publication commits: ' + slug)
+            issued[key] = sha
+            origins[slug] = (number, tree, sha)
+            new.append((slug, number))
+        if strict and len(new) > 1:
+            fail('a commit may introduce only one work edition')
+        # A signed snapshot can bootstrap settings; later changes must be
+        # signed where made. Merges may carry a previously authorized snapshot.
+        authorities = {state[1][1] for state in parent_states if state[1][1]}
+        matches = [state[1][1] for state in parent_states
+                   if state[1][0] == config and state[1][1]]
+        authority = matches[0] if matches else None
+        if authority and len(authorities) > 1:
+            for other in authorities - {authority}:
+                try:
+                    ancestor(repo, other, authority)
+                except CatalogError:
+                    authority = None
+                    break
+        approve = bool(config and signed and authority is None)
+        if approve:
+            authority = sha
+        if strict and authorities and not authority:
+            fail('repository settings changed without a new signed approval')
+        if strict and authorities and config is None:
+            fail('authorized repository settings cannot be deleted')
+        states[sha] = (origins, (config, authority))
+        event = None
+        if new:
+            slug, number = new[0]
+            event = {'kind': 'publication', 'manuscript': 'works/' + slug + '/manuscript.md',
+                     'edition': number, **commit_facts(repo, sha)}
+            if approve:
+                event['repository'] = True
+        elif approve:
+            event = {'kind': 'repository'}
+        if event is not None:
+            events.append((sha, event))
+    return tip, events
 
 
 def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=None, previous=None):
-    """Return the exact guavajam.catalog.v1 input and non-authoritative evidence.
-
-    Enumerate ONLY the selected history. Invalid declarations fail closed; no
-    tag/branch name, commit time, author field or JSON boolean establishes trust.
-    """
-    tip, declarations = declared_history(repo, ref)
-    publications, checkpoints, declarations_seen = [], [], []
-    for sha, _ in declarations:
-        candidate = verify_shape(repo, sha)
+    """Derive a portable catalog from trusted ordinary commits, without a view."""
+    tip, events = publication_history(repo, ref)
+    publications, checkpoints = [], []
+    for sha, event in events:
         verify_signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
-        declarations_seen.append(sha)
-        if candidate['kind'] == 'publication':
-            publications.append((sha, candidate))
-        else:
-            if checkpoints:
-                ancestor(repo, checkpoints[-1], sha)
+        if event['kind'] == 'publication':
+            publications.append((sha, event))
+        if event['kind'] == 'repository' or event.get('repository'):
             checkpoints.append(sha)
     if not checkpoints:
-        fail('guavajam.json requires a trusted signed empty commit ending with GuavaJam-Repository: 1')
-    checkpoint = checkpoints[-1]
-    approved = blob(repo, checkpoint, REPOSITORY_PATH)
-    if blob(repo, tip, REPOSITORY_PATH) != approved:
-        fail('repository settings changed without a new signed GuavaJam-Repository checkpoint')
+        fail('guavajam.json requires an independently trusted signed snapshot')
+    # The tip may carry a side branch approval through an unsigned merge.
+    approved = blob(repo, tip, REPOSITORY_PATH)
+    candidates = [sha for sha in checkpoints if blob(repo, sha, REPOSITORY_PATH) == approved]
+    if not candidates:
+        fail('repository settings have no signed approval')
+    checkpoint = candidates[-1]
     settings, catalog = policy(approved)
     works, concepts, revisions = {}, {}, set()
-    for sha, declared in publications:
-        path = declared['manuscript']; slug = WORK.fullmatch(path)[1]
+    for sha, event in publications:
+        path = event['manuscript']; slug = WORK.fullmatch(path)[1]
         revisions.add(sha)
-        edition = {'revision': sha, 'status': 'available', 'published': declared['published']}
-        if 'label' in declared:
-            edition['label'] = declared['label']
+        edition = {'revision': sha, 'status': 'available', 'edition': event['edition'],
+                   'published': event['published'], 'message': event['message']}
         override = settings.get('editions', {}).get(sha, {})
         fields(override, set(), {'published', 'label', 'doi', 'status', 'notices', 'successor_revision'}, 'edition override')
-        if any(key in declared and override.get(key, declared[key]) != declared[key] for key in ('published', 'label')) and not override.get('notices'):
-            fail('correcting signed date/label requires an explanatory notice')
+        if override.get('published', event['published']) != event['published'] and not override.get('notices'):
+            fail('correcting the signed commit date requires an explanatory notice')
         edition.update(copy.deepcopy(override))
-        concept = _concept_doi(blob(repo, sha, path, maximum=8 * 1024 * 1024))
+        concept = work_metadata(blob(repo, sha, path, maximum=8 * 1024 * 1024)).get('identifiers', {}).get('concept_doi')
         if concept:
             concepts.setdefault(slug, set()).add(concept)
         works.setdefault(slug, []).append(edition)
     if set(settings.get('editions', {})) - revisions or set(settings.get('works', {})) - set(works):
         fail('administrative overrides refer to undiscovered publications/works')
     for slug, editions in sorted(works.items()):
-        # Default chronology is publisher-declared date, with accepted topological
-        # history breaking same-day ties. Never use author/committer timestamps.
-        ordered = sorted(editions, key=lambda e: e['published'])
-        item = {'slug': slug, 'metadata_revision': editions[0]['revision'], 'editions': ordered}
-        current = [e for e in ordered if e['status'] == 'available']
+        ordered = sorted(editions, key=lambda e: e['edition'])
+        item = {'slug': slug, 'metadata_revision': ordered[0]['revision'], 'editions': ordered}
+        current = [edition for edition in ordered if edition['status'] == 'available']
         if current:
             item['recommended_revision'] = current[-1]['revision']
         names = concepts.get(slug, set())
@@ -320,4 +397,4 @@ def discover(repo, *, ref='refs/heads/main', fingerprints=(), allowed_signers=No
         compare(previous, catalog)
     return catalog, {'schema': 'guavajam.discovery.v1', 'hash_algorithm': 'sha1', 'tip': tip,
                      'repository_checkpoint': checkpoint, 'publications': [sha for sha, _ in publications],
-                     'declarations': declarations_seen, 'assets_verified': False}
+                     'approvals': [sha for sha, _ in events], 'assets_verified': False}

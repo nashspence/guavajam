@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 import socket
+import subprocess
 import tempfile
 import unittest
 import urllib.error
@@ -29,7 +30,7 @@ class PreviewServiceTests(unittest.TestCase):
             env={'GUAVAJAM_PREVIEW_ORIGIN':'https://preview.publisher.test','GUAVAJAM_PREVIEW_PORT':str(port),
                  'GUAVAJAM_PREVIEW_REPO':str(publisher.repo),'GUAVAJAM_PREVIEW_REF':'refs/heads/draft',
                  'GUAVAJAM_PREVIEW_WORK':'field-notes','GUAVAJAM_PREVIEW_TOKEN_FILE':str(token_file),
-                 'GUAVAJAM_PREVIEW_PUBLISHED':'2026-11-15', 'GUAVAJAM_SSH_ALLOWED_SIGNERS':'',
+                 'GUAVAJAM_SSH_ALLOWED_SIGNERS':'',
                  'GUAVAJAM_TRUSTED_GPG_FINGERPRINTS':publisher.fingerprint,
                  'GUAVAJAM_GPG_PUBLIC_KEYS':str(public)}
             preview=Preview(state,env)
@@ -87,7 +88,7 @@ class PreviewServiceTests(unittest.TestCase):
             env = {'GUAVAJAM_PREVIEW_ORIGIN':'http://127.0.0.1:'+str(port),
                    'GUAVAJAM_PREVIEW_PORT':str(port), 'GUAVAJAM_PREVIEW_REPO':str(draft.repo),
                    'GUAVAJAM_PREVIEW_REF':'refs/heads/draft', 'GUAVAJAM_PREVIEW_WORK':'field-notes',
-                   'GUAVAJAM_PREVIEW_TOKEN_FILE':str(token_file), 'GUAVAJAM_PREVIEW_PUBLISHED':'2026-11-16'}
+                   'GUAVAJAM_PREVIEW_TOKEN_FILE':str(token_file)}
             with patch('guavajam.preview_service.trust', side_effect=AssertionError('no signer input')), \
                  patch('guavajam.preview_service.credentials', side_effect=AssertionError('no asset credentials')):
                 preview = Preview(state, env)
@@ -105,9 +106,15 @@ class PreviewServiceTests(unittest.TestCase):
                         self.assertIn(b'publisher settings are provisional', response.read())
                         self.assertEqual('private, no-store', response.getheader('Cache-Control'))
                     self.assertFalse((state/'baseline.json').exists())
-                    # A declaration appearing on another branch invalidates the fast path.
-                    draft.git('switch', '-c', 'declared')
-                    draft.git('commit','--allow-empty','-qm','Untrusted settings\n\nGuavaJam-Repository: 1')
+                    # Signed settings on another branch invalidate the fast path.
+                    draft.git('switch', '-c', 'signed-settings')
+                    key = root/'signing-key'
+                    subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key)], check=True)
+                    draft.git('config', 'gpg.format', 'ssh')
+                    draft.git('config', 'user.signingkey', str(key))
+                    draft.settings['description'] = 'A reviewed publisher description.'
+                    draft.write_settings(); draft.git('add', 'guavajam.json')
+                    draft.git('commit', '-S', '-qm', 'Describe the publisher')
                     draft.git('switch', 'draft')
                     with self.assertRaises(ValueError): preview.refresh()
                 finally:

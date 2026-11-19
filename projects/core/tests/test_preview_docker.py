@@ -25,11 +25,12 @@ class DockerPreviewTests(unittest.TestCase):
                  patch('guavajam_core.preview_docker.image',return_value=('preview@sha256:'+'a'*64,None)),\
                  patch('guavajam_core.preview_docker.source_ref',return_value='refs/heads/work/notes'),\
                  patch('guavajam_core.preview_docker.subprocess.run', side_effect=invoked):
-                self.assertEqual(0,run(repo,'field-notes','2026-11-15',port=8082))
+                self.assertEqual(0,run(repo,'field-notes',port=8082))
             args=' '.join(snapshot)
             self.assertIn('127.0.0.1:8082:8080',args)
             self.assertIn('refs/heads/work/notes',args)
-            self.assertIn('GUAVAJAM_PREVIEW_PUBLISHED=2026-11-15',args)
+            self.assertNotIn('GUAVAJAM_PREVIEW_PUBLISHED',args)
+            self.assertNotIn('GUAVAJAM_PREVIEW_LABEL',args)
             self.assertIn('GUAVAJAM_PREVIEW_ORIGIN=http://127.0.0.1:8082',args)
             self.assertIn('src='+str(repo)+',dst=/source,readonly',args)
             self.assertIn('src='+str(reader)+',dst=/run/secrets/readonly.env,readonly',args)
@@ -48,7 +49,7 @@ class DockerPreviewTests(unittest.TestCase):
                  patch('guavajam_core.preview_docker.safe_file', side_effect=AssertionError('unneeded private input')), \
                  patch('guavajam_core.preview_docker.subprocess.run', return_value=Mock(returncode=0)) as invoked, \
                  patch('builtins.print'):
-                self.assertEqual(0, run(repo, 'field-notes', '2026-11-16'))
+                self.assertEqual(0, run(repo, 'field-notes'))
             argv = invoked.call_args.args[0]
             mounts = [argv[i+1] for i, arg in enumerate(argv) if arg == '--mount']
             self.assertEqual({'/source', '/state', '/run/secrets/session.key'},

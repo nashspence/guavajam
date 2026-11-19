@@ -20,7 +20,7 @@ title: Field Notes
 author: Example Author
 slug: field-notes
 language: en
-status: draft
+edition: "0"
 rights: all-rights-reserved
 ---
 
@@ -139,8 +139,8 @@ class PortableViewTests(unittest.TestCase):
             render(self.root,self.rev,'field-notes',self.output)
 
     def test_ssh_trust_file_must_be_external_and_cannot_be_a_preview_fallback(self):
-        command(self.root,'git','commit','--allow-empty','-m','Publish Field Notes', '-m',
-                'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        self.stage_edition()
+        command(self.root,'git','commit','-m','Publish Field Notes')
         candidate=command(self.root,'git','rev-parse','HEAD')
         signers=self.root/'allowed-signers'
         signers.write_text('fixture ssh-ed25519 AABB\n')
@@ -161,9 +161,8 @@ class PortableViewTests(unittest.TestCase):
         fingerprint=next(x.split(':')[9] for x in listing.splitlines() if x.startswith('fpr:'))
         command(self.root,'git','config','user.signingkey',fingerprint)
         command(self.root,'git','config','gpg.format','openpgp')
-        command(self.root,'git','-c','commit.gpgSign=true','commit','--allow-empty','-S',
-                '-m','Publish Field Notes', '-m',
-                'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13',env=env)
+        self.stage_edition()
+        command(self.root,'git','commit','-S','-m','Publish Field Notes',env=env)
         signed=command(self.root,'git','rev-parse','HEAD')
         with patch.dict(os.environ,{'GNUPGHOME':str(home)}):
             self.assertEqual(2,render(self.root,signed,'field-notes',self.output,fingerprints=[fingerprint]))
@@ -175,11 +174,17 @@ class PortableViewTests(unittest.TestCase):
         key=Path(self.temporary.name)/'fixture-key'
         command(self.root,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
         command(self.root,'git','config','gpg.format','ssh');command(self.root,'git','config','user.signingkey',str(key))
-        command(self.root,'git','commit','--allow-empty','-S','-m','Publish fixture','-m','GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        self.stage_edition()
+        command(self.root,'git','commit','-S','-m','Publish fixture')
         revision=command(self.root,'git','rev-parse','HEAD')
         signers=Path(self.temporary.name)/'allowed-signers';signers.write_text('fixture namespaces="git" '+key.with_suffix('.pub').read_text())
         self.assertEqual(2,render(self.root,revision,'field-notes',self.output,allowed_signers=signers))
         self.assertIn('Signed Git publication',(self.output/'index.html').read_text())
+
+    def stage_edition(self):
+        manuscript = self.root/'works/field-notes/manuscript.md'
+        manuscript.write_text(manuscript.read_text().replace('edition: "0"', 'edition: "1"'))
+        command(self.root, 'git', 'add', str(manuscript))
 
 
 class ContractTests(unittest.TestCase):
