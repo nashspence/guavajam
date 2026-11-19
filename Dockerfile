@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY deploy/install_pandoc.py /tmp/install_pandoc.py
 RUN python /tmp/install_pandoc.py && rm /tmp/install_pandoc.py
 COPY --from=packages /build/.venv /opt/guavajam
-ENV PATH="/opt/guavajam/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 GIT_TERMINAL_PROMPT=0
-RUN mkdir /state && chown 1000:1000 /state
+ENV PATH="/opt/guavajam/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 GIT_TERMINAL_PROMPT=0 HOME=/state
+RUN groupadd --gid 1000 guavajam && useradd --uid 1000 --gid guavajam --home-dir /state --no-create-home --shell /usr/sbin/nologin guavajam && mkdir /state && chown 1000:1000 /state
 USER 1000:1000
 WORKDIR /state
 ENTRYPOINT ["python", "-m", "guavajam.service"]

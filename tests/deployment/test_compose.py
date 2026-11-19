@@ -99,8 +99,29 @@ class ComposeLifecycleTests(unittest.TestCase):
                 with urllib.request.urlopen(origin+'/sources/'+source_id+'/CATALOG.json',timeout=3) as received:return json.load(received)
             def service_health():
                 return json.loads(dc('exec','-T','updater','python','-c','from pathlib import Path;print(Path("/state/health.json").read_text())'))
+            def failure_diagnostics():
+                # All sources, identities and credentials in this project are disposable test data.
+                # The service deliberately exposes only coarse failures, so qualify independently
+                # in fresh temporary state to reveal the actual clone/verification exception.
+                commands=[
+                    ('container logs',['logs','--no-color','--tail','60','source','updater','web']),
+                    ('updater identity and health',['exec','-T','updater','python','-c',
+                     'import os,pwd;from pathlib import Path;print(pwd.getpwuid(os.getuid()));print(Path("/state/health.json").read_text())']),
+                    ('independent collection qualification',['exec','-T','updater','python','-m','guavajam','index',
+                     '--index',env['GUAVAJAM_INDEX_URL'],'--trust','/trust/repositories.yaml',
+                     '--output','/tmp/diagnostic-site-'+uuid.uuid4().hex])]
+                for label,args in commands:
+                    try:
+                        result=subprocess.run(compose+args,cwd=ROOT,env=env,text=True,
+                                              capture_output=True,timeout=45)
+                        output=(result.stdout+result.stderr)[-32768:]
+                        print(f'{label} (exit {result.returncode}):\n{output}',file=sys.stderr,flush=True)
+                    except (OSError,subprocess.TimeoutExpired) as error:
+                        print(f'{label}: {error}',file=sys.stderr,flush=True)
             try:
                 dc('up','-d','--no-build','source','updater','web')
+                # OpenSSH requires a passwd entry even when verification needs no home files.
+                dc('exec','-T','updater','python','-c','import os,pwd;assert pwd.getpwuid(os.getuid()).pw_uid==1000')
                 wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
                 assert set(dc('ps','--services','--status','running').splitlines())=={'source','updater','web'}
                 selected=dc('exec','-T','updater','readlink','/state/site/current')
@@ -154,6 +175,9 @@ class ComposeLifecycleTests(unittest.TestCase):
                 wait_for(lambda:subprocess.run(compose+['exec','-T','updater','python','-c',"import socket;socket.create_connection(('seaweedfs',8333),2).close();socket.create_connection(('tls',443),2).close()"],env=env,capture_output=True).returncode==0)
                 asset_check('--persistence','verify')
                 print(json.dumps({'down_and_recreate_preserves_selected_generation_and_objects':True}),flush=True)
+            except Exception:
+                failure_diagnostics()
+                raise
             finally:
                 dc('--profile','local-assets','down','--volumes','--remove-orphans')
                 assert not run(['docker','ps','-aq','--filter','label=com.docker.compose.project='+project])
