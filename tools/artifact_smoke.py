@@ -43,7 +43,9 @@ def main():
                             'GUAVAJAM_TOOL_REF=' + '0' * 40 + '\n')
         run(sys.executable, '-m', 'guavajam_core', 'init', 'work', '--env', str(settings),
             '--output', str(repo), '--local', cwd=root)
+        run('git', 'add', 'content', cwd=repo)
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
+        run('git', 'commit', '-S', '-m', 'Publish the initial work', cwd=repo)
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'content')
         run(sys.executable, '-m', 'guavajam_core', 'resources', 'capture', '--output', str(root / 'capture'), cwd=repo)

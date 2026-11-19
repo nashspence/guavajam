@@ -15,10 +15,12 @@ Initialize a new GitHub work repository **once**, using a local `.env` containin
 uvx --from 'git+https://github.com/nashspence/guavajam.git#subdirectory=projects/core' guavajam-core init work --env .env
 ```
 
-Git must already be configured for **SSH signed commits** (`git commit -S`),
-and `gh` must have permissions to create public repositories and Actions secrets.
-The initializer signs the first edition and configures a PR source check and a
-`main` signed-history check. It does not retain the environment file or private
+When publishing, Git must be configured for **SSH signed commits** (`git commit -S`).
+At initialization, `gh` must have permissions to create public repositories and Actions secrets.
+The initializer commits only repository infrastructure, leaving the new
+`content/manuscript.md` untracked as a draft. Its first accepted signed content
+change publishes the first edition. Actions checks PR sources and verifies the
+accepted history on `main`. It does not retain the environment file or private
 signing key. PRs can be reviewed normally; integrate changes with a trusted
 signed commit on `main`. A GitHub-generated merge or squash commit is not
 authorized unless its signer is separately trusted. Draft branches remain

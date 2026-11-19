@@ -40,7 +40,7 @@ class BootstrapTests(unittest.TestCase):
         settings.write_text('\n'.join(rows) + '\n')
         return settings
 
-    def test_bootstrap_signed_work_has_one_content_tree_without_work_commands(self):
+    def test_bootstrap_creates_unpublished_draft_and_no_work_commands(self):
         destination = self.root / 'field-notes'
         bootstrap.bootstrap('work', self.env_file(), destination, local=True)
         source = destination / 'content/manuscript.md'
@@ -55,6 +55,8 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn('secrets.GUAVAJAM_ALLOWED_SIGNERS', workflow)
         self.assertNotIn('local-bootstrap-token', workflow)
         self.assertEqual('1', subprocess.check_output(['git', 'rev-list', '--count', 'main'], cwd=destination).decode().strip())
+        self.assertNotIn('content/manuscript.md', subprocess.check_output(['git', 'ls-files'], cwd=destination).decode())
+        self.assertIn('content/manuscript.md', subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=destination).decode())
         self.assertNotIn('GuavaJam-Publication', source.read_text())
         with self.assertRaises(bootstrap.BootstrapError):
             bootstrap.bootstrap('work', self.env_file(), destination, local=True)

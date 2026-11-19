@@ -26,6 +26,7 @@ jobs:
       - run: cd .guavajam-tool && mise install
       - run: cd .guavajam-tool && mise exec -- uv sync --locked --package guavajam-core --no-dev
       - name: Check draft source (no publication credentials)
+        if: github.event_name == 'pull_request' || hashFiles('content/manuscript.md') != ''
         run: .guavajam-tool/.venv/bin/guavajam-core validate-sources
       - name: Verify accepted signed publication history
         if: github.event_name == 'push'

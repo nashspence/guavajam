@@ -12,7 +12,6 @@ import sys
 import yaml
 
 from .resources import ROOT as RESOURCES
-from .trusted_git import verify_signature
 
 NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z')
 SHA = re.compile(r'[0-9a-f]{40}\Z')
@@ -122,7 +121,7 @@ def make_work(repo, env, env_file, ref):
     language = env.get('GUAVAJAM_LANGUAGE', 'en')
     if not re.fullmatch(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*', language):
         raise BootstrapError('invalid GUAVAJAM_LANGUAGE')
-    signers, signer_data = authorized_signers(required(env, 'GUAVAJAM_ALLOWED_SIGNERS'), env_file, repo)
+    _, signer_data = authorized_signers(required(env, 'GUAVAJAM_ALLOWED_SIGNERS'), env_file, repo)
     facts = {'schema': 'guavajam.work.v1', 'title': title, 'author': author,
              'language': language, 'rights': env.get('GUAVAJAM_RIGHTS', 'all-rights-reserved')}
     document = '---\n' + yaml.safe_dump(facts, sort_keys=False, allow_unicode=True) + '---\n\n# ' + title + '\n'
@@ -131,9 +130,10 @@ def make_work(repo, env, env_file, ref):
     put(repo / 'README.md', '# ' + title + '\n\nThe work lives in `content/`. Review changes in branches and PRs; '
         'trusted signed changes on `main` publish editions.\n')
     put(repo / '.github/workflows/verify.yml', from_template('verify-work.yml', ref))
-    git(repo, 'add', '--', 'content', '.gitignore', 'README.md', '.github/workflows/verify.yml')
-    git(repo, 'commit', '-S', '-m', 'Publish initial work')
-    verify_signature(repo, git(repo, 'rev-parse', 'HEAD'), allowed_signers=signers)
+    # Commit infrastructure only. The untracked manuscript remains a draft until
+    # the publisher explicitly signs its first accepted content-changing commit.
+    git(repo, 'add', '--', '.gitignore', 'README.md', '.github/workflows/verify.yml')
+    git(repo, 'commit', '-m', 'Initialize work repository')
     return signer_data
 
 
