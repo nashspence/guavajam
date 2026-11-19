@@ -1,0 +1,64 @@
+name: Build verified publications for GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+permissions:
+  contents: write  # Fast-forward only, to retain verification checkpoint on a separate branch.
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: guavajam-pages
+  cancel-in-progress: false
+jobs:
+  pages:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: nashspence/guavajam
+          ref: @@GUAVAJAM_REF@@
+          path: .guavajam-tool
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: cd .guavajam-tool && mise install
+      - run: cd .guavajam-tool && mise exec -- uv sync --locked --all-packages --no-dev
+      - name: Fetch retained verification checkpoint
+        run: |
+          git fetch --no-tags origin refs/heads/guavajam-state:refs/remotes/origin/guavajam-state
+          git show refs/remotes/origin/guavajam-state:STATE.json > "$RUNNER_TEMP/guavajam-previous.json"
+      - name: Verify source repositories and generate static Pages artifact
+        run: |
+          .guavajam-tool/.venv/bin/python -m guavajam.index \
+            --pages --index index.yaml --trust trust.yaml \
+            --previous-state "$RUNNER_TEMP/guavajam-previous.json" \
+            --state-output "$RUNNER_TEMP/guavajam-next.json" \
+            --output "$RUNNER_TEMP/guavajam-site"
+      - name: Retain verification checkpoint before publishing
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/guavajam-checkpoint" refs/remotes/origin/guavajam-state
+          cp "$RUNNER_TEMP/guavajam-next.json" "$RUNNER_TEMP/guavajam-checkpoint/STATE.json"
+          git -C "$RUNNER_TEMP/guavajam-checkpoint" add STATE.json
+          if ! git -C "$RUNNER_TEMP/guavajam-checkpoint" diff --cached --quiet; then
+            git -C "$RUNNER_TEMP/guavajam-checkpoint" -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m 'Retain verified publication history'
+            git -C "$RUNNER_TEMP/guavajam-checkpoint" push origin HEAD:refs/heads/guavajam-state
+          fi
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+        with:
+          path: ${{ runner.temp }}/guavajam-site
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

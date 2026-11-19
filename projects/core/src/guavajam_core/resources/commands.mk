@@ -1,5 +1,5 @@
 # Publisher command recipes owned and shipped by guavajam-core.
-.PHONY: check check-source check-assets work capture asset-credentials image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release preview
+.PHONY: check check-source check-assets capture asset-credentials image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release preview
 export TITLE AUTHOR LANGUAGE
 export FILE REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV GUAVAJAM_PREVIEW_IMAGE PORT BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
@@ -10,9 +10,6 @@ check-source: ## Validate tracked GFM manuscripts and supporting sources offline
 
 check-assets: ## Verify anonymous public delivery after release; private drafts use assets-qualify.
 	@$(PYTHON) -m guavajam_core.verify_source_assets
-
-work: ## TITLE='Work title' AUTHOR='Author name' [LANGUAGE=en] Create this repository's content/ starter.
-	@$(PYTHON) -m guavajam_core new-work --title "$${TITLE:?Set TITLE}" --author "$${AUTHOR:?Set AUTHOR}" --language "$${LANGUAGE:-en}"
 
 capture: ## OUTPUT=new-directory Export the installed capture extension for loading unpacked in Chrome.
 	@$(PYTHON) -m guavajam_core resources capture --output "$${OUTPUT:?Set OUTPUT}"
