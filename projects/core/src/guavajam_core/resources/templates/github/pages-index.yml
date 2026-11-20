@@ -38,11 +38,16 @@ jobs:
       - name: Expose pinned Pandoc to work/index commands
         run: echo "$(cd .guavajam-tool && mise where pandoc)/bin" >> "$GITHUB_PATH"
       - run: cd .guavajam-tool && mise exec -- uv sync --locked --all-packages --no-dev
+      - name: Stage pinned, self-hosted SQLite WASM for index search
+        run: cd .guavajam-tool && mise exec -- npm ci --omit=dev --ignore-scripts --no-audit --no-fund
       - name: Fetch retained verification checkpoint
         run: |
           git fetch --no-tags origin refs/heads/guavajam-state:refs/remotes/origin/guavajam-state
           git show refs/remotes/origin/guavajam-state:STATE.json > "$RUNNER_TEMP/guavajam-previous.json"
       - name: Verify source repositories and generate static Pages artifact
+        env:
+          GUAVAJAM_SQLITE_WASM_DIR: ${{ github.workspace }}/.guavajam-tool/node_modules/@sqlite.org/sqlite-wasm/dist
+          GUAVAJAM_REQUIRE_SEARCH: '1'
         run: |
           .guavajam-tool/.venv/bin/python -m guavajam.index \
             --pages --index index.yaml --trust trust.yaml \

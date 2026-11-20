@@ -131,7 +131,7 @@ def renderer_identity():
     for root in roots:
         h.update(root.name.encode() + b'\0')
         for file in sorted(root.rglob('*')):
-            if file.is_file() and file.suffix in {'.py', '.css'}:
+            if file.is_file() and file.suffix in {'.py', '.css', '.js', '.mjs', '.wasm'}:
                 h.update(file.relative_to(root).as_posix().encode() + b'\0' + file.read_bytes())
     try:
         result = subprocess.run(['pandoc', '--version'], capture_output=True, timeout=10, check=True)

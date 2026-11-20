@@ -47,6 +47,17 @@ class LicensingTests(unittest.TestCase):
         self.assertEqual('Apache-2.0', package['license'])
         self.assertEqual(package['license'], lock['packages']['']['license'])
 
+    def test_self_hosted_sqlite_runtime_preserves_third_party_notices(self):
+        package = json.loads((ROOT / 'package.json').read_text())
+        notice = (ROOT / 'projects/view/src/guavajam/assets/sqlite3-LICENSE.txt').read_text()
+        self.assertIn('@sqlite.org/sqlite-wasm ' + package['dependencies']['@sqlite.org/sqlite-wasm'], notice)
+        self.assertIn((ROOT / LICENSE).read_text(), notice)
+        self.assertIn('Copyright (c) 2010-2014 Emscripten authors', notice)
+        self.assertIn('Copyright © 2005-2020 Rich Felker', notice)
+        self.assertIn('The author disclaims copyright to this source code.', notice)
+        data = tomllib.loads((ROOT / 'projects/view/pyproject.toml').read_text())
+        self.assertIn('assets/*.txt', data['tool']['setuptools']['package-data']['guavajam'])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

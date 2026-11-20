@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-from html import escape
 import json
 import os
 from pathlib import Path
@@ -18,7 +17,8 @@ import uuid
 import yaml
 from guavajam_core.catalog import CatalogError, encoded, https, validate
 from guavajam_core.publication_protocol import discover, run
-from .site import build_site, page
+from .site import build_site
+from .search_index import create_index, emit_browser_assets, homepage, runtime_identity
 from .update import digest, locked_root, read_json, renderer_identity, trust_identity, verify_public_delivery
 
 MAX_BYTES = 1024 * 1024
@@ -206,7 +206,7 @@ def update_index(index, trust_file, output):
                                       allowed_signers=policy.get('allowed_signers'), previous=catalogs.get(url))
                 trusted = trust_identity(policy.get('fingerprints', ()), policy.get('allowed_signers'))
                 sources.append((url, repo, catalog, trusted))
-        identity = digest(encoded({'index': urls, 'catalogs': {u: c for u, _, c, _ in sources},
+        identity = digest(encoded({'index': urls, 'search': runtime_identity(), 'catalogs': {u: c for u, _, c, _ in sources},
                                    'renderer': renderer, 'trust': {u: t for u, _, _, t in sources}}))
         if old and old['identity'] == identity:
             return {'status': 'unchanged', 'changed': False, 'repositories': len(urls)}
@@ -215,7 +215,6 @@ def update_index(index, trust_file, output):
             stage = Path(temporary) / 'generation'; stage.mkdir()
             site = stage / 'site'; site.mkdir()
             entries = []
-            rows = []
             for url, repo, catalog, trusted in sources:
                 identifier = digest(url.encode())
                 with signing_policy(root, repo, url, policies[url]) as policy:
@@ -225,9 +224,9 @@ def update_index(index, trust_file, output):
                                           view_cache=root / '.cache' / digest((renderer + trusted + identifier).encode()))
                 catalogs[url] = catalog
                 entries.append({'repository': url, 'path': 'sources/' + identifier, 'tip': catalog['tip']})
-                rows.append('<li><a href="sources/' + identifier + '/index.html">' + escape(manifest['title']) +
-                            '</a> — <a href="' + escape(url, quote=True) + '">Source repository</a></li>')
-            (site / 'index.html').write_text(page('Publications', '<ul>' + ''.join(rows) + '</ul>'), encoding='utf-8')
+            create_index(site, entries)
+            interactive = emit_browser_assets(site)
+            (site / 'index.html').write_text(homepage(site, interactive=interactive), encoding='utf-8')
             public = {'schema': 'guavajam.index-view.v1', 'repositories': entries}
             (site / 'INDEX.json').write_bytes(encoded(public))
             receipt = {'schema': 'guavajam.index-state.v1', 'identity': identity, 'catalogs': catalogs,
@@ -288,7 +287,7 @@ def build_pages(index, trust_file, output, previous_state, state_output):
         cache = Path(temporary)
         staging = cache / 'site'
         staging.mkdir()
-        entries, rows = [], []
+        entries = []
         for url in urls:
             repo = prepare_source(cache, url)
             with signing_policy(cache, repo, url, policies[url]) as policy:
@@ -300,9 +299,9 @@ def build_pages(index, trust_file, output, previous_state, state_output):
                 manifest = build_site(repo, staging / path, ref=catalog['tip'], previous=prior, **policy)
             next_catalogs[url] = catalog
             entries.append({'repository': url, 'path': path, 'tip': catalog['tip']})
-            rows.append('<li><a href="' + path + '/index.html">' + escape(manifest['title']) +
-                        '</a> — <a href="' + escape(url, quote=True) + '">Source repository</a></li>')
-        (staging / 'index.html').write_text(page('Publications', '<ul>' + ''.join(rows) + '</ul>'), encoding='utf-8')
+        create_index(staging, entries)
+        interactive = emit_browser_assets(staging)
+        (staging / 'index.html').write_text(homepage(staging, interactive=interactive), encoding='utf-8')
         (staging / 'INDEX.json').write_bytes(encoded({'schema': 'guavajam.index-view.v1', 'repositories': entries}))
         next_state = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': next_catalogs}
         state_file.parent.mkdir(parents=True, exist_ok=True)

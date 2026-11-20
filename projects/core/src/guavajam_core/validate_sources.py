@@ -23,6 +23,7 @@ from .source_ast import plain_text, walk
 from .supporting_gfm import load_gfm_record, record_path
 from .table_captions import normalize_table_captions
 from .bibliography import check_optional_bibliography, ordered_authors, reviewed_language
+from .subject_metadata import check_subject_metadata
 
 FORMAT = "gfm+tex_math_dollars+raw_html+yaml_metadata_block"
 SOURCE_EXTENSIONS = {".md", ".markdown"}
@@ -32,7 +33,8 @@ FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
 META_REQUIRED = {"schema", "title", "language", "rights"}
-META_OPTIONAL = {"author", "author_orcid", "authors", "identifiers", "abstract", "schema_type"}
+META_OPTIONAL = {"author", "author_orcid", "authors", "identifiers", "abstract", "schema_type",
+                 "keywords", "subjects"}
 
 
 def issue(path: Path, message: str, line: int | None = None) -> str:
@@ -259,7 +261,7 @@ def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
 
 
 def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str, int, list[str]]:
-    """Parse scalar fields, the identifiers map and an ordered authors list only."""
+    """Parse bounded scalar fields and the explicitly supported block collections."""
     errors: list[str] = []
     if not source.startswith("---\n"):
         return None, source, 1, [issue(relative, "manuscript requires YAML front matter beginning with --- on line 1")]
@@ -286,16 +288,20 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
             continue
         if raw_line == "identifiers:":
             nested = "identifiers"
-        elif raw_line == "authors:":
-            nested = "authors"
+        elif raw_line in {"authors:", "keywords:", "subjects:"}:
+            nested = raw_line[:-1]
         elif re.fullmatch(r"[a-z][a-z0-9_]*:[ \t]+.+", raw_line):
             nested = None
         elif nested == "identifiers" and re.fullmatch(r"  [a-z][a-z0-9_]*:[ \t]+.+", raw_line):
             continue
         elif nested == "authors" and re.fullmatch(r"(?:  - name|    [a-z][a-z0-9_]*):[ \t]+.+", raw_line):
             continue
+        elif nested == "keywords" and re.fullmatch(r"  - .+", raw_line):
+            continue
+        elif nested == "subjects" and re.fullmatch(r"(?:  - subject|    [a-z][a-z0-9_]*):[ \t]+.+", raw_line):
+            continue
         else:
-            errors.append(issue(relative, "front matter permits scalars, two-space identifiers entries and two/four-space authors entries only", number))
+            errors.append(issue(relative, "front matter permits scalars, two-space identifiers or keywords entries and two/four-space authors or subjects entries only", number))
 
     forbidden = (yaml.tokens.AnchorToken, yaml.tokens.AliasToken,
                  yaml.tokens.TagToken, yaml.tokens.DirectiveToken,
@@ -330,27 +336,39 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
             continue
         if key in data:
             errors.append(issue(relative, f"duplicate YAML key: {key}"))
-        if key == "authors":
+        if key == "keywords":
             if not isinstance(value_node, yaml.nodes.SequenceNode):
-                errors.append(issue(relative, "authors must be an ordered YAML list of name/orcid mappings"))
+                errors.append(issue(relative, "keywords must be a YAML block list of literal strings"))
                 continue
-            authors = []
+            keywords = []
+            for entry in value_node.value:
+                value = scalar(entry, "keyword")
+                if value is not None:
+                    keywords.append(value)
+            data[key] = keywords
+        elif key in {"authors", "subjects"}:
+            singular = "author" if key == "authors" else "subject"
+            description = "name/orcid" if key == "authors" else "subject metadata"
+            if not isinstance(value_node, yaml.nodes.SequenceNode):
+                errors.append(issue(relative, f"{key} must be an ordered YAML list of {description} mappings"))
+                continue
+            records = []
             for entry in value_node.value:
                 if not isinstance(entry, yaml.nodes.MappingNode):
-                    errors.append(issue(relative, "each authors entry must be a name/orcid mapping"))
+                    errors.append(issue(relative, f"each {key} entry must be a {description} mapping"))
                     continue
-                author = {}
+                record = {}
                 for child_key_node, child_value_node in entry.value:
-                    child_key = scalar(child_key_node, "author key")
+                    child_key = scalar(child_key_node, f"{singular} key")
                     if child_key is None:
                         continue
-                    if child_key in author:
-                        errors.append(issue(relative, f"duplicate YAML author key: {child_key}"))
-                    value = scalar(child_value_node, f"authors.{child_key}")
+                    if child_key in record:
+                        errors.append(issue(relative, f"duplicate YAML {singular} key: {child_key}"))
+                    value = scalar(child_value_node, f"{key}.{child_key}")
                     if value is not None:
-                        author[child_key] = value
-                authors.append(author)
-            data[key] = authors
+                        record[child_key] = value
+                records.append(record)
+            data[key] = records
         elif key == "identifiers":
             if not isinstance(value_node, yaml.nodes.MappingNode):
                 errors.append(issue(relative, "identifiers must be a nested YAML mapping"))
@@ -383,6 +401,7 @@ def validate_work_fields(relative: Path, data: dict, title_inlines: list) -> lis
         ordered_authors(data)
         reviewed_language(data)
         check_optional_bibliography(data)
+        check_subject_metadata(data)
     except AssetError as exc:
         errors.append(issue(relative, str(exc)))
     for name in (META_REQUIRED | {"author_orcid"}) & set(data):
@@ -412,7 +431,24 @@ def validate_pandoc_front_matter(relative: Path, data: dict, ast: dict) -> list[
         errors.append(issue(relative, "Pandoc YAML metadata keys differ from source front matter"))
     for key in set(meta) & set(data):
         node = meta[key]
-        if key in {"authors", "abstract"}:
+        if key in {"keywords", "subjects"}:
+            # Like authors and abstract, these are literal source declarations.
+            # Pandoc can interpret punctuation as Markdown, so check collection
+            # structure but keep original YAML scalar values in derived facts.
+            if node.get("t") != "MetaList" or not isinstance(data[key], list) or len(node.get("c", [])) != len(data[key]):
+                errors.append(issue(relative, f"Pandoc interpreted {key} differently from the YAML list"))
+                continue
+            for actual, expected in zip(node["c"], data[key]):
+                if key == "subjects":
+                    if actual.get("t") != "MetaMap" or not isinstance(expected, dict) or set(actual.get("c", {})) != set(expected):
+                        errors.append(issue(relative, "Pandoc subject keys differ from YAML front matter"))
+                        continue
+                    leaves = actual["c"].values()
+                else:
+                    leaves = (actual,)
+                if any(leaf.get("t") not in {"MetaInlines", "MetaString", "MetaBlocks"} for leaf in leaves):
+                    errors.append(issue(relative, f"Pandoc interpreted {key} scalar as non-text metadata"))
+        elif key in {"authors", "abstract"}:
             # These new fields are literal YAML text, not Markdown. The builder
             # consumes the validated source values and supplies MetaStrings.
             continue

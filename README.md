@@ -42,6 +42,11 @@ separate `guavajam-state` branch. It never commits derived HTML. Keep that branc
 protected from deletion or force-push; do not reset it to bypass continuity
 checks. The index is a list of URLs, not a source of publisher signing authority.
 
+Optional author-declared [keywords and subjects](projects/core/tests/test_subject_metadata.py)
+live in work front matter. The [aggregate search contracts](projects/view/tests/test_search_index.py)
+and [browser journey](projects/view/tests/test_search_browser.mjs) cover the generated
+SQLite artifact, all-edition text search, latest-edition filters and static fallback.
+
 Both initializers accept `--output` to choose the local directory and `--local`
 to generate a local Git repository without creating a remote. Every later edit
 uses normal Git, a text editor, PR review, and Actions. Core can validate,

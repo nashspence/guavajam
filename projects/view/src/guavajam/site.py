@@ -16,14 +16,27 @@ from .renderer import git_blob, render
 from .view_cache import cached_render
 
 
-def page(title, body):
+def page(title, body, *, search=False):
     styles = Path(__file__).parent / 'styles'
     css = (styles / 'reading.css').read_text('utf-8') + '\n' + (styles / 'catalog.css').read_text('utf-8')
+    if search:
+        css += ("\n.guavajam-index-search { padding: 1rem; border: 1px solid var(--guavajam-border); margin-block: 1.5rem; }"
+                "\n#guavajam-search { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; }"
+                "\n#guavajam-search > div { min-width: 0; max-width: 100%; }"
+                "\n#guavajam-search label { display: block; font: 600 .85rem/1.3 system-ui, sans-serif; }"
+                "\n#guavajam-search input, #guavajam-search select, #guavajam-search button,"
+                " #guavajam-search-prev, #guavajam-search-next { font: inherit; padding: .5rem; max-width: 100%; box-sizing: border-box; }"
+                "\n#guavajam-search-results li, #guavajam-static-list li { border-bottom: 1px solid var(--guavajam-border); padding-block: .7rem; }"
+                "\n.guavajam-search-meta { color: var(--guavajam-muted); font-size: .88rem; }"
+                "\n[hidden] { display: none !important; }")
+    script = ("script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; "
+              if search else "script-src 'none'; ")
+    form_action = "form-action 'self'" if search else "form-action 'none'"
     return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
-            'style-src \'unsafe-inline\'; img-src data:; script-src \'none\'; '
-            'base-uri \'none\'; object-src \'none\'; form-action \'none\'">'
+            'style-src \'unsafe-inline\'; img-src data:; ' + script +
+            'base-uri \'none\'; object-src \'none\'; ' + form_action + '\">'
             '<title>' + escape(title) + ' — GuavaJam</title><style>' + css + '</style></head>'
             '<body><a class="guavajam-skip" href="#main">Skip to content</a>'
             '<main id="main" tabindex="-1"><h1>' + escape(title) + '</h1>' + body + '</main>'

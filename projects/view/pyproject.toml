@@ -19,7 +19,7 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-guavajam = ["styles/*.css"]
+guavajam = ["styles/*.css", "assets/*.js", "assets/*.mjs", "assets/*.wasm", "assets/*.txt"]
 
 [tool.uv.sources]
 guavajam-core = { workspace = true }

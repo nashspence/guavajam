@@ -2,6 +2,8 @@
 !Dockerfile
 !uv.lock
 !pyproject.toml
+!package.json
+!package-lock.json
 !projects/
 !projects/core/
 !projects/core/pyproject.toml
