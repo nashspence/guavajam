@@ -12,7 +12,7 @@ COMMANDS = {
     'asset-policy': 'configure_asset_maintenance', 'asset-pin': 'asset_versions',
     'gateway': 'deploy_asset_gateway', 'archive': 'source_archive',
     'chat': 'extract_chatgpt', 'catalog-export': 'export_catalog',
-    'new-work': 'starters', 'resources': 'starters',
+    'init': 'bootstrap', 'resources': 'starters',
 }
 
 
@@ -22,8 +22,10 @@ def main():
     args = parser.parse_args(sys.argv[1:2])
     command = args.command
     sys.argv = [sys.argv[0] + ' ' + command, *sys.argv[2:]]
-    if command in {'new-work', 'resources'}:
-        return importlib.import_module('.starters', __package__).main(command)
+    if command == 'init':
+        return importlib.import_module('.bootstrap', __package__).main()
+    if command == 'resources':
+        return importlib.import_module('.starters', __package__).main()
     try:
         return importlib.import_module('.' + COMMANDS[command], __package__).main()
     except (ValueError, OSError) as exc:

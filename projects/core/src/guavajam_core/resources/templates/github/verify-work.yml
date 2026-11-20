@@ -1,0 +1,44 @@
+name: Verify publication source
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: nashspence/guavajam
+          ref: @@GUAVAJAM_REF@@
+          path: .guavajam-tool
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: cd .guavajam-tool && mise install
+      - name: Expose pinned Pandoc to work/index commands
+        run: echo "$(cd .guavajam-tool && mise where pandoc)/bin" >> "$GITHUB_PATH"
+      - run: cd .guavajam-tool && mise exec -- uv sync --locked --package guavajam-core --no-dev
+      - name: Check draft source (no publication credentials)
+        if: github.event_name == 'pull_request' || hashFiles('content/manuscript.md') != ''
+        run: .guavajam-tool/.venv/bin/guavajam-core validate-sources
+      - name: Verify accepted signed publication history
+        if: github.event_name == 'push'
+        env:
+          ALLOWED_SIGNERS: ${{ secrets.GUAVAJAM_ALLOWED_SIGNERS }}
+        run: |
+          test -n "$ALLOWED_SIGNERS"
+          printf '%s\n' "$ALLOWED_SIGNERS" > "$RUNNER_TEMP/guavajam.allowed-signers"
+          chmod 600 "$RUNNER_TEMP/guavajam.allowed-signers"
+          .guavajam-tool/.venv/bin/guavajam-core catalog-export \
+            --ref "$GITHUB_SHA" \
+            --ssh-allowed-signers "$RUNNER_TEMP/guavajam.allowed-signers" \
+            --output "$RUNNER_TEMP/guavajam-catalog.json"
