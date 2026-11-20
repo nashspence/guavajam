@@ -142,14 +142,19 @@ try {
                 verify(item, result, label);
                 if (temperature === 'cold') {
                   assert.equal(result.databaseNetworkBytes, mode === 'raw-buffer' ? item.rawBytes : item.gzipBytes);
-                } else if (fixture.requireCacheReuse !== false) {
-                  // The bounded qualification fixture must cache correctly.
-                  // Stress benchmarks merely observe cache behavior: browsers
-                  // can decline to retain large responses, including raw DBs.
-                  assert.equal(result.databaseNetworkBytes, 0, label + ': warm body transfer');
+                } else if (mode === 'raw-buffer') {
+                  // The raw baseline uses no-cache. A browser may revalidate a
+                  // retained response or fetch it again; retention is optional
+                  // (RFC 9111 section 3), including for this bounded fixture.
                   const dbRequests = result.requests.filter(r => r.database);
-                  if (mode === 'raw-buffer') assert.equal(dbRequests.length, 1, label + ': legacy revalidation');
-                  else assert.equal(dbRequests.length, 0, label + ': immutable cache reuse');
+                  assert.equal(dbRequests.length, 1, label + ': raw revalidation or refetch');
+                  assert([0, item.rawBytes].includes(result.databaseNetworkBytes), label + ': complete raw response');
+                  assert.equal(dbRequests[0].status, result.databaseNetworkBytes ? 200 : 304);
+                } else if (fixture.requireCacheReuse !== false) {
+                  // The bounded immutable gzip fixture exercises force-cache.
+                  // Larger stress fixtures only report browser retention.
+                  assert.equal(result.databaseNetworkBytes, 0, label + ': warm body transfer');
+                  assert.equal(result.requests.filter(r => r.database).length, 0, label + ': immutable cache reuse');
                 }
                 samples.push({engine: name, version: browser.version(), fixture: item.fixture, variant: item.name,
                   profile, mode, repetition, temperature, rawBytes: item.rawBytes, gzipBytes: item.gzipBytes,
@@ -212,6 +217,7 @@ const summary = [...groups.entries()].map(([key, records]) => ({key, readyMs: su
 await fs.writeFile(path.join(output, 'search-download-browser-report.json'), JSON.stringify({
   gzipLevel: fixture.gzipLevel, repetitions: fixture.repetitions,
   requireCacheReuse: fixture.requireCacheReuse !== false,
+  rawCacheBehavior: 'Raw no-cache responses may revalidate or refetch; immutable gzip reuse remains required for the bounded fixture',
   controlledProfile: '40 ms before headers and nominal 10 Mbit/s per response; runtime HTTP gzip uses precomputed level-6 representations; timing is not a CI threshold',
   isolation: 'Cold means a new browser context with an empty HTTP cache; browser process and WASM compilation cache may be reused between samples',
   runtimeCacheControl: 'no-cache; warm runtime requests revalidate, while hashed database force-cache avoids its revalidation',
