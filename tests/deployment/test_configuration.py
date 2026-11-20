@@ -157,6 +157,24 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertIn(r'location ~ \.mjs$ { default_type application/javascript;', configuration)
         self.assertIn(r'location ~ \.wasm$ { default_type application/wasm;', configuration)
 
+    def test_only_successful_content_addressed_downloads_are_immutable(self):
+        configuration = (ROOT / 'deploy/nginx.conf').read_text()
+        self.assertIn('map "$status:$uri" $guavajam_cache_control', configuration)
+        rule = re.search(r'"~([^"\n]+)" "public, max-age=31536000, immutable";', configuration)
+        self.assertIsNotNone(rule)
+        pattern = re.compile(rule[1])
+        hashed = 'index.' + 'a' * 64 + '.sqlite.gz'
+        work = 'sources/example/work.' + 'b' * 64 + '.sqlite.gz'
+        for status in (200, 206, 304):
+            for relative in (hashed, work):
+                self.assertIsNotNone(pattern.fullmatch(f'{status}:/{relative}'))
+        for value in ('404:/' + hashed, '503:/' + work, '200:/index.html',
+                      '200:/index.sqlite', '200:/sqlite3.wasm', '200:/index.latest.sqlite.gz'):
+            self.assertIsNone(pattern.fullmatch(value))
+        self.assertIn('default "no-cache";', configuration)
+        self.assertIn('add_header Cache-Control $guavajam_cache_control always;', configuration)
+        self.assertIn('gzip_types application/javascript text/javascript application/wasm;', configuration)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

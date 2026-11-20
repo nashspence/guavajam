@@ -1,9 +1,9 @@
 /* Queries a disposable, read-only SQLite derivative. Signed sources remain authoritative. */
 import sqlite3InitModule from './sqlite3.mjs';
+import {loadDatabase} from './search-download.js';
 
 let db, scope;
 const PAGE_SIZE = 20;
-const MAX_DATABASE_BYTES = 256 * 1024 * 1024;
 const ORDER = Object.freeze({
   relevance: 'score ASC, w.latest_published DESC, w.title COLLATE NOCASE, w.id',
   recent: 'w.latest_published DESC, w.title COLLATE NOCASE, w.id',
@@ -156,21 +156,9 @@ self.onmessage = async event => {
       const sqlite3 = await sqlite3InitModule({
         locateFile: name => new URL(name, import.meta.url).href
       });
-      const response = await fetch(database, {cache: 'no-cache', mode: 'same-origin', redirect: 'error'});
-      if (!response.ok) throw new Error('Cannot fetch the local search database');
-      if (Number(response.headers.get('content-length')) > MAX_DATABASE_BYTES) {
-        throw new Error('Search database exceeds the memory limit');
-      }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (!bytes.length || bytes.byteLength > MAX_DATABASE_BYTES) {
-        throw new Error('Search database is empty or exceeds the memory limit');
-      }
-      db = new sqlite3.oo1.DB();
-      const ptr = sqlite3.wasm.allocFromTypedArray(bytes);
-      db.checkRc(sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', ptr,
-        bytes.byteLength, bytes.byteLength,
-        sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_READONLY));
-      db.exec('PRAGMA query_only=ON');
+      db = (await loadDatabase(sqlite3, {database: database.href,
+        databaseSize: event.data.databaseSize, transferSize: event.data.transferSize,
+        encoding: event.data.encoding, retry: event.data.retry === true})).db;
       if (db.selectValue("SELECT value FROM metadata WHERE key='schema'") !== 'guavajam.search.v1' ||
           db.selectValue("SELECT value FROM metadata WHERE key='scope'") !== scope) {
         throw new Error('Unsupported search database schema');

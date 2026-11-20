@@ -10,6 +10,7 @@ import sqlite3
 
 from guavajam_core.catalog import CatalogError, encoded
 from .navigation import document_directory
+from .search_artifact import download_attributes, emit_download
 from .search_index import create_index, emit_browser_assets
 
 
@@ -66,17 +67,19 @@ def browse_page(output, catalog, *, interactive, assets):
     body = ('<nav aria-label="Breadcrumb"><a href="../index.html">' + escape(title) + '</a></nav>'
             '<p>Explore editions, documents, and explicitly anchored sections or passages in this work.</p>')
     if interactive:
-        size = (output / 'work.sqlite').stat().st_size
+        download = emit_download(output / 'work.sqlite')
         body += ('<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
                  '<h2 id="guavajam-search-heading">Search this work</h2>'
                  '<p id="guavajam-search-scope">Search starts with the latest edition in verified publication '
                  'order. Choose all editions to include history. Dates are publisher-supplied Git dates. '
                  'Quoted headings remain identified as quotations.</p>'
-                 '<p>Enable search to download this work’s local index (' + str((size + 1023) // 1024) +
-                 ' KiB) and search engine. Reading links below work without it.</p>'
+                 '<p>Enable search to download this work’s local index (' +
+                 str((download['transfer_size'] + 1023) // 1024) +
+                 ' KiB compressed) and search engine. Reading links below work without it.</p>'
                  '<button type="button" id="guavajam-search-enable">Enable search</button>'
                  '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
-                 'data-scope="work" data-root="../" data-database="../work.sqlite" data-worker="' +
+                 'data-scope="work" data-root="../" ' + download_attributes(download, prefix='../') +
+                 ' data-worker="' +
                  escape(assets + 'search-worker.js', quote=True) + '">'
                  '<div><label for="guavajam-query">Text search</label>'
                  '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
