@@ -46,6 +46,9 @@ Optional author-declared [keywords and subjects](projects/core/tests/test_subjec
 live in work front matter. The [aggregate search contracts](projects/view/tests/test_search_index.py)
 and [browser journey](projects/view/tests/test_search_browser.mjs) cover the generated
 SQLite artifact, all-edition text search, latest-edition filters and static fallback.
+Work views also derive [contents and document navigation](projects/view/tests/test_navigation.py)
+and an optional [work search index](projects/view/tests/test_work_search.py), with
+[edition/document/passage browser journeys](projects/view/tests/test_work_search_browser.mjs).
 
 Both initializers accept `--output` to choose the local directory and `--local`
 to generate a local Git repository without creating a remote. Every later edit

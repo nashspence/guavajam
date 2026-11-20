@@ -1,5 +1,6 @@
 """Search preserves signed edition facts and never adds index-file authority."""
 from contextlib import closing
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -9,7 +10,7 @@ from unittest.mock import patch
 import yaml
 
 from guavajam.index import build_pages, read_index, update_index
-from guavajam.search_index import ReadingText, create_index, emit_browser_assets, homepage, runtime_identity, subject_key
+from guavajam.search_index import create_index, emit_browser_assets, homepage, runtime_identity, subject_key
 from guavajam_test_support.discovery_fixture import Publisher
 
 
@@ -30,15 +31,22 @@ class SearchIndexTests(unittest.TestCase):
             {'revision': sha, 'tree': 'f' * 40, 'published': '2026-11-01', 'message': 'Signed ' + title}]}))
         read = root / 'editions' / sha / 'read'
         read.mkdir(parents=True)
-        (read / 'VIEW.json').write_text(json.dumps({
+        view = {
             'preview': False, 'canonical': {'revision': sha},
             'facts': {'title': title, 'author': 'Example Author', 'language': 'en',
                       'rights': 'CC-BY-4.0', 'abstract': 'A study in ' + phrase,
                       'keywords': list(keywords), 'subjects': list(subjects)},
             'documents': {'content/manuscript.md': {'title': title, 'view': 'index.html',
-                                                  'language': 'en', 'source_sha256': 'a' * 64},
+                                                  'language': 'en', 'source_sha256': 'a' * 64, 'anchors': []},
                           'content/supporting/notes.md': {'title': 'Notes', 'view': 'supporting/notes.html',
-                                                        'language': 'en', 'source_sha256': 'b' * 64}}}))
+                                                        'language': 'en', 'source_sha256': 'b' * 64, 'anchors': []}}}
+        navigation = {'schema': 'guavajam.navigation.v1', 'canonical': view['canonical'], 'preview': False,
+                      'documents': {path: {**detail, 'text': detail['title'] + ' ' + phrase}
+                                    for path, detail in view['documents'].items()}}
+        raw = json.dumps(navigation).encode('utf-8')
+        (read / 'NAV.json').write_bytes(raw)
+        view['files'] = {'NAV.json': hashlib.sha256(raw).hexdigest()}
+        (read / 'VIEW.json').write_text(json.dumps(view))
         (read / 'index.html').write_text('<html><head><style>stylesheet</style></head><body><article><h1>' +
                                         title + '</h1><p>' + phrase + '</p></article></body></html>')
         (read / 'supporting').mkdir()
@@ -74,13 +82,6 @@ class SearchIndexTests(unittest.TestCase):
             self.assertEqual([one, one, two], facts['subjects'])
             self.assertEqual(['same', 'same'], facts['keywords'])
             self.assertNotEqual(subject_key(one), subject_key(two))
-
-    def test_visible_text_preserves_inline_words_and_block_boundaries(self):
-        text = ReadingText()
-        text.feed('<nav>chrome</nav><article><div class="guavajam-source-identity">generated identity</div>'
-                  '<p>eco<em>logy</em> &amp; river</p><p>banks<br>today</p><p hidden>hidden words</p>'
-                  '<script>ignored</script><svg><text>inert</text></svg><p>end</p></article><footer>chrome</footer>')
-        self.assertEqual('ecology & river banks today end', text.text())
 
     def test_failed_or_redirected_inputs_leave_no_partial_database(self):
         entry = self.source('alpha', 'Field Notes', 'Safe words')

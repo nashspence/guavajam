@@ -9,7 +9,6 @@ from __future__ import annotations
 from contextlib import closing
 import hashlib
 from html import escape
-from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -19,64 +18,13 @@ import sqlite3
 from urllib.parse import quote
 
 from guavajam_core.bibliography import ordered_authors
-from guavajam_core.catalog import CatalogError, encoded
+from guavajam_core.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYTES
+from guavajam_core.identifiers import SLUG
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_INDEXED_BYTES = 256 * 1024 * 1024
 MAX_DATABASE_BYTES = 256 * 1024 * 1024
 SCHEMA = 'guavajam.search.v1'
-
-
-class ReadingText(HTMLParser):
-    """Keep reading text and word boundaries, excluding generated page chrome."""
-
-    VOID = frozenset({'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
-                      'link', 'meta', 'param', 'source', 'track', 'wbr'})
-    BLOCK = frozenset({'article', 'p', 'div', 'section', 'aside', 'header', 'footer',
-                       'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'ul', 'ol',
-                       'table', 'tr', 'td', 'th', 'pre', 'blockquote', 'br', 'hr',
-                       'figure', 'figcaption', 'dt', 'dd'})
-    IGNORED = frozenset({'style', 'script', 'svg', 'noscript'})
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.stack = []
-        self.chunks = []
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        active = bool(self.stack) or tag == 'article'
-        if not active:
-            return
-        skipped = ((self.stack[-1][1] if self.stack else False) or tag in self.IGNORED
-                   or 'hidden' in attrs or attrs.get('aria-hidden') == 'true'
-                   or 'guavajam-source-identity' in attrs.get('class', '').split())
-        if tag in self.BLOCK and not skipped:
-            self.chunks.append(' ')
-        if tag not in self.VOID:
-            self.stack.append((tag, skipped))
-
-    def handle_startendtag(self, tag, attrs):
-        self.handle_starttag(tag, attrs)
-        if tag not in self.VOID:
-            self.handle_endtag(tag)
-
-    def handle_endtag(self, tag):
-        if tag in self.VOID or not self.stack:
-            return
-        if tag in self.BLOCK and not self.stack[-1][1]:
-            self.chunks.append(' ')
-        for index in range(len(self.stack) - 1, -1, -1):
-            if self.stack[index][0] == tag:
-                del self.stack[index:]
-                break
-
-    def handle_data(self, data):
-        if self.stack and not self.stack[-1][1]:
-            self.chunks.append(data)
-
-    def text(self):
-        return ' '.join(''.join(self.chunks).split())
 
 
 def _owned(root, relative):
@@ -91,11 +39,66 @@ def _owned(root, relative):
     return path
 
 
-def _json(root, relative):
+def _json(root, relative, *, maximum=MAX_DOCUMENT_BYTES):
     path = _owned(root, relative)
-    if not path.is_file() or path.stat().st_size > MAX_DOCUMENT_BYTES:
+    if not path.is_file() or path.stat().st_size > maximum:
         raise CatalogError('search: missing or oversized generated metadata')
     return json.loads(path.read_text('utf-8'))
+
+
+def _navigation(read, view):
+    """Consume the same bounded source-derived inventory as static navigation.
+
+    A render's inventory hashes the derivative; it does not replace signature
+    verification of the source, which has already happened before site building.
+    """
+    path = _owned(read, 'NAV.json')
+    if not path.is_file() or path.stat().st_size > MAX_INDEXED_BYTES:
+        raise CatalogError('search: missing or oversized navigation inventory')
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != view.get('files', {}).get('NAV.json'):
+        raise CatalogError('search: navigation inventory hash mismatch')
+    navigation = json.loads(raw)
+    if (navigation.get('schema') != 'guavajam.navigation.v1'
+            or navigation.get('canonical') != view['canonical']
+            or navigation.get('preview') is not False
+            or set(navigation.get('documents', {})) != set(view['documents'])):
+        raise CatalogError('search: navigation source identity mismatch')
+    for source, document in navigation['documents'].items():
+        details = view['documents'][source]
+        if any(document.get(key) != details.get(key)
+               for key in ('title', 'language', 'view', 'source_sha256')):
+            raise CatalogError('search: navigation document identity mismatch')
+        if (not isinstance(document.get('text'), str)
+                or len(document['text'].encode('utf-8')) > MAX_DOCUMENT_BYTES):
+            raise CatalogError('search: document text exceeds indexing bounds')
+        anchors = document.get('anchors')
+        if not isinstance(anchors, list):
+            raise CatalogError('search: missing ordered navigation anchors')
+        seen = {}
+        for position, anchor in enumerate(anchors):
+            identifier = anchor.get('anchor')
+            if (not isinstance(identifier, str)
+                    or not SLUG.fullmatch(identifier)
+                    or identifier in seen or anchor.get('position') != position
+                    or anchor.get('kind') not in {'section', 'passage'}
+                    or not isinstance(anchor.get('title'), str)
+                    or not isinstance(anchor.get('text'), str)
+                    or len(anchor['text'].encode('utf-8')) > MAX_DOCUMENT_BYTES
+                    or type(anchor.get('level')) is not int
+                    or anchor['level'] not in range(7)
+                    or not isinstance(anchor.get('scope'), str)
+                    or not (anchor['scope'] == 'document'
+                            or (anchor['scope'].startswith('quotation:')
+                                and SLUG.fullmatch(anchor['scope'].split(':', 1)[1])))):
+                raise CatalogError('search: invalid ordered navigation anchor')
+            parent = anchor.get('parent')
+            if parent is not None and (parent not in seen or seen[parent]['scope'] != anchor['scope']):
+                raise CatalogError('search: navigation parent crosses source outline')
+            seen[identifier] = anchor
+        if sorted(seen) != sorted(details.get('anchors', [])):
+            raise CatalogError('search: navigation anchors differ from verified view')
+    return navigation, len(raw)
 
 
 def _labels(facts):
@@ -118,7 +121,7 @@ def _authors(facts):
     return ', '.join(item['name'] for item in ordered_authors(facts))
 
 
-def create_index(site, entries):
+def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
     """Write index.sqlite beside index.html; entries remain repository/path/tip.
 
     Latest means last in verified first-parent publication order, never greatest
@@ -127,7 +130,14 @@ def create_index(site, entries):
     edition. Each search row combines one document's text and its edition facts.
     """
     site = Path(site).absolute()
-    database = site / 'index.sqlite'
+    if scope not in {'collection', 'work'}:
+        raise CatalogError('search: invalid index scope')
+    entries = list(entries)
+    if scope == 'work' and (len(entries) != 1 or entries[0]['path'] != ''):
+        raise CatalogError('search: a work index requires exactly its own repository')
+    if filename not in {'index.sqlite', 'work.sqlite'}:
+        raise CatalogError('search: invalid database filename')
+    database = _owned(site, filename)
     if database.exists() or database.is_symlink():
         raise CatalogError('search: destination already exists')
     total = 0
@@ -177,6 +187,20 @@ def create_index(site, entries):
                 url TEXT NOT NULL, title TEXT NOT NULL, authors TEXT NOT NULL, abstract TEXT NOT NULL,
                 labels TEXT NOT NULL, body TEXT NOT NULL, git TEXT NOT NULL
             );
+            CREATE TABLE passages (
+                id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
+                document_id INTEGER NOT NULL REFERENCES documents(id),
+                work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
+                title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
+                position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
+                text TEXT NOT NULL, url TEXT NOT NULL, UNIQUE(document_id, anchor)
+            );
+            CREATE TABLE passage_records (
+                id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
+                edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
+                url TEXT NOT NULL, title TEXT NOT NULL, authors TEXT NOT NULL, abstract TEXT NOT NULL,
+                labels TEXT NOT NULL, body TEXT NOT NULL, git TEXT NOT NULL
+            );
             CREATE INDEX editions_by_work ON editions(work_id, position);
             CREATE INDEX documents_by_work ON documents(work_id);
             CREATE INDEX works_by_date ON works(latest_published DESC);
@@ -184,15 +208,22 @@ def create_index(site, entries):
             CREATE INDEX keywords_by_name ON keywords(name, work_id);
             CREATE INDEX subjects_by_key ON subjects(key, work_id);
             CREATE INDEX search_by_work ON search_records(work_id);
+            CREATE INDEX documents_by_edition ON documents(edition_id, path);
+            CREATE INDEX passages_by_document ON passages(document_id, position);
+            CREATE INDEX passages_by_edition ON passages(edition_id);
             CREATE VIRTUAL TABLE search_fts USING fts5(title, authors, abstract, labels, body, git,
                 content='search_records', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
+            CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
+                content='passage_records', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
         ''')
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
+            conn.execute('INSERT INTO metadata VALUES (?,?)', ('scope', scope))
             for number, entry in enumerate(entries, start=1):
-                root = _owned(site, entry['path'])
-                catalog = _json(root, 'CATALOG.json')
-                manifest = _json(root, 'SITE.json')
+                root = site if scope == 'work' else _owned(site, entry['path'])
+                catalog = _json(root, 'CATALOG.json', maximum=MAX_CATALOG_BYTES)
+                manifest = (_json(root, 'SITE.json') if scope == 'collection'
+                            else {'tip': catalog['tip'], 'title': 'Unpublished work'})
                 if catalog['tip'] != entry['tip'] or manifest['tip'] != entry['tip']:
                     raise CatalogError('search: generated source verification mismatch')
                 editions = catalog['editions']
@@ -210,6 +241,10 @@ def create_index(site, entries):
                     view = _json(read, 'VIEW.json')
                     if view['preview'] is not False or view['canonical']['revision'] != sha:
                         raise CatalogError('search: non-public or mismatched verified view')
+                    navigation, size = _navigation(read, view)
+                    total += size
+                    if total > MAX_INDEXED_BYTES:
+                        raise CatalogError('search: navigation inventories exceed indexing bounds')
                     facts = view['facts']
                     recent_facts = facts
                     authors, labels = _authors(facts), _labels(facts)
@@ -231,19 +266,17 @@ def create_index(site, entries):
                         if not view_path.endswith('.html'):
                             raise CatalogError('search: invalid verified document view')
                         html = _owned(read, view_path)
-                        size = html.stat().st_size
-                        total += size
-                        if size > MAX_DOCUMENT_BYTES or total > MAX_INDEXED_BYTES:
+                        if not html.is_file() or html.stat().st_size > MAX_DOCUMENT_BYTES:
                             raise CatalogError('search: verified reading text exceeds indexing bounds')
-                        parser = ReadingText()
-                        parser.feed(html.read_text('utf-8'))
-                        parser.close()
-                        url = quote(entry['path'] + '/editions/' + sha + '/read/' + view_path, safe='/')
+                        document = navigation['documents'][source_path]
+                        prefix = entry['path'] + '/' if entry['path'] else ''
+                        url = quote(prefix + 'editions/' + sha + '/read/' + view_path, safe='/')
                         cursor = conn.execute('INSERT INTO documents '
                                               '(edition_id,work_id,title,path,url,language,source_sha256) '
                                               'VALUES (?,?,?,?,?,?,?)',
                                               (edition_id, number, detail['title'], source_path, url,
                                                detail['language'], detail['source_sha256']))
+                        document_id = cursor.lastrowid
                         title = facts['title']
                         if detail['title'] != title:
                             title += ' — ' + detail['title']
@@ -257,8 +290,20 @@ def create_index(site, entries):
                         conn.execute('INSERT INTO search_records '
                                      '(work_id,edition_id,document_id,url,title,authors,abstract,labels,body,git) '
                                      'VALUES (?,?,?,?,?,?,?,?,?,?)',
-                                     (number, edition_id, cursor.lastrowid, url, title, authors,
-                                      facts.get('abstract', ''), labels, parser.text(), provenance))
+                                     (number, edition_id, document_id, url, title, authors,
+                                      facts.get('abstract', ''), labels, document['text'], provenance))
+                        for anchor in document['anchors']:
+                            target = url + '#' + quote(anchor['anchor'], safe='')
+                            cursor = conn.execute('INSERT INTO passages '
+                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,text,url) '
+                                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                                (edition_id, document_id, number, anchor['anchor'], anchor['title'],
+                                 anchor['kind'], anchor['level'], anchor['position'], anchor['parent'],
+                                 anchor['scope'], anchor['text'], target))
+                            conn.execute('INSERT INTO passage_records VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                                (cursor.lastrowid, number, edition_id, document_id, target,
+                                 title + ' — ' + anchor['title'], authors, facts.get('abstract', ''),
+                                 labels, anchor['text'], provenance + ' ' + anchor['anchor']))
                 if editions:
                     latest = editions[-1]
                     conn.execute('UPDATE works SET title=?,authors=?,abstract=?,language=?,latest_published=?, '
@@ -274,10 +319,12 @@ def create_index(site, entries):
                 else:
                     conn.execute('INSERT INTO search_records '
                                  '(work_id,url,title,authors,abstract,labels,body,git) VALUES (?,?,?,?,?,?,?,?)',
-                                 (number, entry['path'] + '/index.html', manifest['title'], '', '', '', '',
+                                 (number, (entry['path'] + '/' if entry['path'] else '') + 'index.html', manifest['title'], '', '', '', '',
                                   entry['repository'] + ' ' + entry['tip']))
             conn.execute("INSERT INTO search_fts(search_fts) VALUES ('rebuild')")
             conn.execute("INSERT INTO search_fts(search_fts) VALUES ('optimize')")
+            conn.execute("INSERT INTO passage_fts(passage_fts) VALUES ('rebuild')")
+            conn.execute("INSERT INTO passage_fts(passage_fts) VALUES ('optimize')")
         conn.execute('VACUUM')
         if (conn.execute('PRAGMA integrity_check').fetchone()[0] != 'ok'
                 or conn.execute('PRAGMA foreign_key_check').fetchall()):

@@ -214,6 +214,7 @@ def update_index(index, trust_file, output):
         with tempfile.TemporaryDirectory(prefix='.collection-', dir=root) as temporary:
             stage = Path(temporary) / 'generation'; stage.mkdir()
             site = stage / 'site'; site.mkdir()
+            interactive = emit_browser_assets(site)
             entries = []
             for url, repo, catalog, trusted in sources:
                 identifier = digest(url.encode())
@@ -221,11 +222,11 @@ def update_index(index, trust_file, output):
                     verify_public_delivery(repo, catalog, previous=catalogs.get(url), **policy)
                     manifest = build_site(repo, site / 'sources' / identifier, ref=catalog['tip'],
                                           previous=catalogs.get(url), **policy,
+                                          repository=url, search_assets='../../' if interactive else '',
                                           view_cache=root / '.cache' / digest((renderer + trusted + identifier).encode()))
                 catalogs[url] = catalog
                 entries.append({'repository': url, 'path': 'sources/' + identifier, 'tip': catalog['tip']})
             create_index(site, entries)
-            interactive = emit_browser_assets(site)
             (site / 'index.html').write_text(homepage(site, interactive=interactive), encoding='utf-8')
             public = {'schema': 'guavajam.index-view.v1', 'repositories': entries}
             (site / 'INDEX.json').write_bytes(encoded(public))
@@ -287,6 +288,7 @@ def build_pages(index, trust_file, output, previous_state, state_output):
         cache = Path(temporary)
         staging = cache / 'site'
         staging.mkdir()
+        interactive = emit_browser_assets(staging)
         entries = []
         for url in urls:
             repo = prepare_source(cache, url)
@@ -296,11 +298,11 @@ def build_pages(index, trust_file, output, previous_state, state_output):
                                       allowed_signers=policy.get('allowed_signers'), previous=prior)
                 verify_public_delivery(repo, catalog, previous=prior, **policy)
                 path = 'sources/' + digest(url.encode())
-                manifest = build_site(repo, staging / path, ref=catalog['tip'], previous=prior, **policy)
+                manifest = build_site(repo, staging / path, ref=catalog['tip'], previous=prior, **policy,
+                                      repository=url, search_assets='../../' if interactive else '')
             next_catalogs[url] = catalog
             entries.append({'repository': url, 'path': path, 'tip': catalog['tip']})
         create_index(staging, entries)
-        interactive = emit_browser_assets(staging)
         (staging / 'index.html').write_text(homepage(staging, interactive=interactive), encoding='utf-8')
         (staging / 'INDEX.json').write_bytes(encoded({'schema': 'guavajam.index-view.v1', 'repositories': entries}))
         next_state = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': next_catalogs}

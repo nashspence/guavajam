@@ -17,6 +17,7 @@ test-browser: ## Run reader, keyboard, accessibility and print journeys; require
 	@$(PYTHON) projects/view/tests/run_browser.py
 	@$(PYTHON) projects/view/tests/run_catalog_browser.py
 	@$(PYTHON) projects/view/tests/run_search_browser.py
+	@$(PYTHON) projects/view/tests/run_work_search_browser.py
 render: ## REPO=path REV=full-sha OUTPUT=new-directory TRUSTED_GPG_FINGERPRINT=fingerprint|SSH_ALLOWED_SIGNERS=path [PREVIEW=1]
 	@set --; if [ "$$PREVIEW" = 1 ]; then set -- --unsigned-preview; elif [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust or PREVIEW=1}"; fi; \
 	$(PYTHON) -m guavajam render --repo "$${REPO:?Set REPO}" --revision "$${REV:?Set REV}" --output "$${OUTPUT:?Set OUTPUT}" "$$@"

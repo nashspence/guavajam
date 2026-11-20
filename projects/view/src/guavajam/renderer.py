@@ -159,6 +159,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
     from guavajam_core.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk,plain_text
     from guavajam_core.table_captions import normalize_table_captions
     from .presentation import prepare_presentation_ast
+    from .navigation import extract
     if media:
         front,body,line,errors=validate_front_matter(Path(path),source)
         info,issues=inspect_manuscript_syntax(Path(path),body,line);errors.extend(issues)
@@ -174,12 +175,13 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         ast,errors=normalize_table_captions(ast,source,Path(path),lambda text:json.loads(pandoc(text.encode())))
         if errors:raise RenderError('; '.join(errors))
         items=declarations(ast,origin,anchors)
+        navigation=extract(ast)
         for block in ast['blocks']:
             if block.get('t')=='CodeBlock' and 'guavajam-media' in block['c'][0][1]:
                 from guavajam_core.media import decode
                 item=decode(block['c'][1],origin)
                 block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
-        ast=prepare_presentation_ast(ast)
+        ast=prepare_presentation_ast(ast,navigation)
         from guavajam_core.bibliography import ordered_authors,author_text
         byline=author_text(ordered_authors(front),identifiers=True)
         title_index=next(i for i,b in enumerate(ast['blocks']) if b['t']=='Header' and b['c'][0]==1)
@@ -192,16 +194,17 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         from guavajam_core.asset_policy import AssetPolicy
         ast,positions=parse_gfm_record(source,policy=AssetPolicy(origin) if origin else None);anchors=set(positions);items=[]
         source_title=plain_text(ast['blocks'][0]['c'][2])
-        ast=present(ast,positions)
+        navigation=extract(ast,positions)
+        ast=present(ast,positions,navigation)
     for node in walk(ast['blocks']):
         if node['t'] in ('Link','Image'):
             url=node['c'][2][0]
             if url.startswith('#') and unquote(url[1:]) not in anchors :raise RenderError('unresolved explicit source fragment')
             node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads)
-    return ast,items,anchors,source_title
+    return ast,items,anchors,source_title,navigation
 
 
-def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None):
+def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, navigation=''):
     if not re.fullmatch(r'[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*', language):
         language = 'en'
     if '</style' in css.lower() or '@import' in css or re.search(r'url\s*\(', css, re.I):
@@ -226,7 +229,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if facts.get('schema_type') else ''
     if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
-    canonical = ('Git SHA-1 ' + revision_sha + ' · ' + path)
+    canonical = ('Git SHA-1 ' + revision_sha + (' · ' + path if path else ''))
     state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Verified signed source'
     return ('<!doctype html>\n<html lang="' + escape(language, quote=True) + '"><head>\n'
             '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -235,6 +238,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
             '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
             '<header class="guavajam-status"><span>' + escape(state) + '</span></header>\n'
+            + navigation + '\n'
             '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
             '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
@@ -292,6 +296,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     all_files = {}
     downloads = {}
     documents = {}
+    navigation_documents = {}
     manuscript_facts = {}
     css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
     for path in [manuscript, *supporting_paths]:
@@ -299,7 +304,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
         ast = json.loads(pandoc(source))
         from guavajam_core.validate_sources import validate_front_matter
         meta = validate_front_matter(Path(path),source.decode('utf-8'))[0] if path == manuscript else {}
-        ast,items,anchors,source_title = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
+        ast,items,anchors,source_title,navigation = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
                                       supporting=supporting,downloads=downloads,media=(path==manuscript),source=source.decode('utf-8'))
         from .identities import writer_prefix,restore_source_ids
         prefix=writer_prefix(anchors)
@@ -314,8 +319,21 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
             title=source_title;language='en';dest='supporting/'+Path(path).stem+'.html'
         documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
                            'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest()}
+        navigation_documents[path] = {**documents[path], **navigation}
+        from .navigation import reader_navigation
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,
-                                path=path, body=body, css=css, origin=origin, preview=preview, facts=meta if path==manuscript else None)
+                                path=path, body=body, css=css, origin=origin, preview=preview, facts=meta if path==manuscript else None,
+                                navigation=reader_navigation(path))
+    canonical = {'hash_algorithm':'sha1','revision':sha,'manuscript':manuscript}
+    navigation = {'schema':'guavajam.navigation.v1','canonical':canonical,
+                  'preview':preview,'documents':navigation_documents}
+    from guavajam_core.catalog import encoded
+    from .navigation import document_directory
+    navigation_bytes = encoded(navigation)
+    all_files['documents.html'] = _html(title='Documents in this edition',language='en',revision_sha=sha,
+        path='',body='<h1>Documents in this edition</h1>' + document_directory(navigation,include_sections=True),
+        css=css,origin=origin,preview=preview,
+        navigation='<nav class="guavajam-document-nav" aria-label="Edition documents"><a href="index.html">Manuscript</a></nav>')
     output.mkdir(parents=True, exist_ok=True)
     for name, html in all_files.items():
         target=output/name;target.parent.mkdir(parents=True, exist_ok=True)
@@ -323,14 +341,15 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     for name, raw in downloads.items():
         (output / 'downloads').mkdir(exist_ok=True)
         (output / 'downloads' / name).write_bytes(raw)
+    (output/'NAV.json').write_bytes(navigation_bytes)
     (output/'VIEW.json').write_text(json.dumps({
-       'schema':'guavajam.view.v1','canonical':{'hash_algorithm':'sha1','revision':sha,
-            'manuscript':manuscript}, 'renderer':'guavajam', 'preview':preview,
+       'schema':'guavajam.view.v1','canonical':canonical, 'renderer':'guavajam', 'preview':preview,
        'facts': manuscript_facts, 'documents': documents,
        'files': {**{name:hashlib.sha256(html.encode('utf-8')).hexdigest()
                  for name,html in sorted(all_files.items())},
-                 **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())}}},indent=2,sort_keys=True)+'\n')
-    return len(all_files)
+                 **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())},
+                 'NAV.json':hashlib.sha256(navigation_bytes).hexdigest()}},indent=2,sort_keys=True)+'\n')
+    return len(documents)
 
 
 def main(argv=None):
@@ -364,7 +383,7 @@ def main(argv=None):
                       preview=args.unsigned_preview)
     except (RenderError,MediaError,OSError,UnicodeError,ValueError) as exc:
         print('GuavaJam rendering failed: '+str(exc),file=sys.stderr);return 1
-    print(f'Wrote {number} derived HTML page(s); Git revision remains the canonical edition.')
+    print(f'Wrote {number} source document view(s) and their navigation; Git revision remains the canonical edition.')
     return 0
 
 if __name__ == '__main__':
