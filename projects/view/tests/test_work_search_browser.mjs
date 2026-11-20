@@ -12,6 +12,7 @@ const fixture = JSON.parse(await fs.readFile(fixturePath, 'utf8'));
 await fs.mkdir(output, {recursive: true});
 const root = path.resolve(fixture.root);
 const requests = [];
+const redirects = [];
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
@@ -21,6 +22,14 @@ const server = http.createServer(async (req, res) => {
     assert(filename.startsWith(root + path.sep));
     const content = await fs.readFile(filename);
     requests.push(relative);
+    if (path.basename(filename) === 'work.sqlite' && url.searchParams.get('redirect') === '1') {
+      // Real HTTP redirects work in every browser engine. The destination is
+      // the valid database, so following this redirect would fail the test.
+      redirects.push(url.pathname);
+      res.writeHead(302, {Location: url.pathname, 'Cache-Control': 'no-store'});
+      res.end();
+      return;
+    }
     const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript',
       '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.sqlite': 'application/vnd.sqlite3'};
     res.writeHead(200, {'Content-Type': types[path.extname(filename)] ?? 'application/octet-stream',
@@ -214,24 +223,31 @@ try {
       for (const broken of ['sqlite3.wasm', 'work.sqlite', 'search-worker.js', 'redirect']) {
         const failure = await browser.newContext();
         const unexpected = [];
+        const priorRedirects = redirects.length;
         failure.on('request', request => {
           if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin) unexpected.push(request.url());
         });
-        if (broken === 'redirect') {
-          await failure.route('**/work.sqlite', route => route.fulfill({status: 302,
-            headers: {Location: 'https://example.org/unexpected.sqlite'}, body: ''}));
-        } else {
+        if (broken !== 'redirect') {
           await failure.route('**/' + broken, route => route.abort());
         }
         const fallback = await failure.newPage();
         await fallback.goto(browse);
+        if (broken === 'redirect') {
+          await fallback.locator('#guavajam-search').evaluate(form => {
+            form.dataset.database = '../work.sqlite?redirect=1';
+          });
+        }
         await fallback.locator('#guavajam-search-enable').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-section').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-results').isVisible(), false);
-        assert.deepEqual(unexpected, [], `${name}: a local database must not redirect to another origin`);
-        if (broken === 'work.sqlite') {
-          await failure.unroute('**/work.sqlite');
+        assert.deepEqual(unexpected, [], `${name}: failure must not make external requests`);
+        if (broken === 'redirect') {
+          assert.equal(redirects.length, priorRedirects + 1, 'the server sent the rejected database redirect');
+        }
+        if (broken === 'work.sqlite' || broken === 'redirect') {
+          if (broken === 'work.sqlite') await failure.unroute('**/work.sqlite');
+          else await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.database = '../work.sqlite'; });
           await fallback.locator('#guavajam-search-enable').click();
           await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
             `${total} document(s) found`, fixture.documents);
