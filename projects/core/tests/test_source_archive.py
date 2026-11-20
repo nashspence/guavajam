@@ -12,12 +12,11 @@ class ArchiveTests(PublicationCommitTests):
     def setUp(self):
         super().setUp()
         self.raw=audio(Path(self.temporary.name)/'fixture.mp3');self.digest=hashlib.sha256(self.raw).hexdigest()
-        source=self.repo/'works/recorded-notes/manuscript.md'
+        source=self.repo/'content/manuscript.md'
         source.write_text(source.read_text().replace('a'*64,self.digest)+f'\n[Same recording](https://assets.example.org/sha256/{self.digest}.mp3)\n')
         from test_signed_commit_publication import cmd
-        cmd(self.repo,'git','add','-A');cmd(self.repo,'git','commit','-qm','Review archive fixture');self._sign(self.signed_message)
+        cmd(self.repo,'git','add','-A');self._sign('Preserve exact reviewed archive assets')
         self.archive=Path(self.temporary.name)/'archive'
-        self.enterContext(patch.dict(os.environ,{'GNUPGHOME':self.env['GNUPGHOME']}))
     @contextlib.contextmanager
     def received(self,url,mime,*,timeout):
         raw=self.raw
@@ -25,22 +24,22 @@ class ArchiveTests(PublicationCommitTests):
             status=200
             def getheader(self,name,default=None):return {'Content-Type':'audio/mpeg','Content-Length':str(len(raw))}.get(name,default)
         with Response(raw) as response:yield response
-    def save(self):return export(self.repo,self.signed,self.archive,fingerprints=[self.fingerprint],response_factory=self.received)
+    def save(self):return export(self.repo,self.signed,self.archive,**self.trust,response_factory=self.received)
     def test_archive_restores_without_origin_and_deduplicates_references(self):
-        self.assertEqual(1,self.save());self.assertEqual(1,check(self.archive,self.signed,fingerprints=[self.fingerprint]))
+        self.assertEqual(1,self.save());self.assertEqual(1,check(self.archive,self.signed,**self.trust))
         self.assertEqual(1,len(list((self.archive/'objects/sha256').iterdir())))
         self.assertTrue((self.archive/'source.bundle').is_file())
     def test_missing_asset_and_rehashed_inventory_cannot_change_signed_bytes(self):
         self.save();manifest=self.archive/'ARCHIVE.json';data=json.loads(manifest.read_text());key=next(iter(data['objects']))
         target=self.archive/'objects'/key;target.write_bytes(b'changed media')
         data['objects'][key]['sha256']=hashlib.sha256(target.read_bytes()).hexdigest();data['objects'][key]['byte_count']=target.stat().st_size;manifest.write_text(json.dumps(data))
-        with self.assertRaisesRegex(AssetError,'signed source bytes'):check(self.archive,self.signed,fingerprints=[self.fingerprint])
+        with self.assertRaisesRegex(AssetError,'signed source bytes'):check(self.archive,self.signed,**self.trust)
     def test_inventory_cannot_omit_dependencies_or_select_a_different_revision(self):
         self.save();manifest=self.archive/'ARCHIVE.json';data=json.loads(manifest.read_text());data['objects']={};manifest.write_text(json.dumps(data))
-        with self.assertRaisesRegex(AssetError,'inventory'):check(self.archive,self.signed,fingerprints=[self.fingerprint])
-        with self.assertRaisesRegex(AssetError,'externally selected'):check(self.archive,'0'*40,fingerprints=[self.fingerprint])
+        with self.assertRaisesRegex(AssetError,'inventory'):check(self.archive,self.signed,**self.trust)
+        with self.assertRaisesRegex(AssetError,'externally selected'):check(self.archive,'0'*40,**self.trust)
     def test_existing_or_source_checkout_output_is_never_overwritten(self):
-        with self.assertRaises(AssetError):export(self.repo,self.signed,self.repo/'saved',fingerprints=[self.fingerprint],response_factory=self.received)
+        with self.assertRaises(AssetError):export(self.repo,self.signed,self.repo/'saved',**self.trust,response_factory=self.received)
         self.archive.mkdir()
         with self.assertRaises(AssetError):self.save()
 

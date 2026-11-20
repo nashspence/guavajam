@@ -16,6 +16,7 @@ MARKDOWN_DATA = {
 }
 LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'projects/core/LICENSES/Apache-2.0.txt',
                 'projects/view/LICENSES/Apache-2.0.txt',
+                'projects/view/src/guavajam/assets/sqlite3-LICENSE.txt',
                 'projects/core/src/guavajam_core/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
 PROSE_SUFFIXES = {'.md', '.markdown', '.mdown', '.mkd', '.rst', '.adoc', '.asciidoc', '.txt'}
 

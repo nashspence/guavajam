@@ -11,13 +11,13 @@ from .asset_policy import MIME
 
 
 def references(root,files,manuscript):
-    from .validate_sources import parse_document,walk
+    from .validate_sources import SOURCE_EXTENSIONS,parse_document,walk
     from .supporting_gfm import record_path,load_gfm_record
     from .media import declarations
     from .validate_sources import validate_front_matter,inspect_manuscript_syntax
     policy=load_policy(root);urls=set()
     for relative in files:
-        if relative.suffix!='.md' or not relative.is_relative_to(Path(manuscript).parent):continue
+        if relative.suffix.lower() not in SOURCE_EXTENSIONS or not relative.is_relative_to(Path(manuscript).parent):continue
         if record_path(relative):ast,*_=load_gfm_record(root/relative,root=root)
         else:
             ast,errors=parse_document(root/relative,relative)
@@ -38,6 +38,28 @@ def output_directory(path,repo):
     return path
 
 
+def bundle_revision(repo, revision, destination):
+    """Preserve the chosen commit's ancestry without unrelated branch objects.
+
+    A disposable bare repository borrows immutable source objects, owns its one
+    advertised ref and creates the bundle. It never changes the source's refs,
+    runs its hooks, or includes drafts merely because they have local refs.
+    """
+    repo = Path(repo).resolve()
+    object_path = git(repo, 'rev-parse', '--git-path', 'objects').decode().strip()
+    objects = (repo / object_path).resolve()
+    if any(char in str(objects) for char in '\n\r'):
+        raise AssetError('source object directory cannot be represented safely')
+    object_format = git(repo, 'rev-parse', '--show-object-format').decode().strip()
+    with tempfile.TemporaryDirectory(prefix='guavajam-bundle-') as temporary:
+        bare = Path(temporary)
+        git(bare, 'init', '--bare', '--quiet', '--object-format=' + object_format)
+        (bare / 'objects/info/alternates').write_text(str(objects) + '\n')
+        git(bare, 'update-ref', 'refs/heads/publication', revision)
+        git(bare, 'symbolic-ref', 'HEAD', 'refs/heads/publication')
+        git(bare, 'bundle', 'create', str(destination), 'HEAD', 'refs/heads/publication')
+
+
 def export(repo,revision,output,*,fingerprints=(),allowed_signers=None,response_factory=public_response):
     record=verify(repo,revision,fingerprints=fingerprints,allowed_signers=allowed_signers,online_media=False)
     output=output_directory(output,repo)
@@ -46,7 +68,7 @@ def export(repo,revision,output,*,fingerprints=(),allowed_signers=None,response_
     with tempfile.TemporaryDirectory(prefix='.guavajam-archive-',dir=output.parent) as directory:
         stage=Path(directory)/'archive';stage.mkdir(mode=0o700)
         bundle=stage/'source.bundle'
-        git(repo,'bundle','create',str(bundle),'--all')
+        bundle_revision(repo, revision, bundle)
         objects={}
         with snapshot(repo,revision) as (root,files):
             policy=load_policy(root)
@@ -90,7 +112,7 @@ def check(archive,revision,*,fingerprints=(),allowed_signers=None):
         result=subprocess.run(['git','clone','--bare','--no-hardlinks',str(bundle),str(restored)],capture_output=True,check=False)
         if result.returncode:raise AssetError('Git bundle could not restore source objects')
         record=verify(restored,revision,fingerprints=fingerprints,allowed_signers=allowed_signers,online_media=False)
-        if record['manuscript']!=data['manuscript']:raise AssetError('archive manuscript differs from the signed declaration')
+        if record['manuscript']!=data['manuscript']:raise AssetError('archive manuscript differs from the signed edition')
         with snapshot(restored,revision) as (root,files):
             policy=load_policy(root);urls=references(root,files,record['manuscript'])
             expected={'sha256/'+'.'.join(policy.parse(url)):url for url in urls}

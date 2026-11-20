@@ -1,7 +1,7 @@
 // Exercise the actual rendered draft and authenticated loopback handler in browsers.
 import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright';
 import {previewServer} from '../../core/src/guavajam_core/resources/storage/preview.mjs';
 
 const fixture=JSON.parse(await fs.readFile(process.argv[2],'utf8'));
@@ -35,11 +35,11 @@ const listener=previewServer(env,fixture.preview_root,fixture.preview_manifest,t
 await new Promise(resolve=>listener.listen(0,'127.0.0.1',resolve));
 const origin='http://127.0.0.1:'+listener.address().port;
 try{
-  for(const [engine,type] of Object.entries({chromium,firefox,webkit})){
+  for(const [engine,type] of Object.entries({chromium, firefox, webkit})){
     const browser=await type.launch(),context=await browser.newContext();
     try{
       const page=await context.newPage();page.setDefaultTimeout(15000);
-      const anonymous=await page.goto(origin+'/works/sample-work/index.html');
+      const anonymous=await page.goto(origin+'/');
       assert.equal(anonymous.status(),404);
       const before=storageReads;
       const key=Object.keys(fixture.preview_manifest.assets)[0];
@@ -47,43 +47,29 @@ try{
       assert.equal(storageReads,before);
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
-      if(fixture.preview_manifest.provisional_repository){
-        assert.equal(await page.locator('meta[name="guavajam:repository-settings"]').getAttribute('content'),'provisional');
-        assert.equal(await page.locator('h1.guavajam-preview-change').count(),1);
-        assert.equal(await page.locator('html.guavajam-preview-new-page').count(),1);
-        assert.equal(await page.locator('.guavajam-works > li.guavajam-preview-change').count(),3);
-        const catalog=await (await context.request.get(origin+'/CATALOG.json')).json();
-        assert.equal(catalog.works.length,3);
-        for(const work of catalog.works){
-          const record=await context.request.get(origin+'/works/'+work.slug+'/editions/'+fixture.revision+'/citation.json');
-          const citation=await record.json();
-          assert.equal(citation.canonical.manuscript,'works/'+work.slug+'/manuscript.md');
-          assert(citation.provisional);
-        }
-      }
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
-      await page.getByRole('link',{name:/Sample Work/}).first().click();
-      assert(page.url().includes('/works/sample-work/'));
-      await page.getByRole('link',{name:/Read the recommended edition/}).click();
-      assert(page.url().includes('/editions/'+fixture.revision+'/read/index.html'));
-      assert.equal(await page.locator('aside[aria-label="Private preview"]').count(),0);
-      assert.equal(await page.locator('article.guavajam-edition.guavajam-preview-change').count(),1);
-      assert.equal(await page.locator('html.guavajam-preview-new-page').count(),1);
-      assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').width),'2px');
-      assert.equal(await page.locator('article.guavajam-edition').evaluate(
-        element=>getComputedStyle(element,'::after').display),'none');
-      for(const [scheme,color] of [['light','rgb(45, 164, 78)'],['dark','rgb(63, 185, 80)']]){
-        await page.emulateMedia({colorScheme:scheme});
-        const rail=await page.evaluate(()=>{
-          const style=getComputedStyle(document.documentElement,'::after');
-          return {color:style.backgroundColor,height:parseFloat(style.height),
-                  documentHeight:document.documentElement.scrollHeight};
-        });
-        assert.equal(rail.color,color);
-        assert(Math.abs(rail.height-rail.documentHeight)<2,'new page rail must reach full document height');
+      const routes=Object.keys(fixture.preview_manifest.files).filter(name=>name.endsWith('.html'));
+      for(const route of routes){
+        await page.goto(origin+'/'+route);
+        assert.equal(await page.locator('.guavajam-preview-accessible').innerText(),'Unsigned proposed edition, not issued.');
+        assert.equal(await page.locator('.guavajam-status, aside[aria-label="Private preview"]').count(),0);
+        for(const width of [390,1280]) for(const colorScheme of ['light','dark']){
+          await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme});
+          const shape=await page.evaluate(()=>{
+            const root=document.documentElement,rail=getComputedStyle(root,'::after');
+            return {width:rail.width,height:parseFloat(rail.height),document:root.getBoundingClientRect().height,
+              color:rail.backgroundColor,overflow:root.scrollWidth>innerWidth+1};
+          });
+          assert.equal(shape.width,'2px');assert(Math.abs(shape.height-shape.document)<=1,engine+' incomplete document rail');
+          assert.equal(shape.color,colorScheme==='light'?'rgb(45, 164, 78)':'rgb(63, 185, 80)');assert(!shape.overflow);
+        }
+        await page.emulateMedia({media:'print'});
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').display),'none');
+        await page.emulateMedia({media:'screen',forcedColors:'active'});
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').width),'2px');
+        await page.emulateMedia({forcedColors:'none'});
       }
-      await page.emulateMedia({colorScheme:'light'});
-      assert.equal(await page.locator('.guavajam-preview-accessible').isVisible(),false);
+      await page.goto(origin+'/');
       assert.equal(await page.evaluate(()=>document.referrer),'');
       const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
       assert.match(csp,/media-src[^;]*'self'/);
@@ -99,7 +85,7 @@ try{
       await page.locator('video').evaluate(video=>{video.textTracks[0].mode='showing';});
       await page.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length>0);
       assert(requests.every(value=>{const url=new URL(value);return url.origin===origin&&['http:','blob:'].includes(url.protocol);}));
-      const source=await context.request.get(origin+'/works/sample-work/editions/'+fixture.revision+'/read/source.gfm');
+      const source=await context.request.get(origin+'/source.gfm');
       assert.equal(source.headers()['cache-control'],'private, no-store');
       assert((await source.text()).includes(fixture.origin));
       assert.equal((await context.request.get(origin+'/PREVIEW.json')).status(),404);
@@ -117,4 +103,3 @@ try{
 
 }
 await qualify(fixture);
-await qualify({...fixture,...fixture.bootstrap});

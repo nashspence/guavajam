@@ -6,7 +6,7 @@ from urllib.parse import unquote, urlsplit
 import hashlib
 import sys
 from .asset_policy import AssetError, MAX_ASSETS, MAX_TOTAL_BYTES, fetch_asset, load_policy, verify_bytes, public_response
-from .validate_sources import git_sources, local_asset_size, parse_document, walk
+from .validate_sources import SOURCE_EXTENSIONS, git_sources, local_asset_size, parse_document, walk
 from .supporting_gfm import load_gfm_record, record_path
 from .media import candidates, declarations
 from .verify_media_sources import verify_items
@@ -16,16 +16,16 @@ def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_ite
     root = root.resolve(); policy = load_policy(root); tracked = set(git_sources(root) if paths is None else paths)
     remote_sizes, all_media, budgets = {}, [], {}
     for path in sorted(tracked):
-        if path.suffix != '.md' or path.parts[:2] == ('tests','fixtures'): continue
+        if path.suffix.lower() not in SOURCE_EXTENSIONS or path.parts[:1] != ('content',): continue
         if record_path(path):
             ast, *_ = load_gfm_record(root/path,root=root)
         else:
             ast, errors = parse_document(root/path,path)
             if errors: raise AssetError('\n'.join(errors))
-        manuscript = len(path.parts)==3 and path.parts[0]=='works' and path.name=='manuscript.md'
+        manuscript = path == Path('content/manuscript.md')
         if list(candidates(ast['blocks'])):
             if not manuscript: raise AssetError('media declarations belong in a manuscript')
-            if not policy: raise AssetError('media requires asset-policy.json')
+            if not policy: raise AssetError('media requires content/asset-policy.json')
             from .validate_sources import validate_front_matter, inspect_manuscript_syntax
             _, body, line, errors = validate_front_matter(path,(root/path).read_text('utf-8'))
             info, issues = inspect_manuscript_syntax(path,body,line)
@@ -35,7 +35,7 @@ def verify_source_assets(root, *, fetcher=fetch_asset, media_verifier=verify_ite
         downloads={n['c'][2][0] for n in walk(ast['blocks']) if n['t']=='Link' and policy and policy.manages(n['c'][2][0])}
         if not manuscript: images={url for url in images if policy and policy.manages(url)}
         if len(images|downloads)>MAX_ASSETS: raise AssetError(f'{path} exceeds the distinct asset limit')
-        group=path.parts[:2] if path.parts[:1]==('works',) else (str(path),)
+        group=('content',)
         budget=budgets.setdefault(group,{})
         for target in sorted(images|downloads):
             if ':' in target or target.startswith('//'):

@@ -22,31 +22,32 @@ def main():
     assert Path(guavajam_core.__file__).is_relative_to(Path(sys.prefix)), 'core came from a checkout'
     resources = Path(guavajam_core.__file__).parent / 'resources'
     for name in ('storage/worker.js', 'storage/preview.mjs', 'storage/server.mjs', 'chatgpt-capture/manifest.json',
-                 'templates/work/manuscript.md', 'schemas/guavajam-repository-v1.schema.json'):
+                 'templates/work/manuscript.md', 'commands.mk'):
         assert (resources / name).is_file(), name
     if not repo.exists():
-        repo.mkdir()
-        run('git', 'init', '-q', '-b', 'main', cwd=repo)
-        run('git', 'config', 'user.name', 'Artifact Publisher', cwd=repo)
-        run('git', 'config', 'user.email', 'fixture@example.org', cwd=repo)
-        run(sys.executable, '-m', 'guavajam_core', 'new-work', 'artifact-work',
-            '--title', 'Artifact Work', '--author', 'Example Author', cwd=repo)
-        (repo / 'guavajam.json').write_text(json.dumps({'schema': 'guavajam.repository.v1',
-            'publisher': 'Artifact Publisher', 'base_url': 'https://publisher.example'}))
-        run('git', 'add', '-A', cwd=repo)
-        run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
-        run('git', 'commit', '-qm', 'Reviewed source', cwd=repo)
         key = root / 'signing-key'
         run('ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-f', str(key))
-        run('git', 'config', 'gpg.format', 'ssh', cwd=repo)
-        run('git', 'config', 'user.signingkey', str(key), cwd=repo)
-        run('git', 'commit', '--allow-empty', '-S', '-m', 'Approve repository settings', '-m',
-            'GuavaJam-Repository: 1', cwd=repo)
-        run('git', 'commit', '--allow-empty', '-S', '-m', 'Publish', '-m',
-            'GuavaJam-Publication: 1\nGuavaJam-Work: works/artifact-work/manuscript.md\nGuavaJam-Published: 2026-11-13', cwd=repo)
-        (root / 'allowed-signers').write_text('fixture namespaces="git" ' + key.with_suffix('.pub').read_text())
+        config = root / 'publisher.gitconfig'
+        for setting, value in [('user.name', 'Artifact Publisher'), ('user.email', 'fixture@example.org'),
+                               ('gpg.format', 'ssh'), ('user.signingkey', str(key))]:
+            run('git', 'config', '--file', str(config), setting, value)
+        os.environ['GIT_CONFIG_GLOBAL'] = str(config)
+        os.environ['GIT_CONFIG_SYSTEM'] = os.devnull
+        signers = root / 'allowed-signers'
+        signers.write_text('fixture ' + key.with_suffix('.pub').read_text())
+        settings = root / 'bootstrap.env'
+        settings.write_text('GUAVAJAM_REPO=example/publisher\n'
+                            'GUAVAJAM_TITLE=Artifact Work\n'
+                            'GUAVAJAM_AUTHOR=Example Author\n'
+                            'GUAVAJAM_ALLOWED_SIGNERS=' + str(signers) + '\n'
+                            'GUAVAJAM_TOOL_REF=' + '0' * 40 + '\n')
+        run(sys.executable, '-m', 'guavajam_core', 'init', 'work', '--env', str(settings),
+            '--output', str(repo), '--local', cwd=root)
+        run('git', 'add', 'content', cwd=repo)
+        run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo)
+        run('git', 'commit', '-S', '-m', 'Publish the initial work', cwd=repo)
         # The CLI must read the caller's repository even from a nested directory.
-        run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'works')
+        run(sys.executable, '-m', 'guavajam_core', 'validate-sources', cwd=repo / 'content')
         run(sys.executable, '-m', 'guavajam_core', 'resources', 'capture', '--output', str(root / 'capture'), cwd=repo)
         assert (root / 'capture/capture.mjs').is_file()
         for legal in ['LICENSES/Apache-2.0.txt', 'REUSE.toml']:
@@ -55,7 +56,7 @@ def main():
         assert '--revision' in run(sys.executable, '-m', 'guavajam_core', command, '--help', cwd=repo)
     sha = run('git', 'rev-parse', 'HEAD', cwd=repo)
     qualified = json.loads(run(sys.executable, '-m', 'guavajam_core', 'assets-qualify',
-                              '--revision', sha, '--work', 'artifact-work', cwd=repo))
+                              '--revision', sha, cwd=repo))
     assert qualified['privately_verified'] and not qualified['public_delivery_verified']
     signers = root / 'allowed-signers'
     from guavajam_core.publication_commit import verify
@@ -67,11 +68,11 @@ def main():
     check(archive, sha, allowed_signers=signers)
     if view:
         from guavajam.preview import build_preview
-        preview = build_preview(repo, sha, 'artifact-work', root / 'draft-preview', allowed_signers=signers)
+        preview = build_preview(repo, sha, root / 'draft-preview')
         assert not preview['publication'] and (root / 'draft-preview/PREVIEW.json').is_file()
         assert '--serve' in run(sys.executable, '-m', 'guavajam', 'preview', '--help', cwd=repo)
         from guavajam.renderer import render
-        render(repo, sha, 'artifact-work', root / 'view', allowed_signers=signers)
+        render(repo, sha, root / 'view', allowed_signers=signers)
         assert 'Artifact Work' in (root / 'view/index.html').read_text()
         assert (Path(__import__('guavajam').__file__).parent / 'styles/reading.css').read_text() in (root / 'view/index.html').read_text()
     print('Installed ' + ('core + view' if view else 'core alone') + ': signed source, resources and preservation verified.')

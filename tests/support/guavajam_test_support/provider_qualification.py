@@ -130,7 +130,8 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
     releaser = S3(roles['release'], operation='release')
     maintenance = S3(roles['maintenance'], operation='delete')
     lock = retention_seconds > 0
-    (root / 'asset-policy.json').write_text(json.dumps({'origin': origin}))
+    (root / 'content').mkdir()
+    (root / 'content/asset-policy.json').write_text(json.dumps({'origin': origin}))
     for name, key in zip(NAMES, keys):
         file = root / name
         result = upload(root, file, staged, index=Index(staged)) if file.suffix == '.png' else upload_media(root, file, staged, Index(staged))
@@ -173,63 +174,60 @@ def exercise(root, roles, origin, keys, *, retention_seconds=0, strict_maintenan
     progress('signed_source')
     fixture = root / 'publisher'; fixture.mkdir()
     p = Publisher(fixture)
-    try:
-        remote = root / 'origin.git'
-        subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True, capture_output=True)
-        p.git('remote', 'add', 'origin', str(remote)); p.git('push', '-q', 'origin', 'main')
-        base = p.git('rev-parse', 'HEAD'); p.git('switch', '-c', 'review')
-        (p.repo / 'asset-policy.json').write_text(json.dumps({'origin': origin}))
-        body = '![Synthetic image](' + origin + '/' + keys[0] + ')\n\n'
-        body += '\n\n'.join('[Synthetic media](' + origin + '/' + k + ')' for k in keys[1:])
-        p.source('field-notes', 'Field Notes', body); p.git('add', '-A'); p.git('commit', '-qm', 'Review synthetic media')
-        edition = p.publish(date.today().isoformat()); p.git('push', '-q', 'origin', 'review')
-        kwargs = dict(store=reader, release_store=releaser, fingerprints=[p.fingerprint], require_retention=lock)
-        with patch.dict(os.environ, {'GNUPGHOME': str(p.home)}):
-            try: release(p.repo, edition, base, apply=True, **kwargs)
-            except ValueError: pass
-            else: raise AssetError('unmerged edition could release')
-            require(all(Releases(releaser).get(k) is None for k in keys))
-            p.git('switch', 'main'); p.git('merge', '--no-ff', 'review', '-m', 'Accept synthetic edition')
-            p.git('push', '-q', 'origin', 'main'); tip = p.git('rev-parse', 'HEAD')
-            release(p.repo, edition, tip, apply=False, **kwargs)
-            require(all(Releases(releaser).get(k) is None for k in keys))
-            try: release(p.repo, edition, tip, apply=True, **{**kwargs, 'release_store': LostWrite(releaser)})
-            except AssetError: pass
-            else: raise AssetError('lost response was not observed')
-            grants = [Releases(releaser).get(k) is not None for k in keys]
-            require(sum(grants) == 1)
-            for key, granted in zip(keys, grants):
-                with public_response(origin + '/' + key, '*/*', method='HEAD') as received:
-                    require(received.status == (200 if granted else 404))
-            progress('release_and_retry')
-            require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
-            before = {row.identity for row in exact(maintenance, paths(keys))}
-            require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
-            require(before == {row.identity for row in exact(maintenance, paths(keys))})
-            require(p.git('rev-parse', 'HEAD') == tip)
-        progress('public_delivery')
-        for name, key in zip(NAMES, keys):
-            raw = (root / name).read_bytes(); mapping = Index(reader).get(key)
-            for method in ['HEAD', 'GET']:
-                with public_response(origin + '/' + key, '*/*', method=method) as received:
-                    require(received.status == 200 and received.getheader('ETag') == mapping['etag'])
-                    require(received.getheader('X-GuavaJam-Asset-Publication') == edition)
-                    require(received.getheader('Content-Length') in ({str(len(raw))} if method == 'HEAD' else {None, str(len(raw))}))
-                    if method == 'GET': require(b''.join(response_chunks(received, len(raw))) == raw)
-            if name.endswith(('.mp3', '.mp4')):
-                for value, expected in [('bytes=0-127', raw[:128]), ('bytes=-128', raw[-128:])]:
-                    with public_response(origin + '/' + key, '*/*', range_value=value) as received:
-                        require(received.status == 206 and b''.join(response_chunks(received, 128)) == expected)
-                with public_response(origin + '/' + key, '*/*', range_value='bytes=999999999999-') as received:
-                    require(received.status == 416)
-        progress('collection_protection')
-        # No bucket-wide inventory: removal of every Git reference still cannot collect these releases.
-        require(not candidates(exact(maintenance, paths(keys)), set(), time.time() + 100 * 86400))
-        return {'private_staging': True, 'signed_main_authority': True, 'partial_release_recovery': True,
-                'idempotent_retry': True, 'multipart_and_ranges': True, 'released_collection_protection': True,
-                'role_boundaries': True, 'strict_writer_roles': strict_maintenance, 'retention': lock}
-    finally:
-        subprocess.run(['gpgconf', '--homedir', str(p.home), '--kill', 'gpg-agent'], capture_output=True)
+    remote = root / 'origin.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(remote)], check=True, capture_output=True)
+    p.git('remote', 'add', 'origin', str(remote)); p.git('push', '-q', 'origin', 'main')
+    base = p.git('rev-parse', 'HEAD'); p.git('switch', '-c', 'review')
+    (p.repo / 'content/asset-policy.json').write_text(json.dumps({'origin': origin}))
+    body = '![Synthetic image](' + origin + '/' + keys[0] + ')\n\n'
+    body += '\n\n'.join('[Synthetic media](' + origin + '/' + k + ')' for k in keys[1:])
+    p.source('Field Notes', body)
+    edition = p.publish('Publish synthetic media'); p.git('push', '-q', 'origin', 'review')
+    kwargs = dict(store=reader, release_store=releaser, **p.trust, require_retention=lock)
+    with patch.dict(os.environ, p.env):
+        try: release(p.repo, edition, base, apply=True, **kwargs)
+        except ValueError: pass
+        else: raise AssetError('unmerged edition could release')
+        require(all(Releases(releaser).get(k) is None for k in keys))
+        p.git('switch', 'main'); p.git('merge', '--no-ff', '-S', 'review', '-m', 'Accept synthetic edition')
+        p.git('push', '-q', 'origin', 'main'); tip = p.git('rev-parse', 'HEAD'); edition = tip
+        release(p.repo, edition, tip, apply=False, **kwargs)
+        require(all(Releases(releaser).get(k) is None for k in keys))
+        try: release(p.repo, edition, tip, apply=True, **{**kwargs, 'release_store': LostWrite(releaser)})
+        except AssetError: pass
+        else: raise AssetError('lost response was not observed')
+        grants = [Releases(releaser).get(k) is not None for k in keys]
+        require(sum(grants) == 1)
+        for key, granted in zip(keys, grants):
+            with public_response(origin + '/' + key, '*/*', method='HEAD') as received:
+                require(received.status == (200 if granted else 404))
+        progress('release_and_retry')
+        require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
+        before = {row.identity for row in exact(maintenance, paths(keys))}
+        require(release(p.repo, edition, tip, apply=True, **kwargs)['public_delivery_verified'])
+        require(before == {row.identity for row in exact(maintenance, paths(keys))})
+        require(p.git('rev-parse', 'HEAD') == tip)
+    progress('public_delivery')
+    for name, key in zip(NAMES, keys):
+        raw = (root / name).read_bytes(); mapping = Index(reader).get(key)
+        for method in ['HEAD', 'GET']:
+            with public_response(origin + '/' + key, '*/*', method=method) as received:
+                require(received.status == 200 and received.getheader('ETag') == mapping['etag'])
+                require(received.getheader('X-GuavaJam-Asset-Publication') == edition)
+                require(received.getheader('Content-Length') in ({str(len(raw))} if method == 'HEAD' else {None, str(len(raw))}))
+                if method == 'GET': require(b''.join(response_chunks(received, len(raw))) == raw)
+        if name.endswith(('.mp3', '.mp4')):
+            for value, expected in [('bytes=0-127', raw[:128]), ('bytes=-128', raw[-128:])]:
+                with public_response(origin + '/' + key, '*/*', range_value=value) as received:
+                    require(received.status == 206 and b''.join(response_chunks(received, 128)) == expected)
+            with public_response(origin + '/' + key, '*/*', range_value='bytes=999999999999-') as received:
+                require(received.status == 416)
+    progress('collection_protection')
+    # No bucket-wide inventory: removal of every Git reference still cannot collect these releases.
+    require(not candidates(exact(maintenance, paths(keys)), set(), time.time() + 100 * 86400))
+    return {'private_staging': True, 'signed_main_authority': True, 'partial_release_recovery': True,
+            'idempotent_retry': True, 'multipart_and_ranges': True, 'released_collection_protection': True,
+            'role_boundaries': True, 'strict_writer_roles': strict_maintenance, 'retention': lock}
 
 
 def binding_for(roles, origin):

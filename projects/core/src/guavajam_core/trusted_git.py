@@ -1,5 +1,6 @@
 """Use caller-installed verification tools, never programs selected by a source repository."""
 from pathlib import Path
+import os
 import shutil
 import re
 import subprocess
@@ -36,7 +37,8 @@ def verify_signature(repo, revision, *, fingerprints=(), allowed_signers=None):
         command = ['git', '--no-replace-objects', *verifier_arguments(repo, 'ssh'),
                    '-c', 'gpg.ssh.allowedSignersFile=' + str(path), 'verify-commit', revision]
     try:
-        result = subprocess.run(command, cwd=repo, capture_output=True, timeout=30, check=False)
+        result = subprocess.run(command, cwd=repo, capture_output=True, timeout=30, check=False,
+                                env={**os.environ, 'GIT_GRAFT_FILE': os.devnull})
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise AssetError('signature verification unavailable') from exc
     if result.returncode or len(result.stdout) > 65536 or len(result.stderr) > 65536:

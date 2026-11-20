@@ -4,9 +4,7 @@ from html.parser import HTMLParser
 import re
 from guavajam_core.asset_policy import AssetError
 from guavajam_core.source_ast import walk,plain_text
-
-
-ANCHOR = re.compile(r'<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"></a>\Z')
+from .navigation import manuscript_anchor as _anchor_from_block, contents_blocks, extract
 
 FORMAL_LABEL = re.compile(
     r"^(Definition|Theorem|Proposition|Lemma|Corollary|Proof|Axiom|Remark|Example)"
@@ -22,48 +20,9 @@ FORMAL_KINDS = frozenset({
 
 
 
-def _anchor_from_block(block: dict) -> str | None:
-    """Pandoc parses a standalone `<a id=...></a>` as RawInline tokens in Para.
-
-    Some Pandoc versions may instead use RawBlock. These are the only accepted
-    source shapes; anything else is left for the strict source validator.
-    """
-    kind, contents = block.get("t"), block.get("c")
-    if kind == "RawBlock" and isinstance(contents, list) and len(contents) == 2:
-        if contents[0] == "html":
-            match = ANCHOR.fullmatch(contents[1])
-            return match.group(1) if match else None
-    if kind != "Para" or not isinstance(contents, list) or len(contents) != 2:
-        return None
-    if contents[0].get("t") != "RawInline" or contents[1].get("t") != "RawInline":
-        return None
-    opening, closing = contents[0].get("c"), contents[1].get("c")
-    if (not isinstance(opening, list) or not isinstance(closing, list) or
-            opening[0] != "html" or closing != ["html", "</a>"]):
-        return None
-    match = re.fullmatch(r'<a id="([a-z][a-z0-9]*(?:-[a-z0-9]+)*)">', opening[1])
-    return match.group(1) if match else None
-
-
-def _contents_blocks(blocks):
-    sections=[];used={n['c'][1][0] for n in blocks if n.get('t')=='Header'}
-    for block in blocks:
-        if block.get('t')=='Header' and block['c'][0]==2:
-            inlines=block['c'][2]
-            if len(inlines)>=2 and inlines[-1].get('t')=='Link' and 'guavajam-permalink' in inlines[-1]['c'][0][1]:inlines=inlines[:-2]
-            sections.append((block['c'][1][0],plain_text(inlines)))
-    if len(sections)<3:return []
-    def fresh(base):
-        name=base;number=1
-        while name in used:number+=1;name=base+'-'+str(number)
-        used.add(name);return name
-    contents,label=fresh('guavajam-contents'),fresh('guavajam-contents-label')
-    items=[[{'t':'Plain','c':[{'t':'Link','c':[['',[],[]],[{'t':'Str','c':title}],['#'+anchor,'']]}]}] for anchor,title in sections]
-    return [{'t':'RawBlock','c':['html','<nav id="'+contents+'" class="guavajam-contents" aria-labelledby="'+label+'"><p id="'+label+'" class="guavajam-contents-label" lang="en">Contents</p>']},{'t':'BulletList','c':items},{'t':'RawBlock','c':['html','</nav>']}]
-
-
-def prepare_presentation_ast(ast: dict) -> dict:
+def prepare_presentation_ast(ast: dict, navigation=None) -> dict:
     """Render explicit source anchors, formal headings and native contents navigation."""
+    navigation = navigation if navigation is not None else extract(ast)
     old = ast.get("blocks", [])
     new: list[dict] = []
     ids: set[str] = set()
@@ -111,10 +70,9 @@ def prepare_presentation_ast(ast: dict) -> dict:
         new.append(block)
         i += 1
 
-    contents = _contents_blocks(new)
+    contents = contents_blocks(navigation['anchors'], ids)
     if contents:
-        # Keep the title first. H2-only navigation never duplicates theorem,
-        # footnote, MathML or supporting-passage output.
+        # Preserve the title first; the navigation uses only source headings.
         title_index = next((j for j, block in enumerate(new) if block.get("t") == "Header"
                             and block["c"][0] == 1), None)
         if title_index is None:

@@ -11,10 +11,10 @@ ORIGIN='https://media.example.test'
 
 def make_fixture(directory):
     directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
-    repo=directory/'source';repo.mkdir();work=repo/'works/sample-work';(work/'supporting').mkdir(parents=True);(work/'assets').mkdir()
+    repo=directory/'source';repo.mkdir();work=repo/'content';(work/'supporting').mkdir(parents=True);(work/'assets').mkdir()
     def git(*args):return subprocess.check_output(['git',*args],cwd=repo,stderr=subprocess.PIPE).decode().strip()
     for args in [('init','-q','-b','main'),('config','user.name','Fixture'),('config','user.email','fixture@example.org')]:git(*args)
-    (repo/'asset-policy.json').write_text(json.dumps({'origin':ORIGIN}))
+    (repo/'content/asset-policy.json').write_text(json.dumps({'origin':ORIGIN}))
     source=(RESOURCES / 'templates/work/manuscript.md').read_text()
     import re
     source=re.sub(r'https://media\.example\.org/sha256/[^\s]+\.svg','assets/preview.svg',source)
@@ -40,20 +40,8 @@ def make_fixture(directory):
     source+='| '+' | '.join('Column '+str(i) for i in range(12))+' |\n| '+' | '.join('---' for _ in range(12))+' |\n| '+' | '.join('A long measured value' for _ in range(12))+' |\n\n: Table 2 — Wide measurements\n'
     (work/'manuscript.md').write_text(source)
     git('add','-A');git('commit','-qm','Qualification source')
-    (repo/'guavajam.json').write_text(json.dumps({'schema':'guavajam.repository.v1','publisher':'Fixture Publisher',
-                                                      'base_url':'https://publisher.example'})+'\n')
-    git('add','guavajam.json');git('commit','-qm','Review publisher repository settings')
-    keys=directory/'signing';keys.mkdir(mode=0o700)
-    env={**os.environ,'GNUPGHOME':str(keys)}
-    def gpg(*args):return subprocess.check_output(['gpg',*args],env=env,stderr=subprocess.PIPE).decode().strip()
-    gpg('--batch','--pinentry-mode','loopback','--passphrase','','--quick-generate-key',
-        'Browser Preview <fixture@example.org>','ed25519','sign','0')
-    fingerprint=next(line.split(':')[9] for line in gpg('--batch','--with-colons','--list-secret-keys').splitlines() if line.startswith('fpr:'))
-    git('config','gpg.format','openpgp');git('config','user.signingkey',fingerprint)
-    subprocess.run(['git','commit','--allow-empty','-S','-qm','Authorize repository settings\n\nGuavaJam-Repository: 1'],cwd=repo,env=env,check=True,capture_output=True)
-    with (work/'manuscript.md').open('a') as stream:stream.write('\nA proposed additional work passage.\n')
-    git('add','-A');git('commit','-qm','Proposed unsigned complete site');sha=git('rev-parse','HEAD')
-    output=directory/'view';render(repo,sha,'sample-work',output,preview=True)
+    sha=git('rev-parse','HEAD')
+    output=directory/'view';render(repo,sha,output,preview=True)
     from guavajam.preview import build_preview
     from guavajam_core.asset_versions import pin_key
     from guavajam_core.gateway_index import Index
@@ -63,27 +51,8 @@ def make_fixture(directory):
         store.upload(key.lstrip('/'),base64.b64decode(record['body']),record['mime'])
         pin_key(store,Index(store),key.lstrip('/'))
     private=directory/'private'
-    from unittest.mock import patch
-    with patch.dict(os.environ,{'GNUPGHOME':str(keys)}):
-        manifest=build_preview(repo,sha,'sample-work',private,store=store,
-                               fingerprints=[fingerprint],published='2026-11-15')
-    # The same full media journey must also work before any signer bootstrap.
-    from guavajam_test_support.discovery_fixture import Draft
-    import shutil
-    bootstrap = Draft(directory/'bootstrap')
-    bootstrap.git('rm', '-r', 'works/field-notes')
-    shutil.copytree(work, bootstrap.repo/'works/sample-work')
-    shutil.copyfile(repo/'asset-policy.json', bootstrap.repo/'asset-policy.json')
-    bootstrap.source('field-guide', 'A Second Draft', 'Another privately committed work.')
-    bootstrap.source('review-note', 'A Third Draft', 'A third privately committed work.')
-    bootstrap.git('add', '-A'); bootstrap.git('commit', '-qm', 'Review first private works')
-    bootstrap_sha = bootstrap.git('rev-parse', 'HEAD')
-    bootstrap_output = directory/'bootstrap-private'
-    bootstrap_manifest = build_preview(bootstrap.repo, bootstrap_sha, 'sample-work', bootstrap_output,
-                                       store=store, published='2026-11-15')
+    manifest=build_preview(repo,sha,private,store=store)
     fixture={'root':str(output),'origin':ORIGIN,'assets':assets,'revision':sha,
-             'preview_root':str(private),'preview_manifest':manifest,
-             'bootstrap':{'revision':bootstrap_sha,'preview_root':str(bootstrap_output),
-                          'preview_manifest':bootstrap_manifest}}
+             'preview_root':str(private),'preview_manifest':manifest}
     (directory/'fixture.json').write_text(json.dumps(fixture))
     return fixture

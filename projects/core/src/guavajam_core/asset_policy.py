@@ -69,17 +69,17 @@ class AssetPolicy:
 
 
 def load_policy(root: Path) -> AssetPolicy | None:
-    path = root / "asset-policy.json"
+    path = root / "content" / "asset-policy.json"
     if not path.exists():
         return None  # Sources without remote assets do not require an asset policy.
-    if path.is_symlink():
-        raise AssetError("asset-policy.json must not be a symlink")
+    if path.is_symlink() or path.resolve() != path.absolute():
+        raise AssetError("content/asset-policy.json must not be a symlink")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (ValueError, OSError) as exc:
-        raise AssetError("cannot read asset-policy.json") from exc
+        raise AssetError("cannot read content/asset-policy.json") from exc
     if not isinstance(data, dict) or set(data) != {"origin"}:
-        raise AssetError("asset-policy.json must contain only origin")
+        raise AssetError("content/asset-policy.json must contain only origin")
     return AssetPolicy(data["origin"])
 
 

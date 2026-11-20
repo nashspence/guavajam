@@ -1,8 +1,7 @@
-"""Reviewed catalog data, not a publication registry or a source of signer trust.
+"""Derived edition history for one work, with independently retained continuity.
 
-The caller selects a local repository and external signing policy. The catalog
-selects exact publications and supplies administrative DOI/date/status facts.
-No URL in this file is fetched and no source-controlled program is executed.
+Every edition field is read from Git; this file has no administrative overrides
+and conveys no signer authority. Discovery must verify the underlying objects.
 """
 from __future__ import annotations
 
@@ -11,16 +10,12 @@ import json
 from pathlib import Path
 import re
 import unicodedata
-from urllib.parse import quote, urlsplit
-
-from .identifiers import DOI, SLUG
+from urllib.parse import urlsplit
 
 SCHEMA = 'guavajam.catalog.v1'
-MAX_BYTES = 1024 * 1024
-MAX_EDITIONS = 256
+MAX_BYTES = 16 * 1024 * 1024
+MAX_EDITIONS = 10000
 REVISION = re.compile(r'[0-9a-f]{40}\Z')
-STATUSES = frozenset({'available', 'superseded', 'withdrawn', 'unavailable'})
-READABLE_STATUSES = frozenset({'available', 'superseded', 'withdrawn'})
 
 
 class CatalogError(ValueError):
@@ -71,16 +66,6 @@ def day(value, label):
     return value
 
 
-def doi(value):
-    if not isinstance(value, str) or len(value) > 512 or not DOI.fullmatch(value):
-        fail('DOIs must be lowercase bare identifiers, not URLs')
-    return value
-
-
-def doi_url(value):
-    return 'https://doi.org/' + quote(doi(value), safe='/')
-
-
 def _unique(pairs):
     result = {}
     for key, value in pairs:
@@ -90,166 +75,54 @@ def _unique(pairs):
     return result
 
 
-def read_catalog(path, *, provisional=()):
+def read_catalog(path):
     """Read bounded JSON; reject duplicate keys rather than accepting last-wins."""
     with Path(path).open('rb') as stream:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:
-        fail('file exceeds 1 MiB')
+        fail('file exceeds 16 MiB')
     try:
         result = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique,
                             parse_constant=lambda _: fail('non-finite JSON number'))
     except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         raise CatalogError('catalog: invalid UTF-8 JSON') from exc
-    validate(result, provisional=provisional)
+    validate(result)
     return result
 
 
-def validate(catalog, *, provisional=()):
-    fields(catalog, {'schema', 'title', 'publisher', 'language', 'works'},
-           {'description', 'base_url', 'source_view'}, 'catalog')
-    if catalog['schema'] != SCHEMA:
-        fail('unsupported schema')
-    for name in ('title', 'publisher'):
-        text(catalog[name], name)
-    if 'description' in catalog:
-        text(catalog['description'], 'description', 4096)
-    if catalog['language'] != 'en':
-        fail('this catalog interface currently supports language en; source documents retain their own languages')
-    if 'base_url' in catalog:
-        base = https(catalog['base_url'], 'base_url')
-        path = urlsplit(base).path
-        if base.endswith('/') or '%' in path or not re.fullmatch(r'(?:/[a-zA-Z0-9_-]+)*', path):
-            fail('base_url must have a simple optional path prefix and no trailing slash')
-    if 'source_view' in catalog:
-        template = text(catalog['source_view'], 'source_view', 2048)
-        if template.count('{revision}') != 1 or template.count('{path}') != 1:
-            fail('source_view must contain exactly one {revision} and {path}')
-        replaced = template.replace('{revision}', 'a' * 40).replace('{path}', 'works/example/manuscript.md')
-        https(replaced, 'source_view')
-        # Neither substitution may change the origin or authority of the URL.
-        if '{' in urlsplit(template).netloc or '{' in urlsplit(template).scheme:
-            fail('source_view placeholders must be in the path')
-    works = catalog['works']
-    if not isinstance(works, list) or len(works) > MAX_EDITIONS:
-        fail('works must be a bounded list')
-    slugs, revisions, dois = set(), {}, set()
-    provisional = frozenset(provisional)
-    edition_count = 0
-    for work in works:
-        fields(work, {'slug', 'metadata_revision', 'editions'}, {'concept_doi', 'recommended_revision'}, 'work')
-        slug = work['slug']
-        if not isinstance(slug, str) or len(slug) > 128 or not SLUG.fullmatch(slug) or slug in slugs:
-            fail('work slugs must be unique, bounded GuavaJam-compatible slugs')
-        slugs.add(slug)
-        if not isinstance(work['editions'], list) or not work['editions']:
-            fail('each work requires at least one exact edition')
-        editions = {}
-        for edition in work['editions']:
-            fields(edition, {'revision', 'published', 'status'}, {'label', 'doi', 'notices', 'successor_revision'}, 'edition')
-            sha = edition['revision']
-            if (not isinstance(sha, str) or not REVISION.fullmatch(sha) or sha in editions
-                    or sha in revisions and ((slug, sha) not in provisional
-                                            or (revisions[sha], sha) not in provisional)):
-                fail('each edition requires a unique full lowercase SHA-1 commit')
-            revisions[sha] = slug
-            edition_count += 1
-            if edition_count > MAX_EDITIONS:
-                fail('catalog exceeds 256 editions')
-            editions[sha] = edition
-            day(edition['published'], 'published')
-            if not isinstance(edition['status'], str) or edition['status'] not in STATUSES:
-                fail('status must be available, superseded, withdrawn or unavailable')
-            if 'label' in edition:
-                text(edition['label'], 'label')
-            notices = edition.get('notices', [])
-            if not isinstance(notices, list) or len(notices) > 64:
-                fail('notices must be a bounded list')
-            previous = edition['published']
-            for notice in notices:
-                fields(notice, {'date', 'text'}, {'url'}, 'notice')
-                day(notice['date'], 'notice date')
-                text(notice['text'], 'notice', 4096)
-                if notice['date'] < previous:
-                    fail('notices must be chronological and not predate publication')
-                previous = notice['date']
-                if 'url' in notice:
-                    https(notice['url'], 'notice URL')
-            if edition['status'] != 'available' and not notices:
-                fail('superseded, withdrawn and unavailable editions require an explanatory notice')
-        for edition in work['editions']:
-            successor = edition.get('successor_revision')
-            if edition['status'] == 'superseded' and successor is None:
-                fail('superseded editions require a same-work successor_revision')
-            if successor is not None:
-                if edition['status'] not in {'withdrawn', 'superseded'}:
-                    fail('only withdrawn or superseded editions may name a successor')
-                if (not isinstance(successor, str) or successor not in editions
-                        or successor == edition['revision']
-                        or editions[successor]['published'] < edition['published']):
-                    fail('successor_revision must identify a later or same-day distinct edition of this work')
-        # Validate every edge before walking chains: a later edition may name
-        # an invalid target, regardless of the catalog's edition ordering.
-        for edition in work['editions']:
-            seen = {edition['revision']}
-            current = edition.get('successor_revision')
-            while current is not None:
-                if current in seen:
-                    fail('edition successors may not form cycles')
-                seen.add(current)
-                current = editions[current].get('successor_revision')
-        if not isinstance(work['metadata_revision'], str) or work['metadata_revision'] not in editions:
-            fail('metadata_revision must select an edition of this work')
-        if 'recommended_revision' in work:
-            selected = work['recommended_revision']
-            if not isinstance(selected, str) or selected not in editions or editions[selected]['status'] != 'available':
-                fail('recommended_revision must select an available edition of this work')
-        for item, key in [(work, 'concept_doi'), *((e, 'doi') for e in work['editions'])]:
-            if key in item:
-                identifier = doi(item[key])
-                if identifier in dois:
-                    fail('a DOI cannot identify multiple works/editions')
-                dois.add(identifier)
+def validate(catalog):
+    fields(catalog, {'schema', 'hash_algorithm', 'tip', 'editions'}, set(), 'catalog')
+    if catalog['schema'] != SCHEMA or catalog['hash_algorithm'] != 'sha1':
+        fail('unsupported catalog schema or Git object format')
+    if not isinstance(catalog['tip'], str) or not REVISION.fullmatch(catalog['tip']):
+        fail('tip requires an exact commit identity')
+    if not isinstance(catalog['editions'], list) or len(catalog['editions']) > MAX_EDITIONS:
+        fail('editions must be a bounded list')
+    revisions = set()
+    for edition in catalog['editions']:
+        fields(edition, {'revision', 'tree', 'published', 'message'}, set(), 'edition')
+        for field in ('revision', 'tree'):
+            if not isinstance(edition[field], str) or not REVISION.fullmatch(edition[field]):
+                fail(field + ' requires an exact Git object identity')
+        if edition['revision'] in revisions:
+            fail('edition revisions must be unique')
+        revisions.add(edition['revision'])
+        day(edition['published'], 'published')
+        if not isinstance(edition['message'], str) or len(edition['message'].encode('utf-8')) > 65536:
+            fail('message must be bounded UTF-8 text')
+    if len(encoded(catalog)) > MAX_BYTES:
+        fail('catalog exceeds 16 MiB')
     return catalog
 
 
-def compare(previous, current, *, provisional=()):
-    """Guard retained work, edition and DOI identities; never infer prior state.
-
-    The caller must supply its last deployed, independently retained catalog.
-    `--initial-catalog` explicitly selects a first build with no prior deployment.
-    """
-    validate(previous, provisional=provisional)
-    validate(current, provisional=provisional)
-    now = {w['slug']: w for w in current['works']}
-    for old_work in previous['works']:
-        slug = old_work['slug']
-        if slug not in now:
-            fail('existing work records cannot disappear; retain a tombstone: ' + slug)
-        work = now[slug]
-        if 'concept_doi' in old_work and work.get('concept_doi') != old_work['concept_doi']:
-            fail('a work DOI cannot be removed or rebound')
-        editions = {e['revision']: e for e in work['editions']}
-        for old in old_work['editions']:
-            new = editions.get(old['revision'])
-            if new is None:
-                fail('existing edition records cannot disappear or move between works')
-            if 'doi' in old and new.get('doi') != old['doi']:
-                fail('an edition DOI cannot be removed or rebound')
-            notices = old.get('notices', [])
-            newer = new.get('notices', [])
-            if newer[:len(notices)] != notices:
-                fail('existing editorial notices must be retained verbatim')
-            if any(old.get(k) != new.get(k) for k in ('status', 'published', 'label', 'successor_revision')) and len(newer) <= len(notices):
-                fail('status/date/label/successor changes require an appended editorial notice')
+def compare(previous, current):
+    """Retain the exact ordered edition prefix; Git verifies the tip's ancestry."""
+    validate(previous)
+    validate(current)
+    old = previous['editions']
+    if current['editions'][:len(old)] != old:
+        fail('accepted editions cannot disappear, change or be reordered')
     return current
-
-
-def source_url(catalog, revision, path, anchor=None):
-    if 'source_view' not in catalog:
-        return None
-    url = catalog['source_view'].replace('{revision}', revision).replace('{path}', quote(path, safe='/'))
-    return url + ('#' + quote(anchor, safe='') if anchor else '')
 
 
 def encoded(value):

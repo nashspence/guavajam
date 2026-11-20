@@ -18,8 +18,9 @@ from guavajam_test_support.storage_fixture import MemoryStore, KEY
 class PublicationStorageTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        (self.root/'asset-policy.json').write_text('{"origin":"https://assets.example.org"}')
-        self.files = [Path('works/test/manuscript.md')]
+        (self.root/'content').mkdir(exist_ok=True)
+        (self.root/'content/asset-policy.json').write_text('{"origin":"https://assets.example.org"}')
+        self.files = [Path('content/manuscript.md')]
         @contextlib.contextmanager
         def snapshot(*args):
             yield self.root, self.files
@@ -29,10 +30,11 @@ class PublicationStorageTests(unittest.TestCase):
         ast = {'blocks': [{'t': 'Para', 'c': [{'t': 'Image', 'c': [['', [], []], [{'t': 'Str', 'c': 'figure'}], ['https://assets.example.org/'+KEY, '']]}]}]}
         self.enterContext(patch('guavajam_core.verify_source_assets.parse_document', return_value=(ast, [])))
         self.enterContext(patch('guavajam_core.prepare_publication.git', return_value=b'a'*40))
+        self.enterContext(patch('guavajam_core.publication_protocol.content_tree', return_value='b'*40))
         self.enterContext(patch('guavajam_core.publication_protocol.blob', return_value=b'{"origin":"https://assets.example.org"}'))
 
     def prepare(self, store, **kwargs):
-        return prepare(self.root, 'a'*40, 'test', published='2026-11-13', store=store, **kwargs)
+        return prepare(self.root, 'a'*40, store=store, **kwargs)
 
     def no_public_requests(self):
         # Preparation must never use anonymous HTTPS, regardless of the reply.
@@ -74,22 +76,22 @@ class PublicationStorageTests(unittest.TestCase):
 
     def test_incoming_publication_checks_default_to_no_retention_requirement(self):
         from guavajam_core.publication_commit import PublicationError
-        env = {'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS':'', 'GUAVAJAM_PUBLISHER_SSH_SIGNERS':'publisher ssh-ed25519 fixture'}
-        with patch.dict('os.environ', env), patch('guavajam_core.check_publications.incoming', return_value=['a'*40]), \
-             patch('guavajam_core.publication_protocol.commit', return_value=(None, 'GuavaJam-Publication: 1')), \
-             patch('guavajam_core.publication_protocol.declaration', return_value={'kind':'publication'}), \
+        env = {'GUAVAJAM_PUBLISHER_GPG_FINGERPRINTS': '',
+               'GUAVAJAM_PUBLISHER_SSH_SIGNERS': 'publisher ssh-ed25519 fixture'}
+        with patch.dict('os.environ', env), \
+             patch('guavajam_core.check_publications.incoming', return_value=['a' * 40]), \
              patch('guavajam_core.check_publications.verify', return_value={}) as verify:
-            check(self.root, 'b'*40)
+            check(self.root, 'b' * 40)
             self.assertFalse(verify.call_args.kwargs['require_retention'])
             self.assertTrue(verify.call_args.kwargs['online_media'])
-            check(self.root, 'b'*40, require_retention=True)
+            check(self.root, 'b' * 40, require_retention=True)
             self.assertTrue(verify.call_args.kwargs['require_retention'])
         with self.assertRaises(PublicationError):
-            check(self.root, 'b'*40, online=False, require_retention=True)
+            check(self.root, 'b' * 40, online=False, require_retention=True)
 
     def test_local_image_paths_work_with_either_retention_policy(self):
         from guavajam_core.verify_source_assets import verify_source_assets
-        asset = Path('works/test/assets/local image.png')
+        asset = Path('content/assets/local image.png')
         (self.root/asset).parent.mkdir(parents=True)
         (self.root/asset).write_bytes(b'fixture')
         ast = {'blocks': [{'t': 'Para', 'c': [

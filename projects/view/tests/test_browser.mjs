@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import assert from 'node:assert/strict';
-import {chromium,firefox,webkit} from 'playwright';
+import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
 const fixtureFile=path.resolve(process.argv[2]),output=path.resolve(process.argv[3]);
 const fixture=JSON.parse(await fs.readFile(fixtureFile,'utf8'));
@@ -28,7 +28,7 @@ async function open(context,name,width=1280,scheme='light',enlarge=false){
  if(enlarge)await page.evaluate(()=>{const root=document.documentElement;root.style.fontSize=parseFloat(getComputedStyle(root).fontSize)*2+'px';root.style.lineHeight='1.8';root.style.letterSpacing='.12em';root.style.wordSpacing='.16em';});
  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));return page;
 }
-for(const [engine,type] of Object.entries({chromium,firefox,webkit})){
+for(const [engine,type] of Object.entries({chromium, firefox, webkit})){
  const browser=await type.launch();const context=await browser.newContext({deviceScaleFactor:1,reducedMotion:'reduce'});await context.route('**/*',routeAssets);
  try{
   for(const name of ['index.html','supporting/note.html','supporting/lantern-current.html','supporting/lantern-alternate.html']){

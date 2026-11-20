@@ -2,9 +2,7 @@
 schema: guavajam.work.v1
 title: Sample Work
 author: Example Author
-slug: sample-work
 language: en
-status: draft
 rights: all-rights-reserved
 ---
 

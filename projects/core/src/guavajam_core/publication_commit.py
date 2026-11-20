@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Verify a GuavaJam edition directly from its *signed Git commit*.
+"""Verify a GuavaJam source snapshot directly from its signed Git commit.
 
 No tag, release, account, URL or rendered HTML is part of edition identity.
 Trust anchors must be supplied externally to the source commit under review.
+Discovery separately establishes acceptance on a selected first-parent history.
 The command never signs, publishes, uploads or mutates a repository.
 """
 from __future__ import annotations
@@ -17,18 +18,15 @@ import sys
 from .trusted_git import verify_signature as trusted_signature
 from .verify_media_sources import media_items
 
-OID = re.compile(r'[0-9a-f]{40}\Z')
-PUBLICATION = re.compile(r'works/([a-z0-9]+(?:-[a-z0-9]+)*)/manuscript\.md\Z')
-IDENT = re.compile(r'[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z')
-
-
 class PublicationError(ValueError):
     pass
 
 
 def git(repo, *arguments, env=None):
     process = subprocess.run(['git', '--no-replace-objects', *arguments], cwd=repo,
-                             capture_output=True, env=env, check=False)
+                             capture_output=True,
+                             env={**(os.environ if env is None else env), 'GIT_GRAFT_FILE': os.devnull},
+                             timeout=60, check=False)
     if process.returncode:
         raise PublicationError('Git revision or verification operation failed')
     return process.stdout
@@ -40,7 +38,7 @@ def commit_identity(repo: Path, sha: str):
         if resolve(repo, sha) != sha:
             raise ValueError('revision is not an exact commit identity')
         run(repo, 'fsck', '--strict', '--no-reflogs', '--no-dangling', sha)
-        declared = verify_shape(repo, sha, 'publication')
+        declared = verify_shape(repo, sha)
         work = declared['manuscript']
         source = blob(repo, sha, work, maximum=8 * 1024 * 1024).decode('utf-8', 'strict')
     except (ValueError, OSError) as exc:
@@ -60,6 +58,8 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
     repo = Path(repo).resolve()
     work, source = commit_identity(repo, sha)
     signer = signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
+    from .publication_protocol import verify_shape
+    edition = verify_shape(repo, sha)
     # Validate the committed object graph, not the mutable checkout or HEAD.
     from .source_snapshot import snapshot
     from .validate_sources import validate_repository
@@ -70,8 +70,6 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
             errors = validate_repository(root, files, enforce_version=pandoc_version)
             if errors:
                 raise PublicationError('published GFM violates GuavaJam conventions: ' + '; '.join(errors[:8]))
-        from .asset_policy import load_policy
-        policy = load_policy(root)
         items = media_items(root, Path(work))
         if online_media:
             from .verify_source_assets import verify_source_assets
@@ -95,6 +93,9 @@ def verify(repo: Path, sha: str, *, fingerprints=(), allowed_signers=None,
         'schema': 'guavajam.source-citation.v1',
         'hash_algorithm': 'sha1',
         'revision': sha,
+        'tree': edition['tree'],
+        'published': edition['published'],
+        'message': edition['message'],
         'manuscript': work,
         'signer': signer,
         'media': [{key: item[key] for key in ('kind', 'id', 'src', 'transcript')}

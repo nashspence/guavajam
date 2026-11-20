@@ -17,7 +17,7 @@ from .asset_policy import AssetError, AssetPolicy, response_chunks
 from .asset_storage import S3, credentials
 from .gateway_index import validate as validate_pin
 from .object_store import RELEASE_PREFIX, check_response
-from .publication_protocol import ancestor, oid, resolve, run, verify_shape
+from .publication_protocol import discover, oid, resolve, run
 from .publication_commit import verify
 from .prepare_publication import prepare
 
@@ -117,15 +117,13 @@ def release(repo, revision, expected_main, *, store, release_store, fingerprints
     repo = Path(repo).resolve(strict=True)
     oid(revision)
     tip = remote_main(repo, expected_main, remote)
-    ancestor(repo, revision, tip)
     trust = {'fingerprints': fingerprints, 'allowed_signers': allowed_signers}
-    # A signed ordinary commit, changed-tree declaration, or branch-only edition
-    # cannot qualify. Source programs, hooks and filters never run.
-    verify(repo, revision, online_media=False, **trust)
-    declared = verify_shape(repo, revision, 'publication')
-    work = declared['manuscript'].split('/')[1]
-    prepared = prepare(repo, revision, work, published=declared['published'],
-                       label=declared.get('label'), store=store, require_retention=require_retention)
+    # Only a content-changing commit on accepted first-parent main history
+    # qualifies. Source programs, hooks and filters never run.
+    catalog, _ = discover(repo, ref=tip, **trust)
+    if revision not in {edition['revision'] for edition in catalog['editions']}:
+        raise AssetError('release revision is not an edition on accepted first-parent main history')
+    prepared = prepare(repo, revision, store=store, require_retention=require_retention)
     releases = Releases(release_store)
     origin = prepared['asset_origin']
     mappings = {item['key']: {k: v for k, v in item.items() if k != 'key'} for item in prepared['assets']}
