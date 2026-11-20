@@ -45,7 +45,7 @@ class PrivateComposeTests(unittest.TestCase):
 
             try:
                 dc('up','-d','--no-build','private-preview')
-                wait_for(lambda:b'UNSIGNED PREVIEW' in content())
+                wait_for(lambda:b'Unsigned proposed edition, not issued.' in content())
                 self.assertEqual({'private-preview'},set(dc('ps','--services','--status','running').splitlines()))
                 for path in ['/','/.git/config','/PREVIEW.json','/_assets/sha256/'+'a'*64+'.png']:
                     with self.subTest(path=path),self.assertRaises(urllib.error.HTTPError) as error:get(path,False)
@@ -85,7 +85,7 @@ class PrivateComposeTests(unittest.TestCase):
                 headers = {'Cookie':'guavajam_preview='+token} if auth else {}
                 return urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:'+selected+'/',headers=headers),timeout=3)
             def ready():
-                with get() as response: return b'UNSIGNED PREVIEW' in response.read()
+                with get() as response: return b'Unsigned proposed edition, not issued.' in response.read()
             try:
                 dc('up','-d','--no-build','private-preview')
                 wait_for(ready)

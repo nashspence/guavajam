@@ -1,0 +1,42 @@
+/* Private, unsigned presentation only. No preview chrome covers the real site. */
+:root { --guavajam-preview-rail: #2da44e; }
+@media (prefers-color-scheme: dark) {
+  :root { --guavajam-preview-rail: #3fb950; }
+}
+
+/* Preserve provisional identity for screen readers without a second visual marker. */
+.guavajam-preview-accessible {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* An unsigned source snapshot is a new page, including navigation and footer. */
+html.guavajam-preview-new-page { position: relative; min-block-size: 100vh; }
+html.guavajam-preview-new-page::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(max(0px, (100% - 70ch) / 2) + clamp(1rem, 4vw, 2.5rem) - .95rem);
+  inline-size: 2px;
+  border-radius: 2px;
+  background: var(--guavajam-preview-rail);
+  pointer-events: none;
+  z-index: 1;
+}
+@media (max-width: 36rem) {
+  html.guavajam-preview-new-page::after {
+    inset-inline-end: calc(max(0px, (100% - 70ch) / 2) + clamp(1rem, 4vw, 2.5rem) - .55rem);
+  }
+}
+@media (forced-colors: active) {
+  html.guavajam-preview-new-page::after { background: CanvasText; }
+}
+@media print {
+  html.guavajam-preview-new-page::after { display: none; }
+}

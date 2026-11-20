@@ -91,7 +91,8 @@ class PortableViewTests(unittest.TestCase):
     def test_pinned_git_revision_renders_portably_with_no_runtime_scripts(self):
         self.assertEqual(2,render(self.root,self.rev,self.output,preview=True))
         text = (self.output/'index.html').read_text()
-        self.assertIn('UNSIGNED PREVIEW',text)
+        self.assertIn('Unsigned proposed edition, not issued.',text)
+        self.assertNotIn('UNSIGNED PREVIEW',text)
         self.assertIn('Git SHA-1 '+self.rev,text)
         self.assertEqual(1,text.count('id="opening"'))
         self.assertIn('href="supporting/note.html#claim"',text)

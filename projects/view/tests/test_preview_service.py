@@ -32,7 +32,7 @@ class PreviewServiceTests(unittest.TestCase):
                 self.assertEqual('unchanged', preview.refresh())
                 first = preview.revision; old_output = preview.output
                 with urllib.request.urlopen(request()) as response:
-                    self.assertIn(b'UNSIGNED PREVIEW', response.read())
+                    self.assertIn(b'Unsigned proposed edition, not issued.', response.read())
                     self.assertEqual('private, no-store', response.getheader('Cache-Control'))
                 with self.assertRaises(urllib.error.HTTPError): urllib.request.urlopen(request(False))
                 draft.source('Field Notes', 'Revised private observation.')

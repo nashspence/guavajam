@@ -207,6 +207,8 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
 def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, navigation=''):
     if not re.fullmatch(r'[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*', language):
         language = 'en'
+    if preview:
+        css += '\n' + (Path(__file__).parent / 'styles/preview.css').read_text('utf-8')
     if '</style' in css.lower() or '@import' in css or re.search(r'url\s*\(', css, re.I):
         raise RenderError('presentation stylesheet requires static self-contained CSS')
     if origin and (not origin.startswith('https://') or any(c in origin for c in '\"<> ')):
@@ -222,6 +224,8 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             head.append('<meta name="author" content="'+escape(author['name'],quote=True)+'">')
             head.append('<meta name="citation_author" content="'+escape(author['name'],quote=True)+'">')
         if facts.get('abstract'):head.append('<meta name="description" content="'+escape(facts['abstract'],quote=True)+'">')
+    if preview:
+        head.append('<meta name="guavajam:preview" content="unsigned">')
     main_id='guavajam-main';number=1
     from .identities import element_ids
     used=set(element_ids(body))
@@ -230,19 +234,23 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + (' · ' + path if path else ''))
-    state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Verified signed source'
-    return ('<!doctype html>\n<html lang="' + escape(language, quote=True) + '"><head>\n'
+    status = ('' if preview else '<header class="guavajam-status"><span>Verified signed source</span></header>\n')
+    accessible = ('<span class="guavajam-preview-accessible">Unsigned proposed edition, not issued.</span>'
+                  if preview else '')
+    root = '<html class="guavajam-preview-new-page"' if preview else '<html'
+    return ('<!doctype html>\n' + root + ' lang="' + escape(language, quote=True) + '"><head>\n'
             '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
             '<meta http-equiv="Content-Security-Policy" content="' + escape(csp, quote=True) + '">\n'
             '<meta name="guavajam-viewer" content="guavajam.v1">\n'
             + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
             '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
-            '<header class="guavajam-status"><span>' + escape(state) + '</span></header>\n'
-            + navigation + '\n'
+            + status + navigation + '\n'
             '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
-            '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
+            + accessible + '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
-            '\n</article></main><footer>'+rights+'<p>The Git revision is the edition identity. '
+            '\n</article></main><footer>'+rights+'<p>' +
+            ('The committed Git revision identifies the draft source. ' if preview
+             else 'The Git revision is the edition identity. ') +
             'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n')
 
 

@@ -48,7 +48,28 @@ try{
       await page.goto(origin+'/_session?token='+token);
       assert.equal(page.url(),origin+'/');
       const [cookie]=await context.cookies();assert(cookie.httpOnly);assert.equal(cookie.sameSite,'Strict');
-      assert.equal(await page.getByRole('note',{name:'Private preview'}).innerText(),'PRIVATE PROPOSED EDITION — UNSIGNED');
+      const routes=Object.keys(fixture.preview_manifest.files).filter(name=>name.endsWith('.html'));
+      for(const route of routes){
+        await page.goto(origin+'/'+route);
+        assert.equal(await page.locator('.guavajam-preview-accessible').innerText(),'Unsigned proposed edition, not issued.');
+        assert.equal(await page.locator('.guavajam-status, aside[aria-label="Private preview"]').count(),0);
+        for(const width of [390,1280]) for(const colorScheme of ['light','dark']){
+          await page.setViewportSize({width,height:900});await page.emulateMedia({colorScheme});
+          const shape=await page.evaluate(()=>{
+            const root=document.documentElement,rail=getComputedStyle(root,'::after');
+            return {width:rail.width,height:parseFloat(rail.height),document:root.getBoundingClientRect().height,
+              color:rail.backgroundColor,overflow:root.scrollWidth>innerWidth+1};
+          });
+          assert.equal(shape.width,'2px');assert(Math.abs(shape.height-shape.document)<=1,engine+' incomplete document rail');
+          assert.equal(shape.color,colorScheme==='light'?'rgb(45, 164, 78)':'rgb(63, 185, 80)');assert(!shape.overflow);
+        }
+        await page.emulateMedia({media:'print'});
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').display),'none');
+        await page.emulateMedia({media:'screen',forcedColors:'active'});
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement,'::after').width),'2px');
+        await page.emulateMedia({forcedColors:'none'});
+      }
+      await page.goto(origin+'/');
       assert.equal(await page.evaluate(()=>document.referrer),'');
       const csp=await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
       assert.match(csp,/media-src[^;]*'self'/);
