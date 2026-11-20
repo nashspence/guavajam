@@ -1,9 +1,11 @@
 from guavajam_core.source_ast import walk, plain_text
 from guavajam_core.supporting_gfm import timestamp_label
 
-def present(ast, positions):
+def present(ast, positions, navigation=None):
     """Put source anchors on their own semantic elements, preserving quoted turns."""
     from html import escape
+    from .navigation import contents_blocks, extract
+    navigation = navigation if navigation is not None else extract(ast, positions)
     indexed={position:key for key,position in positions.items()}
     result=[];turn=None
     for index,block in enumerate(ast['blocks']):
@@ -32,6 +34,11 @@ def present(ast, positions):
                     else:children=[block,{'t':'Para','c':[link]}]
                     block={'t':'Div','c':[[anchor,[cls],[]],children]}
         result.append(block)
+    contents = contents_blocks(navigation['anchors'], positions)
+    if contents:
+        # Keep the literal document metadata beside its title, ahead of the TOC.
+        insertion = 2 if len(result) > 1 and result[1].get('t') == 'Div' and 'guavajam-document-metadata' in result[1]['c'][0][1] else 1
+        result[insertion:insertion] = contents
     ast['blocks']=result
     for node in walk(ast['blocks']):
         if node['t']=='Span' and 'data-guavajam-datetime' in dict(node['c'][0][2]):

@@ -1,4 +1,9 @@
 FROM ghcr.io/astral-sh/uv:0.11.24@sha256:99ea34acedc870ba4ad11a1f540a1c04267c9f30aadc465a94406f52dfda2c36 AS uv
+FROM node:24.10.0-bookworm-slim@sha256:b8d2197aff9129d16c801a3e3e1b2a873c4946480f5a310f38056df2268c38d9 AS search_assets
+WORKDIR /search
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
 FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c AS packages
 COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /build
@@ -11,6 +16,8 @@ COPY projects/view/LICENSES projects/view/LICENSES
 COPY projects/view/REUSE.toml projects/view/REUSE.toml
 COPY projects/core/src projects/core/src
 COPY projects/view/src projects/view/src
+COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/index.mjs projects/view/src/guavajam/assets/sqlite3.mjs
+COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm projects/view/src/guavajam/assets/sqlite3.wasm
 RUN uv sync --locked --all-packages --no-dev --no-editable
 
 FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c AS view

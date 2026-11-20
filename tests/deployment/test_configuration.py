@@ -1,5 +1,6 @@
 """Deployment configuration contracts; run without Docker via make test-deployment-config."""
 from pathlib import Path
+import json
 import re
 import unittest
 
@@ -123,6 +124,38 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertIn('COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway',
                       self.stages['gateway'])
         self.assertIn('ENTRYPOINT ["node", "server.mjs"]', self.stages['gateway'])
+
+    def test_search_runtime_is_locked_self_hosted_and_enabled_for_pages(self):
+        package = json.loads((ROOT / 'package.json').read_text())
+        lock = json.loads((ROOT / 'package-lock.json').read_text())
+        name = '@sqlite.org/sqlite-wasm'
+        version = package['dependencies'][name]
+        self.assertRegex(version, r'^\d+\.\d+\.\d+-build\d+$')
+        self.assertEqual(version, lock['packages']['']['dependencies'][name])
+        runtime = lock['packages']['node_modules/' + name]
+        self.assertEqual(version, runtime['version'])
+        self.assertRegex(runtime['integrity'], r'^sha512-[A-Za-z0-9+/]+=*$')
+        install = 'npm ci --omit=dev --ignore-scripts --no-audit --no-fund'
+        self.assertIn('COPY package.json package-lock.json ./', self.stages['search_assets'])
+        self.assertIn(install, self.stages['search_assets'])
+        for name in ['package.json', 'package-lock.json']:
+            self.assertIn('!' + name, (ROOT / '.dockerignore').read_text().splitlines())
+        for source, target in [('index.mjs', 'sqlite3.mjs'), ('sqlite3.wasm', 'sqlite3.wasm')]:
+            self.assertIn('/dist/' + source + ' projects/view/src/guavajam/assets/' + target,
+                          self.stages['packages'])
+        template = (ROOT / 'projects/core/src/guavajam_core/resources/templates/github/pages-index.yml').read_text()
+        workflow = yaml.safe_load(template.replace('@@GUAVAJAM_REF@@', '0' * 40))
+        steps = workflow['jobs']['pages']['steps']
+        self.assertTrue(any(install in step.get('run', '') for step in steps))
+        generation = next(step for step in steps if 'python -m guavajam.index' in step.get('run', ''))
+        self.assertEqual('1', generation['env']['GUAVAJAM_REQUIRE_SEARCH'])
+        self.assertTrue(generation['env']['GUAVAJAM_SQLITE_WASM_DIR'].endswith(
+            '/.guavajam-tool/node_modules/@sqlite.org/sqlite-wasm/dist'))
+
+    def test_static_web_server_supplies_wasm_and_module_mime_types(self):
+        configuration = (ROOT / 'deploy/nginx.conf').read_text()
+        self.assertIn(r'location ~ \.mjs$ { default_type application/javascript;', configuration)
+        self.assertIn(r'location ~ \.wasm$ { default_type application/wasm;', configuration)
 
 
 if __name__ == '__main__':

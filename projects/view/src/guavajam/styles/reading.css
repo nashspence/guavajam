@@ -115,9 +115,13 @@ a:focus-visible, .guavajam-scroll:focus-visible, pre:focus-visible {
   font: 600 .88rem/1.4 system-ui, sans-serif;
 }
 .guavajam-contents ul { list-style: none; margin: 0; padding: 0; }
+.guavajam-contents ul ul { padding-inline-start: 1.2rem; }
 .guavajam-contents li { margin: .2rem 0; }
 .guavajam-contents a { display: inline-block; padding: .12rem 0; overflow-wrap: anywhere; }
 .guavajam-contents-link { margin-left: auto; font-weight: 600; }
+.guavajam-document-nav { font: .85rem/1.6 system-ui, sans-serif; margin-block: 1rem; }
+.guavajam-document-list > li { margin-block: 1rem; }
+.guavajam-document-path { color: var(--guavajam-muted); font-size: .85rem; margin-block: .2rem; overflow-wrap: anywhere; }
 
 .guavajam-status {
   position: sticky;
@@ -402,7 +406,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
   }
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .guavajam-status { position: static; }
-  .guavajam-skip, .guavajam-status .guavajam-contents-link, .guavajam-contents { display: none; }
+  .guavajam-skip, .guavajam-status .guavajam-contents-link, .guavajam-contents, .guavajam-document-nav { display: none; }
   .guavajam-permalink { display: none; }
   .guavajam-scroll, pre { overflow: visible; }
   .guavajam-table-scroll table { width: 100%; }
