@@ -49,6 +49,9 @@ SQLite artifact, all-edition text search, latest-edition filters and static fall
 Work views also derive [contents and document navigation](projects/view/tests/test_navigation.py)
 and an optional [work search index](projects/view/tests/test_work_search.py), with
 [edition/document/passage browser journeys](projects/view/tests/test_work_search_browser.mjs).
+The [storage experiment](projects/view/tests/benchmark_search_storage.py) and
+[download browser contracts](projects/view/tests/test_search_download_browser.mjs)
+cover compact indexes, compressed transfers, caching and fallback.
 
 Both initializers accept `--output` to choose the local directory and `--local`
 to generate a local Git repository without creating a remote. Every later edit

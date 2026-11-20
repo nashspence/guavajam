@@ -13,10 +13,17 @@ if (form) {
   const edition = form.querySelector('select[name="edition"]');
   const documentFilter = form.querySelector('select[name="document"]');
   const enable = document.querySelector('#guavajam-search-enable');
+  const reload = document.createElement('button');
+  reload.id = 'guavajam-search-reload';
+  reload.type = 'button';
+  reload.textContent = 'Reload page';
+  reload.hidden = true;
+  reload.addEventListener('click', () => location.reload());
+  (enable || summary).after(' ', reload);
   const back = document.querySelector('#guavajam-search-prev');
   const next = document.querySelector('#guavajam-search-next');
   const pageLabel = document.querySelector('#guavajam-search-page');
-  let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, timer;
+  let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
   if (work) {
     if (['documents', 'editions', 'passages'].includes(initial.get('kind'))) kind.value = initial.get('kind');
@@ -29,7 +36,8 @@ if (form) {
     ready = false;
     loading = false;
     worker?.terminate();
-    summary.textContent = 'Search is unavailable; the full listing remains below.';
+    summary.textContent = 'Search is unavailable. Retry search, or reload the page to refresh the index. The full listing remains below.';
+    reload.hidden = false;
     fallback.hidden = false;
     results.hidden = true;
     results.removeAttribute('aria-busy');
@@ -146,6 +154,7 @@ if (form) {
   function initialize() {
     if (ready || loading) return;
     loading = true;
+    reload.hidden = true;
     // Keep keyboard focus while loading. The loading guard rejects duplicate
     // requests; native disabled would blur the very button we need to restore.
     if (enable) enable.setAttribute('aria-disabled', 'true');
@@ -193,7 +202,10 @@ if (form) {
       };
       worker.onerror = unavailable;
       worker.postMessage({action: 'init', id: 0, scope: work ? 'work' : 'collection',
-        database: new URL(form.dataset.database || './index.sqlite', document.baseURI).href});
+        database: new URL(form.dataset.database || './index.sqlite', document.baseURI).href,
+        databaseSize: form.dataset.databaseSize === undefined ? undefined : Number(form.dataset.databaseSize),
+        transferSize: form.dataset.databaseTransferSize === undefined ? undefined : Number(form.dataset.databaseTransferSize),
+        encoding: form.dataset.databaseEncoding, retry: attempts++ > 0});
     } catch {
       unavailable();
     }

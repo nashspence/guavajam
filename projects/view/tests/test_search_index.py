@@ -69,7 +69,8 @@ class SearchIndexTests(unittest.TestCase):
             self.assertEqual(2, db.execute("SELECT count(*) FROM search_fts WHERE search_fts MATCH 'Signed AND Field'").fetchone()[0])
             self.assertTrue(db.execute('SELECT url FROM documents WHERE work_id=2').fetchone()[0].startswith('sources/beta/editions/'))
             self.assertEqual('a' * 64, db.execute('SELECT source_sha256 FROM documents LIMIT 1').fetchone()[0])
-            self.assertNotIn('stylesheet', db.execute('SELECT body FROM search_records LIMIT 1').fetchone()[0])
+            self.assertEqual(0, db.execute(
+                "SELECT count(*) FROM search_fts WHERE search_fts MATCH 'stylesheet'").fetchone()[0])
 
     def test_subject_context_is_preserved_and_duplicate_claims_remain_in_facts(self):
         one = {'subject': 'Java', 'subject_scheme': 'Programming languages', 'value_uri': 'urn:example:java'}

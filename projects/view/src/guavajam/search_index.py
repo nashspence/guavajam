@@ -21,6 +21,8 @@ from guavajam_core.bibliography import ordered_authors
 from guavajam_core.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYTES
 from guavajam_core.identifiers import SLUG
 
+from .search_artifact import download_attributes, emit_download
+
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_INDEXED_BYTES = 256 * 1024 * 1024
 MAX_DATABASE_BYTES = 256 * 1024 * 1024
@@ -184,22 +186,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE TABLE search_records (
                 id INTEGER PRIMARY KEY, work_id INTEGER NOT NULL REFERENCES works(id),
                 edition_id INTEGER REFERENCES editions(id), document_id INTEGER REFERENCES documents(id),
-                url TEXT NOT NULL, title TEXT NOT NULL, authors TEXT NOT NULL, abstract TEXT NOT NULL,
-                labels TEXT NOT NULL, body TEXT NOT NULL, git TEXT NOT NULL
-            );
-            CREATE TABLE passages (
-                id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
-                document_id INTEGER NOT NULL REFERENCES documents(id),
-                work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
-                title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
-                position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                text TEXT NOT NULL, url TEXT NOT NULL, UNIQUE(document_id, anchor)
-            );
-            CREATE TABLE passage_records (
-                id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
-                edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
-                url TEXT NOT NULL, title TEXT NOT NULL, authors TEXT NOT NULL, abstract TEXT NOT NULL,
-                labels TEXT NOT NULL, body TEXT NOT NULL, git TEXT NOT NULL
+                url TEXT NOT NULL
             );
             CREATE INDEX editions_by_work ON editions(work_id, position);
             CREATE INDEX documents_by_work ON documents(work_id);
@@ -209,13 +196,32 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE INDEX subjects_by_key ON subjects(key, work_id);
             CREATE INDEX search_by_work ON search_records(work_id);
             CREATE INDEX documents_by_edition ON documents(edition_id, path);
-            CREATE INDEX passages_by_document ON passages(document_id, position);
-            CREATE INDEX passages_by_edition ON passages(edition_id);
             CREATE VIRTUAL TABLE search_fts USING fts5(title, authors, abstract, labels, body, git,
-                content='search_records', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
-            CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
-                content='passage_records', content_rowid='id', tokenize='unicode61 remove_diacritics 2');
+                content='', detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
         ''')
+        # Collection search routes to documents. Only a work's directory uses
+        # anchor rows. Both keep FTS positions and token counts for unchanged
+        # weighted BM25 ranking, without another copy of the source plaintext.
+        if scope == 'work':
+            conn.executescript('''
+                CREATE TABLE passages (
+                    id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
+                    document_id INTEGER NOT NULL REFERENCES documents(id),
+                    work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
+                    title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
+                    position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
+                    url TEXT NOT NULL, UNIQUE(document_id, anchor)
+                );
+                CREATE TABLE passage_records (
+                    id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
+                    edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
+                    url TEXT NOT NULL
+                );
+                CREATE INDEX passages_by_document ON passages(document_id, position);
+                CREATE INDEX passages_by_edition ON passages(edition_id);
+                CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
+                    content='', detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+            ''')
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('scope', scope))
@@ -287,22 +293,29 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                                facts.get('rights', ''), facts.get('schema_type', ''),
                                                json.dumps(facts.get('identifiers', {}), ensure_ascii=False),
                                                json.dumps(ordered_authors(facts), ensure_ascii=False)])
-                        conn.execute('INSERT INTO search_records '
-                                     '(work_id,edition_id,document_id,url,title,authors,abstract,labels,body,git) '
-                                     'VALUES (?,?,?,?,?,?,?,?,?,?)',
-                                     (number, edition_id, document_id, url, title, authors,
-                                      facts.get('abstract', ''), labels, document['text'], provenance))
+                        cursor = conn.execute('INSERT INTO search_records '
+                                              '(work_id,edition_id,document_id,url) VALUES (?,?,?,?)',
+                                              (number, edition_id, document_id, url))
+                        conn.execute('INSERT INTO search_fts(rowid,title,authors,abstract,labels,body,git) '
+                                     'VALUES (?,?,?,?,?,?,?)',
+                                     (cursor.lastrowid, title, authors, facts.get('abstract', ''),
+                                      labels, document['text'], provenance))
+                        if scope != 'work':
+                            continue
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
                             cursor = conn.execute('INSERT INTO passages '
-                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,text,url) '
-                                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url) '
+                                'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                                 (edition_id, document_id, number, anchor['anchor'], anchor['title'],
                                  anchor['kind'], anchor['level'], anchor['position'], anchor['parent'],
-                                 anchor['scope'], anchor['text'], target))
-                            conn.execute('INSERT INTO passage_records VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                                (cursor.lastrowid, number, edition_id, document_id, target,
-                                 title + ' — ' + anchor['title'], authors, facts.get('abstract', ''),
+                                 anchor['scope'], target))
+                            passage_id = cursor.lastrowid
+                            conn.execute('INSERT INTO passage_records VALUES (?,?,?,?,?)',
+                                         (passage_id, number, edition_id, document_id, target))
+                            conn.execute('INSERT INTO passage_fts(rowid,title,authors,abstract,labels,body,git) '
+                                'VALUES (?,?,?,?,?,?,?)',
+                                (passage_id, title + ' — ' + anchor['title'], authors, facts.get('abstract', ''),
                                  labels, anchor['text'], provenance + ' ' + anchor['anchor']))
                 if editions:
                     latest = editions[-1]
@@ -317,26 +330,28 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                         conn.execute('INSERT OR IGNORE INTO subjects VALUES (?,?,?)',
                                      (number, subject_key(subject), subject_label(subject)))
                 else:
-                    conn.execute('INSERT INTO search_records '
-                                 '(work_id,url,title,authors,abstract,labels,body,git) VALUES (?,?,?,?,?,?,?,?)',
-                                 (number, (entry['path'] + '/' if entry['path'] else '') + 'index.html', manifest['title'], '', '', '', '',
+                    cursor = conn.execute('INSERT INTO search_records (work_id,url) VALUES (?,?)',
+                                          (number, (entry['path'] + '/' if entry['path'] else '') + 'index.html'))
+                    conn.execute('INSERT INTO search_fts(rowid,title,authors,abstract,labels,body,git) '
+                                 'VALUES (?,?,?,?,?,?,?)',
+                                 (cursor.lastrowid, manifest['title'], '', '', '', '',
                                   entry['repository'] + ' ' + entry['tip']))
-            conn.execute("INSERT INTO search_fts(search_fts) VALUES ('rebuild')")
             conn.execute("INSERT INTO search_fts(search_fts) VALUES ('optimize')")
-            conn.execute("INSERT INTO passage_fts(passage_fts) VALUES ('rebuild')")
-            conn.execute("INSERT INTO passage_fts(passage_fts) VALUES ('optimize')")
+            if scope == 'work':
+                conn.execute("INSERT INTO passage_fts(passage_fts) VALUES ('optimize')")
         conn.execute('VACUUM')
         if (conn.execute('PRAGMA integrity_check').fetchone()[0] != 'ok'
                 or conn.execute('PRAGMA foreign_key_check').fetchall()):
             raise CatalogError('search: database integrity check failed')
         if database.stat().st_size > MAX_DATABASE_BYTES:
             raise CatalogError('search: database exceeds the 256 MiB whole-download limit')
+        conn.close()
+        emit_download(database)
     except Exception:
         conn.close()
         database.unlink(missing_ok=True)
         raise
     else:
-        conn.close()
         return database
 
 
@@ -346,7 +361,8 @@ def _runtime_files():
     source = Path(specified) if specified else assets
     module_name = 'index.mjs' if specified else 'sqlite3.mjs'
     files = {'sqlite3.mjs': source / module_name, 'sqlite3.wasm': source / 'sqlite3.wasm',
-             **{name: assets / name for name in ('search.js', 'search-worker.js', 'sqlite3-LICENSE.txt')}}
+             **{name: assets / name for name in
+                ('search.js', 'search-worker.js', 'search-download.js', 'sqlite3-LICENSE.txt')}}
     if not all(path.is_file() for path in files.values()):
         if specified or os.environ.get('GUAVAJAM_REQUIRE_SEARCH') == '1':
             raise CatalogError('search: missing pinned SQLite WASM runtime assets')
@@ -397,11 +413,17 @@ def homepage(site, *, interactive):
                            '">Source repository</a></p></article></li>')
     body = '<p>Discover independently verified works, editions and their source documents.</p>'
     if interactive:
+        download = emit_download(Path(site) / 'index.sqlite')
         body += ('<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
                  '<h2 id="guavajam-search-heading">Search publications</h2>'
                  '<p id="guavajam-search-scope">Search covers all published editions. Keyword and subject '
                  'filters describe each work’s latest edition. Dates are publisher-supplied Git dates.</p>'
-                 '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope">'
+                 '<p>Enable search to download this collection’s local index (' +
+                 str((download['transfer_size'] + 1023) // 1024) +
+                 ' KiB compressed) and search engine. All works remain listed below.</p>'
+                 '<button type="button" id="guavajam-search-enable">Enable search</button>'
+                 '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" ' +
+                 download_attributes(download) + '>'
                  '<div><label for="guavajam-query">Text search</label>'
                  '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
                  '<div><label for="guavajam-keyword">Keyword</label>'
@@ -413,7 +435,7 @@ def homepage(site, *, interactive):
                  '<option value="title">Title</option><option value="oldest">Oldest</option>'
                  '<option value="editions">Most editions</option></select></div>'
                  '<button type="submit">Search</button></form>'
-                 '<p id="guavajam-search-status" role="status" aria-live="polite">Loading local search…</p>'
+                 '<p id="guavajam-search-status" role="status" aria-live="polite">Search has not been enabled.</p>'
                  '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>'
                  '<nav aria-label="Search result pages">'
                  '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'

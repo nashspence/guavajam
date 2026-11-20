@@ -36,6 +36,18 @@ class Links(HTMLParser):
 
 
 class WorkSearchTests(unittest.TestCase):
+    def assert_body_tokens(self, db, table, rows):
+        """Every source token and position survives without storing plaintext."""
+        with closing(sqlite3.connect(':memory:')) as expected:
+            expected.execute("CREATE VIRTUAL TABLE body_fts USING fts5(body, tokenize='unicode61 remove_diacritics 2')")
+            expected.executemany('INSERT INTO body_fts(rowid,body) VALUES (?,?)', rows)
+            expected.execute("CREATE VIRTUAL TABLE tokens USING fts5vocab(body_fts, 'instance')")
+            db.execute('CREATE VIRTUAL TABLE temp.actual_' + table +
+                       " USING fts5vocab(main," + table + ", 'instance')")
+            self.assertEqual(expected.execute('SELECT doc,term,offset FROM tokens ORDER BY doc,offset,term').fetchall(),
+                             [tuple(row) for row in db.execute('SELECT doc,term,offset FROM temp.actual_' +
+                                table + " WHERE col='body' ORDER BY doc,offset,term")])
+
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
@@ -120,26 +132,35 @@ class WorkSearchTests(unittest.TestCase):
                 'SELECT revision FROM editions ORDER BY position')])
             self.assertEqual([], db.execute('PRAGMA foreign_key_check').fetchall())
             self.assertEqual('ok', db.execute('PRAGMA integrity_check').fetchone()[0])
-            for row in db.execute('SELECT d.*,e.revision,s.body FROM documents d '
+            documents = []
+            for row in db.execute('SELECT d.*,e.revision,s.id AS record_id FROM documents d '
                                   'JOIN editions e ON e.id=d.edition_id '
                                   'JOIN search_records s ON s.document_id=d.id'):
                 nav = json.loads((self.reader(row['revision']) / 'NAV.json').read_text())
                 detail = nav['documents'][row['path']]
-                self.assertEqual(detail['text'], row['body'])
+                documents.append((row['record_id'], detail['text']))
                 self.assertEqual(detail['source_sha256'], row['source_sha256'])
                 self.assertEqual(hashlib.sha256((self.reader(row['revision']) /
                     ('source.gfm' if row['path'] == 'content/manuscript.md' else
                      Path(detail['view']).with_suffix('.gfm'))).read_bytes()).hexdigest(), row['source_sha256'])
+            self.assert_body_tokens(db, 'search_fts', documents)
             passages = db.execute('SELECT p.*,e.revision,d.path FROM passages p '
                                   'JOIN editions e ON e.id=p.edition_id '
                                   'JOIN documents d ON d.id=p.document_id').fetchall()
             self.assertGreater(len(passages), 20)
+            passage_bodies = []
             for passage in passages:
+                nav = json.loads((self.reader(passage['revision']) / 'NAV.json').read_text())
+                anchor = nav['documents'][passage['path']]['anchors'][passage['position']]
+                for key in ('anchor', 'title', 'kind', 'level', 'position', 'parent', 'scope'):
+                    self.assertEqual(anchor[key], passage[key])
+                passage_bodies.append((passage['id'], anchor['text']))
                 target = urlsplit(passage['url'])
                 self.assertEqual('', target.scheme)
                 self.assertEqual(passage['anchor'], unquote(target.fragment))
                 self.assertIn(passage['revision'], target.path)
                 self.assertIn(passage['anchor'], Links((self.site / unquote(target.path)).read_text()).ids)
+            self.assert_body_tokens(db, 'passage_fts', passage_bodies)
             latest = [row for row in passages if row['revision'] == self.latest]
             main = {row['anchor']: row for row in latest if row['path'] == 'content/manuscript.md'}
             self.assertEqual('opening', main['detail']['parent'])
@@ -148,9 +169,11 @@ class WorkSearchTests(unittest.TestCase):
             author = next(row for row in latest if row['title'] == 'Author continuation')
             self.assertEqual('document', author['scope'])
             self.assertNotEqual('reply', author['parent'])
-            self.assertIn('ecology', db.execute('SELECT body FROM search_records s JOIN editions e '
-                'ON e.id=s.edition_id JOIN documents d ON d.id=s.document_id '
-                "WHERE e.revision=? AND d.path='content/manuscript.md'", (self.latest,)).fetchone()[0])
+            self.assertEqual(1, db.execute('SELECT count(*) FROM search_fts JOIN search_records s '
+                'ON s.id=search_fts.rowid JOIN editions e ON e.id=s.edition_id '
+                'JOIN documents d ON d.id=s.document_id '
+                "WHERE search_fts MATCH 'body:ecology' AND e.revision=? AND d.path='content/manuscript.md'",
+                (self.latest,)).fetchone()[0])
             historical = db.execute('SELECT s.url FROM search_fts JOIN search_records s '
                 "ON s.id=search_fts.rowid WHERE search_fts MATCH 'Palaeoriver'").fetchall()
             self.assertEqual(['editions/' + self.older + '/read/index.html'], [row[0] for row in historical])
@@ -162,13 +185,25 @@ class WorkSearchTests(unittest.TestCase):
         self.addCleanup(database.unlink)
         with closing(sqlite3.connect(database)) as aggregate, \
                 closing(sqlite3.connect(self.site / 'work.sqlite')) as work:
-            for table, columns in [('search_records', 'title,authors,abstract,labels,body'),
-                                   ('passages', 'anchor,title,kind,level,position,parent,scope,text')]:
+            for table, columns in [('search_records', 'id,work_id,edition_id,document_id'),
+                                   ('documents', 'id,edition_id,work_id,title,path,language,source_sha256')]:
                 self.assertEqual(work.execute('SELECT ' + columns + ' FROM ' + table + ' ORDER BY id').fetchall(),
                                  aggregate.execute('SELECT ' + columns + ' FROM ' + table + ' ORDER BY id').fetchall())
                 work_urls = work.execute('SELECT url FROM ' + table + ' ORDER BY id').fetchall()
                 aggregate_urls = aggregate.execute('SELECT url FROM ' + table + ' ORDER BY id').fetchall()
                 self.assertEqual([('works/field-notes/' + url,) for (url,) in work_urls], aggregate_urls)
+            self.assertFalse(aggregate.execute(
+                "SELECT name FROM sqlite_master WHERE name IN ('passages','passage_records','passage_fts')").fetchall())
+            for connection in (aggregate, work):
+                connection.execute("CREATE VIRTUAL TABLE temp.tokens USING fts5vocab(main, search_fts, 'instance')")
+            # Repository provenance legitimately differs between a standalone
+            # work and its collection. All other indexed columns are identical.
+            tokens = "SELECT term,doc,col,offset FROM temp.tokens WHERE col!='git' ORDER BY doc,col,offset,term"
+            self.assertEqual(work.execute(tokens).fetchall(), aggregate.execute(tokens).fetchall())
+            for term in ('"observ"*', '"palaeoriver"*', '"glaciolacustrine"*',
+                         '"ecol"* AND "estuar"*', '"quoted"*'):
+                sql = 'SELECT rowid FROM search_fts WHERE search_fts MATCH ? ORDER BY rowid'
+                self.assertEqual(work.execute(sql, (term,)).fetchall(), aggregate.execute(sql, (term,)).fetchall())
 
     def test_corrupt_navigation_cannot_create_a_partial_database(self):
         for name in ('hash', 'schema', 'revision', 'preview', 'documents', 'anchors', 'missing'):
@@ -253,7 +288,8 @@ class WorkSearchTests(unittest.TestCase):
             browse = (work / 'browse/index.html').read_text()
             self.assertIn('data-worker="../../../search-worker.js"', browse)
             self.assertIn('src="../../../search.js"', browse)
-            self.assertIn('data-database="../work.sqlite"', browse)
+            self.assertRegex(browse, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
+            self.assertIn('href="../work.sqlite" download', browse)
 
     def test_standalone_updater_rebuilds_when_external_runtime_changes(self):
         runtime = self.root / 'runtime'

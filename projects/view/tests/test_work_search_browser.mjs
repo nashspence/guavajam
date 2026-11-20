@@ -20,9 +20,9 @@ const server = http.createServer(async (req, res) => {
     const relative = decodeURIComponent(url.pathname.slice('/collection/'.length));
     const filename = path.resolve(root, relative.endsWith('/') || !relative ? relative + 'index.html' : relative);
     assert(filename.startsWith(root + path.sep));
-    const content = await fs.readFile(filename);
+    let content = await fs.readFile(filename);
     requests.push(relative);
-    if (path.basename(filename) === 'work.sqlite' && url.searchParams.get('redirect') === '1') {
+    if (/^work\.[a-f0-9]{64}\.sqlite\.gz$/.test(path.basename(filename)) && url.searchParams.get('redirect') === '1') {
       // Real HTTP redirects work in every browser engine. The destination is
       // the valid database, so following this redirect would fail the test.
       redirects.push(url.pathname);
@@ -30,8 +30,13 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    if (url.searchParams.get('fault') === 'truncated') content = content.subarray(0, content.length - 8);
+    if (url.searchParams.get('fault') === 'corrupt') {
+      content = Buffer.from(content);
+      content[content.length - 8] ^= 255; // A wrong gzip CRC must fail native decompression.
+    }
     const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript',
-      '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.sqlite': 'application/vnd.sqlite3'};
+      '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.sqlite': 'application/vnd.sqlite3', '.gz': 'application/gzip'};
     res.writeHead(200, {'Content-Type': types[path.extname(filename)] ?? 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff', 'Content-Length': content.length});
     res.end(content);
@@ -80,7 +85,7 @@ try {
       assert.equal(await page.locator('script').count(), 0, 'work homepage remains script-free');
       await page.goto(browse);
       assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
-      assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite|search-worker\.js)(?:\?|$)/.test(url)), false,
+      assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'a small work must not download the runtime before search is enabled');
       await page.locator('#guavajam-search-enable').focus();
       await page.locator('#guavajam-search-enable').press('Enter');
@@ -220,22 +225,31 @@ try {
       assert.equal(await plain.locator('script').count(), 0);
       await disabled.close();
 
-      for (const broken of ['sqlite3.wasm', 'work.sqlite', 'search-worker.js', 'redirect']) {
+      for (const broken of ['sqlite3.wasm', 'database', 'search-worker.js', 'redirect', 'truncated', 'corrupt', 'wrong-size', 'decompression']) {
         const failure = await browser.newContext();
         const unexpected = [];
         const priorRedirects = redirects.length;
         failure.on('request', request => {
           if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin) unexpected.push(request.url());
         });
-        if (broken !== 'redirect') {
-          await failure.route('**/' + broken, route => route.abort());
+        const databaseRoute = /\/work\.[a-f0-9]{64}\.sqlite\.gz$/;
+        if (broken === 'decompression') {
+          await failure.route('**/search-download.js', async route => {
+            const response = await route.fetch();
+            await route.fulfill({response, body: 'globalThis.DecompressionStream = undefined;\n' + await response.text()});
+          });
+        } else if (['sqlite3.wasm', 'database', 'search-worker.js'].includes(broken)) {
+          await failure.route(broken === 'database' ? databaseRoute : '**/' + broken, route => route.abort());
         }
         const fallback = await failure.newPage();
         await fallback.goto(browse);
-        if (broken === 'redirect') {
-          await fallback.locator('#guavajam-search').evaluate(form => {
-            form.dataset.database = '../work.sqlite?redirect=1';
-          });
+        const originalDatabase = await fallback.locator('#guavajam-search').getAttribute('data-database');
+        if (['redirect', 'truncated', 'corrupt'].includes(broken)) {
+          await fallback.locator('#guavajam-search').evaluate((form, kind) => {
+            form.dataset.database += kind === 'redirect' ? '?redirect=1' : '?fault=' + kind;
+          }, broken);
+        } else if (broken === 'wrong-size') {
+          await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
         await fallback.locator('#guavajam-search-enable').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
@@ -245,9 +259,9 @@ try {
         if (broken === 'redirect') {
           assert.equal(redirects.length, priorRedirects + 1, 'the server sent the rejected database redirect');
         }
-        if (broken === 'work.sqlite' || broken === 'redirect') {
-          if (broken === 'work.sqlite') await failure.unroute('**/work.sqlite');
-          else await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.database = '../work.sqlite'; });
+        if (broken === 'database' || broken === 'redirect') {
+          if (broken === 'database') await failure.unroute(databaseRoute);
+          else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
           await fallback.locator('#guavajam-search-enable').click();
           await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
             `${total} document(s) found`, fixture.documents);
@@ -266,6 +280,7 @@ try {
 } finally { await new Promise(resolve => server.close(resolve)); }
 assert(requests.includes('search-worker.js'), 'nested works share the collection runtime');
 assert(requests.includes('sqlite3.wasm'));
-assert(requests.includes(fixture.work + 'work.sqlite'));
+assert(requests.some(request => request.startsWith(fixture.work) && /\/work\.[a-f0-9]{64}\.sqlite\.gz$/.test(request)));
+assert(!requests.includes(fixture.work + 'work.sqlite'));
 assert(!requests.some(request => request.includes('opfs')));
 await fs.writeFile(path.join(output, 'work-search-browser-report.json'), JSON.stringify({checks: reports}, null, 2) + '\n');

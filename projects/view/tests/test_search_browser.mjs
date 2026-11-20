@@ -22,7 +22,7 @@ const server = http.createServer(async (req, res) => {
     const content = await fs.readFile(filename);
     requests.push(relative);
     const types = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript',
-      '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.sqlite': 'application/vnd.sqlite3'};
+      '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.sqlite': 'application/vnd.sqlite3', '.gz': 'application/gzip'};
     res.writeHead(200, {'Content-Type': types[path.extname(filename)] ?? 'application/octet-stream',
       'X-Content-Type-Options': 'nosniff', 'Content-Length': content.length});
     res.end(content);
@@ -43,9 +43,10 @@ try {
       const context = await browser.newContext({viewport: {width: 360, height: 900}});
       const page = await context.newPage();
       page.setDefaultTimeout(15000);
-      const errors = [], external = [];
+      const errors = [], external = [], loaded = [];
       page.on('pageerror', error => errors.push(error.message));
       context.on('request', request => {
+        loaded.push(request.url());
         if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin) external.push(request.url());
       });
       const waitTotal = async total => {
@@ -62,7 +63,13 @@ try {
         await waitTotal(total);
       };
       await page.goto(base);
+      assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
+      assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
+        'the collection does not download its database or runtime before search is enabled');
+      await page.locator('#guavajam-search-enable').focus();
+      await page.locator('#guavajam-search-enable').press('Enter');
       await waitTotal(fixture.works);
+      assert.equal(await page.locator('input[name=q]').evaluate(node => node === document.activeElement), true);
       assert.equal(await page.evaluate(() => crossOriginIsolated), false);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -81,6 +88,7 @@ try {
       assert(page.url().endsWith(fixture.historical));
       assert((await page.locator('article').textContent()).includes('Palaeoriver'));
       await page.goto(base);
+      await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.works);
       await query('Glaciolacustrine', 1);
       const support = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
@@ -144,24 +152,53 @@ try {
       assert.equal(await plain.locator('h1').count(), 1);
       await disabled.close();
 
-      for (const broken of ['sqlite3.wasm', 'index.sqlite']) {
+      for (const broken of ['sqlite3.wasm', 'database', 'decompression']) {
         const failure = await browser.newContext();
-        await failure.route('**/' + broken, route => route.abort());
+        if (broken === 'decompression') {
+          await failure.route('**/search-download.js', async route => {
+            const response = await route.fetch();
+            await route.fulfill({response, body: 'globalThis.DecompressionStream = undefined;\n' + await response.text()});
+          });
+        } else {
+          await failure.route(broken === 'database' ? /\/index\.[a-f0-9]{64}\.sqlite\.gz$/ : '**/' + broken,
+            route => route.abort());
+        }
         const fallback = await failure.newPage();
         await fallback.goto(base);
+        await fallback.locator('#guavajam-search-enable').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-list > li').count(), fixture.works);
         await failure.close();
       }
+      // An open page may outlive an atomic deployment which removes its old
+      // hashed artifact. Retrying that URL cannot help; reload gets fresh HTML.
+      const recovery = await browser.newContext();
+      const stale = await recovery.newPage();
+      await stale.goto(base);
+      const currentDatabase = await stale.locator('#guavajam-search').getAttribute('data-database');
+      await stale.locator('#guavajam-search').evaluate(form => {
+        form.dataset.database = './index.' + '0'.repeat(64) + '.sqlite.gz';
+      });
+      await stale.locator('#guavajam-search-enable').click();
+      await stale.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
+      assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
+      await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
+      assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
+      await stale.locator('#guavajam-search-enable').click();
+      await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} work(s) found`, fixture.works);
+      assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
+      await recovery.close();
       report.push({engine: name, version: browser.version(), executablePath: executablePath ?? 'Playwright pinned',
         works: fixture.works, pagination: true, historicalRouting: true,
-        supportingRouting: true, metadataSearch: true, facets: true, staticFallback: true, accessibility: true});
+        supportingRouting: true, metadataSearch: true, facets: true, deferredRuntime: true,
+        staticFallback: true, stalePageRecovery: true, accessibility: true});
       console.log(`${name}: aggregate SQLite WASM search, routing, facets, pagination and fallbacks passed`);
     } finally { await browser.close(); }
   }
 } finally { await new Promise(resolve => server.close(resolve)); }
 assert(requests.includes('sqlite3.wasm'));
-assert(requests.includes('index.sqlite'));
+assert(requests.some(request => /^index\.[a-f0-9]{64}\.sqlite\.gz$/.test(request)));
+assert(!requests.includes('index.sqlite'), 'the canonical raw artifact is not downloaded by enhanced search');
 assert(!requests.some(request => request.includes('opfs')));
 await fs.writeFile(path.join(output, 'search-browser-report.json'), JSON.stringify({checks: report}, null, 2) + '\n');

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-core test-view test-browser test-capture-browser test-compose test-deployment-config test-repository render preview site index update build check-artifacts version check-boundaries check-licenses
+.PHONY: help setup test test-core test-view test-browser benchmark-search-download test-capture-browser test-compose test-deployment-config test-repository render preview site index update build check-artifacts version check-boundaries check-licenses
 PYTHON := mise exec -- uv run --locked --all-packages --group dev python
 export REPO REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW PREVIOUS_CATALOG INDEX TRUST SOURCE_REF REMOTE NO_FETCH REBUILD SERVE PORT REQUIRE_RETENTION
 help: ## Show commands.
@@ -13,11 +13,15 @@ test-core: ## Run source, capture, storage and preservation contracts.
 	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_private_preview.mjs projects/core/tests/test_chatgpt_capture.mjs
 test-view: ## Run rendering, catalog and update contracts.
 	@$(PYTHON) tools/run_tests.py view
+	@mise exec -- node --test projects/view/tests/test_download_transport.mjs
 test-browser: ## Run reader, keyboard, accessibility and print journeys; requires pinned Playwright browsers.
 	@$(PYTHON) projects/view/tests/run_browser.py
 	@$(PYTHON) projects/view/tests/run_catalog_browser.py
 	@$(PYTHON) projects/view/tests/run_search_browser.py
 	@$(PYTHON) projects/view/tests/run_work_search_browser.py
+	@$(PYTHON) projects/view/tests/run_search_download_browser.py --profiles local --repetitions 1
+benchmark-search-download: ## Report browser transfer, cache, memory and timing evidence; OUTPUT=directory, BENCHMARK_ARGS='--help' for variants.
+	@$(PYTHON) projects/view/tests/run_search_download_browser.py --output "$${OUTPUT:-.build/search-download}" $(BENCHMARK_ARGS)
 render: ## REPO=path REV=full-sha OUTPUT=new-directory TRUSTED_GPG_FINGERPRINT=fingerprint|SSH_ALLOWED_SIGNERS=path [PREVIEW=1]
 	@set --; if [ "$$PREVIEW" = 1 ]; then set -- --unsigned-preview; elif [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust or PREVIEW=1}"; fi; \
 	$(PYTHON) -m guavajam render --repo "$${REPO:?Set REPO}" --revision "$${REV:?Set REV}" --output "$${OUTPUT:?Set OUTPUT}" "$$@"
