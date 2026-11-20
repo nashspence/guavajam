@@ -14,14 +14,14 @@ from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from guavajam_core.media import asset, declarations, MediaError, SLUG
 from guavajam_core.source_ast import walk
 
 READER = 'gfm+raw_html+tex_math_dollars+yaml_metadata_block'
 REV = re.compile(r'[0-9a-f]{40}\Z')
-RECORD = re.compile(r'works/[a-z0-9]+(?:-[a-z0-9]+)*/(?:manuscript\.md|supporting/[a-z0-9]+(?:-[a-z0-9]+)*\.md)\Z')
+RECORD = re.compile(r'content/(?:manuscript\.md|supporting/[a-z0-9]+(?:-[a-z0-9]+)*\.md)\Z')
 IMAGE = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp', 'svg': 'image/svg+xml'}
 
 
@@ -30,6 +30,12 @@ class RenderError(ValueError):
 
 
 def process(command, *, cwd=None, data=None, limit=16 * 1024 * 1024):
+    if command[0] == 'git':
+        from guavajam_core.publication_protocol import run
+        try:
+            return run(cwd or '.', *command[1:], limit=limit)
+        except (ValueError, OSError) as exc:
+            raise RenderError(str(exc)) from exc
     try:
         result = subprocess.run(command, cwd=cwd, input=data, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, timeout=45, check=False)
@@ -59,8 +65,8 @@ def git_blob(repo, sha, path, *, maximum=8 * 1024 * 1024):
 
 
 def git_extra(repo, sha, path, *, maximum=10 * 1024 * 1024):
-    if (not path.startswith('works/') or '..' in PurePosixPath(path).parts
-            or not re.fullmatch(r'works/[a-z0-9-]+/assets/[a-z0-9._/-]+', path)):
+    if (not path.startswith('content/') or '..' in PurePosixPath(path).parts
+            or not re.fullmatch(r'content/assets/[a-z0-9._/-]+', path)):
         raise RenderError('local image must remain within a work assets directory')
     mode = process(['git', '--no-replace-objects', 'ls-tree', sha, '--', path], cwd=repo)
     if not mode.startswith(b'100644 blob ') and not mode.startswith(b'100755 blob '):
@@ -95,7 +101,7 @@ def _make_media(item):
     return '\n'.join(out)
 
 
-def _href(url, *, kind, path, sha, repo, origin, supporting):
+def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
     parsed = urlsplit(url)
     if parsed.scheme:
         if parsed.scheme == 'mailto' and kind == 'Link' and parsed.netloc == '' and parsed.path and not parsed.query:
@@ -107,11 +113,15 @@ def _href(url, *, kind, path, sha, repo, origin, supporting):
         return url
     if parsed.netloc or parsed.query or url.startswith(('/', '\\')) or '\\' in url:
         raise RenderError('absolute, ambiguous or query-string local links prohibited')
-    if not parsed.path:
-        if parsed.fragment and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*',parsed.fragment): return '#' + parsed.fragment
+    local = unquote(parsed.path)
+    fragment = unquote(parsed.fragment)
+    if local.startswith(('/', '\\')) or '\\' in local or '\x00' in local:
+        raise RenderError('ambiguous decoded local link')
+    if not local:
+        if fragment and re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*',fragment): return '#' + fragment
         raise RenderError('invalid local fragment')
     relative = PurePosixPath(path).parent
-    resolved = relative.joinpath(parsed.path)
+    resolved = relative.joinpath(local)
     # A lexical POSIX path resolver that rejects traversal outside the work.
     parts = []
     for component in resolved.parts:
@@ -121,19 +131,31 @@ def _href(url, *, kind, path, sha, repo, origin, supporting):
         elif component not in {'.', ''}: parts.append(component)
     dest = '/'.join(parts)
     if dest in supporting and kind == 'Link':
-        if parsed.fragment and parsed.fragment not in supporting[dest]:raise RenderError('unresolved supporting source fragment')
-        href = ('supporting/' if path.endswith('/manuscript.md') else '') + PurePosixPath(dest).stem + '.html'
-        return href + (('#' + parsed.fragment) if parsed.fragment else '')
-    if kind == 'Image' and dest.startswith('works/' + path.split('/')[1] + '/assets/'):
+        if fragment and fragment not in supporting[dest]:raise RenderError('unresolved source fragment')
+        if dest == 'content/manuscript.md':
+            href = ('../' if '/supporting/' in path else '') + 'index.html'
+        else:
+            href = ('supporting/' if path.endswith('/manuscript.md') else '') + PurePosixPath(dest).stem + '.html'
+        return href + (('#' + fragment) if fragment else '')
+    if kind == 'Image' and dest.startswith('content/assets/'):
         ext = PurePosixPath(dest).suffix.removeprefix('.')
         if ext not in IMAGE: raise RenderError('only passive local PNG/JPEG/WebP images are supported')
         raw = git_extra(repo, sha, dest)
         if len(raw) > 10 * 1024 * 1024 or not raw: raise RenderError('local image too large')
         return 'data:' + IMAGE[ext] + ';base64,' + base64.b64encode(raw).decode('ascii')
-    raise RenderError('unresolved local link; only committed supporting pages and images are rendered')
+    if kind == 'Link' and dest.startswith('content/'):
+        # Export the whole supplement; fragments belong to its native reader.
+        from guavajam_core.publication_protocol import blob
+        raw = blob(repo, sha, dest, maximum=20 * 1024 * 1024)
+        name = hashlib.sha256(raw).hexdigest() + '.bin'
+        downloads[name] = raw
+        if len(downloads) > 256 or sum(len(value) for value in downloads.values()) > 256 * 1024 * 1024:
+            raise RenderError('supplemental downloads exceed the output budget')
+        return ('../' if '/supporting/' in path else '') + 'downloads/' + name
+    raise RenderError('unresolved local link outside the committed publication content')
 
 
-def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=None):
+def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=True, source=None):
     from guavajam_core.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk,plain_text
     from guavajam_core.table_captions import normalize_table_captions
     from .presentation import prepare_presentation_ast
@@ -142,7 +164,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
         info,issues=inspect_manuscript_syntax(Path(path),body,line);errors.extend(issues)
         heads=[n for n in walk(ast['blocks']) if n['t']=='Header']
         if front is not None:
-            errors.extend(validate_work_fields(Path(path),front,path.split('/')[1],heads[0]['c'][2] if heads else []))
+            errors.extend(validate_work_fields(Path(path),front,heads[0]['c'][2] if heads else []))
             errors.extend(validate_pandoc_front_matter(Path(path),front,ast))
         if errors:raise RenderError('; '.join(errors[:8]))
         anchors=info['anchors'];source_title=front['title']
@@ -174,8 +196,8 @@ def _transform(ast, *, path, sha, repo, origin, supporting, media=True, source=N
     for node in walk(ast['blocks']):
         if node['t'] in ('Link','Image'):
             url=node['c'][2][0]
-            if url.startswith('#') and url[1:] not in anchors :raise RenderError('unresolved explicit source fragment')
-            node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting)
+            if url.startswith('#') and unquote(url[1:]) not in anchors :raise RenderError('unresolved explicit source fragment')
+            node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads)
     return ast,items,anchors,source_title
 
 
@@ -205,7 +227,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + ' · ' + path)
-    state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Signed Git publication'
+    state = 'UNSIGNED PREVIEW — NOT A PUBLICATION' if preview else 'Verified signed source'
     return ('<!doctype html>\n<html lang="' + escape(language, quote=True) + '"><head>\n'
             '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
             '<meta http-equiv="Content-Security-Policy" content="' + escape(csp, quote=True) + '">\n'
@@ -227,12 +249,10 @@ def _raw_git_list(repo, sha, prefix):
     return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
 
 
-def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False):
+def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False):
     if not process(['pandoc','--version']).startswith(b'pandoc 3.12.1\n'):raise RenderError('Pandoc 3.12.1 is required')
     repo = Path(repo).resolve(); revision(repo, sha)
-    from guavajam_core.identifiers import SLUG as WORK_SLUG
-    if not WORK_SLUG.fullmatch(work): raise RenderError('work must be a GuavaJam-compatible slug')
-    manuscript = f'works/{work}/manuscript.md'
+    manuscript = 'content/manuscript.md'
     source = git_blob(repo, sha, manuscript)
     if preview:
         if fingerprints or allowed_signers:
@@ -240,18 +260,14 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     else:
         if bool(fingerprints) == bool(allowed_signers):
             raise RenderError('signed rendering requires an external GPG fingerprint or SSH allowed signers')
-        from guavajam_core.publication_protocol import verify_shape
-        from guavajam_core.trusted_git import verify_signature
+        from guavajam_core.publication_commit import verify
         try:
-            verify_signature(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers)
-            declared = verify_shape(repo, sha, 'publication')
-            if declared['manuscript'] != manuscript:
-                raise RenderError('revision declares a different work')
+            verify(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers, online_media=False)
         except (ValueError, OSError) as exc:
             raise RenderError(str(exc)) from exc
-    policy_entry=process(['git','--no-replace-objects','ls-tree',sha,'--','asset-policy.json'],cwd=repo)
+    policy_entry=process(['git','--no-replace-objects','ls-tree',sha,'--','content/asset-policy.json'],cwd=repo)
     if policy_entry:
-        asset_policy=process(['git','--no-replace-objects','show',sha+':asset-policy.json'],cwd=repo,limit=32768)
+        asset_policy=process(['git','--no-replace-objects','show',sha+':content/asset-policy.json'],cwd=repo,limit=32768)
         try:
             data=json.loads(asset_policy)
             if set(data)!={'origin'}:raise ValueError()
@@ -259,7 +275,7 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
             origin=AssetPolicy(data['origin']).origin
         except (ValueError,TypeError):raise RenderError('invalid canonical HTTPS asset policy') from None
     else:origin=''
-    supporting_paths=_raw_git_list(repo,sha,'works/'+work+'/supporting')
+    supporting_paths=_raw_git_list(repo,sha,'content/supporting')
     from guavajam_core.supporting_gfm import parse_gfm_record
     from guavajam_core.asset_policy import AssetPolicy
     supporting={};total_source=0
@@ -267,19 +283,24 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
         raw=git_blob(repo,sha,path);total_source+=len(raw)
         if total_source>100*1024*1024:raise RenderError('supporting source inventory exceeds 100 MiB')
         _,positions=parse_gfm_record(raw.decode('utf-8'),policy=AssetPolicy(origin) if origin else None);supporting[path]=set(positions)
+    from guavajam_core.validate_sources import validate_front_matter, inspect_manuscript_syntax
+    _, body, line, _ = validate_front_matter(Path(manuscript), source.decode('utf-8'))
+    info, _ = inspect_manuscript_syntax(Path(manuscript), body, line)
+    supporting[manuscript] = info['anchors']
     if output.exists() and any(output.iterdir()):
         raise RenderError('destination must be a new or empty directory')
     all_files = {}
+    downloads = {}
     documents = {}
     manuscript_facts = {}
     css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
-    for path in [manuscript, *supporting]:
+    for path in [manuscript, *supporting_paths]:
         source = git_blob(repo, sha, path)
         ast = json.loads(pandoc(source))
         from guavajam_core.validate_sources import validate_front_matter
         meta = validate_front_matter(Path(path),source.decode('utf-8'))[0] if path == manuscript else {}
         ast,items,anchors,source_title = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
-                                      supporting=supporting,media=(path==manuscript),source=source.decode('utf-8'))
+                                      supporting=supporting,downloads=downloads,media=(path==manuscript),source=source.decode('utf-8'))
         from .identities import writer_prefix,restore_source_ids
         prefix=writer_prefix(anchors)
         body = pandoc(json.dumps(ast, ensure_ascii=False).encode('utf-8'),reader='json',writer='html5',id_prefix=prefix).decode('utf-8')
@@ -288,7 +309,7 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
         body=prepare_code_focus(body)
         if path == manuscript:
             manuscript_facts = meta
-            title = meta.get('title',work); language = meta.get('language','en'); dest = 'index.html'
+            title = meta['title']; language = meta.get('language','en'); dest = 'index.html'
         else:
             title=source_title;language='en';dest='supporting/'+Path(path).stem+'.html'
         documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
@@ -299,17 +320,24 @@ def render(repo: Path, sha: str, work: str, output: Path, *, fingerprints=(), al
     for name, html in all_files.items():
         target=output/name;target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(html,encoding='utf-8')
+    for name, raw in downloads.items():
+        (output / 'downloads').mkdir(exist_ok=True)
+        (output / 'downloads' / name).write_bytes(raw)
     (output/'VIEW.json').write_text(json.dumps({
        'schema':'guavajam.view.v1','canonical':{'hash_algorithm':'sha1','revision':sha,
             'manuscript':manuscript}, 'renderer':'guavajam', 'preview':preview,
        'facts': manuscript_facts, 'documents': documents,
-       'files': {name:hashlib.sha256(html.encode('utf-8')).hexdigest()
-                 for name,html in sorted(all_files.items())}},indent=2,sort_keys=True)+'\n')
+       'files': {**{name:hashlib.sha256(html.encode('utf-8')).hexdigest()
+                 for name,html in sorted(all_files.items())},
+                 **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())}}},indent=2,sort_keys=True)+'\n')
     return len(all_files)
 
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ['index']:
+        from .index import main as index_main
+        return index_main(argv[1:])
     if argv[:1] == ['preview']:
         from .preview import main as preview_main
         return preview_main(argv[1:])
@@ -321,10 +349,9 @@ def main(argv=None):
         return site_main(argv[1:])
     if argv[:1] == ['render']:
         argv = argv[1:]
-    p=argparse.ArgumentParser(description=__doc__, epilog="Use guavajam site --help for a publication catalog and DOI landing pages; the render --help describes the single-work view.")
+    p=argparse.ArgumentParser(description=__doc__, epilog="Use guavajam site --help for one work and guavajam index --help for a collection.")
     p.add_argument('--repo',required=True, type=Path)
     p.add_argument('--revision',required=True)
-    p.add_argument('--work',required=True)
     p.add_argument('--output',required=True,type=Path)
     trust=p.add_mutually_exclusive_group(required=True)
     trust.add_argument('--trusted-gpg-fingerprint',action='append',default=[])
@@ -332,7 +359,7 @@ def main(argv=None):
     trust.add_argument('--unsigned-preview',action='store_true')
     args=p.parse_args(argv)
     try:
-        number=render(args.repo,args.revision,args.work,args.output,
+        number=render(args.repo,args.revision,args.output,
                       fingerprints=args.trusted_gpg_fingerprint,allowed_signers=args.ssh_allowed_signers,
                       preview=args.unsigned_preview)
     except (RenderError,MediaError,OSError,UnicodeError,ValueError) as exc:

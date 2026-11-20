@@ -1,5 +1,4 @@
 """Owned format identifiers use the GuavaJam v1 namespace."""
-import json
 from pathlib import Path
 import re
 import unittest
@@ -20,21 +19,26 @@ class NamespaceTests(unittest.TestCase):
                     with self.subTest(path=path.relative_to(ROOT), identifier=identifier):
                         self.assertTrue(identifier.startswith('guavajam.'))
                         self.assertTrue(identifier.endswith('.v1'))
-        self.assertTrue({'guavajam.repository.v1', 'guavajam.work.v1',
-                         'guavajam.source-citation.v1', 'guavajam.citation.v1',
+        self.assertTrue({'guavajam.catalog.v1', 'guavajam.work.v1',
+                         'guavajam.source-citation.v1', 'guavajam.index-view.v1',
                          'guavajam.site.v1', 'guavajam.asset.v1',
                          'guavajam.asset-release.v1',
                          'guavajam.chatgpt-capture-reference.v1'} <= identifiers)
 
-    def test_repository_starter_is_core_configuration_without_a_web_origin(self):
+    def test_work_starter_has_only_bibliographic_metadata(self):
+        import yaml
         resources = ROOT / 'projects/core/src/guavajam_core/resources'
-        settings = json.loads((resources / 'templates/repository.json').read_text())
-        schema = json.loads((resources / 'schemas/guavajam-repository-v1.schema.json').read_text())
-        self.assertEqual('guavajam.repository.v1', settings['schema'])
-        self.assertEqual(settings['schema'], schema['properties']['schema']['const'])
-        self.assertEqual({'schema', 'publisher'}, set(schema['required']))
-        self.assertNotIn('base_url', settings)
-        self.assertTrue(settings['publisher'])
+        source = (resources / 'templates/work/manuscript.md').read_text()
+        settings = yaml.safe_load(source.split('---', 2)[1])
+        self.assertEqual('guavajam.work.v1', settings['schema'])
+        self.assertTrue({'title', 'author', 'language', 'rights'} <= settings.keys())
+        self.assertFalse({'edition', 'published', 'edition_reason', 'slug', 'status'} & settings.keys())
+        self.assertFalse((resources / 'templates/repository.json').exists())
+        self.assertFalse((resources / 'schemas/guavajam-repository-v1.schema.json').exists())
+        commands = (resources / 'commands.mk').read_text()
+        self.assertNotIn('WORK=slug', commands)
+        self.assertNotIn('GuavaJam-Publication', commands)
+        self.assertNotIn('repository-template', commands)
 
 
 if __name__ == '__main__':

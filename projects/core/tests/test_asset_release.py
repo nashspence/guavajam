@@ -1,4 +1,4 @@
-"""Private staging -> signed main -> explicit release, with real Git/GPG authority."""
+"""Private staging -> signed main -> explicit release, with real Git/SSH authority."""
 from dataclasses import replace
 import json
 import hashlib
@@ -146,21 +146,19 @@ class ReleaseRecordTests(unittest.TestCase):
             reader.observe('https://other.example.org/'+KEY)
 
 
-@unittest.skipUnless(shutil.which('gpg') and shutil.which('pandoc'), 'Git/GPG/Pandoc integration fixture')
+@unittest.skipUnless(shutil.which('ssh-keygen') and shutil.which('pandoc'), 'Git/SSH/Pandoc integration fixture')
 class ReleaseAuthorityTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
         self.publisher = Publisher(self.root)
-        self.enterContext(patch.dict(os.environ, {'GNUPGHOME': self.publisher.env['GNUPGHOME']}))
         self.remote = self.root/'remote.git'
         subprocess.run(['git', 'init', '--bare', '-q', str(self.remote)], check=True)
         self.publisher.git('remote', 'add', 'origin', str(self.remote))
         self.publisher.git('push', '-q', 'origin', 'main')
         self.base = self.publisher.git('rev-parse', 'main')
         self.publisher.git('switch', '-c', 'review')
-        (self.publisher.repo/'asset-policy.json').write_text('{"origin":"https://assets.example.org"}\n')
-        self.publisher.source('field-notes', 'Field Notes', '![Reviewed diagram](https://assets.example.org/'+KEY+')')
-        self.publisher.git('add', '-A'); self.publisher.git('commit', '-qm', 'Review exact content')
+        (self.publisher.repo/'content/asset-policy.json').write_text('{"origin":"https://assets.example.org"}\n')
+        self.publisher.source('Field Notes', '![Reviewed diagram](https://assets.example.org/'+KEY+')')
         self.revision = self.publisher.publish()
         self.publisher.git('push', '-q', 'origin', 'review')
         self.store = MemoryStore(seed=True)
@@ -176,15 +174,17 @@ class ReleaseAuthorityTests(unittest.TestCase):
         self.fail_public = False
         self.enterContext(patch('guavajam_core.asset_release.verify', side_effect=verify))
 
-    def merge(self):
+    def merge(self, signed=True):
         self.publisher.git('switch', 'main')
-        self.publisher.git('merge', '--no-ff', 'review', '-m', 'Merge reviewed publication')
+        self.publisher.git('merge', '--no-ff', 'review', *(['-S'] if signed else []), '-m', 'Merge reviewed content')
         self.publisher.git('push', '-q', 'origin', 'main')
         self.tip = self.publisher.git('rev-parse', 'main')
+        self.branch_revision = self.revision
+        self.revision = self.tip
 
     def run_release(self, **kwargs):
         return release(self.publisher.repo, self.revision, getattr(self, 'tip', self.base),
-                       store=self.store, release_store=self.store, fingerprints=[self.publisher.fingerprint], **kwargs)
+                       store=self.store, release_store=self.store, **self.publisher.trust, **kwargs)
 
     def test_signed_branch_is_not_main_authority_and_stale_main_is_rejected(self):
         before = list(self.store.uploads)
@@ -210,7 +210,7 @@ class ReleaseAuthorityTests(unittest.TestCase):
         self.assertEqual(self.revision, Releases(self.store).get(KEY)['publication'])
         self.run_release(apply=True)
         self.assertEqual(1, len([p for p in self.store.uploads if p[0].startswith(RELEASE_PREFIX)]))
-        # Normal merge preserves the signed edition; branch deletion cannot
+        # The signed merge is the edition; deleting the draft branch cannot
         # change the released mapping or source citation identity.
         self.publisher.git('push', '-q', 'origin', '--delete', 'review')
         self.publisher.git('branch', '-d', 'review')
@@ -231,9 +231,8 @@ class ReleaseAuthorityTests(unittest.TestCase):
         key = 'sha256/'+hashlib.sha256(raw).hexdigest()+'.svg'
         self.store.upload(key, raw, 'image/svg+xml')
         pin_key(self.store, Index(self.store), key)
-        self.publisher.source('field-notes', 'Field Notes',
+        self.publisher.source('Field Notes',
                               '![One](https://assets.example.org/'+KEY+')\n\n![Two](https://assets.example.org/'+key+')')
-        self.publisher.git('add', '-A'); self.publisher.git('commit', '-qm', 'Review second asset')
         self.revision = self.publisher.publish()
         self.merge()
         original = self.store.upload
@@ -289,13 +288,32 @@ class ReleaseAuthorityTests(unittest.TestCase):
         self.assertEqual(0, self.public_calls)
 
     def test_unsigned_merge_and_untrusted_signature_cannot_issue(self):
-        self.merge()
+        self.merge(signed=False)
         with self.assertRaises(ValueError):
             release(self.publisher.repo, self.tip, self.tip, store=self.store, release_store=self.store,
-                    fingerprints=[self.publisher.fingerprint], apply=True)
+                    **self.publisher.trust, apply=True)
         with self.assertRaises(ValueError):
             release(self.publisher.repo, self.revision, self.tip, store=self.store, release_store=self.store,
                     fingerprints=['0'*40], apply=True)
+        self.assertIsNone(Releases(self.store).get(KEY))
+
+    def test_unsigned_content_ancestor_blocks_release_of_a_later_signed_edition(self):
+        self.publisher.git('switch', 'main')
+        (self.publisher.repo / 'content/unreviewed.txt').write_text('An unsigned accepted source change\n')
+        self.publisher.git('add', 'content/unreviewed.txt')
+        self.publisher.git('commit', '-qm', 'Unsigned content change')
+        self.merge()
+        before = list(self.store.uploads)
+        with self.assertRaises(ValueError):
+            self.run_release(apply=True)
+        self.assertEqual(before, self.store.uploads)
+        self.assertEqual(0, self.public_calls)
+
+    def test_signed_second_parent_draft_is_not_an_accepted_edition(self):
+        self.merge()
+        with self.assertRaises(ValueError):
+            release(self.publisher.repo, self.branch_revision, self.tip, store=self.store,
+                    release_store=self.store, **self.publisher.trust, apply=True)
         self.assertIsNone(Releases(self.store).get(KEY))
 
     def test_main_movement_before_first_write_stops_release(self):

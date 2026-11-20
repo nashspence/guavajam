@@ -136,7 +136,8 @@ class LifecycleTests(unittest.TestCase):
         for versioning in [False, True]:
             with self.subTest(versioning=versioning), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                (root/'asset-policy.json').write_text('{"origin":"https://assets.example.org"}')
+                (root/'content').mkdir(exist_ok=True)
+                (root/'content/asset-policy.json').write_text('{"origin":"https://assets.example.org"}')
                 image = root/'image.svg'
                 image.write_bytes(RAW)
                 store = MemoryStore(versioning=versioning)

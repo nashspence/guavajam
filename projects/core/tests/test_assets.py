@@ -29,7 +29,8 @@ class AssetURLTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             subprocess.run(['git', 'init', '-q', str(root)], check=True)
-            (root / 'asset-policy.json').write_bytes((RESOURCES / 'asset-policy.json').read_bytes())
+            (root/'content').mkdir(exist_ok=True)
+            (root / 'content/asset-policy.json').write_bytes((RESOURCES / 'asset-policy.json').read_bytes())
             output = subprocess.check_output(
                 [sys.executable, '-m', 'guavajam_core.prepare_asset', str(RESOURCES / 'storage/preview.svg')],
                 cwd=root, text=True)
@@ -92,7 +93,8 @@ class SourceAssetTests(StrictSourceTests):
     # Do not inherit/run the base suite twice: load_tests below selects new methods.
     def setUp(self):
         super().setUp()
-        (self.root / "asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
+        (self.root/'content').mkdir(exist_ok=True)
+        (self.root / "content/asset-policy.json").write_text(json.dumps({"origin": ORIGIN}))
 
     def test_remote_inline_and_reference_images_offline(self):
         for image in [f"![Structural diagram]({URL})\n",
@@ -113,6 +115,21 @@ class SourceAssetTests(StrictSourceTests):
                     URL.replace(".test/", ".test:443/"), URL.replace(".svg", ".gif")]:
             with self.subTest(url=url):
                 self.assertTrue(self.check(MANUSCRIPT + f"![Structural diagram][fig]\n\n[fig]: {url}\n"))
+
+    def test_all_accepted_markdown_supplements_preserve_and_verify_assets(self):
+        from guavajam_core.source_archive import references
+        from guavajam_core.verify_source_assets import verify_source_assets
+        for extension in ('.md', '.markdown', '.MD', '.MARKDOWN'):
+            with self.subTest(extension=extension):
+                supplement = Path('content/appendix' + extension)
+                self.assertEqual([], self.check(other={str(supplement): f'[Diagram]({URL})\n'}))
+                paths = [self.source, supplement]
+                self.assertEqual([URL], references(self.root, paths, str(self.source)))
+                fetcher = Mock(return_value=(SVG, 'image/svg+xml'))
+                self.assertEqual(1, verify_source_assets(self.root, paths=paths, fetcher=fetcher))
+                self.assertEqual(URL, fetcher.call_args.args[1])
+                with self.assertRaisesRegex(AssetError, 'SHA-256'):
+                    verify_source_assets(self.root, paths=paths, fetcher=lambda *_: (b'changed', 'image/svg+xml'))
 
 
 

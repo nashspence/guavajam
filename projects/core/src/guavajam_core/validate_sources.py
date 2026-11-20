@@ -17,7 +17,7 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from .identifiers import RIGHTS, SLUG, WORK_IDS, check_identifier_map
+from .identifiers import RIGHTS, WORK_IDS, check_identifier_map
 from .asset_policy import AssetError, MAX_BYTES, MIME, load_policy, verify_bytes
 from .source_ast import plain_text, walk
 from .supporting_gfm import load_gfm_record, record_path
@@ -31,7 +31,7 @@ ATX = re.compile(r"^#{1,6}[ \t]+\S")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 FOOTNOTE = re.compile(r"\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]")
 FOOTNOTE_DEF = re.compile(r"^\[\^([a-z0-9]+(?:-[a-z0-9]+)*)\]:[ \t]+")
-META_REQUIRED = {"schema", "slug", "title", "language", "rights", "status"}
+META_REQUIRED = {"schema", "title", "language", "rights"}
 META_OPTIONAL = {"author", "author_orcid", "authors", "identifiers", "abstract", "schema_type"}
 
 
@@ -252,7 +252,7 @@ def parse_document(path: Path, relative: Path) -> tuple[dict | None, list[str]]:
         ast = parse_pandoc(source)
     except (OSError, UnicodeError, ValueError) as exc:
         return None, [issue(relative, str(exc))]
-    if len(relative.parts) == 3 and relative.parts[0] == "works" and relative.name == "manuscript.md":
+    if relative == Path("content/manuscript.md"):
         return normalize_table_captions(ast, source, relative, parse_pandoc)
     return ast, []
 
@@ -373,7 +373,7 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
     return data, body, body_line, errors
 
 
-def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: list) -> list[str]:
+def validate_work_fields(relative: Path, data: dict, title_inlines: list) -> list[str]:
     errors: list[str] = []
     unknown = set(data) - META_REQUIRED - META_OPTIONAL
     missing = META_REQUIRED - set(data)
@@ -392,8 +392,6 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
         return errors
     if data["schema"] != "guavajam.work.v1":
         errors.append(issue(relative, "schema must be guavajam.work.v1"))
-    if data["slug"] != slug:
-        errors.append(issue(relative, "slug must match works/<slug>"))
     if any(node["t"] == "Math" for node in walk(title_inlines)):
         if re.search(r"\\[A-Za-z]+", data["title"]):
             errors.append(issue(relative, "use words or Unicode in the bibliographic title for a mathematical H1"))
@@ -401,8 +399,6 @@ def validate_work_fields(relative: Path, data: dict, slug: str, title_inlines: l
         errors.append(issue(relative, "title must exactly match the manuscript H1 plain text"))
     if data["rights"] not in RIGHTS:
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
-    if data["status"] != "draft":
-        errors.append(issue(relative, "source status must remain draft; publication status comes from a signed publication commit"))
     if "identifiers" in data:
         errors.extend(issue(relative, message) for message in check_identifier_map(data["identifiers"], WORK_IDS, str(relative)))
     return errors
@@ -467,11 +463,9 @@ def validate_assets(root: Path, tracked: set[Path]) -> list[str]:
     errors: list[str] = []
     for rel in sorted(tracked):
         parts = rel.parts
-        if len(parts) < 4 or parts[0] != "works" or parts[2] != "assets":
+        if len(parts) < 3 or parts[:2] != ("content", "assets"):
             continue
-        if not SLUG.fullmatch(parts[1]):
-            errors.append(issue(rel, "invalid work slug"))
-        if not all(re.fullmatch(r"[a-z0-9][a-z0-9._-]*", part) for part in parts[3:]):
+        if not all(re.fullmatch(r"[a-z0-9][a-z0-9._-]*", part) for part in parts[2:]):
             errors.append(issue(rel, "asset names must use lowercase ASCII letters, digits, dot, dash, underscore"))
         try:
             local_asset_size(root / rel)
@@ -494,7 +488,7 @@ def valid_source_link(target: str) -> bool:
 def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *, enforce_version: bool = False) -> list[str]:
     """Validate source objects and explicit citation targets without an HTML edition."""
     root = root.resolve()
-    tracked = set(map(Path, paths))
+    tracked = {Path(path) for path in paths if Path(path).parts[:1] == ("content",)}
     errors, asts, anchors, manuscripts = [], {}, {}, set()
     try:
         version = subprocess.run([pandoc, "--version"], capture_output=True, text=True, check=False)
@@ -507,12 +501,12 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
     try:
         policy = load_policy(root)
     except (AssetError, TypeError) as exc:
-        errors.append(issue(Path("asset-policy.json"), str(exc))); policy = None
+        errors.append(issue(Path("content/asset-policy.json"), str(exc))); policy = None
     for rel in sorted(tracked):
         path = root / rel
-        if path.is_symlink():
+        if path.is_symlink() or path.resolve() != path.absolute():
             errors.append(issue(rel, "symlinks are prohibited")); continue
-        if rel.parts[:2] != ('tests', 'fixtures') and path.is_file():
+        if path.is_file():
             from .source_custody import native_path
             try:
                 if native_path(path, MAX_BYTES):
@@ -520,11 +514,11 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             except (OSError, AssetError) as exc:
                 errors.append(issue(rel, str(exc)))
         supporting = record_path(rel)
-        manuscript = len(rel.parts) == 3 and rel.parts[0] == "works" and rel.name == "manuscript.md"
-        if rel.parts and rel.parts[0] == 'works':
-            valid = (manuscript or supporting or (len(rel.parts) >= 4 and rel.parts[2] == 'assets'))
-            if len(rel.parts) < 3 or not SLUG.fullmatch(rel.parts[1]) or not valid:
-                errors.append(issue(rel, "unsupported file path under works/"))
+        manuscript = rel == Path("content/manuscript.md")
+        if not path.is_file():
+            errors.append(issue(rel, "publication sources must be regular files")); continue
+        if rel.parts[:2] == ("content", "supporting") and rel.suffix.lower() in SOURCE_EXTENSIONS and not supporting:
+            errors.append(issue(rel, "supporting Markdown requires content/supporting/<slug>.md"))
         if rel.suffix.lower() not in SOURCE_EXTENSIONS:
             continue
         source, issues = read_text(path, rel); errors.extend(issues)
@@ -555,7 +549,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if [n['c'][0] for n in headers] != [h[1] for h in info['headings']]:
                 errors.append(issue(rel, "heading levels differ between source and AST"))
             if front is not None:
-                errors.extend(validate_work_fields(rel, front, rel.parts[1], headers[0]['c'][2] if headers else []))
+                errors.extend(validate_work_fields(rel, front, headers[0]['c'][2] if headers else []))
                 errors.extend(validate_pandoc_front_matter(rel, front, parsed))
             raw = [n['c'][1] for n in walk(parsed['blocks']) if n['t'] in {'RawInline','RawBlock'} and n['c'][0]=='html']
             expected = []
@@ -575,7 +569,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             try:
                 from .media import declarations, candidates
                 if policy is None:
-                    if list(candidates(parsed['blocks'])): raise AssetError('media requires asset-policy.json')
+                    if list(candidates(parsed['blocks'])): raise AssetError('media requires content/asset-policy.json')
                 else: declarations(parsed,policy.origin,explicit)
             except ValueError as exc:errors.append(issue(rel,str(exc)))
         else:
@@ -604,28 +598,25 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if target.startswith(('/', '\\')) or '\\' in target or uri.query:
                 errors.append(issue(rel,'unsupported/external URI: '+target));continue
             dest=(root/rel.parent/unquote(uri.path)).resolve() if uri.path else root/rel
-            if not dest.is_relative_to(root):errors.append(issue(rel,'link escapes repository: '+target));continue
+            if not dest.is_relative_to(root/'content'):errors.append(issue(rel,'link escapes content/: '+target));continue
             relative=dest.relative_to(root)
             if not dest.exists():errors.append(issue(rel,'broken local link: '+target));continue
             if dest.is_file() and relative not in tracked:errors.append(issue(rel,'linked file is not tracked: '+target))
-            if manuscript and uri.path and kind=='Link' and not (record_path(relative) and relative.parent==rel.parent/'supporting'):
-                errors.append(issue(rel,'unsupported/external URI: standalone manuscript links require a local section or reviewed supporting document'))
             if manuscript and kind=='Image' and not relative.is_relative_to(rel.parent/'assets'):
                 errors.append(issue(rel,'manuscript images must be under '+str(rel.parent/'assets')))
             if uri.fragment and relative in asts and unquote(uri.fragment) not in (anchors.get(relative,set()) if manuscript else anchors.get(relative,set()) | {n['c'][1][0] for n in walk(asts[relative]['blocks']) if n['t']=='Header'}):
                 errors.append(issue(rel,'unresolved Markdown section link: '+target))
-    for slug in {rel.parts[1] for rel in tracked if len(rel.parts)>=3 and rel.parts[0]=='works'}:
-        if Path('works')/slug/'manuscript.md' not in manuscripts:errors.append(issue(Path('works')/slug,'work directory requires manuscript.md'))
-    for slug in {r.parts[1] for r in tracked if len(r.parts)>=3 and r.parts[0]=='works'}:
-        supporting=[r for r in tracked if record_path(r) and r.parts[1]==slug]
-        if len(supporting)>128 or sum((root/r).stat().st_size for r in supporting if (root/r).is_file())>100*1024*1024:
-            errors.append(issue(Path('works')/slug,'supporting inventory exceeds 128 documents or 100 MiB'))
+    if Path('content/manuscript.md') not in manuscripts:
+        errors.append(issue(Path('content'), 'work directory requires manuscript.md'))
+    supporting = [relative for relative in tracked if record_path(relative)]
+    if len(supporting) > 128 or sum((root / relative).stat().st_size for relative in supporting if (root / relative).is_file()) > 100 * 1024 * 1024:
+        errors.append(issue(Path('content'), 'supporting inventory exceeds 128 documents or 100 MiB'))
     errors.extend(validate_assets(root,tracked))
     return sorted(set(errors))
 
 
 def git_sources(root: Path) -> list[Path]:
-    result = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True)
+    result = subprocess.run(["git", "ls-files", "-z", "--", "content/"], cwd=root, capture_output=True, check=True)
     return [Path(b.decode("utf-8")) for b in result.stdout.split(b"\0") if b]
 
 

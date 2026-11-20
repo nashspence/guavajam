@@ -6,7 +6,6 @@ import sys
 import subprocess
 from .asset_policy import AssetError, load_policy
 from .asset_storage import S3, credentials
-from .identifiers import SLUG
 from .private_assets import PrivateAssets
 from .source_archive import references
 from .source_snapshot import snapshot
@@ -14,10 +13,8 @@ from .validate_sources import validate_repository
 from .verify_source_assets import verify_source_assets
 
 
-def qualify(repo, revision, work, *, store=None, require_retention=False):
-    if not SLUG.fullmatch(work):
-        raise AssetError('invalid work slug')
-    manuscript = Path('works') / work / 'manuscript.md'
+def qualify(repo, revision, *, store=None, require_retention=False):
+    manuscript = Path('content/manuscript.md')
     with snapshot(repo, revision) as (root, files):
         if manuscript not in files:
             raise AssetError('draft manuscript is absent')
@@ -43,11 +40,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, default=Path('.'))
     parser.add_argument('--revision', required=True)
-    parser.add_argument('--work', required=True)
     parser.add_argument('--require-retention', action='store_true')
     args = parser.parse_args(argv)
     try:
-        items = qualify(args.repo, args.revision, args.work, require_retention=args.require_retention)
+        items = qualify(args.repo, args.revision, require_retention=args.require_retention)
         print(json.dumps({'revision': args.revision, 'assets': len(items),
                           'privately_verified': True, 'public_delivery_verified': False}, sort_keys=True))
         return 0

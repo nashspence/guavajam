@@ -18,9 +18,7 @@ SRC = '''---
 schema: guavajam.work.v1
 title: Field Notes
 author: Example Author
-slug: field-notes
 language: en
-status: draft
 rights: all-rights-reserved
 ---
 
@@ -79,8 +77,9 @@ class PortableViewTests(unittest.TestCase):
         command(self.root, 'git','init','-q','-b','main')
         command(self.root, 'git','config','user.name','Fixture')
         command(self.root, 'git','config','user.email','fixture@example.org')
-        (self.root/'asset-policy.json').write_text('{"origin": "'+ORIGIN+'"}\n')
-        location = self.root/'works/field-notes'
+        (self.root/'content').mkdir(exist_ok=True)
+        (self.root/'content/asset-policy.json').write_text('{"origin": "'+ORIGIN+'"}\n')
+        location = self.root/'content'
         (location/'supporting').mkdir(parents=True)
         (location/'manuscript.md').write_text(SRC)
         (location/'supporting/note.md').write_text(SUPPORT)
@@ -90,7 +89,7 @@ class PortableViewTests(unittest.TestCase):
         self.output = Path(self.temporary.name) / 'view'
 
     def test_pinned_git_revision_renders_portably_with_no_runtime_scripts(self):
-        self.assertEqual(2,render(self.root,self.rev,'field-notes',self.output,preview=True))
+        self.assertEqual(2,render(self.root,self.rev,self.output,preview=True))
         text = (self.output/'index.html').read_text()
         self.assertIn('UNSIGNED PREVIEW',text)
         self.assertIn('Git SHA-1 '+self.rev,text)
@@ -104,19 +103,19 @@ class PortableViewTests(unittest.TestCase):
         self.assertIn('id="claim"',(self.output/'supporting/note.html').read_text())
         view=json.loads((self.output/'VIEW.json').read_text())
         self.assertEqual(self.rev,view['canonical']['revision'])
-        self.assertEqual('works/field-notes/manuscript.md',view['canonical']['manuscript'])
+        self.assertEqual('content/manuscript.md',view['canonical']['manuscript'])
         self.assertTrue(view['preview'])
         with self.assertRaisesRegex(RenderError,'new or empty'):
-            render(self.root,self.rev,'field-notes',self.output,preview=True)
+            render(self.root,self.rev,self.output,preview=True)
 
     def test_revision_is_never_a_branch_or_floating_tag(self):
         for wrong in ('HEAD','main','v1','A'*40,'a'*39,'a'*41):
             with self.subTest(wrong=wrong),self.assertRaises(RenderError):
                 revision(self.root,wrong)
         # A newer commit must not change an earlier view's citation or content.
-        (self.root/'works/field-notes/manuscript.md').write_text(SRC.replace('Field Notes','Changed Notes'))
+        (self.root/'content/manuscript.md').write_text(SRC.replace('Field Notes','Changed Notes'))
         command(self.root,'git','add','-A');command(self.root,'git','commit','-qm','Change after publication')
-        render(self.root,self.rev,'field-notes',self.output,preview=True)
+        render(self.root,self.rev,self.output,preview=True)
         self.assertIn('<title>Field Notes', (self.output/'index.html').read_text())
         self.assertNotIn('Changed Notes', (self.output/'index.html').read_text())
 
@@ -126,60 +125,65 @@ class PortableViewTests(unittest.TestCase):
                        '[bad](javascript:alert(1))',
                        '![bad](https://evil.example/x.png)'):
             with self.subTest(change=change):
-                manuscript=self.root/'works/field-notes/manuscript.md'
+                manuscript=self.root/'content/manuscript.md'
                 manuscript.write_text(SRC+'\n'+change+'\n')
                 command(self.root,'git','add','-A');command(self.root,'git','commit','-qm','Unsafe example')
                 newsha=command(self.root,'git','rev-parse','HEAD')
                 with self.assertRaises((RenderError,MediaError)):
-                    render(self.root,newsha,'field-notes',self.output,preview=True)
+                    render(self.root,newsha,self.output,preview=True)
         self.assertFalse(self.output.exists())
 
     def test_valid_signature_is_required_without_explicit_preview(self):
         with self.assertRaisesRegex(RenderError,'external GPG fingerprint or SSH'):
-            render(self.root,self.rev,'field-notes',self.output)
+            render(self.root,self.rev,self.output)
 
     def test_ssh_trust_file_must_be_external_and_cannot_be_a_preview_fallback(self):
-        command(self.root,'git','commit','--allow-empty','-m','Publish Field Notes', '-m',
-                'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        key=Path(self.temporary.name)/'inside-policy-key'
+        command(self.root,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
+        command(self.root,'git','config','gpg.format','ssh')
+        command(self.root,'git','config','user.signingkey',str(key))
+        command(self.root,'git','commit','--amend','-S','-m','Publish Field Notes')
         candidate=command(self.root,'git','rev-parse','HEAD')
         signers=self.root/'allowed-signers'
-        signers.write_text('fixture ssh-ed25519 AABB\n')
+        signers.write_text('fixture namespaces="git" '+key.with_suffix('.pub').read_text())
         with self.assertRaisesRegex(RenderError,'external bounded authority'):
-            render(self.root,candidate,'field-notes',self.output,allowed_signers=signers)
+            render(self.root,candidate,self.output,allowed_signers=signers)
         with self.assertRaisesRegex(RenderError,'preview cannot be combined'):
-            render(self.root,candidate,'field-notes',self.output,allowed_signers=signers,preview=True)
+            render(self.root,candidate,self.output,allowed_signers=signers,preview=True)
         signers.unlink()
 
     def test_signed_revision_with_external_trust_is_rendered(self):
-        if not shutil.which('gpg'):
-            self.skipTest('OpenPGP GPG client unavailable')
+        if not shutil.which('gpg') or not shutil.which('gpgconf'):
+            self.skipTest('OpenPGP agent unavailable; SSH signatures exercised separately')
         home=Path(self.temporary.name)/'gpg';home.mkdir(mode=0o700)
         env={**os.environ,'GNUPGHOME':str(home)}
+        agent=subprocess.run(['gpgconf','--launch','gpg-agent'],env=env,capture_output=True,timeout=30,check=False)
+        if agent.returncode:
+            self.skipTest('OpenPGP agent unavailable; SSH signatures exercised separately')
         command(self.root,'gpg','--batch','--pinentry-mode','loopback','--passphrase','',
                 '--quick-generate-key','Viewer Fixture <fixture@example.org>','ed25519','sign','0',env=env)
         listing=command(self.root,'gpg','--batch','--with-colons','--list-secret-keys',env=env)
         fingerprint=next(x.split(':')[9] for x in listing.splitlines() if x.startswith('fpr:'))
         command(self.root,'git','config','user.signingkey',fingerprint)
         command(self.root,'git','config','gpg.format','openpgp')
-        command(self.root,'git','-c','commit.gpgSign=true','commit','--allow-empty','-S',
-                '-m','Publish Field Notes', '-m',
-                'GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13',env=env)
+        command(self.root,'git','-c','commit.gpgSign=true','commit','--amend','-S',
+                '-m','Publish Field Notes',env=env)
         signed=command(self.root,'git','rev-parse','HEAD')
         with patch.dict(os.environ,{'GNUPGHOME':str(home)}):
-            self.assertEqual(2,render(self.root,signed,'field-notes',self.output,fingerprints=[fingerprint]))
-            self.assertIn('Signed Git publication',(self.output/'index.html').read_text())
+            self.assertEqual(2,render(self.root,signed,self.output,fingerprints=[fingerprint]))
+            self.assertIn('Verified signed source',(self.output/'index.html').read_text())
             with self.assertRaisesRegex(RenderError,'untrusted'):
-                render(self.root,signed,'field-notes',Path(self.temporary.name)/'bad', fingerprints=['0'*40])
+                render(self.root,signed,Path(self.temporary.name)/'bad', fingerprints=['0'*40])
 
     def test_real_ssh_publication_uses_only_external_signer_authority(self):
         key=Path(self.temporary.name)/'fixture-key'
         command(self.root,'ssh-keygen','-q','-t','ed25519','-N','','-f',str(key))
         command(self.root,'git','config','gpg.format','ssh');command(self.root,'git','config','user.signingkey',str(key))
-        command(self.root,'git','commit','--allow-empty','-S','-m','Publish fixture','-m','GuavaJam-Publication: 1\nGuavaJam-Work: works/field-notes/manuscript.md\nGuavaJam-Published: 2026-11-13')
+        command(self.root,'git','commit','--amend','-S','-m','Publish fixture')
         revision=command(self.root,'git','rev-parse','HEAD')
         signers=Path(self.temporary.name)/'allowed-signers';signers.write_text('fixture namespaces="git" '+key.with_suffix('.pub').read_text())
-        self.assertEqual(2,render(self.root,revision,'field-notes',self.output,allowed_signers=signers))
-        self.assertIn('Signed Git publication',(self.output/'index.html').read_text())
+        self.assertEqual(2,render(self.root,revision,self.output,allowed_signers=signers))
+        self.assertIn('Verified signed source',(self.output/'index.html').read_text())
 
 
 class ContractTests(unittest.TestCase):

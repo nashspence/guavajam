@@ -1,7 +1,7 @@
 # Publisher command recipes owned and shipped by guavajam-core.
-.PHONY: check check-source check-assets work capture asset-credentials repository-template image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release preview
+.PHONY: check check-source check-assets work capture asset-credentials image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release preview
 export TITLE AUTHOR LANGUAGE
-export FILE REV WORK OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV GUAVAJAM_PREVIEW_IMAGE GUAVAJAM_SSH_ALLOWED_SIGNERS GUAVAJAM_TRUSTED_GPG_FINGERPRINTS GUAVAJAM_GPG_PUBLIC_KEYS PORT BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER PUBLISHED LABEL SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
+export FILE REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV GUAVAJAM_PREVIEW_IMAGE PORT BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
 check: check-source check-assets ## Validate public source/assets. Use assets-qualify for committed private drafts.
 
@@ -11,8 +11,8 @@ check-source: ## Validate tracked GFM manuscripts and supporting sources offline
 check-assets: ## Verify anonymous public delivery after release; private drafts use assets-qualify.
 	@$(PYTHON) -m guavajam_core.verify_source_assets
 
-work: ## WORK=slug TITLE='Work title' AUTHOR='Author name' [LANGUAGE=en] Create a new draft using the installed core starter.
-	@$(PYTHON) -m guavajam_core new-work "$${WORK:?Set WORK}" --title "$${TITLE:?Set TITLE}" --author "$${AUTHOR:?Set AUTHOR}" --language "$${LANGUAGE:-en}"
+work: ## TITLE='Work title' AUTHOR='Author name' [LANGUAGE=en] Create this repository's content/ starter.
+	@$(PYTHON) -m guavajam_core new-work --title "$${TITLE:?Set TITLE}" --author "$${AUTHOR:?Set AUTHOR}" --language "$${LANGUAGE:-en}"
 
 capture: ## OUTPUT=new-directory Export the installed capture extension for loading unpacked in Chrome.
 	@$(PYTHON) -m guavajam_core resources capture --output "$${OUTPUT:?Set OUTPUT}"
@@ -20,9 +20,6 @@ capture: ## OUTPUT=new-directory Export the installed capture extension for load
 asset-credentials: ## OUTPUT=.env.assets Write a new credential template; fill it locally and keep it owner-only.
 	@$(PYTHON) -m guavajam_core resources credentials --output "$${OUTPUT:-.env.assets}"
 
-repository-template: ## [OUTPUT=.build/guavajam.json] Export an unsigned publisher settings starter for review.
-	@mkdir -p "$$(dirname "$${OUTPUT:-.build/guavajam.json}")"
-	@$(PYTHON) -m guavajam_core resources repository-settings --output "$${OUTPUT:-.build/guavajam.json}"
 
 image: ## FILE=asset  Print its content-addressed key and URL. Validated images retain their type; other files use opaque .bin downloads.
 	@$(PYTHON) -m guavajam_core.prepare_asset -- "$${FILE:?Set FILE to the asset path}"
@@ -70,18 +67,18 @@ asset-pin: ## KEY=sha256/digest.type [RETAIN_UNTIL=epoch-ms RETENTION_MODE=gover
 	@set --; if [ -n "$$RETAIN_UNTIL$$RETENTION_MODE" ]; then set -- --retain-until "$${RETAIN_UNTIL:?Set an explicit retention time}" --retention-mode "$${RETENTION_MODE:?Set an explicit retention mode}"; fi; \
 	$(PYTHON) -m guavajam_core.asset_versions "$${KEY:?Set KEY}" "$$@"
 
-publication-prepare: ## REV=full-draft-sha WORK=slug PUBLISHED=YYYY-MM-DD [LABEL=edition S3_ENV=.env.assets REQUIRE_RETENTION=1]  Qualify exact committed source and private bytes/retention before the owner signs an empty publication commit; no public reads or writes.
+publication-prepare: ## REV=full-draft-sha [S3_ENV=.env.assets REQUIRE_RETENTION=1] Check exact committed content and private assets; never sign or release.
 	@set --; case "$${REQUIRE_RETENTION:-0}" in 1) set -- --require-retention;; 0) ;; *) echo "REQUIRE_RETENTION must be 0 or 1" >&2; exit 1;; esac; \
-	$(PYTHON) -m guavajam_core.prepare_publication --revision "$${REV:?Set REV}" --work "$${WORK:?Set WORK}" --published "$${PUBLISHED:?Set PUBLISHED to the reviewed edition date}" $${LABEL:+"--label=$$LABEL"} "$$@"
+	$(PYTHON) -m guavajam_core.prepare_publication --revision "$${REV:?Set REV}" "$$@"
 
-catalog-export: ## [SOURCE_REF=refs/heads/main OUTPUT=.build/guavajam/CATALOG.json] external signer trust as publication-check; emit exact GuavaJam input from signed commits and guavajam.json.
+catalog-export: ## [SOURCE_REF=refs/heads/main OUTPUT=.build/guavajam/CATALOG.json] external signer trust as publication-check; discover signed editions from first-parent Git history.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.' >&2; exit 1; }
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signer trust}"; fi; \
 	$(PYTHON) -m guavajam_core.export_catalog $${REPO:+"--repo=$$REPO"} --ref "$${SOURCE_REF:-refs/heads/main}" --output "$${OUTPUT:-.build/guavajam/CATALOG.json}" $${PREVIOUS_CATALOG:+"--previous-catalog=$$PREVIOUS_CATALOG"} "$$@"
 
-assets-qualify: ## REV=full-draft-sha WORK=slug [S3_ENV=private-read.env REQUIRE_RETENTION=1] Verify committed draft dependencies without exposing them.
+assets-qualify: ## REV=full-draft-sha [S3_ENV=private-read.env REQUIRE_RETENTION=1] Verify committed draft dependencies without exposing them.
 	@set --; case "$${REQUIRE_RETENTION:-0}" in 1) set -- --require-retention;; 0) ;; *) echo 'REQUIRE_RETENTION must be 0 or 1'; exit 1;; esac; \
-	$(PYTHON) -m guavajam_core.qualify_assets --revision "$${REV:?Set exact REV}" --work "$${WORK:?Set WORK}" "$$@"
+	$(PYTHON) -m guavajam_core.qualify_assets --revision "$${REV:?Set exact REV}" "$$@"
 
 assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main S3_RELEASE_ENV=release.env [APPLY=1 S3_ENV=private-read.env REQUIRE_RETENTION=1] External signer trust required; default read-only plan, APPLY=1 irreversibly authorizes public delivery.
 	@test -z "$$SSH_ALLOWED_SIGNERS" -o -z "$$TRUSTED_GPG_FINGERPRINT" || { echo 'Choose exactly one external trust policy.'; exit 1; }
@@ -90,6 +87,5 @@ assets-release: ## REV=signed-sha MAIN_SHA=exact-remote-main S3_RELEASE_ENV=rele
 	case "$${APPLY:-0}" in 1) set -- "$$@" --apply;; 0) ;; *) echo 'APPLY must be 0 or 1'; exit 1;; esac; \
 	$(PYTHON) -m guavajam_core.asset_release --revision "$${REV:?Set signed REV}" --release-env "$${S3_RELEASE_ENV:?Set separate release-prefix credential file}" --expected-main "$${MAIN_SHA:?Set exact MAIN_SHA}" --remote "$${REMOTE:-origin}" "$$@"
 
-preview: ## WORK=slug [PUBLISHED=YYYY-MM-DD LABEL=text PORT=8082 S3_ENV=private-read.env] Start the whole proposed GuavaJam website from this committed authoring branch via pinned Docker image; fresh repositories need no signer setup; declared history requires independent trust. Ctrl+C stops it.
-	@set --; if [ -n "$$PUBLISHED" ]; then set -- --published "$$PUBLISHED"; fi; if [ -n "$$LABEL" ]; then set -- "$$@" --label "$$LABEL"; fi; \
-	$(PYTHON) -m guavajam_core.preview_docker --work "$${WORK:?Set WORK}" --port "$${PORT:-8082}" "$$@"
+preview: ## [PORT=8082 S3_ENV=private-read.env] Preview this committed authoring branch with the optional pinned view image; Ctrl+C stops it.
+	@$(PYTHON) -m guavajam_core.preview_docker --port "$${PORT:-8082}"

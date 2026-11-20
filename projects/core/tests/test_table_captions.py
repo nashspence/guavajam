@@ -12,7 +12,7 @@ from guavajam_core.validate_sources import FORMAT, parse_document, parse_pandoc
 
 TABLE = '| Symbol | Meaning |\n|---|---|\n| S | Set |\n'
 CAPTION = ': Table 7b — Notation, © Author & Co.'
-PATH = Path('works/sample/manuscript.md')
+PATH = Path('content/manuscript.md')
 
 
 class TableCaptionTests(unittest.TestCase):
