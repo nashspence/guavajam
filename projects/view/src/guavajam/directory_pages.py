@@ -16,51 +16,12 @@ from guavajam_core.bibliography import author_text, ordered_authors
 from guavajam_core.catalog import encoded
 
 from .navigation import document_directory
+from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
-from .site import citation_control, detail_link, page
-
-PAGE_SIZE = 20
+from .site import detail_link, page
 
 
-def _slices(items):
-    items = list(items)
-    return [items[start:start + PAGE_SIZE] for start in range(0, len(items), PAGE_SIZE)] or [[]]
-
-
-def _static_pager(number, count, *, first_href, page_prefix):
-    """Ordinary href pagination for HTTP crawlers and browsers without JS."""
-    if count < 2:
-        return ''
-
-    def link(page_number, label, *, relation=''):
-        href = first_href if page_number == 1 else page_prefix + str(page_number) + '.html'
-        return ('<a href="' + escape(href, quote=True) + '"' +
-                (' rel="' + relation + '"' if relation else '') + '>' + escape(str(label)) + '</a>')
-
-    links = []
-    if number > 1:
-        links.append(link(number - 1, 'Previous', relation='prev'))
-    if number > 3:
-        links.append(link(1, '1'))
-        if number > 4:
-            links.append('<span aria-hidden="true">…</span>')
-    for candidate in range(max(1, number - 2), min(count, number + 2) + 1):
-        if candidate == number:
-            links.append('<span aria-current="page">' + str(number) + '</span>')
-        else:
-            links.append(link(candidate, candidate))
-    if number < count - 2:
-        if number < count - 3:
-            links.append('<span aria-hidden="true">…</span>')
-        links.append(link(count, count))
-    if number < count:
-        links.append(link(number + 1, 'Next', relation='next'))
-    return ('<nav class="guavajam-pagination guavajam-static-pages" aria-label="Directory pages">'
-            '<span class="guavajam-meta">Page ' + str(number) + ' of ' + str(count) + '</span>' +
-            ''.join(links) + '</nav>')
-
-
-def _sqlite_controls(*, kind, edition, root, runtime, download):
+def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
     """Markup binds to search.js/search-worker.js, without another query layer.
 
     Hidden until the JavaScript controller has loaded: a no-JS directory shows
@@ -68,7 +29,9 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
     database and wasm are fetched after search/sort interaction, not on load.
     """
     history = kind == 'editions'
-    label = 'Search previous editions and commit messages' if history else 'Search documents and contents'
+    citations = kind == 'citations'
+    label = ('Search previous editions and commit messages' if history else
+             'Search passages in this document' if citations else 'Search documents and contents')
     sorts = (('<option value="publication">Publication order (newest)</option>'
               '<option value="oldest">Publication order (oldest)</option>'
               '<option value="date-newest">Commit date (newest)</option>'
@@ -88,8 +51,10 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
             '<div class="guavajam-query-sort"><label for="guavajam-sort">Sort</label>'
             '<select id="guavajam-sort" name="sort">' + sorts + '</select></div>'
             '<button type="submit">Search</button>'
-            '<input type="hidden" name="kind" value="' + escape(kind, quote=True) + '">'
-            '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">'
+            '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
+            '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
+            ('<input type="hidden" name="document" value="' + escape(document, quote=True) + '">'
+               if citations else '') +
             '</form>'
             '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
             'Search or change sort to load the SQLite index.</p>'
@@ -199,3 +164,5 @@ def build_directories(output, editions, *, collection, search_assets, database):
         title = 'Unpublished work'
     _write_history(output, editions, title, collection=collection, runtime=runtime, download=download)
     _write_documents(output, editions, collection=collection, runtime=runtime, download=download)
+    from .citation_pages import build_citation_pages
+    build_citation_pages(output, editions, collection=collection, runtime=runtime, download=download)

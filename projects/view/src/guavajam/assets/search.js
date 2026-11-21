@@ -11,7 +11,7 @@ if (form) {
   const sort = form.querySelector('select[name="sort"]');
   const kind = form.querySelector('[name="kind"]');
   const edition = form.querySelector('[name="edition"]');
-  const documentFilter = form.querySelector('select[name="document"]');
+  const documentFilter = form.querySelector('[name="document"]');
   const enable = document.querySelector('#guavajam-search-enable');
   const directory = form.dataset.directory || '';
   if (directory) document.querySelector('#guavajam-directory-enhancement').hidden = false;
@@ -86,6 +86,38 @@ if (form) {
     return a;
   }
 
+  function showStaticCitation(fragment) {
+    let identifier;
+    try { identifier = decodeURIComponent(fragment.slice(1)); } catch { return; }
+    const entry = document.getElementById(identifier);
+    if (!entry || !fallback.contains(entry)) return;
+    sequence++;
+    clearTimeout(timer);
+    fallback.hidden = false;
+    results.hidden = true;
+    results.removeAttribute('aria-busy');
+    pagination.hidden = true;
+    back.disabled = next.disabled = true;
+    summary.textContent = 'Showing the static citation page.';
+    entry.focus({preventScroll: true});
+    return entry;
+  }
+
+  function openStaticCitation(event) {
+    // A hit on this very static page is only a fragment navigation. Reveal its
+    // native entry before the browser follows the href; no reload is implied.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = new URL(event.currentTarget.href);
+    const current = new URL(document.URL);
+    if (target.origin !== current.origin || target.pathname !== current.pathname || target.search !== current.search) return;
+    showStaticCitation(target.hash);
+  }
+
+  if (directory === 'citations') window.addEventListener('hashchange', () => {
+    // Back/forward can revisit a passage after another search hid its section.
+    if (fallback.hidden) showStaticCitation(location.hash)?.scrollIntoView();
+  });
+
   function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
     results.replaceChildren();
     for (const row of rows) {
@@ -93,9 +125,10 @@ if (form) {
       const article = document.createElement('article');
       const heading = document.createElement('h3');
       const link = document.createElement('a');
-      link.href = work ? workURL(row.url) :
+      link.href = work ? workURL(directory === 'citations' ? row.citation_url : row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
       link.textContent = row.title;
+      if (directory === 'citations') link.addEventListener('click', openStaticCitation);
       heading.append(link);
       if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
       else if (resultKind === 'editions') heading.append(recordLink(
@@ -142,6 +175,13 @@ if (form) {
         if (resultKind === 'editions') context.push(row.revision.slice(0, 12));
         meta.textContent = context.join(' · ');
         article.append(meta);
+        if (resultKind === 'passages') {
+          const action = document.createElement('a');
+          action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
+          action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
+          if (directory !== 'citations') action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
+          article.append(action);
+        }
         if (resultKind === 'editions' && row.message) {
           const [subject, ...more] = row.message.split('\n');
           const message = document.createElement('p');

@@ -94,9 +94,10 @@ class ChromeTests(unittest.TestCase):
                                  if path.name == 'documents.html' else '') +
                                 '</article></main><footer></footer></body></html>')
             view = {'facts': {'author': 'Mara Levin'},
-                    'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work'},
-                                  'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note'}},
+                    'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
+                                  'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note', 'anchors': []}},
                     'files': {}}
+            (read / 'NAV.json').write_text(json.dumps({'documents': view['documents']}))
             publication_navigation(read, view, 'c' * 40, work_title='Work', edition_number=2,
                                    published='2026-11-03')
             for relative in ('index.html', 'supporting/note.html', 'documents.html'):
@@ -136,8 +137,8 @@ class ChromeTests(unittest.TestCase):
             {'revision': sha2, 'published': '2026-11-03', 'message': 'Update'}]}
         fact = {'title': 'Shoreline research', 'author': 'Mara Levin',
                 'abstract': 'Observations of the coast.'}
-        documents = {'content/manuscript.md': {'title': 'Shoreline research', 'view': 'index.html'},
-                     'content/supporting/note.md': {'title': 'Note', 'view': 'supporting/note.html'}}
+        documents = {'content/manuscript.md': {'title': 'Shoreline research', 'view': 'index.html', 'anchors': []},
+                     'content/supporting/note.md': {'title': 'Note', 'view': 'supporting/note.html', 'anchors': []}}
 
         def render_stub(_repo, revision, target, **_kwargs):
             target.mkdir()

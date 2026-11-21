@@ -18,8 +18,11 @@ from guavajam.site import build_site
 def prepare(directory):
     fixture = make_catalog_fixture(directory)
     output = Path(directory) / 'site'
-    build_site(fixture['repo'], output, **fixture['trust'])
-    description = {'root': str(output), 'revisions': fixture['revisions']}
+    # This harness qualifies the complete static journey independently of any
+    # ambient SQLite runtime; the work-search harness covers its enhancement.
+    build_site(fixture['repo'], output, search_assets='', **fixture['trust'])
+    description = {'root': str(output), 'revisions': fixture['revisions'],
+                   'citationAnchors': fixture['citation_anchors'], 'passages': fixture['passages']}
     target = Path(directory) / 'browser.json'
     target.write_text(json.dumps(description))
     return target

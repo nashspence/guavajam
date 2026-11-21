@@ -84,6 +84,25 @@ blockquote.guavajam-citation {
 .guavajam-provenance pre { white-space: pre-wrap; overflow-wrap: anywhere; background: none; padding: .2rem 0; font-size: .85rem; }
 .guavajam-directory { margin-block: 1.5rem; }
 
+/* Source permalinks keep their original targets; Cite opens a bounded directory. */
+.guavajam-passage-cite, .guavajam-passage-cite:visited {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.75rem; min-height: 2.75rem; margin-block: -.35rem;
+  color: var(--guavajam-muted); font: normal .8rem/1 system-ui, sans-serif;
+  vertical-align: middle;
+}
+.guavajam-passage-cite:hover, .guavajam-passage-cite:focus-visible { background: var(--guavajam-tint); }
+.guavajam-passage-cite:focus-visible { outline: 3px solid var(--guavajam-focus); outline-offset: 1px; }
+.guavajam-citation-list { list-style: none; margin: 0; padding: 0; }
+.guavajam-citation-entry {
+  padding: 1.15rem 0; border-bottom: 1px solid var(--guavajam-border);
+  scroll-margin-top: 1rem; overflow-wrap: anywhere; break-inside: avoid;
+}
+.guavajam-citation-entry:target { outline: 2px solid var(--guavajam-focus); outline-offset: .5rem; }
+.guavajam-citation-entry h3 { font-size: 1.1rem; margin: 0 0 .45rem; }
+.guavajam-citation-entry > p { margin: .45rem 0; }
+.guavajam-citation-entry .guavajam-citation { margin: .8rem 0; }
+
 /* Search is progressive disclosure, in the same typographic column as the records. */
 .guavajam-index-search {
   border-top: 1px solid var(--guavajam-border);
@@ -156,7 +175,9 @@ blockquote.guavajam-citation {
   #guavajam-search button[type=submit] { width: fit-content; }
 }
 @media print {
-  .guavajam-index-search, .guavajam-pagination, .guavajam-skip { display: none !important; }
+  .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
+  .guavajam-passage-cite, .guavajam-skip { display: none !important; }
+  .guavajam-citation-entry:target { outline: none; }
   .guavajam-site .guavajam-navigation { direction: ltr; overflow: visible; border: 0; }
   .guavajam-site .guavajam-navigation li:not(:last-child),
   .guavajam-site .guavajam-navigation li::before { display: none; }

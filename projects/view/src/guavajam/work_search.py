@@ -21,8 +21,11 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
     reading pages remain fully script-free.
     """
     from .site import citation_control, edition_label
+    from .citation_pages import add_passage_links
+    from .citation_routes import citation_page, relative_href
     from guavajam_core.bibliography import ordered_authors, author_text
     authors = author_text(ordered_authors(view["facts"]), identifiers=False)
+    source_navigation = json.loads((reader / 'NAV.json').read_text('utf-8'))
     paths = [details['view'] for details in view['documents'].values()]
     paths.append('documents.html')
     destinations = {details['view']: source for source, details in view['documents'].items()}
@@ -75,6 +78,11 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title)
+        if relative != 'documents.html':
+            text = add_passage_links(text, relative, source_navigation['documents'][source]['anchors'])
+            citation_html += ('<p class="guavajam-actions"><a href="' +
+                              escape(relative_href(relative, citation_page(relative)), quote=True) +
+                              '">Cite this document</a></p>')
         text = text.replace('<article class="guavajam-edition"',
                             citation_html + '<article class="guavajam-edition"', 1)
         text = text.replace('<div class="guavajam-source-identity">',

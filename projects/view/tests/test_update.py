@@ -1,4 +1,5 @@
 """Atomic periodic updates preserve trusted source history and old publications."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -49,6 +50,37 @@ class PeriodicUpdateTests(unittest.TestCase):
         catalog = json.loads((self.output / 'current/CATALOG.json').read_text())
         self.assertEqual(1, len(catalog['editions']))
         self.assertEqual(self.p.git('rev-parse', 'HEAD'), catalog['tip'])
+
+    def test_reused_render_gets_fresh_citations_without_polluting_private_cache(self):
+        self.update()
+        read = self.output / 'current/editions' / self.revision / 'read'
+        paths = ('index.html', 'cite.html', 'cite/passage/opening.json',
+                 'source.gfm', 'source.citation.json')
+        expected = {name: (read / name).read_bytes() for name in paths}
+        cache = next((self.output / '.cache').glob('*/*/index.html')).parent
+        self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
+        self.assertFalse((cache / 'cite.html').exists())
+        self.assertFalse((cache / 'cite').exists())
+        self.assertNotIn('cite.html', json.loads((cache / 'VIEW.json').read_text())['files'])
+
+        # A new catalog checkpoint rebuilds the site from the same immutable,
+        # undecorated render. Citation decoration must run once on that copy.
+        (self.p.repo / 'README.md').write_text('Tooling-only checkpoint.\n')
+        self.p.git('add', 'README.md'); self.p.git('commit', '-qm', 'Housekeeping')
+        with patch('guavajam.view_cache.render', side_effect=AssertionError('reuse edition')):
+            self.assertTrue(self.update()['changed'])
+        self.assertEqual(expected, {name: (read / name).read_bytes() for name in paths})
+        html = (read / 'index.html').read_text()
+        self.assertEqual(1, html.count('href="cite.html#citation:opening"'))
+        self.assertNotIn('<script', html)
+        canonical = json.loads((read / 'cite/passage/opening.json').read_text())
+        self.assertEqual(self.revision, canonical['revision'])
+        self.assertEqual('opening', canonical['anchor'])
+        view = json.loads((read / 'VIEW.json').read_text())
+        for name in paths:
+            self.assertEqual(hashlib.sha256((read / name).read_bytes()).hexdigest(), view['files'][name])
+        self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
+        self.assertFalse((cache / 'cite.html').exists())
 
     def test_authentication_is_repeated_even_on_noop(self):
         self.update(); selected = self.selected()

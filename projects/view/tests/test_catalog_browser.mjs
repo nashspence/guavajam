@@ -33,11 +33,17 @@ const edition = `editions/${revision}/`;
 const first = `editions/${fixture.revisions[0]}/`;
 const pages = ['index.html', 'editions/index.html', edition + 'index.html', edition + 'read/index.html',
   edition + 'read/documents.html', edition + 'read/supporting/note.html',
-  first + 'index.html', first + 'read/index.html'];
+  edition + 'read/cite.html', edition + 'read/cite/page/3.html',
+  edition + 'read/supporting/note.cite.html', edition + 'read/supporting/note.cite/page/3.html',
+  first + 'index.html', first + 'read/index.html', first + 'read/cite.html'];
+const engines = {chromium, firefox, webkit};
+const selected = (process.env.GUAVAJAM_BROWSER_ENGINES || 'chromium,firefox,webkit').split(',');
+assert(selected.length && selected.every(name => Object.hasOwn(engines, name)), 'Unknown browser engine');
 const results = [];
 try {
-  for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
-    const browser = await engine.launch();
+  for (const name of selected) {
+    const executablePath = name === 'chromium' ? process.env.GUAVAJAM_CHROMIUM_EXECUTABLE : undefined;
+    const browser = await engines[name].launch(executablePath ? {executablePath} : {});
     try {
       const context = await browser.newContext({javaScriptEnabled: false, acceptDownloads: true,
         viewport: {width: 360, height: 900}, reducedMotion: 'reduce'});
@@ -61,11 +67,76 @@ try {
       const download = await downloaded;
       assert.equal(download.suggestedFilename(), 'source.gfm');
       assert.deepEqual(await fs.readFile(await download.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
+      await page.getByRole('link', {name: 'Cite', exact: true}).click();
+      assert(page.url().endsWith('/read/cite.html'), 'Cite opens a human citation page');
+      assert((await page.locator('main').textContent()).includes(revision));
+      const sourceDownloaded = page.waitForEvent('download');
+      await page.getByRole('link', {name: 'Download exact GFM source', exact: true}).click();
+      const sourceDownload = await sourceDownloaded;
+      assert.deepEqual(await fs.readFile(await sourceDownload.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
+      await page.getByRole('link', {name: 'Return to reading', exact: true}).click();
+      assert(page.url().endsWith('/read/index.html'));
+      await page.getByRole('link', {name: 'Cite this document', exact: true}).click();
+      assert(page.url().endsWith('/read/cite.html'));
+      const staticAnchors = [];
+      for (const [index, expected] of [20, 20, 5].entries()) {
+        const entries = page.locator('#guavajam-static-section .guavajam-citation-entry');
+        assert.equal(await entries.count(), expected, `citation page ${index + 1} is bounded`);
+        staticAnchors.push(...await entries.evaluateAll(nodes => nodes.map(node => node.id.slice('citation:'.length))));
+        assert.equal(await page.locator('.guavajam-static-pages').first().getByText(`Page ${index + 1} of 3`, {exact: true}).count(), 1);
+        if (index < 2) await page.locator('.guavajam-static-pages a[rel=next]').first().click();
+      }
+      assert.deepEqual(staticAnchors, fixture.citationAnchors, 'ordinary page links cover every anchor once in source order');
+      assert.equal(await page.locator('.guavajam-static-pages a[rel=next]').count(), 0);
+      await page.locator('.guavajam-static-pages a[rel=prev]').first().click();
+      assert(page.url().endsWith('/read/cite/page/2.html'));
+
+      // Every boundary link must work directly without fetching or filtering
+      // earlier citation pages. Source names may coincide with UI shell IDs.
+      for (const position of [19, 20, 39, 40, 41, 42, 44]) {
+        const anchor = fixture.citationAnchors[position];
+        await page.goto(base + edition + 'read/index.html#' + anchor);
+        await page.getByRole('link', {name: 'Cite committed source passage ' + anchor, exact: true}).click();
+        const number = Math.floor(position / 20) + 1;
+        const relative = 'read/' + (number === 1 ? 'cite.html' : `cite/page/${number}.html`);
+        assert.equal(new URL(page.url()).pathname, new URL(base + edition + relative).pathname);
+        assert.equal(decodeURIComponent(new URL(page.url()).hash), '#citation:' + anchor);
+        const entry = page.locator('[id="citation:' + anchor + '"]');
+        assert.equal(await entry.count(), 1);
+        const citationText = await entry.locator('blockquote').textContent();
+        for (const identity of [revision, 'content/manuscript.md', '#' + anchor]) assert(citationText.includes(identity));
+        const jsonDownloaded = page.waitForEvent('download');
+        await entry.getByRole('link', {name: 'Download official citation JSON', exact: true}).click();
+        const citationDownload = await jsonDownloaded;
+        const canonical = JSON.parse(await fs.readFile(await citationDownload.path(), 'utf8'));
+        assert.equal(canonical.revision, revision); assert.equal(canonical.anchor, anchor);
+        assert.equal(canonical.manuscript, 'content/manuscript.md'); assert(!Object.hasOwn(canonical, 'url'));
+        await entry.getByRole('link', {name: 'Read this passage', exact: true}).click();
+        assert.equal(page.url(), base + edition + 'read/index.html#' + anchor);
+        assert.equal(await page.locator('[id="' + anchor + '"]').count(), 1);
+        assert.equal(await page.locator('script').count(), 0);
+      }
+      await page.goto(base + edition + 'index.html');
       await page.getByRole('link', {name: 'Read', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       await page.getByRole('link', {name: 'the supporting claim', exact: true}).click();
       assert(page.url().endsWith('/supporting/note.html#claim'));
       assert((await page.locator('#claim').textContent()).includes('exact independently citable'));
+      await page.getByRole('link', {name: 'Cite committed source passage supporting-tail', exact: true}).click();
+      assert(page.url().endsWith('/supporting/note.cite/page/3.html#citation:supporting-tail'));
+      const supportingEntry = page.locator('[id="citation:supporting-tail"]');
+      assert((await supportingEntry.textContent()).includes('content/supporting/note.md'));
+      assert((await supportingEntry.textContent()).includes('Supporting note'));
+      assert.equal(await page.locator('.guavajam-citation-entry').count(), 5);
+      const supportDownloaded = page.waitForEvent('download');
+      await supportingEntry.getByRole('link', {name: 'Download official citation JSON', exact: true}).click();
+      const supportDownload = await supportDownloaded;
+      const supportCanonical = JSON.parse(await fs.readFile(await supportDownload.path(), 'utf8'));
+      assert.equal(supportCanonical.revision, revision);
+      assert.equal(supportCanonical.document, 'content/supporting/note.md');
+      assert.equal(supportCanonical.anchor, 'supporting-tail');
+      await supportingEntry.getByRole('link', {name: 'Read this passage', exact: true}).click();
+      assert(page.url().endsWith('/supporting/note.html#supporting-tail'));
       for (const filename of pages) {
         for (const [width, scheme, enlarge] of [[320, 'light', false], [1280, 'dark', false], [360, 'light', true]]) {
           await page.setViewportSize({width, height: 900});
@@ -104,7 +175,7 @@ try {
       await review.goto(base);
       await review.screenshot({path: path.join(output, name + '-catalog.png'), fullPage: true});
       await auditContext.close();
-      console.log(name + ': edition history, source citation, downloads, reflow, print and accessibility passed');
+      console.log(name + ': edition history, bounded source citations, direct passage round trips, downloads, reflow, print and accessibility passed');
     } finally { await browser.close(); }
   }
 } finally { await new Promise(resolve => server.close(resolve)); }

@@ -44,13 +44,19 @@ def prepare(directory):
             (support / 'archived.md').unlink()
         if number == 22:
             with manuscript.open('a') as stream:
-                for section in range(1, 25):
+                for section in range(1, 45):
                     phrase = 'Bathymetric eco**logy**.' if section == 24 else f'Indexed evidence {section}.'
+                    if section == 44:
+                        phrase = 'Bathyal citational evidence for the last passage.'
                     stream.write(f'\n<a id="section-{section}"></a>\n## Section {section:02d}\n\n{phrase}\n')
             for appendix in range(1, 24):
                 (support / f'unlinked-{appendix:02d}.md').write_text(
                     '<a name="document"></a>\n\n' + f'# Appendix {appendix:02d}\n\n' +
                     '<a name="evidence"></a>\n\n' + f'Unlinked supporting evidence {appendix}.\n')
+            with (support / 'unlinked-23.md').open('a') as stream:
+                for passage in range(1, 45):
+                    phrase = 'Bathyal supporting citation.' if passage == 44 else f'Supporting proof {passage}.'
+                    stream.write(f'\n<a name="support-{passage:02d}"></a>\n\n{phrase}\n')
             reviewed, _ = review_gfm({'title': 'Reviewed correspondence', 'scope': 'Synthetic review', 'passages': [
                 {'id': 'm-author', 'label': 'Author', 'speaker': 'author',
                  'text': '# Author analysis\n\nAuthor observations.'},
@@ -73,9 +79,11 @@ def prepare(directory):
     build_site(publisher.repo, site / unpublished, ref=infrastructure,
                repository='https://example.org/unpublished.git', search_assets='../../', **publisher.trust)
     description = {'root': str(site), 'work': relative + '/', 'latest': revision, 'older': older,
-                   'editions': 23, 'documents': 25, 'manuscriptPassages': 25, 'unpublished': unpublished,
+                   'editions': 23, 'documents': 25, 'manuscriptPassages': 45, 'unpublished': unpublished,
+                   'supportingPassages': 46,
                    'historical': relative + '/editions/' + older + '/read/index.html',
-                   'section': relative + '/editions/' + revision + '/read/index.html#section-24'}
+                   'section': relative + '/editions/' + revision + '/read/index.html#section-24',
+                   'lastSection': relative + '/editions/' + revision + '/read/index.html#section-44'}
     target = directory / 'work-search-browser.json'
     target.write_text(json.dumps(description))
     return target

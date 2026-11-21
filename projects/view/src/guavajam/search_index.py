@@ -21,6 +21,7 @@ from guavajam_core.bibliography import ordered_authors
 from guavajam_core.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYTES
 from guavajam_core.identifiers import SLUG
 
+from .citation_routes import citation_href
 from .search_artifact import download_attributes, emit_download
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
@@ -211,7 +212,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                     work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
                     title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
                     position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                    url TEXT NOT NULL, UNIQUE(document_id, anchor)
+                    url TEXT NOT NULL, citation_url TEXT NOT NULL, UNIQUE(document_id, anchor)
                 );
                 CREATE TABLE passage_records (
                     id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
@@ -229,8 +230,15 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             for number, entry in enumerate(entries, start=1):
                 root = site if scope == 'work' else _owned(site, entry['path'])
                 catalog = _json(root, 'CATALOG.json', maximum=MAX_CATALOG_BYTES)
-                manifest = (_json(root, 'SITE.json') if scope == 'collection'
+                # File inventories can contain one citation download per source
+                # anchor. Bound them by the shared indexing budget, not the
+                # smaller per-document source-text limit.
+                manifest = (_json(root, 'SITE.json', maximum=MAX_INDEXED_BYTES) if scope == 'collection'
                             else {'tip': catalog['tip'], 'title': 'Unpublished work'})
+                if scope == 'collection':
+                    total += (root / 'SITE.json').stat().st_size
+                    if total > MAX_INDEXED_BYTES:
+                        raise CatalogError('search: generated inventories exceed indexing bounds')
                 if catalog['tip'] != entry['tip'] or manifest['tip'] != entry['tip']:
                     raise CatalogError('search: generated source verification mismatch')
                 editions = catalog['editions']
@@ -246,13 +254,13 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                     if not re.fullmatch(r'[a-f0-9]{40}', sha):
                         raise CatalogError('search: invalid edition revision')
                     read = _owned(root, 'editions/' + sha + '/read')
-                    view = _json(read, 'VIEW.json')
+                    view = _json(read, 'VIEW.json', maximum=MAX_INDEXED_BYTES)
                     if view['preview'] is not False or view['canonical']['revision'] != sha:
                         raise CatalogError('search: non-public or mismatched verified view')
                     navigation, size = _navigation(read, view)
-                    total += size
+                    total += size + (read / 'VIEW.json').stat().st_size
                     if total > MAX_INDEXED_BYTES:
-                        raise CatalogError('search: navigation inventories exceed indexing bounds')
+                        raise CatalogError('search: generated inventories exceed indexing bounds')
                     facts = view['facts']
                     recent_facts = facts
                     committer_file = _owned(root, 'editions/' + sha + '/COMMITTER.json')
@@ -314,12 +322,14 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                             continue
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
+                            cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
+                                view_path, anchor['position'], anchor['anchor']), safe='/#:')
                             cursor = conn.execute('INSERT INTO passages '
-                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url) '
-                                'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url,citation_url) '
+                                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
                                 (edition_id, document_id, number, anchor['anchor'], anchor['title'],
                                  anchor['kind'], anchor['level'], anchor['position'], anchor['parent'],
-                                 anchor['scope'], target))
+                                 anchor['scope'], target, cited))
                             passage_id = cursor.lastrowid
                             conn.execute('INSERT INTO passage_records VALUES (?,?,?,?,?)',
                                          (passage_id, number, edition_id, document_id, target))

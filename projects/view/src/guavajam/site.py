@@ -13,6 +13,7 @@ import tempfile
 from guavajam_core.catalog import CatalogError, encoded, read_catalog
 from guavajam_core.publication_protocol import discover
 from guavajam_core.publication_commit import citation, verify
+from .citation_routes import source_download
 from .renderer import git_blob, render
 from .view_cache import cached_render
 
@@ -67,7 +68,7 @@ def citation_control(record, href, *, title='', authors='', published='', editio
 
 def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
          citation_record=None, citation_href=None, citation_title=None, citation_authors=None,
-         citation_published=None, citation_edition=None, atom_href=None):
+         citation_published=None, citation_edition=None, citation_document_title='', atom_href=None):
     """Use the breadcrumb itself as the one page heading, above the citation."""
     styles = Path(__file__).parent / 'styles'
     css = (styles / 'reading.css').read_text('utf-8') + '\n' + (styles / 'catalog.css').read_text('utf-8')
@@ -81,7 +82,8 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
              ''.join(parts) + '</ol></nav>')
     citation_html = (citation_control(citation_record, citation_href, title=citation_title or title,
                                      authors=citation_authors or '', published=citation_published or '',
-                                     edition_number=citation_edition) if citation_href else '')
+                                     edition_number=citation_edition,
+                                     document_title=citation_document_title) if citation_href else '')
     feed_html = (' <a class="guavajam-feed-link" href="' + escape(atom_href, quote=True) +
                  '" aria-label="Publication updates (Atom)" title="Publication updates (Atom)">'
                  '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
@@ -159,12 +161,13 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         (directory / 'CITATION.json').write_bytes(encoded(citation(proof)))
         for document, details in view['documents'].items():
             source = git_blob(repo, sha, document)
-            destination = reader / Path(details['view']).parent / (Path(details['view']).stem + '.gfm')
-            if document == 'content/manuscript.md':
-                destination = reader / 'source.gfm'
+            destination = reader / source_download(details['view'])
             destination.write_bytes(source)
             cited = citation(proof, document=document)
-            destination.with_suffix('.citation.json').write_bytes(encoded(cited))
+            record = destination.with_suffix('.citation.json')
+            record.write_bytes(encoded(cited))
+            for artifact in (destination, record):
+                view['files'][artifact.relative_to(reader).as_posix()] = hashlib.sha256(artifact.read_bytes()).hexdigest()
         publication_navigation(reader, view, sha, work_title=latest_title,
                                edition_number=position, published=edition['published'],
                                in_collection=in_collection)
@@ -175,7 +178,7 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         if abstract:
             body += '<p class="guavajam-abstract">' + escape(abstract) + '</p>'
         body += ('<p class="guavajam-actions"><a href="read/index.html">Read</a>' +
-                 '<a href="CITATION.json" download>Cite</a>' +
+                 '<a href="read/cite.html">Cite</a>' +
                  '<a href="read/source.gfm" download>Download</a>' +
                  '<a href="read/documents.html">Documents</a>' +
                  '<a href="../../browse/index.html?edition=' + sha +
