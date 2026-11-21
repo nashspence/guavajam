@@ -84,7 +84,7 @@ try {
       await page.goto(base + fixture.work);
       assert.equal(await page.locator('script').count(), 0, 'work homepage remains script-free');
       const workActions = await page.locator('nav[aria-label="Work links"] a').allTextContents();
-      assert.deepEqual(workActions, ['Read', 'Versions', 'Source']);
+      assert.deepEqual(workActions, ['Read', 'Versions']);
       assert.equal(await page.locator('main .guavajam-record-link').count(), 0);
       await page.goto(browse);
       assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);

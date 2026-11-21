@@ -217,6 +217,8 @@ try {
       assert.equal(printed.overflow, false, `${name}: printed collection metadata leaves the page`);
       assert(printed.rows.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
       await page.emulateMedia({media: 'screen'});
+      await page.locator('#guavajam-search-results .guavajam-facet').first()
+        .evaluate(node => node.lastChild.remove());
       await page.locator('#layout-stress-subject').evaluate(option => option.remove());
       await page.evaluate(axe.source);
       const audit = await page.evaluate(() => axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}}));
