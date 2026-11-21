@@ -63,7 +63,9 @@ try {
       await page.getByRole('link', {name: 'Versions', exact: true}).click();
       await page.getByRole('link', {name: 'Verify', exact: true}).first().click();
       assert(page.url().endsWith('/verify.html'));
-      assert((await page.locator('main').textContent()).includes('Source and verification details'));
+      assert.equal(await page.locator('main .guavajam-verification').count(), 1);
+      assert((await page.locator('main .guavajam-verification').textContent()).includes('Verification record (JSON)'));
+      assert.notEqual((await page.locator('main .guavajam-verification code').first().textContent()).length, 0);
       await page.getByRole('link', {name: 'v2', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
