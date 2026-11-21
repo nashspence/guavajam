@@ -75,7 +75,7 @@ try {
       const controls = async () => parityPage.evaluate(() => {
         const properties = ['display', 'gridTemplateColumns', 'rowGap', 'columnGap',
           'fontSize', 'fontFamily', 'lineHeight', 'padding', 'margin', 'width', 'boxSizing'];
-        return ['.guavajam-index-search', '#guavajam-search', '#guavajam-search input[name=q]',
+        return ['.guavajam-index-search', '.guavajam-search-intro', '#guavajam-search', '#guavajam-search input[name=q]',
           '#guavajam-search > button[type=submit]', '.guavajam-search-filters'].map(selector => {
           const style = getComputedStyle(document.querySelector(selector));
           return Object.fromEntries(properties.map(property => [property, style[property]]));
