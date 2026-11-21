@@ -409,6 +409,24 @@ def emit_browser_assets(site):
     return bool(files)
 
 
+def _facets(keywords, subjects):
+    """Expose verified metadata; the existing SQLite options enable filtering."""
+    if not keywords and not subjects:
+        return ''
+
+    def facet(kind, key, label):
+        name = 'Tag' if kind == 'keyword' else 'Subject'
+        return ('<span class="guavajam-facet guavajam-' + ('tag' if kind == 'keyword' else 'subject') +
+                '" data-facet="' + kind + '" data-value="' + escape(key, quote=True) +
+                '"><span class="guavajam-facet-type">' + name + '</span> ' +
+                escape(label) + '</span>')
+
+    chips = ([facet('keyword', item, item) for item in keywords] +
+             [facet('subject', key, label) for key, label in subjects])
+    return ('<p class="guavajam-facets guavajam-scrollline" tabindex="0" aria-label="Subjects and tags">' +
+            ''.join(chips) + '</p>')
+
+
 def homepage(site, *, interactive):
     """Emit a bounded static works directory, enhanced by the existing SQLite UI.
 
@@ -417,7 +435,7 @@ def homepage(site, *, interactive):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import PAGE_SIZE, _static_pager
+    from .directory_pages import PAGE_SIZE, _static_pager, search_activation
     from .site import detail_link, page
 
     site = Path(site)
@@ -434,38 +452,44 @@ def homepage(site, *, interactive):
         download = emit_download(site / 'index.sqlite') if interactive else None
         for number in range(1, pages + 1):
             base = '' if number == 1 else '../'
+            records = cursor.fetchmany(PAGE_SIZE)
+            ids = [row[0] for row in records]
+            tags, subjects = {key: [] for key in ids}, {key: [] for key in ids}
+            if ids:
+                placeholders = ','.join('?' for _ in ids)
+                for work_id, keyword in conn.execute(
+                        'SELECT work_id, name FROM keywords WHERE work_id IN (' + placeholders +
+                        ') ORDER BY name COLLATE NOCASE, name', ids):
+                    tags[work_id].append(keyword)
+                for work_id, key, label in conn.execute(
+                        'SELECT work_id, key, label FROM subjects WHERE work_id IN (' + placeholders +
+                        ') ORDER BY label COLLATE NOCASE, key', ids):
+                    subjects[work_id].append((key, label))
             entries = []
-            for _, title, authors, abstract, day, revision, committer_name, committer_email, path, source in cursor.fetchmany(PAGE_SIZE):
+            for work_id, title, authors, abstract, day, revision, _committer_name, _committer_email, path, source in records:
                 work = base + path + '/'
                 target = (work + 'editions/' + revision + '/read/index.html') if revision else work + 'index.html'
                 byline = escape(authors) if authors else ''
-                if committer_name:
-                    name = escape(committer_name)
-                    if committer_email:
-                        name = '<a href="mailto:' + escape(committer_email, quote=True) + '">' + name + '</a>'
-                    byline += (' · ' if byline else '') + 'Committed by ' + name
                 if day:
                     byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
                 entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
                                escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
                                '</h3>' +
-                               ('<p class="guavajam-byline">' + byline + '</p>' if byline else '') +
+                               ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work authors and date">' + byline + '</p>' if byline else '') +
+                               _facets(tags[work_id], subjects[work_id]) +
                                ('<p class="guavajam-abstract">' + escape(abstract) + '</p>' if abstract else '') +
                                '</article></li>')
-            body = '<p>Browse independently verified works and their signed editions.</p>'
+            body = ''
             if interactive:
                 body += (
                     '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
                     '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find a work</h2>'
-                    '<button type="button" id="guavajam-search-enable">Enable search</button></div>'
-                    '<p class="guavajam-search-help" id="guavajam-search-scope">Optional local search across '
-                    'all signed editions; downloads ' + str((download['transfer_size'] + 1023) // 1024) +
-                    ' KiB of index data only when enabled. Browse the static pages below without search.</p>'
-                    '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
+                    + search_activation(download) + '</div>'
+                    '<form id="guavajam-search" role="search" '
                     'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
                     'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
                     download_attributes(download, prefix=base) + '>'
-                    '<div class="guavajam-query-field"><label for="guavajam-query">Search works</label>'
+                    '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">Search works</label>'
                     '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
                     '<button type="submit">Search</button>'
                     '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
@@ -480,7 +504,7 @@ def homepage(site, *, interactive):
                     '<option value="editions">Most editions</option></select></div></div></details>'
                     '</form></section>')
             body += '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
-            body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading">Works</h2>'
+            body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading" data-static-heading="Works">Works</h2>'
             if interactive:
                 body += (
                     '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'

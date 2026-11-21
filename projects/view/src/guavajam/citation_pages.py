@@ -16,7 +16,7 @@ from guavajam_core.catalog import CatalogError, encoded
 from guavajam_core.publication_commit import citation
 
 from .citation_routes import (citation_fragment, citation_href, citation_page,
-                              passage_json, relative_href, source_download)
+                              passage_json, relative_href)
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
 
@@ -85,7 +85,7 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
     Each canonical JSON is additionally checked against Core's verified proof.
     No full passage list or alternate client-side index is embedded in HTML.
     """
-    from .directory_pages import _sqlite_controls
+    from .directory_pages import _sqlite_controls, search_listing_open, search_listing_close
 
     for position, (revision, _, published, _) in enumerate(editions, 1):
         read = Path(output) / 'editions' / revision / 'read'
@@ -107,9 +107,6 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
 
         for source, document in navigation['documents'].items():
             reader = document['view']
-            canonical = citation(proof, document=source)
-            source_file = source_download(reader)
-            canonical_file = str(PurePosixPath(source_file).with_suffix('.citation.json'))
             document_title = document['title'] if source != proof['manuscript'] else ''
             chunks = _slices(document['anchors'])
             for number, chunk in enumerate(chunks, 1):
@@ -123,19 +120,16 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                     (relative('../../../index.html'), title),
                     (relative('index.html'), 'v' + str(position)),) + (
                     ((relative(reader), 'Supporting document'),) if document_title else ())
-                body = '<p>Use the verified source identity below when citing a document or passage.</p>'
+                body = ''
                 if download is not None:
                     body += _sqlite_controls(kind='citations', edition=revision, document=source,
                                              root=root, runtime=runtime, download=download)
-                body += '<h2 class="guavajam-list-heading">Passages</h2>'
+                body += search_listing_open('Passages', number, len(chunks), interactive=download is not None)
                 body += '<section id="guavajam-static-section" class="guavajam-directory">'
                 pager = _static_pager(number, len(chunks), first_href=relative(citation_page(reader)),
                                       page_prefix=relative(str(PurePosixPath(citation_page(reader)).with_suffix('') / 'page')) + '/')
                 if chunk:
-                    body += ('<p class="guavajam-meta">Passages ' + str((number - 1) * PAGE_SIZE + 1) +
-                             '–' + str((number - 1) * PAGE_SIZE + len(chunk)) + ' of ' +
-                             str(len(document['anchors'])) + '</p>' + pager +
-                             '<ol class="guavajam-citation-list">')
+                    body += pager + '<ol class="guavajam-citation-list">'
                     for record in chunk:
                         anchor = record['anchor']
                         cited = citation(proof, anchor=anchor, document=source)
@@ -153,13 +147,10 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                                  '">Read this passage</a></p></li>')
                     body += '</ol>' + pager
                 else:
-                    body += '<p>No passage anchors were declared. Cite this document as a whole.</p>'
-                body += '</section>'
-                html = page(document['title'] + ' — Citations' + (f' — page {number}' if number > 1 else ''),
+                    body += '<p>No individually citable passages were declared.</p>'
+                body += '</section>' + search_listing_close(interactive=download is not None)
+                html = page(document['title'] + ' — Passages' + (f' — page {number}' if number > 1 else ''),
                             body, search=download is not None, ancestors=ancestors,
-                            breadcrumb_current='Citations', citation_record=canonical,
-                            citation_href=relative(canonical_file), citation_title=title,
-                            citation_authors=authors, citation_published=published,
-                            citation_edition=position, citation_document_title=document_title)
+                            breadcrumb_current='Passages')
                 write(filename, html.encode('utf-8'))
         view_path.write_bytes(encoded(view))

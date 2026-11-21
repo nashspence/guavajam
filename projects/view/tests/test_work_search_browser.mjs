@@ -201,6 +201,9 @@ try {
       const downloadsBeforeDirectory = loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
       await page.goto(historyURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Versions');
+      assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-directory-enhancement').isVisible(), true);
       assert.equal(await page.getByRole('button', {name: 'Enable search'}).count(), 1);
       assert.equal(await page.locator('#guavajam-directory-enhancement .guavajam-search-intro').isVisible(), true);
@@ -218,6 +221,8 @@ try {
         downloadsBeforeDirectory, 'changing sort alone must not enable SQLite');
       await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.editions, 'editions');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
+      assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v1');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -241,11 +246,14 @@ try {
       await query('Appendix 23', 1, 'documents');
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Documents');
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/read/documents/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
       await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.documents, 'documents');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
@@ -268,10 +276,15 @@ try {
       assert.equal(await page.locator('input[name=edition]').inputValue(), fixture.latest);
       assert.equal(await page.locator('input[name=document]').inputValue(), 'content/manuscript.md');
       assert.equal(await page.locator('#guavajam-static-section .guavajam-citation-entry').count(), 5);
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 3 of 3.');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Passages');
+      assert.equal(await page.locator('main > blockquote.guavajam-citation').count(), 0);
       assert.equal(await page.locator('[id="citation:section-44"]').isVisible(), true);
       assert.equal(runtimeLoads(), loadsBeforeCitation, 'opening a deep citation link must not initialize SQLite');
       await page.screenshot({path: path.join(output, `${name}-citation-static-deep.png`), fullPage: true});
       await query('Bathyal', 1, 'passages');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
+      assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       const citationResult = page.locator('#guavajam-search-results > li');
       assert.equal(await citationResult.locator('h3 a').getAttribute('href'), deepCitationURL + '#citation:section-44');
       assert.equal(await citationResult.getByRole('link', {name: 'Read this passage', exact: true}).getAttribute('href'), base + fixture.lastSection);
@@ -303,6 +316,8 @@ try {
         'a citation on this static page uses ordinary fragment navigation');
       assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
       assert.equal(await page.locator('#guavajam-search-results').isVisible(), false);
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Passages');
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 2 of 3.');
       assert.equal(await page.locator('[id="citation:section-24"]').isVisible(), true);
       assert.equal(await page.evaluate(() => document.activeElement.id), 'citation:section-24');
       await query('Bathymetric ecology', 1, 'passages');
