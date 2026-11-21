@@ -211,7 +211,10 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     csp = ("default-src 'none'; style-src 'unsafe-inline'; "
            f"img-src data: {origin}; media-src {origin or chr(39)+"none"+chr(39)}; "
            "script-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'")
-    facts=facts or {};head=[]
+    # Only issued source documents belong in search results. Keep directories
+    # and unsigned previews crawlable so robots can read their noindex rule.
+    robots = 'index, follow' if not preview and RECORD.fullmatch(path) else 'noindex, follow'
+    facts=facts or {};head=['<meta name="robots" content="' + robots + '">']
     if facts:
         from guavajam.bibliography import ordered_authors
         head.append('<meta name="citation_title" content="'+escape(title,quote=True)+'">')
@@ -241,8 +244,8 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
             '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
             + status + navigation + '\n'
-            '<main id="'+main_id+'" tabindex="-1">' + citation_html + '<article class="guavajam-edition"'+semantic+'>\n'
-            + accessible + '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
+            '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
+            + citation_html + accessible + '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
             '\n</article></main><footer>'+rights+'<p>' +
             ('The committed Git revision identifies the draft source. ' if preview

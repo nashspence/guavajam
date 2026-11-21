@@ -40,7 +40,7 @@ class ChromeTests(unittest.TestCase):
         self.assertIn('aria-label="Breadcrumb" tabindex="0"', html)
         self.assertIn('.guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit;', html)
         self.assertNotIn('clamp(1.5rem, 3.5vw, 2rem)', html)
-        self.assertLess(html.index('<blockquote class="guavajam-citation"'), html.index('Abstract first.'))
+        self.assertLess(html.index('<div class="guavajam-citation"'), html.index('Abstract first.'))
         self.assertIn('Morgan Reed. <cite>Work</cite>. v2, 2025-01-02.', html)
         self.assertIn('Git commit <code>' + 'c' * 40 + '</code>', html)
         self.assertIn('download aria-label="Download official citation JSON"', html)
@@ -54,7 +54,7 @@ class ChromeTests(unittest.TestCase):
                                 document_title='Note <One>', authors='Mara & Lee', edition_number=7)
         self.assertIn('Mara &amp; Lee. <cite>Note &lt;One&gt;</cite>. In <cite>Work &amp; Research</cite>. v7.', html)
         self.assertIn('content/supporting/note.md</code>', html)
-        self.assertIn('<blockquote class="guavajam-citation"', html)
+        self.assertIn('<div class="guavajam-citation"', html)
         self.assertIn('href="note.citation.json" download', html)
 
     def test_shared_list_chrome_scrolls_without_visible_scrollbars(self):
@@ -97,7 +97,7 @@ class ChromeTests(unittest.TestCase):
         with patch('guavajam.publication_protocol.commit', return_value=(bad, b'')):
             self.assertEqual('', committer_identity(Path('/unused'), 'c' * 40)['email'])
 
-    def test_reader_copies_use_bibliographic_blockquotes_and_directory_heading_once(self):
+    def test_reader_copies_keep_citation_and_single_document_title_inside_article(self):
         with tempfile.TemporaryDirectory() as temp:
             edition = Path(temp)
             read = edition / 'read'
@@ -132,13 +132,13 @@ class ChromeTests(unittest.TestCase):
             for relative in ('index.html', 'supporting/note.html', 'documents.html'):
                 html = (read / relative).read_text()
                 self.assertIn('aria-label="Breadcrumb"', html)
-                self.assertIn('<blockquote class="guavajam-citation"', html)
+                self.assertIn('<div class="guavajam-citation"', html)
                 self.assertIn('Mara Levin. ', html)
                 self.assertIn('v2, 2026-11-03.', html)
                 self.assertNotIn('<script', html)
-                self.assertLess(html.index('class="guavajam-citation"'), html.index('<article'))
-                self.assertEqual(0 if relative == 'index.html' else 1,
-                                 [tag for tag, _ in Controls(html).nodes].count('h1'))
+                self.assertLess(html.index('<article'), html.index('class="guavajam-citation"'))
+                self.assertLess(html.index('class="guavajam-citation"'), html.index('</article>'))
+                self.assertEqual(1, [tag for tag, _ in Controls(html).nodes].count('h1'))
             self.assertNotIn('<h1>Documents in this edition</h1>', (read / 'documents.html').read_text())
             self.assertIn('<h1 aria-current="page">Documents</h1>', (read / 'documents.html').read_text())
             supporting = (read / 'supporting/note.html').read_text()
@@ -155,8 +155,8 @@ class ChromeTests(unittest.TestCase):
             for old in ('../verify.html', '../license.html', '../locators.html'):
                 self.assertNotIn(old, manuscript)
             self.assertLess(manuscript.index('aria-label="Version links"'),
-                            manuscript.index('<blockquote class="guavajam-citation"'))
-            self.assertLess(manuscript.index('<blockquote class="guavajam-citation"'),
+                            manuscript.index('<div class="guavajam-citation"'))
+            self.assertLess(manuscript.index('<div class="guavajam-citation"'),
                             manuscript.index('Authored methods.'))
             self.assertLess(manuscript.index('>Contents</a>'),
                             manuscript.index('>Download</a>'))
@@ -238,8 +238,8 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('class="guavajam-latest-edition"', work)
             self.assertNotIn('>v1</a>', work)
             self.assertNotIn('href="https://github.com/example/work.git">Source</a>', work)
-            self.assertLess(work.index('aria-label="Work links"'), work.index('<blockquote'))
-            self.assertLess(work.index('<blockquote'), work.index('Observations of the coast.'))
+            self.assertLess(work.index('aria-label="Work links"'), work.index('<div class="guavajam-citation'))
+            self.assertLess(work.index('<div class="guavajam-citation'), work.index('Observations of the coast.'))
             self.assertNotIn('Git commit', work.split('<main', 1)[-1].split('</main>')[0])
             self.assertNotIn('href="editions/' + sha2 + '/CITATION.json"', work)
             self.assertIn('Mara Levin. <cite>Shoreline research</cite>.', work)
@@ -278,7 +278,7 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('Generated by a-guavajam-static-website-generator', metadata)
             self.assertNotIn('>Cite this document</a>', manuscript)
             self.assertNotIn('All documents in this edition', manuscript)
-            self.assertEqual(1, manuscript.count('<blockquote class="guavajam-citation"'))
+            self.assertEqual(1, manuscript.count('<div class="guavajam-citation"'))
             self.assertNotIn('class="guavajam-byline"', metadata)
             self.assertNotIn('<h1>Documents in this edition</h1>', directory)
             self.assertIn('<h1 aria-current="page">Documents</h1>', directory)

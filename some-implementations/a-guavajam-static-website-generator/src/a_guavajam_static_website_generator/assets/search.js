@@ -33,6 +33,9 @@ if (form) {
   const pageLabel = document.querySelector('#guavajam-search-page');
   const pagination = pageLabel.closest('nav');
   const worksHeading = document.querySelector('#guavajam-works-heading');
+  // This stable heading receives focus when a result or paging control goes
+  // away, without adding another stop to normal sequential navigation.
+  if (worksHeading) worksHeading.tabIndex = -1;
   const staticStatus = summary.textContent;
   let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
@@ -43,6 +46,9 @@ if (form) {
   }
 
   function unavailable() {
+    const focused = document.activeElement;
+    const lostFocus = document.hasFocus() && (results.contains(focused) || pagination.contains(focused) ||
+      fallback.contains(focused) && focused.matches('button.guavajam-facet'));
     clearTimeout(timer);
     ready = false;
     loading = false;
@@ -61,6 +67,7 @@ if (form) {
     pageLabel.textContent = '';
     pagination.hidden = true;
     if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Works';
+    if (lostFocus) disclosureSummary.focus();
     // Closing and reopening the disclosure retries the same worker, with no
     // competing Enable/Retry search buttons or separate query implementation.
   }
@@ -187,7 +194,9 @@ if (form) {
   function resultCitation(data) {
     const cited = document.querySelector('#guavajam-citation-template').content.firstElementChild.cloneNode(true);
     if (data.description.length) {
-      const description = document.createElement('p'); inlineParts(description, data.description); cited.prepend(description);
+      const description = document.createElement('div');
+      description.className = 'guavajam-citation-description';
+      inlineParts(description, data.description); cited.prepend(description);
     }
     const identity = cited.querySelector('.guavajam-citation-source'); identity.replaceChildren();
     inlineParts(identity, data.source);
@@ -238,6 +247,9 @@ if (form) {
   }
 
   function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
+    const focused = document.activeElement;
+    const lostFocus = document.hasFocus() &&
+      (results.contains(focused) || fallback.contains(focused) || pagination.contains(focused));
     results.replaceChildren();
     for (const row of rows) {
       const li = document.createElement('li');
@@ -354,15 +366,28 @@ if (form) {
       const selected = button.dataset.facet === 'keyword' ? keyword : subject;
       button.setAttribute('aria-pressed', String(selected?.value === button.dataset.value));
     }
+    // Hand focus from replaced content or its pager to the new results. A
+    // reply must never pull readers away from the query, filters, another tab,
+    // or any destination they have reached while the worker was busy.
+    if (lostFocus) worksHeading?.focus();
     back.disabled = current <= 1;
     next.disabled = current >= pages;
+    back.removeAttribute('aria-disabled');
+    next.removeAttribute('aria-disabled');
     results.removeAttribute('aria-busy');
+  }
+
+  function pending() {
+    results.setAttribute('aria-busy', 'true');
+    // Native disabled would blur the button that initiated a page change.
+    // Keep it focused during the request; event handlers enforce this state.
+    back.setAttribute('aria-disabled', 'true');
+    next.setAttribute('aria-disabled', 'true');
   }
 
   function request() {
     if (!ready) return;
-    results.setAttribute('aria-busy', 'true');
-    back.disabled = next.disabled = true;
+    pending();
     worker.postMessage({action: 'search', id: ++sequence, term: input.value,
       keyword: keyword?.value, subject: subject?.value, kind: kind?.value,
       edition: edition?.value, document: documentFilter?.value,
@@ -377,7 +402,7 @@ if (form) {
     // Invalidate in-flight replies immediately, including the debounce window.
     sequence++;
     page = 1;
-    back.disabled = next.disabled = true;
+    if (ready) pending();
     clearTimeout(timer);
     timer = setTimeout(changed, 200);
   });
@@ -391,8 +416,14 @@ if (form) {
     changed();
     if (!ready) initialize();
   });
-  back.addEventListener('click', () => { clearTimeout(timer); if (page > 1) { page--; request(); } });
-  next.addEventListener('click', () => { clearTimeout(timer); page++; request(); });
+  back.addEventListener('click', () => {
+    if (!ready || results.hasAttribute('aria-busy') || back.disabled) return;
+    clearTimeout(timer); if (page > 1) { page--; request(); }
+  });
+  next.addEventListener('click', () => {
+    if (!ready || results.hasAttribute('aria-busy') || next.disabled) return;
+    clearTimeout(timer); page++; request();
+  });
 
   function initialize() {
     if (ready || loading) return;

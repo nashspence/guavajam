@@ -138,7 +138,7 @@ try {
         await rows.first().locator('.guavajam-byline, .guavajam-meta').first().evaluate(n => {
           n.append(document.createTextNode(' Verylongsourcepath'.repeat(60)));
         });
-        const citation = rows.first().locator('.guavajam-citation p').first();
+        const citation = rows.first().locator('.guavajam-citation-description').first();
         if (await citation.count()) await citation.evaluate(n => {
           n.append(document.createTextNode('Verylongunbrokenbibliographicname'.repeat(60)));
         });
@@ -148,7 +148,7 @@ try {
             await parityPage.evaluate(font => { document.documentElement.style.fontSize = font; }, scale);
             const bad = await parityPage.evaluate(() => {
               const main = document.querySelector('main').getBoundingClientRect();
-              return [...document.querySelectorAll('.guavajam-record-list, .guavajam-record-list > li, .guavajam-record-list > li > article, .guavajam-record-list h3, .guavajam-record-list .guavajam-scrollline, .guavajam-record-list blockquote')]
+              return [...document.querySelectorAll('.guavajam-record-list, .guavajam-record-list > li, .guavajam-record-list > li > article, .guavajam-record-list h3, .guavajam-record-list .guavajam-scrollline, .guavajam-record-list .guavajam-citation')]
                 .filter(n => n.getClientRects().length).filter(n => {
                   const b = n.getBoundingClientRect(); return b.left < main.left - (n.matches("h3, .guavajam-scrollline") ? 7 : 1) || b.right > main.right + (n.matches("h3, .guavajam-scrollline") ? 7 : 1);
                 }).map(n => n.className || n.tagName);
@@ -235,13 +235,22 @@ try {
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'Work 22');
-      await page.locator('#guavajam-search-next').click();
+      await page.locator('#guavajam-search-next').focus();
+      await page.keyboard.press('Enter');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 2);
       assert.equal(await page.locator('#guavajam-search-next').isDisabled(), true);
+      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
+        'paging hands keyboard focus to the new results before disabling the last-page control');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.locator('#guavajam-search-results h3 a').first().evaluate(n => n === document.activeElement), true,
+        'Tab continues into the new page of results');
       await page.locator('.guavajam-search-filters summary').click();
+      await page.locator('select[name=sort]').focus();
       await page.locator('select[name=sort]').selectOption('title');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Work 01');
+      assert.equal(await page.locator('select[name=sort]').evaluate(n => n === document.activeElement), true,
+        'changing a filter keeps focus on that filter');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
       await query('Palaeoriver', 1);
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
@@ -284,10 +293,14 @@ try {
       // Facet controls are native buttons only once SQLite is enabled.
       const fieldTag = page.locator('#guavajam-search-results button.guavajam-tag').first();
       assert.equal(await fieldTag.getAttribute('data-value'), 'Field observations');
-      await fieldTag.click();
+      await fieldTag.focus(); await page.keyboard.press('Enter');
       await waitTotal(fixture.works - 1);
       assert.equal(await page.locator('select[name=keyword]').inputValue(), 'Field observations');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
+      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
+        'replacing an activated facet never drops focus to the document body');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.locator('#guavajam-search-results h3 a').first().evaluate(n => n === document.activeElement), true);
       await page.locator('#guavajam-search-results button.guavajam-tag').first().click();
       await waitTotal(fixture.works);
       assert.equal(await page.locator('select[name=keyword]').inputValue(), '');
@@ -368,6 +381,25 @@ try {
       await context.close();
 
       const delayed = await browser.newContext();
+      // Delay genuine SQLite replies at the worker boundary. This lets the
+      // reader move focus while a request is in flight, without fake results.
+      await delayed.addInitScript(() => {
+        const NativeWorker = window.Worker;
+        window.guavajamSearchTest = {hold: false, replies: [], requests: 0};
+        window.Worker = class extends NativeWorker {
+          postMessage(...args) {
+            if (args[0]?.action === 'search') window.guavajamSearchTest.requests++;
+            return super.postMessage(...args);
+          }
+          set onmessage(listener) {
+            super.onmessage = event => {
+              const deliver = () => listener.call(this, event);
+              if (window.guavajamSearchTest.hold && event.data.rows) window.guavajamSearchTest.replies.push(deliver);
+              else deliver();
+            };
+          }
+        };
+      });
       let releaseDatabase, signalDownload;
       const gate = new Promise(resolve => { releaseDatabase = resolve; });
       const signalled = new Promise(resolve => { signalDownload = resolve; });
@@ -384,12 +416,41 @@ try {
           setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
         assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Loading local search…');
+        await waiting.locator('#guavajam-static-list h3 a').first().focus();
       } finally {
         releaseDatabase();
       }
       await waiting.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
         `${total} work(s) found`, fixture.works);
       assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), false);
+      assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
+        'hiding the static list hands its focused link to the new results');
+      await waiting.evaluate(() => { window.guavajamSearchTest.hold = true; });
+      await waiting.locator('#guavajam-search-next').focus();
+      await waiting.keyboard.press('Enter');
+      await waiting.waitForFunction(() => window.guavajamSearchTest.replies.length === 1);
+      assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-search-next',
+        'a pending page change keeps its initiating button focused');
+      assert.equal(await waiting.locator('#guavajam-search-next').getAttribute('aria-disabled'), 'true');
+      const pendingRequests = await waiting.evaluate(() => window.guavajamSearchTest.requests);
+      await waiting.keyboard.press('Enter');
+      assert.equal(await waiting.evaluate(() => window.guavajamSearchTest.requests), pendingRequests,
+        'a busy pager cannot submit another page change');
+      await waiting.locator('#guavajam-index-search > summary').focus();
+      await waiting.keyboard.press('Tab');
+      assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true);
+      await waiting.evaluate(() => {
+        window.guavajamSearchTest.focus = document.activeElement;
+        window.guavajamSearchTest.hold = false;
+        window.guavajamSearchTest.replies.shift()();
+      });
+      await waiting.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
+      assert.equal(await waiting.evaluate(() => document.activeElement === window.guavajamSearchTest.focus), true,
+        'a delayed reply never steals focus after the reader tabs back into the query');
+      await waiting.locator('input[name=q]').fill('Glaciolacustrine');
+      await waiting.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent === '1 work(s) found');
+      assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true,
+        'live search does not move focus while the reader is typing');
       await delayed.close();
 
       const disabled = await browser.newContext({javaScriptEnabled: false});
@@ -407,7 +468,7 @@ try {
       assert.equal(await plain.locator('#guavajam-static-list').isVisible(), true);
       await plain.locator('#guavajam-static-list h3 a').first().click();
       assert(plain.url().startsWith(base + 'sources/'));
-      assert.equal(await plain.locator('h1').count(), 0);
+      assert.equal(await plain.locator('h1').count(), 1);
       assert.equal(await plain.locator('.guavajam-citation').count(), 1);
       assert.equal(await plain.locator('.guavajam-citation cite').count(), 1);
       await disabled.close();

@@ -16,6 +16,7 @@ export async function keyboardControls(page) {
         throw Error('Interactive control missing from Tab order: ' + (n.getAttribute('aria-label') || n.textContent));
     }
     const controls = visible.filter(n => n.tabIndex >= 0);
+    if (controls.some(n => n.tabIndex > 0)) throw Error('Positive tabindex changes the reading order');
     controls.forEach((n, index) => n.setAttribute('data-keyboard-test', index));
     document.body.tabIndex = -1; document.body.focus();
     return controls.length;
@@ -39,6 +40,7 @@ export async function keyboardControls(page) {
         clipped, boxWidth: box.width, viewport: innerWidth};
     });
     assert(state.index !== null && !seen.has(state.index), `Tab ${step + 1}/${count} failed to reach each control: ${JSON.stringify(state)}`);
+    assert.equal(state.index, String(step), `Tab order differs from document order: ${JSON.stringify(state)}`);
     assert(state.visible && state.width >= 2 && state.offset >= 3, `Focus needs breathing room: ${JSON.stringify(state)}`);
     // An unbroken title may exceed its scroll viewport. Its explicit tab stop
     // remains keyboard-pannable; every control that fits must show its full ring.

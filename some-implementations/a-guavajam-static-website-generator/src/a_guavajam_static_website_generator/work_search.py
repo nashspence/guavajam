@@ -86,7 +86,9 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                           '', text, count=1, flags=re.S)
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
-            edition_number=edition_number, document_title=document_title)
+            edition_number=edition_number, document_title=document_title,
+            heading=relative == 'index.html')
+        menu = ''
         if relative != 'documents.html':
             # The renderer's utility directory is useful standalone but
             # redundant with the version menu in site-owned readers.
@@ -104,9 +106,13 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                         '<a href="passages.html">Passages</a>'
                         '<a href="../metadata.html">Metadata</a>'
                         '<a href="source.gfm" download>Download</a></nav>')
-                citation_html = menu + citation_html
-        text = text.replace('<article class="guavajam-edition"',
-                            citation_html + '<article class="guavajam-edition"', 1)
+        # Keep the document's title/citation within its article, with the route
+        # menu still immediately above it. Supporting sources already own H1.
+        text, replaced = re.subn(r'<article class="guavajam-edition"[^>]*>',
+                                lambda match: menu + match.group(0) + citation_html,
+                                text, count=1)
+        if replaced != 1:
+            raise CatalogError('work navigation: expected one generated document article')
         text = text.replace('<div class="guavajam-source-identity">',
                             '<div class="guavajam-source-identity" hidden>', 1)
         # Replace renderer-only rights/identity boilerplate in the published

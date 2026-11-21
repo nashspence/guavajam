@@ -169,8 +169,8 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   color: var(--guavajam-link); background: transparent; border: 1px solid var(--guavajam-border); cursor: pointer;
 }
 #guavajam-search button:not(:disabled):hover, .guavajam-index-search button:not(:disabled):hover,
-#guavajam-search-prev:not(:disabled):hover, #guavajam-search-next:not(:disabled):hover { border-color: var(--guavajam-link); background: var(--guavajam-tint); }
-#guavajam-search button:disabled, #guavajam-search-prev:disabled, #guavajam-search-next:disabled { opacity: .55; cursor: default; }
+#guavajam-search-prev:not(:disabled, [aria-disabled="true"]):hover, #guavajam-search-next:not(:disabled, [aria-disabled="true"]):hover { border-color: var(--guavajam-link); background: var(--guavajam-tint); }
+#guavajam-search button:disabled, #guavajam-search-prev:is(:disabled, [aria-disabled="true"]), #guavajam-search-next:is(:disabled, [aria-disabled="true"]) { opacity: .55; cursor: default; }
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
 .guavajam-search-filters summary { cursor: pointer; font: .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }

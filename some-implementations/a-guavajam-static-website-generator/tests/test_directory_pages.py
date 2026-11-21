@@ -119,7 +119,7 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertLessEqual(len(documents), PAGE_SIZE)
             self.assertIn('value="documents"', html)
             self.assertIn('name="edition" value="' + self.editions[-1][0] + '"', html)
-            self.assertNotIn('<blockquote class="guavajam-citation"', html)
+            self.assertNotIn('<div class="guavajam-citation"', html)
             self.assertIn('data-static-heading="Documents"', html)
             self.assertIn(f'Showing static page {number} of 3.', html)
             self.assertIn('id="guavajam-search-spinner"', html)
