@@ -192,10 +192,13 @@ try {
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'Edition 1');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
-      await query('Observation 01', 1, 'editions');
+      // A unique message token cannot collide with publisher date/time claims.
+      await query('Shorelinechronicle', 1, 'editions');
       // Publisher creates the initial signed edition before Observation 01.
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Edition 2');
-      assert((await page.locator('#guavajam-search-results .guavajam-message').textContent()).includes('Observation 01'));
+      assert((await page.locator('#guavajam-search-results .guavajam-message').allTextContents()).join(' ').includes('Observation 01'));
+      await page.locator('#guavajam-search-results').getByText('Full commit message', {exact:true}).click();
+      assert.equal(await page.locator('#guavajam-search-results').getByText('Shorelinechronicle records the historical review.', {exact:false}).isVisible(), true);
       await query('', fixture.editions - 1, 'editions');
       await page.locator('select[name=sort]').selectOption('publication');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Edition 22');
