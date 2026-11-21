@@ -1,7 +1,7 @@
 services:
   updater:
-    build: {context: ., target: view}
-    image: guavajam-view:local
+    build: {context: ., target: a-guavajam-static-website-generator}
+    image: a-guavajam-static-website-generator:local
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
@@ -20,7 +20,7 @@ services:
         read_only: true
         bind: {create_host_path: false}
     healthcheck:
-      test: [CMD, python, -m, guavajam.service, --health]
+      test: [CMD, python, -m, a_guavajam_static_website_generator.service, --health]
       interval: 30s
       timeout: 5s
       start_period: 120s
@@ -102,7 +102,7 @@ services:
         bind: {create_host_path: false}
     ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080']
     healthcheck:
-      test: [CMD, python, -m, guavajam.preview_service, --health]
+      test: [CMD, python, -m, a_guavajam_static_website_generator.preview_service, --health]
       interval: 30s
       timeout: 5s
   seaweedfs:

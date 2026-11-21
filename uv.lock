@@ -5,7 +5,7 @@ requires-python = "==3.12.*"
 [manifest]
 members = [
     "guavajam-core",
-    "guavajam-view",
+    "a-guavajam-static-website-generator",
 ]
 
 [manifest.dependency-groups]
@@ -74,9 +74,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "guavajam-view"
+name = "a-guavajam-static-website-generator"
 version = "0.1.0"
-source = { editable = "projects/view" }
+source = { editable = "projects/a-guavajam-static-website-generator" }
 dependencies = [
     { name = "guavajam-core" },
 ]

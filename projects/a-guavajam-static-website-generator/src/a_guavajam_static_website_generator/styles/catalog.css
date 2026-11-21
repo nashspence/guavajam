@@ -1,0 +1,283 @@
+/* The reusable reading palette also belongs to catalog, work and edition covers.
+   Scholarly records, not application cards: editorial hierarchy first. */
+/* RTL scroll origin shows the current crumb on the right without JavaScript;
+   inner content stays LTR. Keyboard focus can expose the complete trail. */
+.guavajam-navigation {
+  direction: rtl; overflow-x: auto; overflow-y: hidden; max-width: 100%;
+  border-bottom: 1px solid var(--guavajam-border);
+  padding: .2rem 0 .7rem; margin: 0 0 .9rem; scrollbar-width: none;
+  font: .91rem/1.55 system-ui, sans-serif;
+}
+/* A single-line breadcrumb remains touch/keyboard-scrollable without a
+   permanent scrollbar competing with the editorial heading. */
+.guavajam-navigation::-webkit-scrollbar { display: none; }
+.guavajam-navigation ol {
+  direction: ltr; display: flex; flex-wrap: nowrap; align-items: baseline;
+  gap: .15rem .35rem; list-style: none; width: max-content; min-width: 100%;
+  padding: 0; margin: 0; white-space: nowrap;
+}
+.guavajam-navigation li { display: flex; flex: none; align-items: baseline; margin: 0; }
+.guavajam-navigation li + li::before { content: '/'; color: var(--guavajam-muted); margin: 0 .55rem 0 .15rem; }
+.guavajam-navigation a, .guavajam-navigation [aria-current="page"] { display: inline-block; padding-block: .2rem; }
+.guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit; font-weight: 600; margin: 0; white-space: nowrap; }
+.guavajam-navigation [aria-current="page"]:not(h1) { color: var(--guavajam-ink); font-weight: 600; }
+
+/* Keyboard navigation exposes whole crumbs, including long ancestors that a
+   native Tab focus can otherwise leave partly outside the scroll viewport. */
+.guavajam-navigation:is(:focus-visible, :has(:focus-visible)) { direction: ltr; overflow: visible; }
+.guavajam-navigation:is(:focus-visible, :has(:focus-visible)) ol { width: auto; flex-wrap: wrap; white-space: normal; }
+.guavajam-navigation:is(:focus-visible, :has(:focus-visible)) li { min-width: 0; max-width: 100%; }
+.guavajam-navigation:is(:focus-visible, :has(:focus-visible)) :is(a, [aria-current="page"]) {
+  min-width: 0; white-space: normal; overflow-wrap: anywhere;
+}
+
+.guavajam-record-link {
+  display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
+  align-items: center; justify-content: center; flex: none;
+}
+.guavajam-record-link { margin-inline-start: .2rem; transform: translateY(.04rem); }
+.guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
+
+.guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
+.guavajam-byline { margin: 0 0 .15rem; }
+/* Long names and metadata scroll as single lines without a
+   visible scrollbar. Native keyboard/touch scrolling remains available. */
+.guavajam-scrollline,
+.guavajam-record-list h3 {
+  max-width: 100%; overflow-x: auto; overflow-y: hidden;
+  white-space: nowrap; scrollbar-width: none; -ms-overflow-style: none;
+}
+.guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3::-webkit-scrollbar { display: none; }
+.guavajam-record-list h3 { display: flex; align-items: baseline; gap: .2rem; flex-wrap: nowrap; }
+.guavajam-record-list h3 > a { flex: none; }
+.guavajam-facets {
+  display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
+  font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
+}
+.guavajam-facet { flex: none; white-space: nowrap; }
+.guavajam-facet-type { font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.guavajam-tag .guavajam-facet-type { color: var(--guavajam-link); }
+.guavajam-subject .guavajam-facet-type { color: var(--guavajam-ink); }
+button.guavajam-facet {
+  font: inherit; color: inherit; padding: 0; border: 0; border-bottom: 1px dotted currentColor;
+  background: transparent; cursor: pointer;
+}
+button.guavajam-facet:hover { color: var(--guavajam-link); border-bottom-style: solid; }
+button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border-bottom-style: solid; }
+.guavajam-abstract { margin: .65rem 0 1.25rem; }
+.guavajam-meta, .guavajam-administration,
+.guavajam-search-help { color: var(--guavajam-muted); font: .86rem/1.6 system-ui, sans-serif; }
+.guavajam-actions { display: flex; flex-wrap: wrap; gap: .55rem 1.4rem; margin: 1.35rem 0 1.6rem; font: .94rem/1.6 system-ui, sans-serif; }
+.guavajam-actions > a { flex: none; }
+.guavajam-actions a { display: inline-block; padding-block: .3rem; }
+.guavajam-site section > h2 { margin-bottom: .8rem; }
+
+/* Works is the shared record-list contract for both static and SQLite rows. */
+.guavajam-record-list { list-style: none; margin: 0; padding: 0; min-width: 0; max-width: 100%; }
+.guavajam-record-list > li {
+  border-bottom: 1px solid var(--guavajam-border); margin: 0;
+  padding: 1.2rem 0 1.4rem; break-inside: avoid;
+}
+.guavajam-record-list > li, .guavajam-record-list > li > article { min-width: 0; max-width: 100%; }
+/* Contain the focus gutters' compensating margins inside each record. */
+.guavajam-record-list > li > article { display: flow-root; }
+.guavajam-record-list > li:first-child { padding-top: .5rem; }
+.guavajam-record-list > li:last-child { border-bottom: 0; padding-bottom: 0; }
+.guavajam-record-list h3 { font-size: 1.25rem; margin: 0 0 .5rem; }
+.guavajam-record-list > li > article > p { margin: .35rem 0; }
+.guavajam-record-list .guavajam-citation { margin: .8rem 0; }
+.guavajam-editions li time, .guavajam-editions li code { display: inline; }
+
+.guavajam-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.guavajam-directory { margin: .75rem 0 0; }
+.guavajam-directory > :last-child { margin-bottom: 0; }
+.guavajam-version-menu { margin: .5rem 0 1.3rem; }
+
+
+/* Scrolling clips descendant outlines. Reserve a six-pixel focus gutter
+   inside each viewport, extending into the page margin without moving text. */
+:is(.guavajam-navigation, .guavajam-scrollline, .guavajam-record-list h3) {
+  padding-inline: 6px; margin-inline: -6px; max-width: calc(100% + 12px);
+  scroll-padding-inline: 6px;
+}
+:is(.guavajam-scrollline, .guavajam-record-list h3) { padding-block: 6px; }
+.guavajam-navigation { padding-top: 6px; margin-top: calc(-6px + .2rem); }
+.guavajam-record-list h3 { margin-block: -6px calc(.5rem - 6px); }
+.guavajam-record-list > li > article > .guavajam-scrollline { margin-block: calc(.35rem - 6px); }
+.guavajam-record-list > li > article > .guavajam-facets { margin-block: calc(.1rem - 6px) calc(.45rem - 6px); }
+:is(.guavajam-actions, .guavajam-navigation, .guavajam-pagination,
+    .guavajam-record-list h3, .guavajam-scrollline) :focus-visible { scroll-margin-inline: 6px; }
+
+/* Source permalinks keep their original targets; Cite opens a bounded directory. */
+.guavajam-passage-cite, .guavajam-passage-cite:visited {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.75rem; min-height: 2.75rem; margin-block: -.35rem;
+  color: var(--guavajam-muted); font: normal .8rem/1 system-ui, sans-serif;
+  vertical-align: middle;
+}
+/* Keep the underline on the label rather than the bottom of a tall flex box.
+   Hover/focus never paints over the source fragment's continuous target tint. */
+.guavajam-passage-cite { text-decoration: none; }
+.guavajam-passage-cite > span { text-decoration: underline; text-underline-offset: .12em; }
+.guavajam-passage-cite:is(:hover, :focus-visible) { color: var(--guavajam-link); }
+.guavajam-passage-cite:is(:hover, :focus-visible) > span { text-decoration-thickness: .13em; }
+.guavajam-citation-entry { scroll-margin-top: 1rem; }
+.guavajam-citation-entry:target { outline: 2px solid var(--guavajam-focus); outline-offset: 6px; }
+
+/* All indexes use the same native, collapsed disclosure. Opening it loads the
+   disposable SQLite derivative; static pagination never depends on scripts. */
+.guavajam-index-search {
+  border: 0; padding: 0; margin: 1.1rem 0 1.5rem;
+}
+.guavajam-search-summary {
+  color: var(--guavajam-link); cursor: pointer; width: fit-content;
+  font: 600 .92rem/1.6 system-ui, sans-serif; padding: .25rem .2rem;
+}
+.guavajam-search-summary:hover { text-decoration: underline; text-underline-offset: .16em; }
+.guavajam-index-size { color: var(--guavajam-muted); font: normal .79rem/1.4 system-ui, sans-serif; white-space: nowrap; }
+.guavajam-search-spinner {
+  display: inline-block; width: .85rem; height: .85rem; margin: 0 .4rem 0 .15rem;
+  vertical-align: -.12rem;
+  border: 2px solid var(--guavajam-border); border-top-color: var(--guavajam-link);
+  border-radius: 50%; animation: guavajam-spin .7s linear infinite;
+}
+@keyframes guavajam-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .guavajam-search-spinner { animation: none; border-style: dotted; } }
+.guavajam-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.guavajam-search-help { margin: .3rem 0 .7rem; }
+#guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem .8rem; align-items: end; margin: .75rem 0 0; }
+#guavajam-search > .guavajam-query-field { min-width: 0; }
+#guavajam-search label { display: block; font: 600 .83rem/1.4 system-ui, sans-serif; margin-bottom: .25rem; }
+#guavajam-search input, #guavajam-search select, #guavajam-search button,
+#guavajam-search-prev, #guavajam-search-next {
+  font: .9rem/1.4 system-ui, sans-serif; padding: .45rem .6rem; max-width: 100%; box-sizing: border-box;
+}
+#guavajam-search input { width: 100%; min-width: 0; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
+#guavajam-search select { width: 100%; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
+#guavajam-search button, .guavajam-index-search button,
+#guavajam-search-prev, #guavajam-search-next {
+  color: var(--guavajam-link); background: transparent; border: 1px solid var(--guavajam-border); cursor: pointer;
+}
+#guavajam-search button:not(:disabled):hover, .guavajam-index-search button:not(:disabled):hover,
+#guavajam-search-prev:not(:disabled):hover, #guavajam-search-next:not(:disabled):hover { border-color: var(--guavajam-link); background: var(--guavajam-tint); }
+#guavajam-search button:disabled, #guavajam-search-prev:disabled, #guavajam-search-next:disabled { opacity: .55; cursor: default; }
+.guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
+.guavajam-search-filters summary { cursor: pointer; font: .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
+.guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
+/* A single disclosure looks and operates the same in every directory. */
+.guavajam-document-list ul { list-style: none; padding-inline-start: 1rem; }
+.guavajam-document-list ul li { list-style: none; }
+.guavajam-message-detail { margin-top: .35rem; font: .86rem/1.5 system-ui, sans-serif; }
+.guavajam-message-detail summary { cursor: pointer; color: var(--guavajam-link); width: fit-content; padding: .3rem .2rem; }
+:is(.guavajam-search-filters, .guavajam-message-detail) > summary:hover { text-decoration: underline; text-underline-offset: .16em; }
+.guavajam-editions .guavajam-message { font: .94rem/1.5 system-ui, sans-serif; color: var(--guavajam-ink); }
+.guavajam-editions .guavajam-meta code { font-size: .89em; }
+.guavajam-static-pages { gap: .35rem .85rem; }
+.guavajam-static-pages a, .guavajam-static-pages [aria-current="page"] {
+  display: inline-block; padding: .3rem .4rem;
+}
+.guavajam-static-pages [aria-current="page"] { color: var(--guavajam-ink); font-weight: 600; }
+
+/* Search and its directory list never need a redundant separator. */
+.guavajam-listing { border: 0; padding-top: 0; }
+.guavajam-list-heading { margin: .65rem 0 .45rem; font-size: 1.15rem; }
+.guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
+.guavajam-pagination > * { flex: none; }
+.guavajam-pagination button { padding: .3rem .7rem; }
+.guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
+.guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
+[hidden] { display: none !important; }
+@media (max-width: 430px) {
+  #guavajam-search { grid-template-columns: minmax(0, 1fr); }
+  #guavajam-search button[type=submit] { width: fit-content; }
+}
+@media print {
+  .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
+  .guavajam-passage-cite, .guavajam-skip { display: none !important; }
+  .guavajam-scrollline, .guavajam-actions, .guavajam-record-list h3 {
+    overflow: visible; white-space: normal;
+  }
+  .guavajam-record-list h3 { display: block; }
+  .guavajam-facets, .guavajam-actions { flex-wrap: wrap; }
+  .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .guavajam-citation-entry:target { outline: none; }
+  .guavajam-site .guavajam-navigation { direction: ltr; overflow: visible; border: 0; }
+  .guavajam-site .guavajam-navigation li:not(:last-child),
+  .guavajam-site .guavajam-navigation li::before { display: none; }
+  .guavajam-record-list > li { break-inside: avoid; }
+}
+
+/* Keep the form itself within the editorial column. Native inputs/selects
+   may have large min-content widths at mobile font sizes. Only deliberate
+   scrolllines and breadcrumbs should overflow horizontally. */
+.guavajam-site main, .guavajam-index-search, .guavajam-listing,
+.guavajam-directory, .guavajam-directory-enhancement, #guavajam-search,
+#guavajam-search > *, .guavajam-filter-fields, .guavajam-filter-fields > * {
+  min-width: 0; max-width: 100%;
+}
+.guavajam-site #guavajam-search select, .guavajam-site #guavajam-search input {
+  min-width: 0; max-width: 100%;
+}
+.guavajam-site #guavajam-search .guavajam-search-filters {
+  width: 100%; min-width: 0;
+}
+.guavajam-site #guavajam-search .guavajam-filter-fields > div { min-width: 0; }
+.guavajam-work-citation { margin-bottom: 1.2rem; }
+/* Bibliographic metadata is one readable outline: titled branches with
+   narrower indented leaves, not three competing record pages or UI cards. */
+.guavajam-metadata-branch { margin: 1.65rem 0; scroll-margin-top: 1rem; }
+.guavajam-metadata-branch h2 { font: 600 1.16rem/1.45 Georgia, Cambria, serif; margin: 0 0 .65rem; }
+.guavajam-metadata-fields {
+  border-inline-start: 2px solid var(--guavajam-border);
+  padding-inline-start: 1rem; margin: 0; min-width: 0;
+}
+.guavajam-metadata-field {
+  display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  column-gap: 1rem; padding: .4rem 0; min-width: 0;
+}
+.guavajam-metadata-field dt { color: var(--guavajam-muted); font: 600 .82rem/1.5 system-ui, sans-serif; }
+.guavajam-metadata-field dd {
+  margin: 0; font: .95rem/1.6 system-ui, sans-serif; overflow-wrap: anywhere;
+  white-space: pre-wrap; min-width: 0;
+}
+.guavajam-metadata-locators { list-style: none; padding: 0; margin: 0; }
+.guavajam-metadata-locators > li { margin: 0 0 .95rem; }
+.guavajam-metadata-leaf {
+  border-inline-start: 2px solid var(--guavajam-border);
+  padding: .15rem 0 .2rem 1rem; min-width: 0;
+}
+.guavajam-metadata-kind {
+  margin: 0 0 .05rem; color: var(--guavajam-muted);
+  font: 700 .74rem/1.5 system-ui, sans-serif; letter-spacing: .025em;
+}
+.guavajam-metadata-leaf h3 {
+  font: 600 1.04rem/1.45 Georgia, Cambria, serif; margin: 0 0 .25rem;
+  overflow-wrap: anywhere;
+}
+.guavajam-metadata-leaf .guavajam-metadata-fields { margin: .35rem 0 0 .35rem; }
+@media (max-width: 580px) {
+  .guavajam-metadata-field { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
+}
+/* The SQLite excerpt is bounded and its marked fragments are DOM text, not HTML. */
+.guavajam-excerpt-label { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: .65rem 0 .2rem; }
+.guavajam-search-excerpt .guavajam-passage-excerpt { margin: 0 0 .65rem; }
+.guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
+.guavajam-passage-excerpt mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
+/* A traditional contents outline: headings, indentation, and clean line
+   spacing rather than horizontal rules between manuscript sections. */
+.guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
+.guavajam-contents-list > ol > li { padding: 0; border: 0; margin: .5rem 0 .8rem; font-weight: 600; }
+.guavajam-contents-list ol ol { margin: .15rem 0 .2rem 1.35rem; }
+.guavajam-contents-list li li { padding: .1rem 0; font-weight: 400; font-size: .95em; }
+.guavajam-contents-list a { display: inline-block; padding: .12rem 0; overflow-wrap: anywhere; }
+
+.guavajam-directory.guavajam-scrollline { max-width: calc(100% + 12px); }
+
+@media print {
+  :is(.guavajam-navigation, .guavajam-scrollline, .guavajam-record-list h3) {
+    padding: 0; margin-inline: 0; max-width: 100%;
+  }
+  .guavajam-record-list h3 { margin-block: 0 .5rem; }
+  .guavajam-record-list > li > article > .guavajam-scrollline { margin-block: .35rem; }
+  .guavajam-record-list > li > article > .guavajam-facets { margin-block: .1rem .45rem; }
+}

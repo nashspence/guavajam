@@ -1,4 +1,4 @@
-"""Launch the optional optional view preview from a publication checkout.
+"""Launch the optional static website preview from a publication checkout.
 
 Only exact committed author branches are read.
 Docker runs an independently pinned GuavaJam image with read-only source,
