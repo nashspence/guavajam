@@ -223,6 +223,7 @@ try {
 
       await page.goto(browse);
       await enable();
+      await page.locator('.guavajam-search-filters summary').click();
       // Long source document titles/paths must not make filters wider than a phone.
       await page.locator('select[name=document]').evaluate(select => {
         const option = document.createElement('option');
@@ -253,6 +254,7 @@ try {
       await page.goto(base + fixture.unpublished + 'browse/index.html');
       assert((await page.locator('#guavajam-static-section').textContent()).includes('No signed editions'));
       await enable(0, 'documents');
+      await page.locator('.guavajam-search-filters summary').click();
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 1');
       assert.equal(await page.locator('#guavajam-search-next').isDisabled(), true);
       for (const kind of ['editions', 'passages']) {
@@ -273,7 +275,7 @@ try {
       await plain.locator('.guavajam-static-pages a[rel=next]').click();
       assert(plain.url().endsWith('/editions/page/2.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 2);
-      assert((await plain.locator('.guavajam-editions').textContent()).includes('Edition 1'));
+      assert((await plain.locator('#guavajam-static-section .guavajam-editions').textContent()).includes('Edition 1'));
       const directory = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       await plain.goto(directory);
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
