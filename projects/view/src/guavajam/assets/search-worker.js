@@ -121,9 +121,8 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       ${fts ? 'JOIN hits m ON m.id=p.id' : ''}`;
   }
   // Publication order is independent of a publisher's claimed Git dates.
-  base += ` WHERE (? = 'all' OR (? = 'previous' AND e.revision <> w.latest_revision)
-                OR (? = 'latest' AND e.revision=w.latest_revision) OR e.revision=?)`;
-  bind.push(String(edition), String(edition), String(edition), String(edition));
+  base += ` WHERE (? = 'all' OR (? = 'latest' AND e.revision=w.latest_revision) OR e.revision=?)`;
+  bind.push(String(edition), String(edition), String(edition));
   if (selected === 'editions') {
     base += ` AND (? = '' OR EXISTS
       (SELECT 1 FROM documents selected WHERE selected.edition_id=e.id AND selected.path=?))`;
