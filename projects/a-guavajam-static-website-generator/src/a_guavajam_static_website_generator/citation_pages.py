@@ -61,7 +61,7 @@ def add_passage_links(html, view, source, anchors, start):
                 edits.append((end, '<a class="guavajam-passage-cite" lang="en" href="' +
                               escape(routes[anchor], quote=True) +
                               '" aria-label="Cite committed source passage ' + escape(anchor, quote=True) +
-                              '">Cite</a>'))
+                              '"><span>Cite</span></a>'))
 
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)

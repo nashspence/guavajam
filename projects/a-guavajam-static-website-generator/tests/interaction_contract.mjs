@@ -52,6 +52,10 @@ export async function hoverControls(page) {
       const s = getComputedStyle(n), label = getComputedStyle(n.querySelector('span') || n);
       return [s.color, s.backgroundColor, s.boxShadow, label.textDecorationLine, label.textDecorationThickness, s.outlineStyle, s.outlineWidth];
     });
+    if (selector === '.guavajam-passage-cite') {
+      assert.equal(await target.locator('span').textContent(), 'Cite');
+      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'underline');
+    }
     const before = await paint(); await target.hover();
     const after = await paint();
     assert.notDeepEqual(after, before, `Hover has no visible feedback: ${selector}`);

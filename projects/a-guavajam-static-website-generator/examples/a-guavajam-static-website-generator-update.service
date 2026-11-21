@@ -1,5 +1,5 @@
 [Unit]
-Description=Refresh the optional GuavaJam presentation from signed publisher history
+Description=Refresh a-guavajam-static-website-generator from signed publisher history
 Wants=network-online.target
 After=network-online.target
 
