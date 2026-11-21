@@ -9,10 +9,12 @@ if (form) {
   const keyword = form.querySelector('select[name="keyword"]');
   const subject = form.querySelector('select[name="subject"]');
   const sort = form.querySelector('select[name="sort"]');
-  const kind = form.querySelector('select[name="kind"]');
-  const edition = form.querySelector('select[name="edition"]');
+  const kind = form.querySelector('[name="kind"]');
+  const edition = form.querySelector('[name="edition"]');
   const documentFilter = form.querySelector('select[name="document"]');
   const enable = document.querySelector('#guavajam-search-enable');
+  const directory = form.dataset.directory || '';
+  if (directory) document.querySelector('#guavajam-directory-enhancement').hidden = false;
   const reload = document.createElement('button');
   reload.id = 'guavajam-search-reload';
   reload.type = 'button';
@@ -23,11 +25,13 @@ if (form) {
   const back = document.querySelector('#guavajam-search-prev');
   const next = document.querySelector('#guavajam-search-next');
   const pageLabel = document.querySelector('#guavajam-search-page');
+  const pagination = pageLabel.closest('nav');
+  const worksHeading = document.querySelector('#guavajam-works-heading');
   let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
   if (work) {
     if (['documents', 'editions', 'passages'].includes(initial.get('kind'))) kind.value = initial.get('kind');
-    if (kind.value === 'editions') edition.value = 'all';
+    if (!directory && kind.value === 'editions') edition.value = 'all';
     if (initial.has('q')) input.value = initial.get('q').slice(0, 256);
   }
 
@@ -36,13 +40,15 @@ if (form) {
     ready = false;
     loading = false;
     worker?.terminate();
-    summary.textContent = 'Search is unavailable. Retry search, or reload the page to refresh the index. The full listing remains below.';
+    summary.textContent = 'Search is unavailable. The static directory pages remain accessible below; retry search or reload.';
     reload.hidden = false;
     fallback.hidden = false;
     results.hidden = true;
     results.removeAttribute('aria-busy');
     back.disabled = next.disabled = true;
     pageLabel.textContent = '';
+    pagination.hidden = true;
+    if (worksHeading) worksHeading.textContent = 'Works';
     if (enable) {
       enable.hidden = false;
       enable.disabled = false;
@@ -63,6 +69,23 @@ if (form) {
     return new URL(value, new URL(form.dataset.root || '../', document.baseURI)).href;
   }
 
+  // A collection's paged HTML lives under page/N.html, while SQLite URLs
+  // remain relative to the collection root. Preserve root-page link shapes.
+  function collectionURL(value) {
+    return (form.dataset.root || '') + value;
+  }
+
+  function recordLink(href, label) {
+    const a = document.createElement('a');
+    a.className = 'guavajam-record-link';
+    a.href = href;
+    a.setAttribute('aria-label', label);
+    a.title = label;
+    // Fixed local icon markup. Untrusted search text is always textContent.
+    a.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3.5h9l3 3V20.5H6z"/><path d="M15 3.5v4h4M9 12h6M9 15h6"/></svg>';
+    return a;
+  }
+
   function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
     results.replaceChildren();
     for (const row of rows) {
@@ -70,38 +93,77 @@ if (form) {
       const article = document.createElement('article');
       const heading = document.createElement('h3');
       const link = document.createElement('a');
-      link.href = work ? workURL(row.url) : row.path + '/index.html';
-      link.textContent = work && resultKind === 'editions' ? (row.title.split('\n')[0] || row.revision.slice(0, 12)) : row.title;
+      link.href = work ? workURL(row.url) :
+        collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
+      link.textContent = row.title;
       heading.append(link);
+      if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
+      else if (resultKind === 'editions') heading.append(recordLink(
+        workURL('editions/' + row.revision + '/index.html'), row.title + ' record'));
       article.append(heading);
-      for (const value of [row.authors, row.abstract]) {
-        if (value) {
-          const paragraph = document.createElement('p');
-          paragraph.textContent = value;
-          article.append(paragraph);
+      if (!work) {
+        const byline = document.createElement('p');
+        byline.className = 'guavajam-byline';
+        if (row.authors) byline.append(document.createTextNode(row.authors));
+        if (row.committer_name) {
+          if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
+          byline.append(document.createTextNode('Committed by '));
+          if (row.committer_email) {
+            const committer = document.createElement('a');
+            committer.href = 'mailto:' + row.committer_email;
+            committer.textContent = row.committer_name;
+            byline.append(committer);
+          } else byline.append(document.createTextNode(row.committer_name));
         }
-      }
-      const meta = document.createElement('p');
-      meta.className = 'guavajam-search-meta';
-      if (work) {
-        const context = [row.revision.slice(0, 12), `Date claim: ${row.published}`];
+        if (row.latest_published) {
+          if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
+          const date = document.createElement('time');
+          date.dateTime = row.latest_published;
+          date.textContent = row.latest_published;
+          byline.append(date);
+        }
+        if (byline.childNodes.length) article.append(byline);
+        if (row.abstract) {
+          const abstract = document.createElement('p');
+          abstract.className = 'guavajam-abstract';
+          abstract.textContent = row.abstract;
+          article.append(abstract);
+        }
+      } else {
+        const meta = document.createElement('p');
+        meta.className = 'guavajam-search-meta';
+        const context = [row.published];
+        if (resultKind !== 'editions') context.unshift(row.revision.slice(0, 12));
         if (resultKind === 'passages') {
           context.push(row.document_title);
           if (row.scope.startsWith('quotation:')) context.push('Quoted passage');
         }
         if (row.document_path) context.push(row.document_path + (row.anchor ? '#' + row.anchor : ''));
+        if (resultKind === 'editions') context.push(row.revision.slice(0, 12));
         meta.textContent = context.join(' · ');
-      } else {
-        meta.textContent = `${row.latest_published || 'Unpublished'} · ${row.edition_count} edition(s) · `;
-        const source = document.createElement('a');
-        source.href = row.repository;
-        source.textContent = 'Source repository';
-        meta.append(source);
+        article.append(meta);
+        if (resultKind === 'editions' && row.message) {
+          const [subject, ...more] = row.message.split('\n');
+          const message = document.createElement('p');
+          message.className = 'guavajam-message';
+          message.textContent = subject;
+          article.append(message);
+          if (more.join('\n').trim()) {
+            const details = document.createElement('details');
+            details.className = 'guavajam-message-detail';
+            const toggle = document.createElement('summary');
+            toggle.textContent = 'Full commit message';
+            const rest = document.createElement('p');
+            rest.className = 'guavajam-message';
+            rest.textContent = more.join('\n');
+            details.append(toggle, rest);
+            article.append(details);
+          }
+        }
       }
-      article.append(meta);
       if (row.hit_url) {
         const match = document.createElement('a');
-        match.href = work ? workURL(row.hit_url) : row.hit_url;
+        match.href = work ? workURL(row.hit_url) : collectionURL(row.hit_url);
         match.textContent = 'View matching edition text';
         article.append(match);
       }
@@ -115,6 +177,8 @@ if (form) {
     const label = work ? ({editions: 'edition(s)', documents: 'document(s)', passages: 'section(s) / passage(s)'}[resultKind]) : 'work(s)';
     summary.textContent = `${total} ${label} found`;
     pageLabel.textContent = `Page ${current} of ${pages}`;
+    pagination.hidden = false;
+    if (worksHeading) worksHeading.textContent = 'Search results';
     back.disabled = current <= 1;
     next.disabled = current >= pages;
     results.removeAttribute('aria-busy');
@@ -129,7 +193,11 @@ if (form) {
       edition: edition?.value, document: documentFilter?.value, sort: sort.value, page});
   }
 
-  function changed() { clearTimeout(timer); page = 1; request(); }
+  function changed() {
+    clearTimeout(timer); page = 1;
+    if (ready) request();
+    else if (form.dataset.lazy === 'interaction') initialize();
+  }
   input.addEventListener('input', () => {
     // Invalidate in-flight replies immediately, including the debounce window.
     sequence++;
@@ -166,15 +234,17 @@ if (form) {
         if (!data.ok) { unavailable(); return; }
         if (data.ready) {
           const values = new Map();
-          for (const select of [keyword, subject, edition, documentFilter].filter(Boolean)) {
+          for (const select of [keyword, subject, edition, documentFilter]
+            .filter(node => node?.tagName === 'SELECT')) {
             values.set(select, select.value);
             for (const node of select.querySelectorAll('option[data-generated]')) node.remove();
           }
           if (work) {
-            for (const item of data.editions) {
+            if (edition?.tagName === 'SELECT') for (const item of data.editions) {
               option(edition, {...item, name: `${item.name.split('\n')[0]} · ${item.published} · ${item.key.slice(0, 12)}`});
             }
-            for (const item of data.documents) option(documentFilter, {...item, name: `${item.name} · ${item.key}`});
+            if (documentFilter?.tagName === 'SELECT') for (const item of data.documents)
+              option(documentFilter, {...item, name: `${item.name} · ${item.key}`});
             if (!initialized) {
               for (const [select, name] of [[edition, 'edition'], [documentFilter, 'document']]) {
                 if (initial.has(name)) values.set(select, initial.get(name));
@@ -211,5 +281,5 @@ if (form) {
     }
   }
   if (enable) enable.addEventListener('click', initialize);
-  else initialize();
+  else if (form.dataset.lazy !== 'interaction') initialize();
 }

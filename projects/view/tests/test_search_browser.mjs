@@ -63,9 +63,26 @@ try {
         await waitTotal(total);
       };
       await page.goto(base);
+      assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'the collection does not download its database or runtime before search is enabled');
+      // Page two has real static links and can activate the same SQLite
+      // worker, including relative URLs rooted two directories higher.
+      await page.locator('.guavajam-static-pages a[rel=next]').click();
+      assert(page.url().endsWith('/page/2.html'));
+      assert.equal(await page.locator('#guavajam-static-list > li').count(), fixture.works - 20);
+      assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../../');
+      assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
+      await page.locator('#guavajam-search-enable').click();
+      await waitTotal(fixture.works);
+      const pagedResult = await page.locator('#guavajam-search-results h3 a').first().getAttribute('href');
+      assert(pagedResult.startsWith('../../sources/'));
+      await query('Glaciolacustrine', 1);
+      const pagedHit = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
+      assert(pagedHit.startsWith('../../sources/'));
+      assert((await page.request.get(new URL(pagedHit, page.url()).href)).ok());
+      await page.goto(base);
       await page.locator('#guavajam-search-enable').focus();
       await page.locator('#guavajam-search-enable').press('Enter');
       await waitTotal(fixture.works);
@@ -78,6 +95,7 @@ try {
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 2);
       assert.equal(await page.locator('#guavajam-search-next').isDisabled(), true);
+      await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Work 01');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
@@ -100,6 +118,7 @@ try {
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
       await query('', fixture.works);
+      await page.locator('.guavajam-search-filters summary').click();
       const options = await page.locator('select[name=subject] option').evaluateAll(nodes => nodes.slice(1).map(n => ({key: n.value, label: n.textContent})));
       assert.equal(options.length, 2);
       assert.equal(new Set(options.map(o => o.key)).size, 2);
@@ -145,7 +164,13 @@ try {
       const disabled = await browser.newContext({javaScriptEnabled: false});
       const plain = await disabled.newPage();
       await plain.goto(base);
-      assert.equal(await plain.locator('#guavajam-static-list > li').count(), fixture.works);
+      assert.equal(await plain.locator('#guavajam-static-list > li').count(), 20);
+      await plain.locator('.guavajam-static-pages a[rel=next]').click();
+      assert(plain.url().endsWith('/page/2.html'));
+      assert.equal(await plain.locator('#guavajam-static-list > li').count(), fixture.works - 20);
+      await plain.locator('.guavajam-static-pages a[rel=prev]').click();
+      assert(plain.url().endsWith('/index.html'));
+      assert.equal(await plain.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-static-list').isVisible(), true);
       await plain.locator('#guavajam-static-list h3 a').first().click();
       assert(plain.url().startsWith(base + 'sources/'));
@@ -168,7 +193,7 @@ try {
         await fallback.locator('#guavajam-search-enable').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
-        assert.equal(await fallback.locator('#guavajam-static-list > li').count(), fixture.works);
+        assert.equal(await fallback.locator('#guavajam-static-list > li').count(), 20);
         await failure.close();
       }
       // An open page may outlive an atomic deployment which removes its old

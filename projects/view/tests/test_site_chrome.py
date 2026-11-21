@@ -1,0 +1,200 @@
+"""Static View chrome needs no signed fixtures, network, or JavaScript."""
+from html.parser import HTMLParser
+import json
+from pathlib import Path
+from unittest.mock import patch
+import tempfile
+import unittest
+
+from guavajam.site import citation_control, committer_identity, page
+from guavajam.directory_pages import _history_row
+from guavajam.work_search import publication_navigation
+
+
+class Controls(HTMLParser):
+    def __init__(self, html):
+        self.nodes = []
+        super().__init__()
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        self.nodes.append((tag, dict(attrs)))
+
+
+class ChromeTests(unittest.TestCase):
+    def setUp(self):
+        self.citation = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
+                         'revision': 'c' * 40, 'manuscript': 'content/manuscript.md'}
+
+    def test_breadcrumb_is_normal_sized_single_title_and_citation_is_first(self):
+        html = page('Work — Edition 2', '<p>Abstract first.</p>',
+                    ancestors=(('../../index.html', 'GuavaJam'), ('../index.html', 'Work')),
+                    breadcrumb_current='Edition 2', citation_record=self.citation,
+                    citation_href='CITATION.json', citation_title='Work',
+                    citation_authors='Morgan Reed', citation_edition=2,
+                    citation_published='2025-01-02')
+        nodes = Controls(html).nodes
+        self.assertEqual(1, [tag for tag, _ in nodes].count('h1'))
+        self.assertIn('aria-current="page">Edition 2</h1>', html)
+        self.assertIn('aria-label="Breadcrumb" tabindex="0"', html)
+        self.assertIn('.guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit;', html)
+        self.assertNotIn('clamp(1.5rem, 3.5vw, 2rem)', html)
+        self.assertLess(html.index('<blockquote class="guavajam-citation"'), html.index('Abstract first.'))
+        self.assertIn('Morgan Reed. <cite>Work</cite>. Edition 2, 2025-01-02.', html)
+        self.assertIn('Git commit <code>' + 'c' * 40 + '</code>', html)
+        self.assertIn('download aria-label="Download official citation JSON"', html)
+        self.assertFalse(any(tag == 'input' and attrs.get('id') == 'guavajam-citation-value'
+                             for tag, attrs in nodes))
+        self.assertNotIn('<script', html)
+
+    def test_citation_includes_exact_supporting_document_and_escapes_titles(self):
+        supporting = {**self.citation, 'document': 'content/supporting/note.md'}
+        html = citation_control(supporting, 'note.citation.json', title='Work & Research',
+                                document_title='Note <One>', authors='Mara & Lee', edition_number=7)
+        self.assertIn('Mara &amp; Lee. <cite>Note &lt;One&gt;</cite>. In <cite>Work &amp; Research</cite>. Edition 7.', html)
+        self.assertIn('content/supporting/note.md</code>', html)
+        self.assertIn('<blockquote class="guavajam-citation"', html)
+        self.assertIn('href="note.citation.json" download', html)
+
+    def test_collection_has_no_fabricated_commit_and_feed_is_optional(self):
+        html = page('GuavaJam', '<p>Collection description.</p>')
+        self.assertNotIn('class="guavajam-citation"', html)
+        self.assertNotIn('class="guavajam-feed-link"', html)
+        with_feed = page('Work', '<p>Work.</p>', atom_href='atom.xml')
+        self.assertIn('href="atom.xml" aria-label="Publication updates (Atom)"', with_feed)
+
+    def test_committer_contact_comes_from_git_and_rejects_invalid_mailto(self):
+        header = (b'tree ' + b'0' * 40 + b'\ncommitter Morgan Reed <morgan@example.org> '
+                  b'1795000000 +0000\n')
+        with patch('guavajam_core.publication_protocol.commit', return_value=(header, b'')):
+            self.assertEqual({'name': 'Morgan Reed', 'email': 'morgan@example.org'},
+                             committer_identity(Path('/unused'), 'c' * 40))
+        bad = header.replace(b'morgan@example.org', b'morgan@example.org?subject=Hello')
+        with patch('guavajam_core.publication_protocol.commit', return_value=(bad, b'')):
+            self.assertEqual('', committer_identity(Path('/unused'), 'c' * 40)['email'])
+
+    def test_reader_copies_use_bibliographic_blockquotes_and_directory_heading_once(self):
+        with tempfile.TemporaryDirectory() as temp:
+            edition = Path(temp)
+            read = edition / 'read'
+            (read / 'supporting').mkdir(parents=True)
+            extra = {**self.citation, 'document': 'content/supporting/note.md'}
+            for path, cited in ((edition / 'CITATION.json', self.citation),
+                                (read / 'source.citation.json', self.citation),
+                                (read / 'supporting/note.citation.json', extra)):
+                path.write_text(json.dumps(cited))
+            for path in (read / 'index.html', read / 'supporting/note.html', read / 'documents.html'):
+                title = 'Documents in this edition' if path.name == 'documents.html' else 'Source heading'
+                path.write_text('<!doctype html><html><head><style>body{margin:0}</style></head><body>'
+                                '<header class="guavajam-status"><span>Verified signed source</span></header>'
+                                '<main id="guavajam-main"><article class="guavajam-edition">'
+                                '<div class="guavajam-source-identity">Old source label</div>'
+                                '<h1>' + title + '</h1>' +
+                                ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
+                                 if path.name == 'documents.html' else '') +
+                                '</article></main><footer></footer></body></html>')
+            view = {'facts': {'author': 'Mara Levin'},
+                    'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work'},
+                                  'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note'}},
+                    'files': {}}
+            publication_navigation(read, view, 'c' * 40, work_title='Work', edition_number=2,
+                                   published='2026-11-03')
+            for relative in ('index.html', 'supporting/note.html', 'documents.html'):
+                html = (read / relative).read_text()
+                self.assertIn('aria-label="Breadcrumb"', html)
+                self.assertIn('<blockquote class="guavajam-citation"', html)
+                self.assertIn('Mara Levin. ', html)
+                self.assertIn('Edition 2, 2026-11-03.', html)
+                self.assertNotIn('<script', html)
+                self.assertLess(html.index('class="guavajam-citation"'), html.index('<article'))
+                self.assertEqual(1, [tag for tag, _ in Controls(html).nodes].count('h1'))
+            self.assertNotIn('<h1>Documents in this edition</h1>', (read / 'documents.html').read_text())
+            self.assertIn('<h1 aria-current="page">Documents</h1>', (read / 'documents.html').read_text())
+            supporting = (read / 'supporting/note.html').read_text()
+            self.assertIn('Note</cite>. In <cite>Work</cite>', supporting)
+            self.assertIn('content/supporting/note.md</code>', supporting)
+            self.assertIn('href="note.citation.json"', supporting)
+
+    def test_history_rows_include_verified_message_and_metadata_for_filtering(self):
+        earlier = [('a' * 40, 'Edition 1', '2025-06-08', 'Fix citations\n\nReviewed provenance notes.'),
+                   ('b' * 40, 'Edition 2', '2025-05-12', 'Review <attachments> & notes')]
+        html = ''.join(_history_row(row, links_prefix='') for row in reversed(earlier))
+        self.assertLess(html.index('Edition 2</a>'), html.index('Edition 1</a>'))
+        self.assertIn('Review &lt;attachments&gt; &amp; notes', html)
+        self.assertIn('Fix citations', html)
+        self.assertIn('Reviewed provenance notes.', html)
+        self.assertIn('<summary>Full commit message</summary>', html)
+        self.assertIn('<time datetime="2025-06-08">2025-06-08</time>', html)
+        self.assertIn('title="' + 'a' * 40 + '"', html)
+        self.assertNotIn('listing.js', html)
+
+    def test_site_build_keeps_history_and_documents_on_separate_static_pages(self):
+        from guavajam.site import _build
+        sha1, sha2 = 'a' * 40, 'b' * 40
+        catalog = {'tip': sha2, 'editions': [
+            {'revision': sha1, 'published': '2026-11-01', 'message': 'Initial'},
+            {'revision': sha2, 'published': '2026-11-03', 'message': 'Update'}]}
+        fact = {'title': 'Shoreline research', 'author': 'Mara Levin',
+                'abstract': 'Observations of the coast.'}
+        documents = {'content/manuscript.md': {'title': 'Shoreline research', 'view': 'index.html'},
+                     'content/supporting/note.md': {'title': 'Note', 'view': 'supporting/note.html'}}
+
+        def render_stub(_repo, revision, target, **_kwargs):
+            target.mkdir()
+            (target / 'supporting').mkdir()
+            view = {'facts': fact, 'documents': documents, 'files': {}}
+            (target / 'VIEW.json').write_text(json.dumps(view))
+            (target / 'NAV.json').write_text(json.dumps({'documents': documents}))
+            for relative, heading in (('index.html', 'Shoreline research'),
+                                      ('documents.html', 'Documents in this edition'),
+                                      ('supporting/note.html', 'Note')):
+                path = target / relative
+                path.write_text('<!doctype html><html><head><style>body{margin:0}</style></head>'
+                                '<body><header class="guavajam-status"><span>Verified signed source</span></header>'
+                                '<main id="guavajam-main"><article class="guavajam-edition">'
+                                '<div class="guavajam-source-identity">Source</div>'
+                                '<h1>' + heading + '</h1>' +
+                                ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
+                                 if relative == 'documents.html' else '') +
+                                '</article></main><footer></footer></body></html>')
+
+        def verify_stub(_repo, revision, **_kwargs):
+            return {'schema': 'guavajam.source-citation.v1', 'revision': revision,
+                    'hash_algorithm': 'sha1', 'manuscript': 'content/manuscript.md',
+                    'documents': {path: [] for path in documents}}
+
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / 'site'
+            with (patch('guavajam.site.verify', side_effect=verify_stub),
+                  patch('guavajam.site.render', side_effect=render_stub),
+                  patch('guavajam.site.git_blob', return_value=b'example source'),
+                  patch('guavajam.site.committer_identity', return_value={'name': 'Mara', 'email': ''}),
+                  patch('guavajam.work_search.build_work_index', return_value=None)):
+                _build(Path(temp), catalog, output, fingerprints=(), allowed_signers=None,
+                       view_cache=None, repository='https://github.com/example/work.git',
+                       search_assets='../../')
+            work = (output / 'index.html').read_text()
+            record = (output / 'editions' / sha2 / 'index.html').read_text()
+            history = (output / 'editions/index.html').read_text()
+            directory = (output / 'editions' / sha2 / 'read/documents.html').read_text()
+            self.assertIn('href="editions/index.html">Previous editions</a>', work)
+            self.assertNotIn('>Edition 1</a>', work)
+            self.assertIn('>Edition 1</a>', history)
+            self.assertNotIn('>Edition 2</a>', history)
+            self.assertIn('href="' + sha1 + '/read/index.html"', history)
+            self.assertIn('>Initial</p>', history)
+            self.assertIn('id="guavajam-static-section"', history)
+            self.assertIn('id="guavajam-static-section"', directory)
+            self.assertNotIn('listing.js', json.loads((output / 'SITE.json').read_text())['files'])
+            self.assertNotIn('<script', history)
+            self.assertNotIn('<script', directory)
+            self.assertIn('href="read/documents.html">Documents</a>', record)
+            self.assertNotIn('class="guavajam-byline"', record)
+            self.assertIn('Mara Levin. <cite>Shoreline research</cite>', record)
+            self.assertNotIn('<h1>Documents in this edition</h1>', directory)
+            self.assertIn('<h1 aria-current="page">Documents</h1>', directory)
+            self.assertIn('editions/index.html', json.loads((output / 'SITE.json').read_text())['files'])
+
+
+if __name__ == '__main__':
+    unittest.main()

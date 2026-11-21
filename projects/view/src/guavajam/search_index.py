@@ -158,6 +158,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE TABLE works (
                 id INTEGER PRIMARY KEY, repository_id INTEGER NOT NULL UNIQUE REFERENCES repositories(id),
                 title TEXT NOT NULL, authors TEXT NOT NULL, abstract TEXT NOT NULL,
+                committer_name TEXT NOT NULL, committer_email TEXT NOT NULL,
                 language TEXT NOT NULL, latest_published TEXT NOT NULL,
                 latest_revision TEXT NOT NULL, edition_count INTEGER NOT NULL, labels TEXT NOT NULL
             );
@@ -236,9 +237,10 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                 conn.execute('INSERT INTO repositories VALUES (?,?,?,?)',
                              (number, entry['repository'], entry['path'], entry['tip']))
                 # Populate the work after its verified edition rows have been read.
-                conn.execute('INSERT INTO works VALUES (?,?,?,?,?,?,?,?,?,?)',
-                             (number, number, manifest['title'], '', '', '', '', '', len(editions), ''))
+                conn.execute('INSERT INTO works VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                             (number, number, manifest['title'], '', '', '', '', '', '', '', len(editions), ''))
                 recent_facts = {}
+                recent_committer = {'name': '', 'email': ''}
                 for position, edition in enumerate(editions):
                     sha = edition['revision']
                     if not re.fullmatch(r'[a-f0-9]{40}', sha):
@@ -253,6 +255,14 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                         raise CatalogError('search: navigation inventories exceed indexing bounds')
                     facts = view['facts']
                     recent_facts = facts
+                    committer_file = _owned(root, 'editions/' + sha + '/COMMITTER.json')
+                    if committer_file.is_file():
+                        recent_committer = _json(root, 'editions/' + sha + '/COMMITTER.json', maximum=4096)
+                        if (not isinstance(recent_committer, dict)
+                                or set(recent_committer) != {'name', 'email'}
+                                or not all(isinstance(value, str) and len(value) <= 512
+                                           for value in recent_committer.values())):
+                            raise CatalogError('search: invalid generated committer display metadata')
                     authors, labels = _authors(facts), _labels(facts)
                     cursor = conn.execute('INSERT INTO editions '
                                           '(work_id,position,revision,tree,published,title,message,facts_json) '
@@ -319,11 +329,11 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                  labels, anchor['text'], provenance + ' ' + anchor['anchor']))
                 if editions:
                     latest = editions[-1]
-                    conn.execute('UPDATE works SET title=?,authors=?,abstract=?,language=?,latest_published=?, '
-                                 'latest_revision=?,labels=? WHERE id=?',
+                    conn.execute('UPDATE works SET title=?,authors=?,abstract=?,committer_name=?,committer_email=?, '
+                                 'language=?,latest_published=?,latest_revision=?,labels=? WHERE id=?',
                                  (recent_facts['title'], _authors(recent_facts), recent_facts.get('abstract', ''),
-                                  recent_facts['language'], latest['published'], latest['revision'],
-                                  _labels(recent_facts), number))
+                                  recent_committer['name'], recent_committer['email'], recent_facts['language'],
+                                  latest['published'], latest['revision'], _labels(recent_facts), number))
                     for keyword in recent_facts.get('keywords', []):
                         conn.execute('INSERT OR IGNORE INTO keywords VALUES (?,?)', (number, keyword))
                     for subject in recent_facts.get('subjects', []):
@@ -390,60 +400,106 @@ def emit_browser_assets(site):
 
 
 def homepage(site, *, interactive):
-    """Every work stays reachable before JavaScript and after search failure."""
-    from .site import page
-    with closing(sqlite3.connect(Path(site) / 'index.sqlite')) as conn:
-        rows = conn.execute('''
-            SELECT w.id, w.title, w.authors, w.abstract, w.latest_published, w.edition_count, r.path, r.url
-            FROM works w JOIN repositories r ON r.id=w.repository_id
-            ORDER BY w.latest_published DESC, w.title COLLATE NOCASE, w.id
-        ''').fetchall()
-        entries = []
-        for identifier, title, authors, abstract, date, count, path, source in rows:
-            keywords = [row[0] for row in conn.execute('SELECT name FROM keywords WHERE work_id=? ORDER BY name', (identifier,))]
-            subjects = [row[0] for row in conn.execute('SELECT label FROM subjects WHERE work_id=? ORDER BY label', (identifier,))]
-            entries.append('<li><article><h3><a href="' + escape(path + '/index.html', quote=True) + '">' +
-                           escape(title) + '</a></h3>' +
-                           ('<p>' + escape(authors) + '</p>' if authors else '') +
-                           ('<p>' + escape(abstract) + '</p>' if abstract else '') +
-                           ('<p>Keywords: ' + escape(', '.join(keywords)) + '</p>' if keywords else '') +
-                           ('<p>Subjects: ' + escape('; '.join(subjects)) + '</p>' if subjects else '') +
-                           '<p>' + escape(date or 'Unpublished') + ' · ' + str(count) +
-                           ' edition(s) · <a href="' + escape(source, quote=True) +
-                           '">Source repository</a></p></article></li>')
-    body = '<p>Discover independently verified works, editions and their source documents.</p>'
-    if interactive:
-        download = emit_download(Path(site) / 'index.sqlite')
-        body += ('<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
-                 '<h2 id="guavajam-search-heading">Search publications</h2>'
-                 '<p id="guavajam-search-scope">Search covers all published editions. Keyword and subject '
-                 'filters describe each work’s latest edition. Dates are publisher-supplied Git dates.</p>'
-                 '<p>Enable search to download this collection’s local index (' +
-                 str((download['transfer_size'] + 1023) // 1024) +
-                 ' KiB compressed) and search engine. All works remain listed below.</p>'
-                 '<button type="button" id="guavajam-search-enable">Enable search</button>'
-                 '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" ' +
-                 download_attributes(download) + '>'
-                 '<div><label for="guavajam-query">Text search</label>'
-                 '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
-                 '<div><label for="guavajam-keyword">Keyword</label>'
-                 '<select id="guavajam-keyword" name="keyword"><option value="">All keywords</option></select></div>'
-                 '<div><label for="guavajam-subject">Subject</label>'
-                 '<select id="guavajam-subject" name="subject"><option value="">All subjects</option></select></div>'
-                 '<div><label for="guavajam-sort">Sort</label><select id="guavajam-sort" name="sort">'
-                 '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
-                 '<option value="title">Title</option><option value="oldest">Oldest</option>'
-                 '<option value="editions">Most editions</option></select></div>'
-                 '<button type="submit">Search</button></form>'
-                 '<p id="guavajam-search-status" role="status" aria-live="polite">Search has not been enabled.</p>'
-                 '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>'
-                 '<nav aria-label="Search result pages">'
-                 '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
-                 '<span id="guavajam-search-page"></span>'
-                 '<button type="button" id="guavajam-search-next" disabled>Next</button>'
-                 '</nav></section>')
-    body += ('<section id="guavajam-static-section"><h2>All works</h2>'
-             '<ol id="guavajam-static-list" class="guavajam-works">' + ''.join(entries) + '</ol></section>')
-    if interactive:
-        body += '<script src="search.js" defer></script>'
-    return page('Publications', body, search=interactive)
+    """Emit a bounded static works directory, enhanced by the existing SQLite UI.
+
+    Each index page contains at most PAGE_SIZE works. The other pages are real
+    HTML documents linked with ordinary hrefs, not JS-dependent slices of a
+    large hidden list. Querying/searching/sorting in the browser still uses
+    the same collection SQLite worker and only loads on interaction.
+    """
+    from .directory_pages import PAGE_SIZE, _static_pager
+    from .site import detail_link, page
+
+    site = Path(site)
+    first_html = None
+    with closing(sqlite3.connect(site / 'index.sqlite')) as conn:
+        count = conn.execute('SELECT count(*) FROM works').fetchone()[0]
+        pages = max(1, (count + PAGE_SIZE - 1) // PAGE_SIZE)
+        cursor = conn.execute('''
+            SELECT w.id,w.title,w.authors,w.abstract,w.latest_published,w.latest_revision,
+              w.committer_name,w.committer_email,r.path,r.url
+            FROM works w JOIN repositories r ON w.repository_id=r.id
+            ORDER BY w.latest_published DESC,w.title COLLATE NOCASE,w.id
+        ''')
+        download = emit_download(site / 'index.sqlite') if interactive else None
+        for number in range(1, pages + 1):
+            base = '' if number == 1 else '../../'
+            entries = []
+            for _, title, authors, abstract, day, revision, committer_name, committer_email, path, source in cursor.fetchmany(PAGE_SIZE):
+                work = base + path + '/'
+                target = (work + 'editions/' + revision + '/read/index.html') if revision else work + 'index.html'
+                byline = escape(authors) if authors else ''
+                if committer_name:
+                    name = escape(committer_name)
+                    if committer_email:
+                        name = '<a href="mailto:' + escape(committer_email, quote=True) + '">' + name + '</a>'
+                    byline += (' · ' if byline else '') + 'Committed by ' + name
+                if day:
+                    byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
+                entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
+                               escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
+                               '</h3>' +
+                               ('<p class="guavajam-byline">' + byline + '</p>' if byline else '') +
+                               ('<p class="guavajam-abstract">' + escape(abstract) + '</p>' if abstract else '') +
+                               '</article></li>')
+            body = '<p>Browse independently verified works and their signed editions.</p>'
+            if interactive:
+                body += (
+                    '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
+                    '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find a work</h2>'
+                    '<button type="button" id="guavajam-search-enable">Enable search</button></div>'
+                    '<p class="guavajam-search-help" id="guavajam-search-scope">Optional local search across '
+                    'all signed editions; downloads ' + str((download['transfer_size'] + 1023) // 1024) +
+                    ' KiB of index data only when enabled. Browse the static pages below without search.</p>'
+                    '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
+                    'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
+                    'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
+                    download_attributes(download, prefix=base) + '>'
+                    '<div class="guavajam-query-field"><label for="guavajam-query">Search works</label>'
+                    '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
+                    '<button type="submit">Search</button>'
+                    '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
+                    '<div class="guavajam-filter-fields">'
+                    '<div><label for="guavajam-keyword">Keyword</label>'
+                    '<select id="guavajam-keyword" name="keyword"><option value="">All keywords</option></select></div>'
+                    '<div><label for="guavajam-subject">Subject</label>'
+                    '<select id="guavajam-subject" name="subject"><option value="">All subjects</option></select></div>'
+                    '<div><label for="guavajam-sort">Sort</label><select id="guavajam-sort" name="sort">'
+                    '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
+                    '<option value="title">Title</option><option value="oldest">Oldest</option>'
+                    '<option value="editions">Most editions</option></select></div></div></details>'
+                    '</form></section>')
+            body += '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
+            body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading">Works</h2>'
+            if interactive:
+                body += (
+                    '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
+                    'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
+                    '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>')
+            body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
+                     'class="guavajam-works">' + ''.join(entries) + '</ol>')
+            body += _static_pager(number, pages,
+                                  first_href='index.html' if number == 1 else '../../index.html',
+                                  page_prefix='page/' if number == 1 else '')
+            body += '</div>'
+            if interactive:
+                body += (
+                    '<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
+                    '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
+                    '<span id="guavajam-search-page"></span>'
+                    '<button type="button" id="guavajam-search-next" disabled>Next</button>'
+                    '</nav>')
+            body += '</section>'
+            if interactive:
+                body += '<script src="' + escape(base + 'search.js', quote=True) + '" defer></script>'
+            # A collection spans Git repositories and cannot have one canonical
+            # publication-commit citation.
+            html = page('GuavaJam' if number == 1 else f'GuavaJam — page {number}',
+                        body, search=interactive, breadcrumb_current='GuavaJam')
+            if number == 1:
+                first_html = html
+            else:
+                target = site / 'page' / f'{number}.html'
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(html, encoding='utf-8')
+    return first_html
