@@ -18,18 +18,19 @@ from guavajam_core.catalog import encoded
 from .navigation import document_directory
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
-from .site import detail_link, page
+from .site import page
 
 
 def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
-    """Markup binds to search.js/search-worker.js, without another query layer.
+    """Use the collection's explicit, opt-in SQLite search disclosure.
 
-    Hidden until the JavaScript controller has loaded: a no-JS directory shows
-    only working static links, not nonfunctional form controls. The worker's
-    database and wasm are fetched after search/sort interaction, not on load.
+    JS only reveals the controls. It must not fetch the worker/WASM/database
+    until Enable search (or an explicit form submission). Static HTML is still
+    complete, bounded and navigable without a script or a secondary index.
     """
     history = kind == 'editions'
     citations = kind == 'citations'
+    heading = 'Find versions' if history else 'Find passages' if citations else 'Find documents'
     label = ('Search versions and commit messages' if history else
              'Search passages in this document' if citations else 'Search documents and contents')
     sorts = (('<option value="publication">Publication order (newest)</option>'
@@ -40,24 +41,33 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
              ('<option value="publication">Source order</option>'
               '<option value="title">Title (A–Z)</option>'
               '<option value="relevance">Relevance</option>'))
-    return ('<section class="guavajam-directory-enhancement" id="guavajam-directory-enhancement" hidden>'
-            '<form id="guavajam-search" role="search" data-scope="work" '
-            'data-directory="' + escape(kind, quote=True) + '" data-lazy="interaction" '
+    kib = (download['transfer_size'] + 1023) // 1024
+    return ('<section class="guavajam-index-search guavajam-directory-enhancement" '
+            'id="guavajam-directory-enhancement" aria-labelledby="guavajam-search-heading" hidden>'
+            '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">' + heading + '</h2>'
+            '<button type="button" id="guavajam-search-enable">Enable search</button></div>'
+            '<p class="guavajam-search-help" id="guavajam-search-scope">Optional local SQLite search; '
+            'downloads ' + str(kib) + ' KiB of index data only when enabled. '
+            'Browse the static pages below without search.</p>'
+            '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
+            'data-scope="work" data-directory="' + escape(kind, quote=True) + '" '
             'data-root="' + escape(root, quote=True) + '" ' +
             download_attributes(download, prefix=root) +
             ' data-worker="' + escape(root + runtime + 'search-worker.js', quote=True) + '">'
             '<div class="guavajam-query-field"><label for="guavajam-query">' + escape(label) + '</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
-            '<div class="guavajam-query-sort"><label for="guavajam-sort">Sort</label>'
-            '<select id="guavajam-sort" name="sort">' + sorts + '</select></div>'
             '<button type="submit">Search</button>'
+            '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
+            '<div class="guavajam-filter-fields"><div class="guavajam-query-sort">'
+            '<label for="guavajam-sort">Sort</label>'
+            '<select id="guavajam-sort" name="sort">' + sorts + '</select></div></div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
             ('<input type="hidden" name="document" value="' + escape(document, quote=True) + '">'
                if citations else '') +
             '</form>'
             '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-            'Search or change sort to load the SQLite index.</p>'
+            'Select Enable search to explore the SQLite index.</p>'
             '<ol id="guavajam-search-results" class="guavajam-editions" hidden></ol>'
             '<nav class="guavajam-pagination" aria-label="SQLite search result pages" hidden>'
             '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
@@ -72,10 +82,11 @@ def _history_row(edition, *, links_prefix):
     subject, _, details = message.partition('\n')
     html = ('<li><h2><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
             '">' + escape(label) + '</a>' +
-            detail_link(links_prefix + revision + '/verify.html', 'Verify ' + label) +
             '</h2><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
-            '">' + escape(revision[:12]) + '</code></p>' +
+            '">' + escape(revision[:12]) + '</code> · <a href="' +
+            escape(links_prefix + revision + '/verify.html', quote=True) +
+            '">Verify</a></p>' +
             '<p class="guavajam-message">' + escape(subject) + '</p>')
     if details.strip():
         html += ('<details class="guavajam-message-detail"><summary>Full commit message</summary>'
@@ -105,9 +116,9 @@ def _write_history(output, entries, title, *, collection, runtime, download):
         body += _static_pager(number, len(chunks), first_href='index.html' if first else '../index.html',
                               page_prefix='page/' if first else '')
         body += '</section>'
-        destination.write_text(page('History' if first else f'History — page {number}',
+        destination.write_text(page('Versions' if first else f'Versions — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
-                                    breadcrumb_current='History'), encoding='utf-8')
+                                    breadcrumb_current='Versions'), encoding='utf-8')
 
 
 def _write_documents(output, entries, *, collection, runtime, download):

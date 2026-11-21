@@ -123,11 +123,11 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                     (relative('../../../index.html'), title),
                     (relative('index.html'), 'v' + str(position)),) + (
                     ((relative(reader), 'Supporting document'),) if document_title else ())
-                body = ('<p>Use the verified source identity below when citing a document or passage.</p>'
-                        '<h2>Committed passages</h2>')
+                body = '<p>Use the verified source identity below when citing a document or passage.</p>'
                 if download is not None:
                     body += _sqlite_controls(kind='citations', edition=revision, document=source,
                                              root=root, runtime=runtime, download=download)
+                body += '<h2 class="guavajam-list-heading">Passages</h2>'
                 body += '<section id="guavajam-static-section" class="guavajam-directory">'
                 pager = _static_pager(number, len(chunks), first_href=relative(citation_page(reader)),
                                       page_prefix=relative(str(PurePosixPath(citation_page(reader)).with_suffix('') / 'page')) + '/')

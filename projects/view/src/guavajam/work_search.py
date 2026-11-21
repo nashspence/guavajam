@@ -5,6 +5,7 @@ from contextlib import closing
 import hashlib
 from html import escape
 import json
+import re
 from pathlib import Path
 import sqlite3
 
@@ -94,12 +95,13 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                 # second edition cover, repeated abstract, or extra citation.
                 citation_html += ('<nav class="guavajam-actions guavajam-version-menu" '
                                   'aria-label="Version links">'
-                                  '<a href="cite.html">Cite</a>'
+                                  '<a href="cite.html">Passages</a>'
                                   '<a href="source.gfm" download>Download</a>'
                                   '<a href="documents.html">Documents</a>'
                                   '<a href="../../../browse/index.html?edition=' +
                                   escape(revision, quote=True) + '">Search</a>'
-                                  '<a href="../verify.html">Verify</a></nav>')
+                                  '<a href="../verify.html">Verify</a>'
+                                  '<a href="../license.html">License</a></nav>')
             else:
                 citation_html += ('<p class="guavajam-actions"><a href="' +
                                   escape(relative_href(relative, citation_page(relative)), quote=True) +
@@ -108,7 +110,12 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                             citation_html + '<article class="guavajam-edition"', 1)
         text = text.replace('<div class="guavajam-source-identity">',
                             '<div class="guavajam-source-identity" hidden>', 1)
-        text = text.replace('<footer>', '<footer><p>Verified signed source</p>', 1)
+        # Replace renderer-only rights/identity boilerplate in the published
+        # site-owned copy. The signed rights statement has a License page.
+        from .site import generator_footer
+        text, replaced = re.subn(r'<footer>.*?</footer>', generator_footer(), text, count=1, flags=re.S)
+        if replaced != 1:
+            raise CatalogError('work navigation: expected one renderer footer')
         path.write_text(text, encoding='utf-8')
         view['files'][relative] = hashlib.sha256(text.encode('utf-8')).hexdigest()
     (reader / 'VIEW.json').write_bytes(encoded(view))
@@ -185,7 +192,7 @@ def browse_page(output, catalog, *, interactive, assets):
     body += '<nav id="guavajam-static-section" class="guavajam-directory" aria-label="Static directories">'
     if latest:
         body += '<a href="../editions/' + latest + '/read/documents.html">Documents</a>'
-        body += ' · <a href="../editions/index.html">History</a>'
+        body += ' · <a href="../editions/index.html">Versions</a>'
     else:
         body += '<p>No signed editions have been published on the selected history.</p>'
     body += '</nav>'

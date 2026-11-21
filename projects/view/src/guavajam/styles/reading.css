@@ -164,9 +164,13 @@ a:focus-visible, .guavajam-scroll:focus-visible, pre:focus-visible {
   text-decoration: none;
   vertical-align: middle;
 }
-.guavajam-permalink:hover, .guavajam-permalink:focus-visible {
-  background: var(--guavajam-tint);
-  border-radius: .2rem;
+/* The targeted heading/paragraph owns the tint. Painting an independent
+   2.75rem rectangle behind ¶ obscures the continuous passage highlight. */
+.guavajam-permalink:hover { text-decoration: underline; }
+.guavajam-permalink:focus-visible { text-decoration: underline; }
+.guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target .guavajam-permalink {
+  background: transparent;
+  color: var(--guavajam-link);
 }
 
 blockquote {

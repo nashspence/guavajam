@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -56,7 +57,9 @@ class PeriodicUpdateTests(unittest.TestCase):
         read = self.output / 'current/editions' / self.revision / 'read'
         paths = ('index.html', 'cite.html', 'cite/passage/opening.json',
                  'source.gfm', 'source.citation.json')
-        expected = {name: (read / name).read_bytes() for name in paths}
+        def without_generator_time(data):
+            return re.sub(rb'<footer>.*?</footer>', b'<footer>generated</footer>', data, flags=re.S)
+        expected = {name: without_generator_time((read / name).read_bytes()) for name in paths}
         cache = next((self.output / '.cache').glob('*/*/index.html')).parent
         self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
         self.assertFalse((cache / 'cite.html').exists())
@@ -69,7 +72,7 @@ class PeriodicUpdateTests(unittest.TestCase):
         self.p.git('add', 'README.md'); self.p.git('commit', '-qm', 'Housekeeping')
         with patch('guavajam.view_cache.render', side_effect=AssertionError('reuse edition')):
             self.assertTrue(self.update()['changed'])
-        self.assertEqual(expected, {name: (read / name).read_bytes() for name in paths})
+        self.assertEqual(expected, {name: without_generator_time((read / name).read_bytes()) for name in paths})
         html = (read / 'index.html').read_text()
         self.assertEqual(1, html.count('href="cite.html#citation:opening"'))
         self.assertNotIn('<script', html)
