@@ -79,8 +79,9 @@ class WorkSearchTests(unittest.TestCase):
         with manuscript.open('a') as stream:
             stream.write('\n<a id="detail"></a>\n### Opening detail\n\nA nested estuary observation.\n')
             for number in range(1, 25):
+                marker = ' Pelagicendpointselector.' if number == 24 else ''
                 stream.write(f'\n<a id="section-{number}"></a>\n## Observation {number}\n\n'
-                             f'Observation number {number} has independently addressable source text.\n')
+                             f'Observation number {number} has independently addressable source text.{marker}\n')
         cls.latest = cls.publisher.publish('Current observation', date='2025-11-01T12:00:00Z')
         cls.site = cls.root / 'collection/works/field-notes'
         build_site(cls.publisher.repo, cls.site, **cls.publisher.trust, search_assets='')
@@ -255,13 +256,14 @@ class WorkSearchTests(unittest.TestCase):
                     links = Links(reading.read_text())
                     self.assertIn(origin + row['citation_url'], [
                         urljoin(origin + row['reader_url'], href) for href in links.passage_citations])
-            # Query a later source passage by its unique anchor label. This hit
+            # Query a later source passage by a unique word, never a number that
+            # can also occur in random Git provenance. This hit
             # becomes result one but must still link to the second static page.
             found = db.execute('SELECT p.citation_url FROM passage_fts '
                                'JOIN passages p ON p.id=passage_fts.rowid '
                                'JOIN editions e ON e.id=p.edition_id '
                                'JOIN documents d ON d.id=p.document_id '
-                               "WHERE passage_fts MATCH '\"section\"* AND \"24\"*' "
+                               "WHERE passage_fts MATCH 'pelagicendpointselector*' "
                                "AND e.revision=? AND d.path='content/manuscript.md'",
                                (self.latest,)).fetchall()
             self.assertEqual(['editions/' + self.latest +
