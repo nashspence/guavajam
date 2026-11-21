@@ -37,14 +37,19 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         parts = []
         if in_collection:
             parts.append('<li><a href="' + root + '../../index.html">GuavaJam</a></li>')
-        parts.extend(('<li><a href="' + root + 'index.html">' + escape(work_title) + '</a></li>',
-                      '<li><a href="' + prefix + '../index.html">' +
-                      escape(edition_label(edition_number)) + '</a></li>'))
-        current = ('Documents' if relative == 'documents.html' else
-                   'Manuscript' if relative == 'index.html' else 'Supporting document')
-        parts.append('<li>' + ('<h1 aria-current="page">' if relative == 'documents.html'
-                               else '<span aria-current="page">') + current +
-                     ('</h1>' if relative == 'documents.html' else '</span>') + '</li>')
+        parts.append('<li><a href="' + root + 'index.html">' + escape(work_title) + '</a></li>')
+        if relative == 'index.html':
+            # Manuscript is now the version homepage; source-authored h1
+            # remains the sole document heading.
+            parts.append('<li><span aria-current="page">' +
+                         escape(edition_label(edition_number)) + '</span></li>')
+        else:
+            parts.append('<li><a href="' + prefix + 'index.html">' +
+                         escape(edition_label(edition_number)) + '</a></li>')
+            current = 'Documents' if relative == 'documents.html' else 'Supporting document'
+            parts.append('<li>' + ('<h1 aria-current="page">' if relative == 'documents.html'
+                                   else '<span aria-current="page">') + current +
+                         ('</h1>' if relative == 'documents.html' else '</span>') + '</li>')
         navigation = ('<nav class="guavajam-navigation" aria-label="Breadcrumb" tabindex="0"><ol>' +
                       ''.join(parts) + '</ol></nav>\n')
         if relative == 'documents.html':
@@ -79,10 +84,26 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title)
         if relative != 'documents.html':
+            # The renderer's utility directory is useful standalone but
+            # redundant with the version menu in site-owned readers.
+            from .navigation import reader_navigation
+            text = text.replace(reader_navigation(source), '', 1)
             text = add_passage_links(text, relative, source_navigation['documents'][source]['anchors'])
-            citation_html += ('<p class="guavajam-actions"><a href="' +
-                              escape(relative_href(relative, citation_page(relative)), quote=True) +
-                              '">Cite this document</a></p>')
+            if relative == 'index.html':
+                # One compact route menu, directly above the manuscript; no
+                # second edition cover, repeated abstract, or extra citation.
+                citation_html += ('<nav class="guavajam-actions guavajam-version-menu" '
+                                  'aria-label="Version links">'
+                                  '<a href="cite.html">Cite</a>'
+                                  '<a href="source.gfm" download>Download</a>'
+                                  '<a href="documents.html">Documents</a>'
+                                  '<a href="../../../browse/index.html?edition=' +
+                                  escape(revision, quote=True) + '">Search</a>'
+                                  '<a href="../verify.html">Verify</a></nav>')
+            else:
+                citation_html += ('<p class="guavajam-actions"><a href="' +
+                                  escape(relative_href(relative, citation_page(relative)), quote=True) +
+                                  '">Cite this document</a></p>')
         text = text.replace('<article class="guavajam-edition"',
                             citation_html + '<article class="guavajam-edition"', 1)
         text = text.replace('<div class="guavajam-source-identity">',
@@ -146,7 +167,7 @@ def browse_page(output, catalog, *, interactive, assets):
             '<option value="documents">Documents</option><option value="editions">Editions</option>'
             '<option value="passages">Sections and passages</option></select></div>'
             '<div><label for="guavajam-edition">Edition</label><select id="guavajam-edition" name="edition">'
-            '<option value="latest">Latest edition</option><option value="all">All editions</option></select></div>'
+            '<option value="latest">Latest version</option><option value="all">All versions</option></select></div>'
             '<div><label for="guavajam-document">Document</label>'
             '<select id="guavajam-document" name="document"><option value="">All documents</option></select></div>'
             '<div><label for="guavajam-sort">Sort</label><select id="guavajam-sort" name="sort">'
@@ -164,8 +185,7 @@ def browse_page(output, catalog, *, interactive, assets):
     body += '<nav id="guavajam-static-section" class="guavajam-directory" aria-label="Static directories">'
     if latest:
         body += '<a href="../editions/' + latest + '/read/documents.html">Documents</a>'
-        if len(catalog['editions']) > 1:
-            body += ' · <a href="../editions/index.html">Previous editions</a>'
+        body += ' · <a href="../editions/index.html">History</a>'
     else:
         body += '<p>No signed editions have been published on the selected history.</p>'
     body += '</nav>'

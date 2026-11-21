@@ -121,14 +121,10 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                 root = relative('../../../') + '/'
                 ancestors = (((relative('../../../../../index.html'), 'GuavaJam'),) if collection else ()) + (
                     (relative('../../../index.html'), title),
-                    (relative('../index.html'), f'Edition {position}'),
-                    (relative(reader), 'Manuscript' if not document_title else 'Supporting document'))
-                body = ('<p>Use the committed source identity below when citing this document or a passage.</p>'
-                        '<p class="guavajam-actions"><a href="' + escape(relative(reader), quote=True) +
-                        '">Return to reading</a><a href="' + escape(relative(source_file), quote=True) +
-                        '" download>Download exact GFM source</a><a href="' +
-                        escape(relative(canonical_file), quote=True) +
-                        '" download>Download citation JSON</a></p><h2>Committed passages</h2>')
+                    (relative('index.html'), 'v' + str(position)),) + (
+                    ((relative(reader), 'Supporting document'),) if document_title else ())
+                body = ('<p>Use the verified source identity below when citing a document or passage.</p>'
+                        '<h2>Committed passages</h2>')
                 if download is not None:
                     body += _sqlite_controls(kind='citations', edition=revision, document=source,
                                              root=root, runtime=runtime, download=download)

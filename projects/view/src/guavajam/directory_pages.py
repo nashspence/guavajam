@@ -3,7 +3,7 @@
 Static pages are rendered from verified catalog/NAV records, never from a
 client-side metadata index. Searching/sorting uses the same opt-in SQLite
 runtime and query code as the work browser. No JavaScript is required to reach
-any document or previous edition through page links.
+any document or edition through page links.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
     """
     history = kind == 'editions'
     citations = kind == 'citations'
-    label = ('Search previous editions and commit messages' if history else
+    label = ('Search versions and commit messages' if history else
              'Search passages in this document' if citations else 'Search documents and contents')
     sorts = (('<option value="publication">Publication order (newest)</option>'
               '<option value="oldest">Publication order (oldest)</option>'
@@ -72,7 +72,7 @@ def _history_row(edition, *, links_prefix):
     subject, _, details = message.partition('\n')
     html = ('<li><h2><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
             '">' + escape(label) + '</a>' +
-            detail_link(links_prefix + revision + '/index.html', label + ' record') +
+            detail_link(links_prefix + revision + '/verify.html', 'Verify ' + label) +
             '</h2><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
             '">' + escape(revision[:12]) + '</code></p>' +
@@ -84,7 +84,7 @@ def _history_row(edition, *, links_prefix):
 
 
 def _write_history(output, entries, title, *, collection, runtime, download):
-    chunks = _slices(reversed(entries[:-1]))  # latest edition is on the work cover, not here
+    chunks = _slices(reversed(entries))  # full verified history, newest first
     directory = output / 'editions'
     for number, chunk in enumerate(chunks, 1):
         first = number == 1
@@ -92,22 +92,22 @@ def _write_history(output, entries, title, *, collection, runtime, download):
         destination = directory / 'index.html' if first else directory / 'page' / f'{number}.html'
         destination.parent.mkdir(parents=True, exist_ok=True)
         crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + ((root + 'index.html', title),)
-        body = '<p>Earlier verified editions, in publication order.</p>'
+        body = '<p>Verified versions, newest first in publication order.</p>'
         if download is not None:
-            body += _sqlite_controls(kind='editions', edition='previous', root=root,
+            body += _sqlite_controls(kind='editions', edition='all', root=root,
                                      runtime=runtime, download=download)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions">' +
                  ''.join(_history_row(item, links_prefix='' if first else '../') for item in chunk) +
                  '</ol>')
-        if not entries[:-1]:
-            body += '<p>No previous editions.</p>'
+        if not entries:
+            body += '<p>No published versions.</p>'
         body += _static_pager(number, len(chunks), first_href='index.html' if first else '../index.html',
                               page_prefix='page/' if first else '')
         body += '</section>'
-        destination.write_text(page('Previous editions' if first else f'Previous editions — page {number}',
+        destination.write_text(page('History' if first else f'History — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
-                                    breadcrumb_current='Previous editions'), encoding='utf-8')
+                                    breadcrumb_current='History'), encoding='utf-8')
 
 
 def _write_documents(output, entries, *, collection, runtime, download):
@@ -127,7 +127,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
             target = read / 'documents.html' if first else read / 'documents' / 'page' / f'{number}.html'
             target.parent.mkdir(parents=True, exist_ok=True)
             crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + (
-                (root + 'index.html', title), (read_root + '../index.html', f'Edition {position}'))
+                (root + 'index.html', title), (read_root + 'index.html', 'v' + str(position)))
             citation_href = read_root + '../CITATION.json'
             body = '<article class="guavajam-edition"><p>Manuscript and supporting documents in this edition.</p>'
             if download is not None:

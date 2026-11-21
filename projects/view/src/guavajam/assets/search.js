@@ -132,7 +132,7 @@ if (form) {
       heading.append(link);
       if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
       else if (resultKind === 'editions') heading.append(recordLink(
-        workURL('editions/' + row.revision + '/index.html'), row.title + ' record'));
+        workURL('editions/' + row.revision + '/verify.html'), 'Verify ' + row.title));
       article.append(heading);
       if (!work) {
         const byline = document.createElement('p');
