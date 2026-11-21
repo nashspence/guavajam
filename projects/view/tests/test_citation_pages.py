@@ -36,7 +36,7 @@ class CitationPageTests(unittest.TestCase):
         self.sha = 'a' * 40
         self.read = self.output / 'editions' / self.sha / 'read'
         self.read.mkdir(parents=True)
-        self.editions = [(self.sha, 'Edition 1', '2026-11-20', 'Publish')]
+        self.editions = [(self.sha, 'v1', '2026-11-20', 'Publish')]
         # Deliberately nonalphabetical, including valid source IDs that also
         # name generated landmarks and search controls.
         self.anchors = ['z-opening', 'main', 'guavajam-query', *[f'passage-{n}' for n in range(39, -1, -1)]]
@@ -89,9 +89,12 @@ class CitationPageTests(unittest.TestCase):
             self.assertNotIn('<script', html)
             self.assertNotIn('name="q"', html)
             self.assertIn("script-src 'none'", html)
-            self.assertIn('Mara &amp; Lee. <cite>Coastal &lt;notes&gt;</cite>. Edition 1, 2026-11-20.', html)
-            self.assertIn('Return to reading', html)
-            self.assertIn('Download exact GFM source', html)
+            self.assertIn('Mara &amp; Lee. <cite>Coastal &lt;notes&gt;</cite>. v1, 2026-11-20.', html)
+            self.assertNotIn('Return to reading', html)
+            self.assertNotIn('Download exact GFM source', html)
+            self.assertNotIn('<p class="guavajam-actions">', html)
+            self.assertIn('>v1</a>', html)
+
         self.assertEqual(['citation:' + anchor for anchor in self.anchors], entries)
         second = Markup((self.read / pages[1]).read_text())
         self.assertIn('../../cite.html', second.links)

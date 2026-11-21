@@ -41,7 +41,7 @@ class DirectoryPageTests(unittest.TestCase):
             message = f'Review station {n:02d} and historical notes'
             if n == 5:
                 message += '\n\nCorrected an archive citation.\nCoordinated the maps.'
-            self.editions.append((sha, f'Edition {n}', date, message))
+            self.editions.append((sha, f'v{n}', date, message))
             read = self.output / 'editions' / sha / 'read'
             read.mkdir(parents=True)
             documents = {
@@ -77,19 +77,22 @@ class DirectoryPageTests(unittest.TestCase):
         for number, location in enumerate(history_pages, 1):
             markup = location.read_text()
             self.assertIn('aria-label="Breadcrumb"', markup)
-            self.assertIn('Search previous editions and commit messages', markup)
+            self.assertIn('Search versions and commit messages', markup)
             self.assertIn('data-lazy="interaction"', markup)
-            self.assertIn('name="edition" value="previous"', markup)
+            self.assertIn('name="edition" value="all"', markup)
             self.assertIn('data-worker="../../../search-worker.js"' if number == 1
                           else 'data-worker="../../../../search-worker.js"', markup)
             # Simple labels, reading-first links, record icons and messages.
-            rows = re.findall(r'<li><h2><a [^>]*>(Edition \d+)</a>', markup)
-            self.assertEqual(20 if number == 1 else 6, len(rows))
+            rows = re.findall(r'<li><h2><a [^>]*>(v\d+)</a>', markup)
+            self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
             old.extend(rows)
             self.assertIn('id="guavajam-search-prev"', markup)
+            self.assertIn('href="' + self.editions[-1][0] + '/verify.html"', history_pages[0].read_text())
+            self.assertIn('guavajam-editions { list-style: none', markup)
+
             self.assertNotIn('listing.js', markup)
-        self.assertEqual([f'Edition {n}' for n in range(26, 0, -1)], old)
+        self.assertEqual([f'v{n}' for n in range(27, 0, -1)], old)
         self.assertIn('Full commit message', history_pages[1].read_text())
         self.assertIn('href="page/2.html" rel="next"', history_pages[0].read_text())
         self.assertIn('href="../index.html" rel="prev"', history_pages[1].read_text())
@@ -106,6 +109,9 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('value="documents"', html)
             self.assertIn('name="edition" value="' + self.editions[-1][0] + '"', html)
             self.assertIn('<blockquote class="guavajam-citation"', html)
+            self.assertIn('.guavajam-document-list { list-style: none;', html)
+            self.assertIn('>v27</a>', html)
+
             self.assertIn('Mara Levin. <cite>Shoreline work</cite>', html)
             self.assertNotIn('listing.js', html)
             self.assertEqual(1, html.count('<h1 aria-current="page">Documents</h1>'))

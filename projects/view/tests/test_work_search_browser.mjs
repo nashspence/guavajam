@@ -106,13 +106,13 @@ try {
       await waitTotal(fixture.editions, 'editions');
       assert.equal(await page.locator('select[name=edition]').inputValue(), 'all');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
-      assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'Edition 23');
+      assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v23');
       assert((await page.locator('#guavajam-search-results h3 a').first().getAttribute('href')).includes(fixture.latest));
       await page.locator('#guavajam-search-next').click();
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 3);
       await page.locator('select[name=sort]').selectOption('oldest');
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Edition 1');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'v1');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
       await query('Palaeotidal', 1, 'editions');
       const historical = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
@@ -129,7 +129,7 @@ try {
       await page.locator('select[name=edition]').selectOption('latest');
       await waitTotal(0, 'editions');
       await query('', 1, 'editions');
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Edition 23');
+      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'v23');
       await page.locator('select[name=kind]').selectOption('documents');
       await waitTotal(fixture.documents, 'documents');
       await query('cafe Bathymetric ecology', 1, 'documents');
@@ -204,25 +204,25 @@ try {
         downloadsBeforeDirectory, 'opening the static directory must not initialize SQLite');
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/editions/page/2.html'));
-      assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 2);
+      assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 3);
       await page.locator('select[name=sort]').selectOption('oldest');
-      await waitTotal(fixture.editions - 1, 'editions');
-      assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'Edition 1');
+      await waitTotal(fixture.editions, 'editions');
+      assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v1');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       // A unique message token cannot collide with publisher date/time claims.
       await query('Shorelinechronicle', 1, 'editions');
       // Publisher creates the initial signed edition before Observation 01.
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Edition 2');
+      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'v2');
       assert((await page.locator('#guavajam-search-results .guavajam-message').allTextContents()).join(' ').includes('Observation 01'));
       await page.locator('#guavajam-search-results').getByText('Full commit message', {exact:true}).click();
       assert.equal(await page.locator('#guavajam-search-results').getByText('Shorelinechronicle records the historical review.', {exact:false}).isVisible(), true);
-      await query('', fixture.editions - 1, 'editions');
+      await query('', fixture.editions, 'editions');
       await page.locator('select[name=sort]').selectOption('publication');
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Edition 22');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'v22');
       await page.locator('#guavajam-search-next').click();
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
-      assert.equal(await page.locator('#guavajam-search-results > li').count(), 2);
+      assert.equal(await page.locator('#guavajam-search-results > li').count(), 3);
 
       await page.goto(documentsURL + '?kind=passages&edition=all&document=content/manuscript.md');
       assert.equal(await page.locator('input[name=kind]').inputValue(), 'documents');
@@ -384,15 +384,15 @@ try {
       const plain = await disabled.newPage();
       await plain.goto(browse);
       assert.equal(await plain.locator('#guavajam-static-section').isVisible(), true);
-      assert((await plain.locator('#guavajam-static-section').textContent()).includes('Previous editions'));
-      await plain.getByRole('link', {name: 'Previous editions', exact: true}).click();
+      assert((await plain.locator('#guavajam-static-section').textContent()).includes('History'));
+      await plain.getByRole('link', {name: 'History', exact: true}).click();
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
       await plain.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert(plain.url().endsWith('/editions/page/2.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 2);
-      assert((await plain.locator('#guavajam-static-section .guavajam-editions').textContent()).includes('Edition 1'));
+      assert((await plain.locator('#guavajam-static-section .guavajam-editions').textContent()).includes('v1'));
       const directory = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       await plain.goto(directory);
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);

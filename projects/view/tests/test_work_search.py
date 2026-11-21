@@ -102,7 +102,7 @@ class WorkSearchTests(unittest.TestCase):
         home = (self.site / 'index.html').read_text()
         self.assertIn('browse/index.html', Links(home).links)
         self.assertIn('editions/' + self.latest + '/read/index.html', Links(home).links)
-        self.assertIn('editions/' + self.latest + '/index.html', Links(home).links)
+        self.assertIn('editions/' + self.latest + '/verify.html', Links(home).links)
         self.assertIn('editions/index.html', Links(home).links)
         history = (self.site / 'editions/index.html').read_text()
         for revision in self.publisher.revisions[:-1]:

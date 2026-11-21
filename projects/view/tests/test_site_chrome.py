@@ -9,6 +9,7 @@ import unittest
 from guavajam.site import citation_control, committer_identity, page
 from guavajam.directory_pages import _history_row
 from guavajam.work_search import publication_navigation
+from guavajam.navigation import reader_navigation
 
 
 class Controls(HTMLParser):
@@ -27,20 +28,20 @@ class ChromeTests(unittest.TestCase):
                          'revision': 'c' * 40, 'manuscript': 'content/manuscript.md'}
 
     def test_breadcrumb_is_normal_sized_single_title_and_citation_is_first(self):
-        html = page('Work — Edition 2', '<p>Abstract first.</p>',
+        html = page('Work — v2', '<p>Abstract first.</p>',
                     ancestors=(('../../index.html', 'GuavaJam'), ('../index.html', 'Work')),
-                    breadcrumb_current='Edition 2', citation_record=self.citation,
+                    breadcrumb_current='v2', citation_record=self.citation,
                     citation_href='CITATION.json', citation_title='Work',
                     citation_authors='Morgan Reed', citation_edition=2,
                     citation_published='2025-01-02')
         nodes = Controls(html).nodes
         self.assertEqual(1, [tag for tag, _ in nodes].count('h1'))
-        self.assertIn('aria-current="page">Edition 2</h1>', html)
+        self.assertIn('aria-current="page">v2</h1>', html)
         self.assertIn('aria-label="Breadcrumb" tabindex="0"', html)
         self.assertIn('.guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit;', html)
         self.assertNotIn('clamp(1.5rem, 3.5vw, 2rem)', html)
         self.assertLess(html.index('<blockquote class="guavajam-citation"'), html.index('Abstract first.'))
-        self.assertIn('Morgan Reed. <cite>Work</cite>. Edition 2, 2025-01-02.', html)
+        self.assertIn('Morgan Reed. <cite>Work</cite>. v2, 2025-01-02.', html)
         self.assertIn('Git commit <code>' + 'c' * 40 + '</code>', html)
         self.assertIn('download aria-label="Download official citation JSON"', html)
         self.assertFalse(any(tag == 'input' and attrs.get('id') == 'guavajam-citation-value'
@@ -51,7 +52,7 @@ class ChromeTests(unittest.TestCase):
         supporting = {**self.citation, 'document': 'content/supporting/note.md'}
         html = citation_control(supporting, 'note.citation.json', title='Work & Research',
                                 document_title='Note <One>', authors='Mara & Lee', edition_number=7)
-        self.assertIn('Mara &amp; Lee. <cite>Note &lt;One&gt;</cite>. In <cite>Work &amp; Research</cite>. Edition 7.', html)
+        self.assertIn('Mara &amp; Lee. <cite>Note &lt;One&gt;</cite>. In <cite>Work &amp; Research</cite>. v7.', html)
         self.assertIn('content/supporting/note.md</code>', html)
         self.assertIn('<blockquote class="guavajam-citation"', html)
         self.assertIn('href="note.citation.json" download', html)
@@ -91,7 +92,9 @@ class ChromeTests(unittest.TestCase):
                                 '<div class="guavajam-source-identity">Old source label</div>'
                                 '<h1>' + title + '</h1>' +
                                 ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
-                                 if path.name == 'documents.html' else '') +
+                                 if path.name == 'documents.html' else
+                                 reader_navigation('content/manuscript.md' if path.name == 'index.html'
+                                                   else 'content/supporting/note.md')) +
                                 '</article></main><footer></footer></body></html>')
             view = {'facts': {'author': 'Mara Levin'},
                     'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
@@ -105,7 +108,7 @@ class ChromeTests(unittest.TestCase):
                 self.assertIn('aria-label="Breadcrumb"', html)
                 self.assertIn('<blockquote class="guavajam-citation"', html)
                 self.assertIn('Mara Levin. ', html)
-                self.assertIn('Edition 2, 2026-11-03.', html)
+                self.assertIn('v2, 2026-11-03.', html)
                 self.assertNotIn('<script', html)
                 self.assertLess(html.index('class="guavajam-citation"'), html.index('<article'))
                 self.assertEqual(1, [tag for tag, _ in Controls(html).nodes].count('h1'))
@@ -115,12 +118,22 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('Note</cite>. In <cite>Work</cite>', supporting)
             self.assertIn('content/supporting/note.md</code>', supporting)
             self.assertIn('href="note.citation.json"', supporting)
+            manuscript = (read / 'index.html').read_text()
+            self.assertEqual(1, manuscript.count('class="guavajam-version-menu"') +
+                             manuscript.count('class="guavajam-actions guavajam-version-menu"'))
+            self.assertIn('aria-label="Version links"', manuscript)
+            self.assertIn('href="../verify.html">Verify</a>', manuscript)
+            self.assertIn('href="cite.html">Cite</a>', manuscript)
+            self.assertNotIn('Cite this document', manuscript)
+            self.assertNotIn('guavajam-document-nav', manuscript)
+            self.assertNotIn('guavajam-document-nav', supporting)
+
 
     def test_history_rows_include_verified_message_and_metadata_for_filtering(self):
-        earlier = [('a' * 40, 'Edition 1', '2025-06-08', 'Fix citations\n\nReviewed provenance notes.'),
-                   ('b' * 40, 'Edition 2', '2025-05-12', 'Review <attachments> & notes')]
+        earlier = [('a' * 40, 'v1', '2025-06-08', 'Fix citations\n\nReviewed provenance notes.'),
+                   ('b' * 40, 'v2', '2025-05-12', 'Review <attachments> & notes')]
         html = ''.join(_history_row(row, links_prefix='') for row in reversed(earlier))
-        self.assertLess(html.index('Edition 2</a>'), html.index('Edition 1</a>'))
+        self.assertLess(html.index('v2</a>'), html.index('v1</a>'))
         self.assertIn('Review &lt;attachments&gt; &amp; notes', html)
         self.assertIn('Fix citations', html)
         self.assertIn('Reviewed provenance notes.', html)
@@ -175,23 +188,38 @@ class ChromeTests(unittest.TestCase):
                        view_cache=None, repository='https://github.com/example/work.git',
                        search_assets='../../')
             work = (output / 'index.html').read_text()
-            record = (output / 'editions' / sha2 / 'index.html').read_text()
+            verify = (output / 'editions' / sha2 / 'verify.html').read_text()
             history = (output / 'editions/index.html').read_text()
             directory = (output / 'editions' / sha2 / 'read/documents.html').read_text()
-            self.assertIn('href="editions/index.html">Previous editions</a>', work)
-            self.assertNotIn('>Edition 1</a>', work)
-            self.assertIn('>Edition 1</a>', history)
-            self.assertNotIn('>Edition 2</a>', history)
+            self.assertIn('href="editions/index.html">History</a>', work)
+            self.assertNotIn('Latest edition', work)
+            self.assertNotIn('class="guavajam-latest-edition"', work)
+            self.assertNotIn('>v1</a>', work)
+            self.assertIn('>v1</a>', history)
+            self.assertIn('>v2</a>', history)
             self.assertIn('href="' + sha1 + '/read/index.html"', history)
+            self.assertIn('href="editions/' + sha2 + '/verify.html"', work)
             self.assertIn('>Initial</p>', history)
             self.assertIn('id="guavajam-static-section"', history)
             self.assertIn('id="guavajam-static-section"', directory)
             self.assertNotIn('listing.js', json.loads((output / 'SITE.json').read_text())['files'])
             self.assertNotIn('<script', history)
             self.assertNotIn('<script', directory)
-            self.assertIn('href="read/documents.html">Documents</a>', record)
-            self.assertNotIn('class="guavajam-byline"', record)
-            self.assertIn('Mara Levin. <cite>Shoreline research</cite>', record)
+            self.assertIn('Verified signed source', verify)
+            self.assertIn('href="SOURCE.json"', verify)
+            self.assertIn('href="CITATION.json" download', verify)
+            self.assertIn('<code>' + sha2 + '</code>', verify)
+            self.assertIn('href="read/index.html">v2</a>', verify)
+            self.assertFalse((output / 'editions' / sha2 / 'index.html').exists())
+            manuscript = (output / 'editions' / sha2 / 'read/index.html').read_text()
+            self.assertIn('aria-label="Version links"', manuscript)
+            self.assertIn('href="../verify.html">Verify</a>', manuscript)
+            self.assertIn('href="cite.html">Cite</a>', manuscript)
+            self.assertIn('href="documents.html">Documents</a>', manuscript)
+            self.assertNotIn('>Cite this document</a>', manuscript)
+            self.assertNotIn('All documents in this edition', manuscript)
+            self.assertEqual(1, manuscript.count('<blockquote class="guavajam-citation"'))
+            self.assertNotIn('class="guavajam-byline"', verify)
             self.assertNotIn('<h1>Documents in this edition</h1>', directory)
             self.assertIn('<h1 aria-current="page">Documents</h1>', directory)
             self.assertIn('editions/index.html', json.loads((output / 'SITE.json').read_text())['files'])

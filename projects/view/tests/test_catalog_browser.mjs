@@ -31,11 +31,11 @@ const base = `http://127.0.0.1:${server.address().port}/collection/`;
 const revision = fixture.revisions[1];
 const edition = `editions/${revision}/`;
 const first = `editions/${fixture.revisions[0]}/`;
-const pages = ['index.html', 'editions/index.html', edition + 'index.html', edition + 'read/index.html',
+const pages = ['index.html', 'editions/index.html', edition + 'verify.html', edition + 'read/index.html',
   edition + 'read/documents.html', edition + 'read/supporting/note.html',
   edition + 'read/cite.html', edition + 'read/cite/page/3.html',
   edition + 'read/supporting/note.cite.html', edition + 'read/supporting/note.cite/page/3.html',
-  first + 'index.html', first + 'read/index.html', first + 'read/cite.html'];
+  first + 'verify.html', first + 'read/index.html', first + 'read/cite.html'];
 const engines = {chromium, firefox, webkit};
 const selected = (process.env.GUAVAJAM_BROWSER_ENGINES || 'chromium,firefox,webkit').split(',');
 assert(selected.length && selected.every(name => Object.hasOwn(engines, name)), 'Unknown browser engine');
@@ -56,12 +56,18 @@ try {
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
       assert.equal(await page.locator(':focus').evaluate(n => n.tagName), 'MAIN');
-      await page.getByRole('link', {name: 'Previous editions', exact: true}).click();
+      await page.getByRole('link', {name: 'History', exact: true}).click();
       assert(page.url().endsWith('/editions/index.html'));
-      assert.equal(await page.getByRole('link', {name: 'Edition 1', exact: true}).count(), 1);
+      assert.equal(await page.getByRole('link', {name: 'v1', exact: true}).count(), 1);
       await page.goto(base);
-      await page.getByRole('link', {name: 'Edition 2 record', exact: true}).click();
-      assert(page.url().includes(edition));
+      await page.getByRole('link', {name: 'Verify v2', exact: true}).click();
+      assert(page.url().endsWith('/verify.html'));
+      assert((await page.locator('main').textContent()).includes('Verified signed source'));
+      await page.getByRole('link', {name: 'v2', exact: true}).click();
+      assert(page.url().endsWith('/read/index.html'));
+      assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
+      assert.equal(await page.getByRole('link', {name: 'Cite this document', exact: true}).count(), 0);
+      assert.equal(await page.getByRole('link', {name: 'All documents in this edition', exact: true}).count(), 0);
       const downloaded = page.waitForEvent('download');
       await page.getByRole('link', {name: 'Download', exact: true}).click();
       const download = await downloaded;
@@ -70,14 +76,8 @@ try {
       await page.getByRole('link', {name: 'Cite', exact: true}).click();
       assert(page.url().endsWith('/read/cite.html'), 'Cite opens a human citation page');
       assert((await page.locator('main').textContent()).includes(revision));
-      const sourceDownloaded = page.waitForEvent('download');
-      await page.getByRole('link', {name: 'Download exact GFM source', exact: true}).click();
-      const sourceDownload = await sourceDownloaded;
-      assert.deepEqual(await fs.readFile(await sourceDownload.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
-      await page.getByRole('link', {name: 'Return to reading', exact: true}).click();
-      assert(page.url().endsWith('/read/index.html'));
-      await page.getByRole('link', {name: 'Cite this document', exact: true}).click();
-      assert(page.url().endsWith('/read/cite.html'));
+      assert.equal(await page.getByRole('link', {name: 'Return to reading', exact: true}).count(), 0);
+      assert.equal(await page.getByRole('link', {name: 'Download exact GFM source', exact: true}).count(), 0);
       const staticAnchors = [];
       for (const [index, expected] of [20, 20, 5].entries()) {
         const entries = page.locator('#guavajam-static-section .guavajam-citation-entry');
@@ -116,7 +116,7 @@ try {
         assert.equal(await page.locator('[id="' + anchor + '"]').count(), 1);
         assert.equal(await page.locator('script').count(), 0);
       }
-      await page.goto(base + edition + 'index.html');
+      await page.goto(base + edition + 'verify.html');
       await page.getByRole('link', {name: 'Read', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       await page.getByRole('link', {name: 'the supporting claim', exact: true}).click();
@@ -155,9 +155,8 @@ try {
           results.push({engine: name, filename, width, scheme, enlarge, overflow: false});
         }
       }
-      await page.goto(base + first + 'index.html');
-      assert.equal(await page.getByRole('link', {name: 'Read', exact: true}).count(), 1);
-      await page.getByRole('link', {name: 'Read', exact: true}).click();
+      await page.goto(base + first + 'read/index.html');
+      assert.equal(await page.getByRole('link', {name: 'Verify', exact: true}).count(), 1);
       assert((await page.locator('main').textContent()).includes('The first observation.'));
       await page.emulateMedia({media: 'print', colorScheme: 'light'});
       assert.equal(await page.locator('main').isVisible(), true);

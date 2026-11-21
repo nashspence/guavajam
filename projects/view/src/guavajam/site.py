@@ -102,7 +102,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
 
 def edition_label(position):
     """The verified first-parent sequence, not a publisher-claimed timestamp."""
-    return 'Edition ' + str(position)
+    return 'v' + str(position)
 
 
 def inventory(root):
@@ -171,30 +171,35 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         publication_navigation(reader, view, sha, work_title=latest_title,
                                edition_number=position, published=edition['published'],
                                in_collection=in_collection)
-        names = author_text(ordered_authors(view['facts']), identifiers=False)
-        abstract = view['facts'].get('abstract', '')
         ed_label = edition_label(position)
-        body = ''
-        if abstract:
-            body += '<p class="guavajam-abstract">' + escape(abstract) + '</p>'
-        body += ('<p class="guavajam-actions"><a href="read/index.html">Read</a>' +
-                 '<a href="read/cite.html">Cite</a>' +
-                 '<a href="read/source.gfm" download>Download</a>' +
-                 '<a href="read/documents.html">Documents</a>' +
-                 '<a href="../../browse/index.html?edition=' + sha +
-                 '">Search</a></p>' +
-                 '<details class="guavajam-provenance"><summary>Source and verification</summary>' +
-                 '<p>Signed Git revision: <code>' + sha + '</code></p>' +
-                 '<p class="guavajam-message">Commit message: ' +
-                 escape(edition['message']) + '</p>' +
-                 '<p><a href="SOURCE.json">Verification record</a></p></details>')
+        # The manuscript itself is the version homepage. Only the detailed
+        # verification record needs a separate generated page.
         edition_crumbs = ((('../../../../index.html', 'GuavaJam'),) if in_collection else ()) + (
-            ('../../index.html', latest_title),)
-        (directory / 'index.html').write_text(
-            page(latest_title + ' — ' + ed_label, body, ancestors=edition_crumbs,
-                 breadcrumb_current=ed_label, citation_record=citation(proof),
-                 citation_href='CITATION.json', citation_title=latest_title, citation_authors=names,
-                 citation_published=edition['published'], citation_edition=position), encoding='utf-8')
+            ('../../index.html', latest_title), ('read/index.html', ed_label))
+        message = edition['message']
+        body = ('<p>Verified signed source for this version.</p>'
+                '<dl class="guavajam-verification">'
+                '<dt>Commit</dt><dd><code>' + escape(sha) + '</code></dd>'
+                '<dt>Publication date</dt><dd><time datetime="' +
+                escape(edition['published'], quote=True) + '">' +
+                escape(edition['published']) + '</time></dd>'
+                '<dt>Commit message</dt><dd class="guavajam-message">' +
+                escape(message) + '</dd>'
+                '<dt>Verified source</dt><dd><a href="SOURCE.json">Verification record (JSON)</a></dd>'
+                '<dt>Source citation</dt><dd><a href="CITATION.json" download>Canonical citation (JSON)</a></dd>')
+        if metadata['name']:
+            committer = escape(metadata['name'])
+            if metadata['email']:
+                committer = ('<a href="mailto:' + escape(metadata['email'], quote=True) +
+                             '">' + committer + '</a>')
+            body += '<dt>Committer</dt><dd>' + committer + '</dd>'
+        if repository:
+            body += ('<dt>Repository</dt><dd><a href="' + escape(repository, quote=True) +
+                     '">Source repository</a></dd>')
+        body += '</dl>'
+        (directory / 'verify.html').write_text(
+            page(latest_title + ' — ' + ed_label + ' — Verify', body, ancestors=edition_crumbs,
+                 breadcrumb_current='Verify'), encoding='utf-8')
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
     if edition_rows:
         latest = edition_rows[-1][0]
@@ -204,19 +209,12 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         body = ''
         if abstract:
             body += '<p class="guavajam-abstract">' + escape(abstract) + '</p>'
-        body += ('<p class="guavajam-actions"><a href="editions/' + latest +
-                 '/read/index.html">Read</a><a href="editions/' + latest +
-                 '/read/documents.html">Documents</a><a href="browse/index.html">Search</a></p>' +
-                 '<section class="guavajam-edition-section"><h2>Latest edition</h2>')
-        sha, ed_label, day, _ = edition_rows[-1]
-        body += ('<div class="guavajam-latest-edition"><h3><a href="editions/' + sha +
-                 '/read/index.html">' + escape(ed_label) + '</a>' +
-                 detail_link('editions/' + sha + '/index.html', ed_label + ' record') +
-                 '</h3><p class="guavajam-meta"><time datetime="' + escape(day, quote=True) +
-                 '">' + escape(day) + '</time></p></div>')
-        if len(edition_rows) > 1:
-            body += '<p><a href="editions/index.html">Previous editions</a></p>'
-        body += '</section>'
+        body += ('<p class="guavajam-actions"><span><a href="editions/' + latest +
+                 '/read/index.html">Read</a>' +
+                 detail_link('editions/' + latest + '/verify.html', 'Verify ' + edition_label(len(edition_rows))) +
+                 '</span><a href="editions/index.html">History</a>' +
+                 '<a href="editions/' + latest + '/read/documents.html">Documents</a>' +
+                 '<a href="browse/index.html">Search</a></p>')
     else:
         latest_citation = None
         latest = None
