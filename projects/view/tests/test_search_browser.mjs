@@ -65,6 +65,15 @@ try {
       await page.goto(base);
       assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
+      assert.equal(await page.locator('.guavajam-index-size').count(), 1);
+      assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
+      assert.equal(await page.locator('#guavajam-static-list .guavajam-facet').count() > 0, true);
+      assert.equal(await page.locator('#guavajam-static-list button.guavajam-facet').count(), 0,
+        'no inert metadata controls before SQLite is enabled');
+      assert.equal(await page.locator('#guavajam-static-list').evaluate(node =>
+        node.textContent.includes('Committed by')), false);
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'the collection does not download its database or runtime before search is enabled');
       // Page two has real static links and can activate the same SQLite
@@ -76,6 +85,9 @@ try {
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
       await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.works);
+      assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-facet').count() > 0, true);
       const pagedResult = await page.locator('#guavajam-search-results h3 a').first().getAttribute('href');
       assert(pagedResult.startsWith('../sources/'));
       await query('Glaciolacustrine', 1);
@@ -135,6 +147,27 @@ try {
       assert.equal(await page.locator('select[name=keyword] option').filter({hasText: 'Retired topic'}).count(), 0);
       await page.locator('select[name=keyword]').selectOption('');
       await waitTotal(fixture.works);
+      // Facet controls are native buttons only once SQLite is enabled.
+      const fieldTag = page.locator('#guavajam-search-results button.guavajam-tag').first();
+      assert.equal(await fieldTag.getAttribute('data-value'), 'Field observations');
+      await fieldTag.click();
+      await waitTotal(fixture.works - 1);
+      assert.equal(await page.locator('select[name=keyword]').inputValue(), 'Field observations');
+      assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
+      await page.locator('#guavajam-search-results button.guavajam-tag').first().click();
+      await waitTotal(fixture.works);
+      assert.equal(await page.locator('select[name=keyword]').inputValue(), '');
+      // A distinct subject authority filters by its exact SHA-derived key.
+      await page.locator('#guavajam-search-next').click();
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
+      const subjectButton = page.locator('#guavajam-search-results button.guavajam-subject').first();
+      const subjectKey = await subjectButton.getAttribute('data-value');
+      await subjectButton.click();
+      await waitTotal(1);
+      assert.equal(await page.locator('select[name=subject]').inputValue(), subjectKey);
+      assert.equal(await page.locator('#guavajam-search-results > li').count(), 1);
+      await page.locator('select[name=subject]').selectOption('');
+      await waitTotal(fixture.works);
       // A permitted authority URI can be a long unbroken select option label.
       await page.locator('select[name=subject]').evaluate(select => {
         const option = document.createElement('option');
@@ -144,11 +177,48 @@ try {
         select.append(option);
         select.value = option.value;
       });
+      // Stress single-line titles, bylines and facets; the document must not
+      // acquire horizontal overflow when an individual row can scroll instead.
+      await page.locator('#guavajam-search-results h3 a').first().evaluate(a => {
+        a.textContent = 'Very long work title '.repeat(35);
+      });
+      await page.locator('#guavajam-search-results .guavajam-byline').first().evaluate(p => {
+        p.textContent = 'An exceptionally long bibliographic byline '.repeat(25);
+      });
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({width, height: 900});
-        const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
-        assert.equal(overflow, false, `${name}: ${width}px overflow`);
+        const layout = await page.evaluate(() => {
+          const title = document.querySelector('#guavajam-search-results h3');
+          const byline = document.querySelector('#guavajam-search-results .guavajam-byline');
+          const facets = document.querySelector('#guavajam-search-results .guavajam-facets');
+          return {overflow: document.documentElement.scrollWidth > innerWidth + 1,
+            titleScrollable: title.scrollWidth > title.clientWidth,
+            bylineScrollable: byline.scrollWidth > byline.clientWidth,
+            titleWrap: getComputedStyle(title).whiteSpace,
+            bylineWrap: getComputedStyle(byline).whiteSpace,
+            facetWrap: getComputedStyle(facets).whiteSpace};
+        });
+        assert.equal(layout.overflow, false, `${name}: ${width}px whole-page overflow`);
+        assert.equal(layout.titleScrollable, true);
+        assert.equal(layout.bylineScrollable, true);
+        assert.deepEqual([layout.titleWrap, layout.bylineWrap, layout.facetWrap], ['nowrap', 'nowrap', 'nowrap']);
       }
+      // Printed collection rows expose all metadata rather than clipping a
+      // screen-only scroller or letting a nonshrinking flex item escape paper.
+      await page.locator('#guavajam-search-results .guavajam-facet').first().evaluate(node => {
+        node.append(document.createTextNode(' A long subject label '.repeat(25)));
+      });
+      await page.emulateMedia({media: 'print'});
+      const printed = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth > innerWidth + 1,
+        rows: [...document.querySelectorAll('#guavajam-search-results h3, #guavajam-search-results .guavajam-scrollline')]
+          .map(node => ({wrap: getComputedStyle(node).whiteSpace, overflow: getComputedStyle(node).overflowX}))
+      }));
+      assert.equal(printed.overflow, false, `${name}: printed collection metadata leaves the page`);
+      assert(printed.rows.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
+      await page.emulateMedia({media: 'screen'});
+      await page.locator('#guavajam-search-results .guavajam-facet').first()
+        .evaluate(node => node.lastChild.remove());
       await page.locator('#layout-stress-subject').evaluate(option => option.remove());
       await page.evaluate(axe.source);
       const audit = await page.evaluate(() => axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}}));
@@ -161,10 +231,37 @@ try {
       }
       await context.close();
 
+      const delayed = await browser.newContext();
+      let releaseDatabase, signalDownload;
+      const gate = new Promise(resolve => { releaseDatabase = resolve; });
+      const signalled = new Promise(resolve => { signalDownload = resolve; });
+      await delayed.route(/\/index\.[a-f0-9]{64}\.sqlite\.gz$/, async route => {
+        signalDownload();
+        await gate;
+        await route.continue();
+      });
+      const waiting = await delayed.newPage();
+      try {
+        await waiting.goto(base);
+        await waiting.locator('#guavajam-search-enable').click();
+        await Promise.race([signalled, new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
+        assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
+        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Loading local search…');
+      } finally {
+        releaseDatabase();
+      }
+      await waiting.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
+        `${total} work(s) found`, fixture.works);
+      assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), false);
+      await delayed.close();
+
       const disabled = await browser.newContext({javaScriptEnabled: false});
       const plain = await disabled.newPage();
       await plain.goto(base);
       assert.equal(await plain.locator('#guavajam-static-list > li').count(), 20);
+      assert.equal(await plain.locator('#guavajam-static-list button.guavajam-facet').count(), 0);
+      assert.equal(await plain.locator('#guavajam-static-list .guavajam-scrollline').count() > 0, true);
       await plain.locator('.guavajam-static-pages a[rel=next]').click();
       assert(plain.url().endsWith('/page/2.html'));
       assert.equal(await plain.locator('#guavajam-static-list > li').count(), fixture.works - 20);

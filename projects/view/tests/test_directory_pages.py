@@ -93,6 +93,10 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('id="guavajam-search-prev"', markup)
             self.assertIn('href="' + self.editions[-1][0] + '/verify.html"', history_pages[0].read_text())
             self.assertIn('guavajam-editions { list-style: none', markup)
+            self.assertIn('data-static-heading="Versions"', markup)
+            self.assertIn(f'Showing static page {number} of 2.', markup)
+            self.assertIn('id="guavajam-search-spinner"', markup)
+            self.assertNotIn('Verified versions, newest first', markup)
             self.assertIn('>Verify</a>', markup)
             self.assertNotIn('<a class="guavajam-record-link"', markup)
 
@@ -113,11 +117,14 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertLessEqual(len(documents), PAGE_SIZE)
             self.assertIn('value="documents"', html)
             self.assertIn('name="edition" value="' + self.editions[-1][0] + '"', html)
-            self.assertIn('<blockquote class="guavajam-citation"', html)
+            self.assertNotIn('<blockquote class="guavajam-citation"', html)
+            self.assertIn('data-static-heading="Documents"', html)
+            self.assertIn(f'Showing static page {number} of 3.', html)
+            self.assertIn('id="guavajam-search-spinner"', html)
             self.assertIn('.guavajam-document-list { list-style: none;', html)
             self.assertIn('>v27</a>', html)
 
-            self.assertIn('Mara Levin. <cite>Shoreline work</cite>', html)
+            self.assertNotIn('Manuscript and supporting documents in this edition.', html)
             self.assertNotIn('listing.js', html)
             self.assertEqual(1, html.count('<h1 aria-current="page">Documents</h1>'))
             if number == 1:

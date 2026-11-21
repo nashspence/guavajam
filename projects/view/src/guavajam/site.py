@@ -146,8 +146,7 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         edition_crumbs = ((('../../../../index.html', 'GuavaJam'),) if in_collection else ()) + (
             ('../../index.html', latest_title), ('read/index.html', ed_label))
         message = edition['message']
-        body = ('<p>Source and verification details for this version.</p>'
-                '<dl class="guavajam-verification">'
+        body = ('<dl class="guavajam-verification">'
                 '<dt>Commit</dt><dd><code>' + escape(sha) + '</code></dd>'
                 '<dt>Publication date</dt><dd><time datetime="' +
                 escape(edition['published'], quote=True) + '">' +
@@ -181,13 +180,10 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         names = author_text(ordered_authors(latest_facts), identifiers=False)
         abstract = latest_facts.get('abstract', '')
         latest_citation = json.loads((output / 'editions' / latest / 'CITATION.json').read_text('utf-8'))
-        body = ''
+        body = ('<nav class="guavajam-actions" aria-label="Work links"><a href="editions/' + latest +
+                '/read/index.html">Read</a><a href="editions/index.html">Versions</a></nav>')
         if abstract:
-            body += '<p class="guavajam-abstract">' + escape(abstract) + '</p>'
-        body += ('<nav class="guavajam-actions" aria-label="Work links"><a href="editions/' + latest +
-                 '/read/index.html">Read</a><a href="editions/index.html">Versions</a>' +
-                 ('<a href="' + escape(repository, quote=True) + '">Source</a>'
-                  if repository else '') + '</nav>')
+            body += '<section class="guavajam-work-summary"><h2>Abstract</h2>' + '<p class="guavajam-abstract">' + escape(abstract) + '</p></section>'
     else:
         latest_citation = None
         latest = None

@@ -142,30 +142,28 @@ def build_work_index(output, catalog, *, repository='', search_assets=None):
     directory = output / 'browse'
     directory.mkdir()
     (directory / 'index.html').write_text(
-        browse_page(output, catalog, interactive=interactive, assets=asset_prefix), encoding='utf-8')
+        browse_page(output, catalog, interactive=interactive, assets=asset_prefix,
+                    collection=bool(search_assets)), encoding='utf-8')
     return database
 
 
-def browse_page(output, catalog, *, interactive, assets):
+def browse_page(output, catalog, *, interactive, assets, collection=False):
     """Browse within the same editorial hierarchy, with full static fallback."""
     from .site import page
+    from .directory_pages import search_activation
     with closing(sqlite3.connect(output / 'work.sqlite')) as db:
         title, latest = db.execute('SELECT title,latest_revision FROM works').fetchone()
-    body = '<p>Read documents, compare signed editions, or find a specific passage.</p>'
+    body = ''
     if interactive:
         download = emit_download(output / 'work.sqlite')
         body += (
             '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
             '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find in this work</h2>'
-            '<button type="button" id="guavajam-search-enable">Enable search</button></div>'
-            '<p class="guavajam-search-help" id="guavajam-search-scope">Local search starts with '
-            'the latest verified edition; include history using the edition filter. '
-            'Downloads ' + str((download['transfer_size'] + 1023) // 1024) +
-            ' KiB only when enabled.</p>'
-            '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
+            + search_activation(download) + '</div>'
+            '<form id="guavajam-search" role="search" '
             'data-scope="work" data-root="../" ' + download_attributes(download, prefix='../') +
             ' data-worker="' + escape(assets + 'search-worker.js', quote=True) + '">'
-            '<div class="guavajam-query-field"><label for="guavajam-query">Search text</label>'
+            '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">Search text</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
             '<button type="submit">Search</button>'
             '<details class="guavajam-search-filters"><summary>Browse and filter</summary>'
@@ -182,22 +180,24 @@ def browse_page(output, catalog, *, interactive, assets):
             '<option value="oldest">Publication order (oldest)</option>'
             '<option value="title">Title</option><option value="relevance">Relevance</option></select></div>'
             '</div></details></form></section>')
-        body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" '
-                 'aria-live="polite">Showing the static directory.</p>'
+        body += ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading" '
+                 'id="guavajam-search-listing" hidden>'
+                 '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
+                 'data-static-heading="Results">Search results</h2>'
+                 '<p class="guavajam-meta" id="guavajam-search-status" role="status" '
+                 'aria-live="polite"></p>'
                  '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>'
                  '<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
                  '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
                  '<span id="guavajam-search-page"></span>'
-                 '<button type="button" id="guavajam-search-next" disabled>Next</button></nav>')
-    body += '<nav id="guavajam-static-section" class="guavajam-directory" aria-label="Static directories">'
-    if latest:
-        body += '<a href="../editions/' + latest + '/read/documents.html">Documents</a>'
-        body += ' · <a href="../editions/index.html">Versions</a>'
-    else:
-        body += '<p>No signed editions have been published on the selected history.</p>'
-    body += '</nav>'
+                 '<button type="button" id="guavajam-search-next" disabled>Next</button></nav></section>')
+    # Search is an optional interactive surface. No duplicate document/version
+    # menu is generated here: those routes already live on the version reader.
+    body += ('<section id="guavajam-static-section" class="guavajam-directory">'
+             '<noscript><p>Searching requires JavaScript.</p></noscript></section>')
     if interactive:
         body += '<script src="' + escape(assets + 'search.js', quote=True) + '" defer></script>'
     # Search spans editions and has no singular Git-commit citation.
+    ancestors = ((('../../../index.html', 'GuavaJam'),) if collection else ()) + (( '../index.html', title),)
     return page('Search ' + title, body, search=interactive,
-                ancestors=(('../index.html', title),), breadcrumb_current='Search')
+                ancestors=ancestors, breadcrumb_current='Search')

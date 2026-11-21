@@ -94,6 +94,8 @@ class CitationPageTests(unittest.TestCase):
             self.assertNotIn('Download exact GFM source', html)
             self.assertNotIn('<p class="guavajam-actions">', html)
             self.assertIn('>v1</a>', html)
+            self.assertIn('aria-current="page">Passages</h1>', html)
+            self.assertEqual(count, html.count('<blockquote class="guavajam-citation"'))
 
         self.assertEqual(['citation:' + anchor for anchor in self.anchors], entries)
         second = Markup((self.read / pages[1]).read_text())
@@ -123,9 +125,9 @@ class CitationPageTests(unittest.TestCase):
         self.assertEqual('content/supporting/note.md', cited['document'])
         self.assertEqual('42', cited['anchor'])
         empty = (self.read / 'supporting/empty.cite.html').read_text()
-        self.assertIn('Cite this document as a whole', empty)
+        self.assertIn('No individually citable passages were declared.', empty)
         self.assertEqual([], Markup(empty).entries)
-        self.assertIn('href="empty.citation.json" download', empty)
+        self.assertNotIn('<blockquote class="guavajam-citation"', empty)
 
     def test_deep_sqlite_page_uses_fixed_scope_and_only_its_static_slice(self):
         self.build(download={'url': 'work.hash.sqlite.gz', 'encoding': 'gzip', 'size': 1234, 'transfer_size': 567})
@@ -133,7 +135,10 @@ class CitationPageTests(unittest.TestCase):
         self.assertIn('data-directory="citations"', html)
         self.assertNotIn('data-lazy=', html)
         self.assertIn('id="guavajam-search-enable">Enable search</button>', html)
-        self.assertIn('<h2 class="guavajam-list-heading">Passages</h2>', html)
+        self.assertIn('data-static-heading="Passages">Passages</h2>', html)
+        self.assertIn('Showing static page 3 of 3.', html)
+        self.assertIn('id="guavajam-search-spinner"', html)
+        self.assertEqual(3, html.count('<blockquote class="guavajam-citation"'))
         self.assertIn('data-root="../../../../../"', html)
         self.assertIn('data-worker="../../../../../../../search-worker.js"', html)
         self.assertIn('name="edition" value="' + self.sha + '"', html)

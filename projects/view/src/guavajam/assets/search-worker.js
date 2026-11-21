@@ -26,6 +26,14 @@ function literalQuery(value) {
   return words.slice(0, 12).map(word => '"' + word + '"*').join(' AND ');
 }
 
+const WORK_FACETS = `,
+    (SELECT json_group_array(name) FROM (
+      SELECT name FROM keywords WHERE work_id=w.id ORDER BY name COLLATE NOCASE, name
+    )) AS keywords_json,
+    (SELECT json_group_array(json_object('key', key, 'label', label)) FROM (
+      SELECT key, label FROM subjects WHERE work_id=w.id ORDER BY label COLLATE NOCASE, key
+    )) AS subjects_json`;
+
 function search({term = '', keyword = '', subject = '', sort = 'recent', page = 1}) {
   const fts = literalQuery(term);
   let base, binds;
@@ -42,13 +50,13 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
       FROM hits
     )
     SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.latest_revision, w.committer_name, w.committer_email, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url
+      w.latest_revision, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url ${WORK_FACETS}
     FROM works w JOIN repositories r ON w.repository_id = r.id
       JOIN ranked m ON m.work_id = w.id AND m.position = 1`;
     binds = [fts];
   } else {
     base = `SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.latest_revision, w.committer_name, w.committer_email, w.edition_count, r.path, r.url AS repository, 0 AS score, NULL AS hit_url
+      w.latest_revision, w.edition_count, r.path, r.url AS repository, 0 AS score, NULL AS hit_url ${WORK_FACETS}
     FROM works w JOIN repositories r ON w.repository_id = r.id`;
     binds = [];
   }

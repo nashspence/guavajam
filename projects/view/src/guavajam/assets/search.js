@@ -13,6 +13,8 @@ if (form) {
   const edition = form.querySelector('[name="edition"]');
   const documentFilter = form.querySelector('[name="document"]');
   const enable = document.querySelector('#guavajam-search-enable');
+  const spinner = document.querySelector('#guavajam-search-spinner');
+  const listing = document.querySelector('#guavajam-search-listing');
   const directory = form.dataset.directory || '';
   if (directory) document.querySelector('#guavajam-directory-enhancement').hidden = false;
   const reload = document.createElement('button');
@@ -27,6 +29,7 @@ if (form) {
   const pageLabel = document.querySelector('#guavajam-search-page');
   const pagination = pageLabel.closest('nav');
   const worksHeading = document.querySelector('#guavajam-works-heading');
+  const staticStatus = summary.textContent;
   let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
   if (work) {
@@ -39,8 +42,13 @@ if (form) {
     clearTimeout(timer);
     ready = false;
     loading = false;
+    if (spinner) spinner.hidden = true;
     worker?.terminate();
-    summary.textContent = 'Search is unavailable. The static directory pages remain accessible below; retry search or reload.';
+    demoteStaticFacets();
+    if (listing) listing.hidden = false;
+    summary.textContent = directory || !work ?
+      'Search is unavailable. The static pages remain accessible; retry search or reload.' :
+      'Search is unavailable. Retry or reload this page.';
     reload.hidden = false;
     fallback.hidden = false;
     results.hidden = true;
@@ -48,7 +56,7 @@ if (form) {
     back.disabled = next.disabled = true;
     pageLabel.textContent = '';
     pagination.hidden = true;
-    if (worksHeading) worksHeading.textContent = 'Works';
+    if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Works';
     if (enable) {
       enable.hidden = false;
       enable.disabled = false;
@@ -64,6 +72,55 @@ if (form) {
     node.dataset.generated = 'true';
     select.append(node);
   }
+
+  function facetButton(kind, key, label) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'guavajam-facet guavajam-' + (kind === 'keyword' ? 'tag' : 'subject');
+    button.dataset.facet = kind;
+    button.setAttribute('aria-pressed', 'false');
+    button.dataset.value = key;
+    const type = document.createElement('span');
+    type.className = 'guavajam-facet-type';
+    type.textContent = kind === 'keyword' ? 'Tag' : 'Subject';
+    button.append(type, document.createTextNode(' ' + label));
+    button.setAttribute('aria-label', `Filter by ${kind === 'keyword' ? 'tag' : 'subject'} ${label}`);
+    return button;
+  }
+
+  function promoteStaticFacets() {
+    if (work) return;
+    for (const span of fallback.querySelectorAll('span.guavajam-facet[data-facet][data-value]')) {
+      const type = span.dataset.facet;
+      if (type !== 'keyword' && type !== 'subject') continue;
+      const label = span.textContent.trim().replace(/^(?:Tag|Subject)\s*/, '');
+      span.replaceWith(facetButton(type, span.dataset.value, label));
+    }
+  }
+
+  function demoteStaticFacets() {
+    if (work) return;
+    for (const button of fallback.querySelectorAll('button.guavajam-facet[data-facet]')) {
+      const span = document.createElement('span');
+      span.className = button.className;
+      span.dataset.facet = button.dataset.facet;
+      span.dataset.value = button.dataset.value;
+      span.append(...button.childNodes);
+      button.replaceWith(span);
+    }
+  }
+
+  function facetSelection(event) {
+    const button = event.target.closest('button.guavajam-facet[data-facet][data-value]');
+    if (!ready || !button) return;
+    const select = button.dataset.facet === 'keyword' ? keyword : subject;
+    if (!select || ![...select.options].some(option => option.value === button.dataset.value)) return;
+    select.value = select.value === button.dataset.value ? '' : button.dataset.value;
+    form.querySelector('details.guavajam-search-filters').open = true;
+    changed();
+  }
+  fallback.addEventListener('click', facetSelection);
+  results.addEventListener('click', facetSelection);
 
   function workURL(value) {
     return new URL(value, new URL(form.dataset.root || '../', document.baseURI)).href;
@@ -98,7 +155,8 @@ if (form) {
     results.removeAttribute('aria-busy');
     pagination.hidden = true;
     back.disabled = next.disabled = true;
-    summary.textContent = 'Showing the static citation page.';
+    summary.textContent = staticStatus;
+    if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Passages';
     entry.focus({preventScroll: true});
     return entry;
   }
@@ -135,18 +193,10 @@ if (form) {
       article.append(heading);
       if (!work) {
         const byline = document.createElement('p');
-        byline.className = 'guavajam-byline';
+        byline.className = 'guavajam-byline guavajam-scrollline';
+        byline.tabIndex = 0;
+        byline.setAttribute('aria-label', 'Work authors and date');
         if (row.authors) byline.append(document.createTextNode(row.authors));
-        if (row.committer_name) {
-          if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
-          byline.append(document.createTextNode('Committed by '));
-          if (row.committer_email) {
-            const committer = document.createElement('a');
-            committer.href = 'mailto:' + row.committer_email;
-            committer.textContent = row.committer_name;
-            byline.append(committer);
-          } else byline.append(document.createTextNode(row.committer_name));
-        }
         if (row.latest_published) {
           if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
           const date = document.createElement('time');
@@ -155,6 +205,17 @@ if (form) {
           byline.append(date);
         }
         if (byline.childNodes.length) article.append(byline);
+        const tags = JSON.parse(row.keywords_json || '[]');
+        const subjects = JSON.parse(row.subjects_json || '[]');
+        if (tags.length || subjects.length) {
+          const facets = document.createElement('p');
+          facets.className = 'guavajam-facets guavajam-scrollline';
+          facets.setAttribute('aria-label', 'Subjects and tags');
+          facets.tabIndex = 0;
+          for (const tag of tags) facets.append(facetButton('keyword', tag, tag));
+          for (const item of subjects) facets.append(facetButton('subject', item.key, item.label));
+          article.append(facets);
+        }
         if (row.abstract) {
           const abstract = document.createElement('p');
           abstract.className = 'guavajam-abstract';
@@ -216,6 +277,7 @@ if (form) {
       results.append(li);
     }
     page = current;
+    if (listing) listing.hidden = false;
     fallback.hidden = true;
     results.hidden = false;
     const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -224,6 +286,10 @@ if (form) {
     pageLabel.textContent = `Page ${current} of ${pages}`;
     pagination.hidden = false;
     if (worksHeading) worksHeading.textContent = 'Search results';
+    for (const button of results.querySelectorAll('button.guavajam-facet')) {
+      const selected = button.dataset.facet === 'keyword' ? keyword : subject;
+      button.setAttribute('aria-pressed', String(selected?.value === button.dataset.value));
+    }
     back.disabled = current <= 1;
     next.disabled = current >= pages;
     results.removeAttribute('aria-busy');
@@ -241,7 +307,6 @@ if (form) {
   function changed() {
     clearTimeout(timer); page = 1;
     if (ready) request();
-    else summary.textContent = 'Enable search to apply your query or sort order.';
   }
   input.addEventListener('input', () => {
     // Invalidate in-flight replies immediately, including the debounce window.
@@ -268,6 +333,8 @@ if (form) {
     if (ready || loading) return;
     loading = true;
     reload.hidden = true;
+    if (spinner) spinner.hidden = false;
+    if (listing) listing.hidden = false;
     // Keep keyboard focus while loading. The loading guard rejects duplicate
     // requests; native disabled would blur the very button we need to restore.
     if (enable) enable.setAttribute('aria-disabled', 'true');
@@ -304,6 +371,8 @@ if (form) {
           }
           ready = initialized = true;
           loading = false;
+          if (spinner) spinner.hidden = true;
+          promoteStaticFacets();
           if (enable) {
             const heldFocus = document.activeElement === enable;
             enable.removeAttribute('aria-disabled');

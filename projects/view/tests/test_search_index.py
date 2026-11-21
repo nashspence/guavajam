@@ -79,12 +79,18 @@ class SearchIndexTests(unittest.TestCase):
         marker.write_text(json.dumps({'name': 'Signer Test', 'email': 'signer@example.org'}))
         create_index(self.site, [entry])
         page = homepage(self.site, interactive=True)
-        self.assertIn('href="mailto:signer@example.org"', page)
+        self.assertNotIn('href="mailto:signer@example.org"', page)
+        self.assertNotIn('Committed by', page)
+        self.assertIn('data-facet="keyword" data-value="fieldwork"', page)
+        self.assertIn('class="guavajam-search-spinner"', page)
+        self.assertIn('class="guavajam-index-size"', page)
+        self.assertIn('Showing static page 1 of 1.', page)
+        self.assertNotIn('Browse independently verified works', page)
         self.assertIn('Find a work', page)
         self.assertIn('>Works</h2>', page)
         self.assertLess(page.index('Find a work'), page.index('>Works</h2>'))
         self.assertIn('<details class="guavajam-search-filters"><summary>Filters and sort</summary>', page)
-        self.assertIn('class="guavajam-byline"', page)
+        self.assertIn('class="guavajam-byline guavajam-scrollline"', page)
         self.assertIn('class="guavajam-abstract"', page)
         self.assertIn('aria-current="page">GuavaJam</h1>', page)
         self.assertIn('sources/alpha/editions/' + entry['tip'] + '/read/index.html', page)
@@ -146,6 +152,21 @@ class SearchIndexTests(unittest.TestCase):
             self.assertEqual([one, one, two], facts['subjects'])
             self.assertEqual(['same', 'same'], facts['keywords'])
             self.assertNotEqual(subject_key(one), subject_key(two))
+
+    def test_static_subjects_and_tags_preserve_facet_keys_and_escape_labels(self):
+        subject = {'subject': 'Landscape & sea', 'subject_scheme': 'Field <authority>'}
+        entry = self.source('alpha', 'Long <field> & observations', 'Evidence',
+                            keywords=['Coastal & studies'], subjects=[subject])
+        create_index(self.site, [entry])
+        html = homepage(self.site, interactive=True)
+        self.assertIn('data-facet="keyword" data-value="Coastal &amp; studies"', html)
+        self.assertIn('data-facet="subject" data-value="' + subject_key(subject) + '"', html)
+        self.assertIn('Landscape &amp; sea', html)
+        self.assertIn('Field &lt;authority&gt;', html)
+        self.assertIn('class="guavajam-facets guavajam-scrollline"', html)
+        self.assertNotIn('Committed by', html)
+        self.assertNotIn('class="guavajam-facet" type="button"', html)
+        self.assertIn('class="guavajam-byline guavajam-scrollline"', html)
 
     def test_failed_or_redirected_inputs_leave_no_partial_database(self):
         entry = self.source('alpha', 'Field Notes', 'Safe words')

@@ -57,6 +57,18 @@ class ChromeTests(unittest.TestCase):
         self.assertIn('<blockquote class="guavajam-citation"', html)
         self.assertIn('href="note.citation.json" download', html)
 
+    def test_shared_list_chrome_scrolls_without_visible_scrollbars(self):
+        styles = (Path(__file__).resolve().parents[1] / 'src/guavajam/styles/catalog.css').read_text()
+        for component in ('.guavajam-scrollline', '.guavajam-actions', '.guavajam-pagination',
+                          '.guavajam-works h3', '.guavajam-editions h3',
+                          '.guavajam-document-list > li > a'):
+            self.assertIn(component, styles)
+        self.assertIn('scrollbar-width: none', styles)
+        self.assertIn('flex-wrap: nowrap', styles)
+        self.assertIn('.guavajam-search-spinner', styles)
+        self.assertIn('prefers-reduced-motion: reduce', styles)
+        self.assertIn('.guavajam-visually-hidden', styles)
+
     def test_collection_has_no_fabricated_commit_and_footer_is_generator_only(self):
         html = page('GuavaJam', '<p>Collection description.</p>')
         self.assertNotIn('class="guavajam-citation"', html)
@@ -210,7 +222,9 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('Latest edition', work)
             self.assertNotIn('class="guavajam-latest-edition"', work)
             self.assertNotIn('>v1</a>', work)
-            self.assertIn('href="https://github.com/example/work.git">Source</a>', work)
+            self.assertNotIn('href="https://github.com/example/work.git">Source</a>', work)
+            self.assertLess(work.index('aria-label="Work links"'), work.index('<h2>Abstract</h2>'))
+            self.assertIn('Observations of the coast.', work)
             self.assertNotIn('Publication provenance', work)
             self.assertNotIn('>Documents</a>', work)
             self.assertNotIn('>Search</a>', work)
@@ -225,7 +239,7 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('listing.js', json.loads((output / 'SITE.json').read_text())['files'])
             self.assertNotIn('<script', history)
             self.assertNotIn('<script', directory)
-            self.assertIn('Source and verification details', verify)
+            self.assertNotIn('Source and verification details', verify)
             self.assertIn('href="SOURCE.json"', verify)
             self.assertIn('href="CITATION.json" download', verify)
             self.assertIn('<code>' + sha2 + '</code>', verify)

@@ -21,6 +21,39 @@ from .search_artifact import download_attributes, emit_download
 from .site import page
 
 
+def search_activation(download):
+    """Shared opt-in action with a discreet transfer size and loading affordance."""
+    kib = (download['transfer_size'] + 1023) // 1024
+    return ('<span class="guavajam-search-activation">'
+            '<button type="button" id="guavajam-search-enable">Enable search</button>'
+            '<small class="guavajam-index-size" aria-label="Index download size: ' + str(kib) +
+            ' KiB">' + str(kib) + ' KiB</small>'
+            '<span class="guavajam-search-spinner" id="guavajam-search-spinner" '
+            'aria-hidden="true" hidden></span></span>')
+
+
+def search_listing_open(title, number, pages, *, interactive, result_class='guavajam-editions'):
+    """Every static directory starts with the same handoff state as Works."""
+    body = ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
+            '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
+            'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>')
+    if interactive:
+        body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
+                 'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
+                 '<ol id="guavajam-search-results" class="' + result_class + '" hidden></ol>')
+    return body
+
+
+def search_listing_close(*, interactive):
+    body = ''
+    if interactive:
+        body += ('<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
+                 '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
+                 '<span id="guavajam-search-page"></span>'
+                 '<button type="button" id="guavajam-search-next" disabled>Next</button></nav>')
+    return body + '</section>'
+
+
 def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
     """Use the collection's explicit, opt-in SQLite search disclosure.
 
@@ -41,20 +74,16 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
              ('<option value="publication">Source order</option>'
               '<option value="title">Title (A–Z)</option>'
               '<option value="relevance">Relevance</option>'))
-    kib = (download['transfer_size'] + 1023) // 1024
     return ('<section class="guavajam-index-search guavajam-directory-enhancement" '
             'id="guavajam-directory-enhancement" aria-labelledby="guavajam-search-heading" hidden>'
             '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">' + heading + '</h2>'
-            '<button type="button" id="guavajam-search-enable">Enable search</button></div>'
-            '<p class="guavajam-search-help" id="guavajam-search-scope">Optional local SQLite search; '
-            'downloads ' + str(kib) + ' KiB of index data only when enabled. '
-            'Browse the static pages below without search.</p>'
-            '<form id="guavajam-search" role="search" aria-describedby="guavajam-search-scope" '
+            + search_activation(download) + '</div>'
+            '<form id="guavajam-search" role="search" '
             'data-scope="work" data-directory="' + escape(kind, quote=True) + '" '
             'data-root="' + escape(root, quote=True) + '" ' +
             download_attributes(download, prefix=root) +
             ' data-worker="' + escape(root + runtime + 'search-worker.js', quote=True) + '">'
-            '<div class="guavajam-query-field"><label for="guavajam-query">' + escape(label) + '</label>'
+            '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">' + escape(label) + '</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
             '<button type="submit">Search</button>'
             '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
@@ -65,15 +94,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
             ('<input type="hidden" name="document" value="' + escape(document, quote=True) + '">'
                if citations else '') +
-            '</form>'
-            '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-            'Select Enable search to explore the SQLite index.</p>'
-            '<ol id="guavajam-search-results" class="guavajam-editions" hidden></ol>'
-            '<nav class="guavajam-pagination" aria-label="SQLite search result pages" hidden>'
-            '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
-            '<span id="guavajam-search-page"></span>'
-            '<button type="button" id="guavajam-search-next" disabled>Next</button></nav>'
-            '</section><script src="' + escape(root + runtime + 'search.js', quote=True) +
+            '</form></section><script src="' + escape(root + runtime + 'search.js', quote=True) +
             '" defer></script>')
 
 
@@ -103,10 +124,11 @@ def _write_history(output, entries, title, *, collection, runtime, download):
         destination = directory / 'index.html' if first else directory / 'page' / f'{number}.html'
         destination.parent.mkdir(parents=True, exist_ok=True)
         crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + ((root + 'index.html', title),)
-        body = '<p>Verified versions, newest first in publication order.</p>'
+        body = ''
         if download is not None:
             body += _sqlite_controls(kind='editions', edition='all', root=root,
                                      runtime=runtime, download=download)
+        body += search_listing_open('Versions', number, len(chunks), interactive=download is not None)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions">' +
                  ''.join(_history_row(item, links_prefix='' if first else '../') for item in chunk) +
@@ -115,7 +137,7 @@ def _write_history(output, entries, title, *, collection, runtime, download):
             body += '<p>No published versions.</p>'
         body += _static_pager(number, len(chunks), first_href='index.html' if first else '../index.html',
                               page_prefix='page/' if first else '')
-        body += '</section>'
+        body += '</section>' + search_listing_close(interactive=download is not None)
         destination.write_text(page('Versions' if first else f'Versions — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
                                     breadcrumb_current='Versions'), encoding='utf-8')
@@ -128,9 +150,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
         view = json.loads(view_path.read_text('utf-8'))
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
         chunks = _slices(navigation['documents'].items())
-        citation = json.loads((read.parent / 'CITATION.json').read_text('utf-8'))
         title = view['facts']['title']
-        authors = author_text(ordered_authors(view['facts']), identifiers=False)
         for number, chunk in enumerate(chunks, 1):
             first = number == 1
             read_root = '' if first else '../../'
@@ -139,23 +159,20 @@ def _write_documents(output, entries, *, collection, runtime, download):
             target.parent.mkdir(parents=True, exist_ok=True)
             crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + (
                 (root + 'index.html', title), (read_root + 'index.html', 'v' + str(position)))
-            citation_href = read_root + '../CITATION.json'
-            body = '<article class="guavajam-edition"><p>Manuscript and supporting documents in this edition.</p>'
+            body = ''
             if download is not None:
                 body += _sqlite_controls(kind='documents', edition=revision, root=root,
                                          runtime=runtime, download=download)
+            body += search_listing_open('Documents', number, len(chunks), interactive=download is not None)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
                      document_directory({'documents': dict(chunk)}, prefix=read_root,
                                         include_sections=False))
             body += _static_pager(number, len(chunks),
                                   first_href='documents.html' if first else '../../documents.html',
                                   page_prefix='documents/page/' if first else '')
-            body += '</section></article>'
+            body += '</section>' + search_listing_close(interactive=download is not None)
             html = page('Documents' if first else f'Documents — page {number}', body,
-                        search=download is not None, ancestors=crumbs, breadcrumb_current='Documents',
-                        citation_record=citation, citation_href=citation_href,
-                        citation_title=title, citation_authors=authors,
-                        citation_edition=position, citation_published=date)
+                        search=download is not None, ancestors=crumbs, breadcrumb_current='Documents')
             target.write_text(html, encoding='utf-8')
             relative = target.relative_to(read).as_posix()
             view['files'][relative] = hashlib.sha256(html.encode('utf-8')).hexdigest()
