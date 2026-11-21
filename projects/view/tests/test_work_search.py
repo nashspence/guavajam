@@ -117,7 +117,7 @@ class WorkSearchTests(unittest.TestCase):
         self.assertNotIn('<script', directory)
         supporting = (reader / 'supporting/unlinked.html').read_text()
         self.assertIn('../index.html', Links(supporting).links)
-        self.assertIn('../documents.html', Links(supporting).links)
+        self.assertNotIn('../documents.html', Links(supporting).links)
         manuscript = (reader / 'index.html').read_text()
         self.assertIn('documents.html', Links(manuscript).links)
         self.assertIn('../verify.html', Links(manuscript).links)
