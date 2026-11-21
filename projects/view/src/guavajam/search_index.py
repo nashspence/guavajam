@@ -21,7 +21,7 @@ from guavajam_core.bibliography import ordered_authors
 from guavajam_core.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYTES
 from guavajam_core.identifiers import SLUG
 
-from .citation_routes import citation_href
+from .citation_routes import citation_href, source_offsets
 from .search_artifact import download_attributes, emit_download
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
@@ -201,9 +201,10 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE VIRTUAL TABLE search_fts USING fts5(title, authors, abstract, labels, body, git,
                 content='', detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
         ''')
-        # Collection search routes to documents. Only a work's directory uses
-        # anchor rows. Both keep FTS positions and token counts for unchanged
-        # weighted BM25 ranking, without another copy of the source plaintext.
+        # Collection search stays contentless. The work's passage FTS stores
+        # verified text to provide query-positioned, bounded native snippets.
+        # Without FTS content a snippet() call returns NULL; a truncated static
+        # excerpt would miss matches deep in long sections.
         if scope == 'work':
             conn.executescript('''
                 CREATE TABLE passages (
@@ -212,7 +213,8 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                     work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
                     title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
                     position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                    url TEXT NOT NULL, citation_url TEXT NOT NULL, UNIQUE(document_id, anchor)
+                    url TEXT NOT NULL, citation_url TEXT NOT NULL,
+                    UNIQUE(document_id, anchor)
                 );
                 CREATE TABLE passage_records (
                     id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
@@ -222,7 +224,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                 CREATE INDEX passages_by_document ON passages(document_id, position);
                 CREATE INDEX passages_by_edition ON passages(edition_id);
                 CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
-                    content='', detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+                    detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
             ''')
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
@@ -258,6 +260,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                     if view['preview'] is not False or view['canonical']['revision'] != sha:
                         raise CatalogError('search: non-public or mismatched verified view')
                     navigation, size = _navigation(read, view)
+                    passage_starts = source_offsets(navigation)
                     total += size + (read / 'VIEW.json').stat().st_size
                     if total > MAX_INDEXED_BYTES:
                         raise CatalogError('search: generated inventories exceed indexing bounds')
@@ -323,7 +326,8 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
                             cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
-                                view_path, anchor['position'], anchor['anchor']), safe='/#:')
+                                source_path, passage_starts[source_path] + anchor['position'],
+                                anchor['anchor']), safe='/#:')
                             cursor = conn.execute('INSERT INTO passages '
                                 '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url,citation_url) '
                                 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',

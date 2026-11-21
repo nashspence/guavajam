@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 from guavajam_test_support.discovery_fixture import Publisher
 from guavajam.update import update, locked_root, atomic
+from guavajam.citation_routes import citation_href, passage_json
 from guavajam.renderer import render
 
 
@@ -55,16 +56,16 @@ class PeriodicUpdateTests(unittest.TestCase):
     def test_reused_render_gets_fresh_citations_without_polluting_private_cache(self):
         self.update()
         read = self.output / 'current/editions' / self.revision / 'read'
-        paths = ('index.html', 'cite.html', 'cite/passage/opening.json',
+        paths = ('index.html', 'contents.html', 'passages.html', passage_json('index.html', 'opening'),
                  'source.gfm', 'source.citation.json')
         def without_generator_time(data):
             return re.sub(rb'<footer>.*?</footer>', b'<footer>generated</footer>', data, flags=re.S)
         expected = {name: without_generator_time((read / name).read_bytes()) for name in paths}
         cache = next((self.output / '.cache').glob('*/*/index.html')).parent
         self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
-        self.assertFalse((cache / 'cite.html').exists())
-        self.assertFalse((cache / 'cite').exists())
-        self.assertNotIn('cite.html', json.loads((cache / 'VIEW.json').read_text())['files'])
+        self.assertFalse((cache / 'passages.html').exists())
+        self.assertFalse((cache / 'passages').exists())
+        self.assertNotIn('passages.html', json.loads((cache / 'VIEW.json').read_text())['files'])
 
         # A new catalog checkpoint rebuilds the site from the same immutable,
         # undecorated render. Citation decoration must run once on that copy.
@@ -74,16 +75,16 @@ class PeriodicUpdateTests(unittest.TestCase):
             self.assertTrue(self.update()['changed'])
         self.assertEqual(expected, {name: without_generator_time((read / name).read_bytes()) for name in paths})
         html = (read / 'index.html').read_text()
-        self.assertEqual(1, html.count('href="cite.html#citation:opening"'))
+        self.assertEqual(1, html.count('href="' + citation_href('content/manuscript.md', 0, 'opening') + '"'))
         self.assertNotIn('<script', html)
-        canonical = json.loads((read / 'cite/passage/opening.json').read_text())
+        canonical = json.loads((read / passage_json('index.html', 'opening')).read_text())
         self.assertEqual(self.revision, canonical['revision'])
         self.assertEqual('opening', canonical['anchor'])
         view = json.loads((read / 'VIEW.json').read_text())
         for name in paths:
             self.assertEqual(hashlib.sha256((read / name).read_bytes()).hexdigest(), view['files'][name])
         self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
-        self.assertFalse((cache / 'cite.html').exists())
+        self.assertFalse((cache / 'passages.html').exists())
 
     def test_authentication_is_repeated_even_on_noop(self):
         self.update(); selected = self.selected()

@@ -1,32 +1,42 @@
-"""One route calculation for static citations, readers and the SQLite index."""
+"""One edition-wide human citation index; Git source identities remain exact."""
+from hashlib import sha256
 from pathlib import PurePosixPath
 import posixpath
 
 from .pagination import PAGE_SIZE
 
 
-def citation_page(view, position=0):
-    """Use the immutable NAV source position, never a filtered result offset."""
+def source_offsets(navigation):
+    """Return the first source-order slot for each verified document."""
+    offset, starts = 0, {}
+    for source in sorted(navigation['documents']):
+        starts[source] = offset
+        offset += len(navigation['documents'][source]['anchors'])
+    return starts
+
+
+def citation_page(position=0):
+    """An immutable edition-wide static page, independently of SQLite sorting."""
     if type(position) is not int or position < 0:
         raise ValueError('citation position must be a nonnegative source offset')
-    path = PurePosixPath(view)
-    first = path.with_name('cite.html' if view == 'index.html' else path.stem + '.cite.html')
     number = position // PAGE_SIZE + 1
-    return str(first if number == 1 else first.with_suffix('') / 'page' / f'{number}.html')
+    return 'passages.html' if number == 1 else f'passages/page/{number}.html'
 
 
-def citation_fragment(anchor):
-    # A colon cannot occur in a source ID. Shell/search IDs therefore never
-    # compete with source anchors such as "main" or "guavajam-query".
-    return 'citation:' + anchor
+def citation_fragment(source, anchor):
+    """Disambiguate equal anchor IDs across source documents in one HTML page."""
+    return 'citation:' + sha256(source.encode('utf-8')).hexdigest()[:20] + ':' + anchor
 
 
-def citation_href(view, position, anchor):
-    return citation_page(view, position) + '#' + citation_fragment(anchor)
+def citation_href(source, position, anchor):
+    return citation_page(position) + '#' + citation_fragment(source, anchor)
 
 
 def passage_json(view, anchor):
-    return str(PurePosixPath(citation_page(view)).with_suffix('') / 'passage' / (anchor + '.json'))
+    """Preserve the existing document-scoped, canonical citation JSON path."""
+    path = PurePosixPath(view)
+    location = path.with_name('cite' if view == 'index.html' else path.stem + '.cite')
+    return str(location / 'passage' / (anchor + '.json'))
 
 
 def source_download(view):
@@ -35,11 +45,7 @@ def source_download(view):
 
 
 def relative_href(filename, target):
-    """Both arguments are generator-owned paths relative to the reader root."""
-    # posixpath.relpath resolves relative inputs against the process cwd,
-    # which can clamp leading '..' components at '/' in a shallow container
-    # workdir. These paths are relative to the reader root, so compare their
-    # lexical components without consulting the host filesystem.
+    """Lexical, deployment-independent links relative to the same reader root."""
     origin = PurePosixPath(posixpath.dirname(filename)).parts
     destination = PurePosixPath(posixpath.normpath(target)).parts
     common = 0

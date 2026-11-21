@@ -12,6 +12,7 @@ if (form) {
   const kind = form.querySelector('[name="kind"]');
   const edition = form.querySelector('[name="edition"]');
   const documentFilter = form.querySelector('[name="document"]');
+  const supportingFilter = form.querySelector('[name="supporting"]');
   const enable = document.querySelector('#guavajam-search-enable');
   const spinner = document.querySelector('#guavajam-search-spinner');
   const listing = document.querySelector('#guavajam-search-listing');
@@ -176,6 +177,32 @@ if (form) {
     if (fallback.hidden) showStaticCitation(location.hash)?.scrollIntoView();
   });
 
+  function matchedExcerpt(raw) {
+    // FTS5 snippet() surrounds matched source tokens with private-use markers.
+    // Never insert database text as HTML; create native marked text nodes.
+    const excerpt = String(raw).slice(0, 320);
+    const quote = document.createElement('blockquote');
+    quote.className = 'guavajam-passage-excerpt';
+    let buffer = '', marked = false;
+    function flush() {
+      if (!buffer) return;
+      if (marked) {
+        const match = document.createElement('mark');
+        match.textContent = buffer;
+        quote.append(match);
+      } else quote.append(document.createTextNode(buffer));
+      buffer = '';
+    }
+    for (const char of excerpt) {
+      if (char === '\uE000') { flush(); marked = true; }
+      else if (char === '\uE001') { flush(); marked = false; }
+      else buffer += char;
+    }
+    flush();
+    if (String(raw).length > excerpt.length) quote.append(document.createTextNode('…'));
+    return quote;
+  }
+
   function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
     results.replaceChildren();
     for (const row of rows) {
@@ -242,6 +269,18 @@ if (form) {
         }
         article.append(meta);
         if (resultKind === 'passages') {
+          if (directory === 'citations') {
+            // The search result is a preview of the same canonical citation
+            // entry, not an alternative human citation or destination.
+            const cited = document.createElement('blockquote');
+            cited.className = 'guavajam-citation';
+            const identity = document.createElement('p');
+            identity.className = 'guavajam-citation-source';
+            identity.textContent = `Git commit ${row.revision} · ${row.document_path} · #${row.anchor}`;
+            cited.append(identity);
+            article.append(cited);
+          }
+          if (row.excerpt) article.append(matchedExcerpt(row.excerpt));
           const action = document.createElement('a');
           action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
           action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
@@ -301,7 +340,8 @@ if (form) {
     back.disabled = next.disabled = true;
     worker.postMessage({action: 'search', id: ++sequence, term: input.value,
       keyword: keyword?.value, subject: subject?.value, kind: kind?.value,
-      edition: edition?.value, document: documentFilter?.value, sort: sort.value, page});
+      edition: edition?.value, document: documentFilter?.value,
+      supporting: supportingFilter?.value, sort: sort.value, page});
   }
 
   function changed() {
@@ -316,7 +356,7 @@ if (form) {
     clearTimeout(timer);
     timer = setTimeout(changed, 200);
   });
-  for (const select of [keyword, subject, sort, edition, documentFilter].filter(Boolean)) select.addEventListener('change', changed);
+  for (const select of [keyword, subject, sort, edition, documentFilter, supportingFilter].filter(Boolean)) select.addEventListener('change', changed);
   kind?.addEventListener('change', () => {
     if (kind.value === 'editions' && edition.value === 'latest') edition.value = 'all';
     changed();

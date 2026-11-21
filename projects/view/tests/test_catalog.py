@@ -82,7 +82,7 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('href="documents.html">Documents</a>', reader)
         self.assertIn('href="../verify.html">Verify</a>', reader)
         self.assertIn('href="../license.html">License</a>', reader)
-        self.assertIn('href="cite.html">Passages</a>', reader)
+        self.assertIn('href="passages.html">Passages</a>', reader)
 
 
     def test_manuscript_body_does_not_repeat_the_top_citation(self):

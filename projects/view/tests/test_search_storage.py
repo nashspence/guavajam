@@ -138,7 +138,7 @@ class SearchStorageTests(unittest.TestCase):
             self.assertEqual(reference.execute(token_sql.format('tokens')).fetchall(),
                              actual.execute(token_sql.format('temp.tokens_' + table)).fetchall())
 
-    def test_collection_and_work_preserve_full_weighted_ranking_without_plaintext_copies(self):
+    def test_collection_and_work_preserve_ranking_and_snippet_source(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             entries, all_rows = [], []
@@ -163,6 +163,19 @@ class SearchStorageTests(unittest.TestCase):
                                          [row[1] for row in db.execute('PRAGMA table_info(passage_records)')])
                         document_rows = all_rows[0]['search_fts']
                         self.assert_ranked_results(db, 'passage_fts', all_rows[0]['passage_fts'])
+                        # Text is kept only in the work's existing passage FTS:
+                        # its native snippet() yields a bounded highlighted quote
+                        # at the actual query match, even deep in a long passage.
+                        excerpt = db.execute(
+                            "SELECT snippet(passage_fts, 4, char(57344), char(57345), '…', 24) "
+                            "FROM passage_fts WHERE passage_fts MATCH 'cafe' LIMIT 1").fetchone()[0]
+                        self.assertIsInstance(excerpt, str)
+                        self.assertTrue(excerpt)
+                        matches = db.execute(
+                            "SELECT snippet(passage_fts, 4, char(57344), char(57345), '…', 24) "
+                            "FROM passage_fts WHERE passage_fts MATCH 'body:cafe'").fetchall()
+                        self.assertTrue(any('\ue000' in item[0] and '\ue001' in item[0]
+                                            for item in matches))
                     self.assert_ranked_results(db, 'search_fts', document_rows)
                     self.assertEqual([(None,) * 6], db.execute('SELECT ' + FIELDS + ' FROM search_fts LIMIT 1').fetchall())
 

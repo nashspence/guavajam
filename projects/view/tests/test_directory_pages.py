@@ -10,7 +10,7 @@ import sqlite3
 import tempfile
 import unittest
 
-from guavajam.directory_pages import PAGE_SIZE, _static_pager, build_directories
+from guavajam.directory_pages import PAGE_SIZE, _static_pager, build_directories, _write_contents
 
 
 class Markup(HTMLParser):
@@ -54,7 +54,7 @@ class DirectoryPageTests(unittest.TestCase):
             view = {'facts': {'title': 'Shoreline work', 'author': 'Mara Levin'},
                     'documents': documents, 'files': {'NAV.json': 'old'}}
             (read / 'VIEW.json').write_text(json.dumps(view))
-            (read / 'NAV.json').write_text(json.dumps({'documents': documents}))
+            (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': documents}))
             (read.parent / 'CITATION.json').write_text(json.dumps({
                 'revision': sha, 'manuscript': 'content/manuscript.md'}))
             (read.parent / 'SOURCE.json').write_text(json.dumps({
@@ -150,6 +150,30 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertNotIn('<script', html)
             self.assertIn('rel="next"', html)
             self.assertNotIn('listing.js', html)
+
+    def test_contents_uses_only_the_author_outline_and_exact_reader_anchors(self):
+        read = self.output / 'editions' / self.editions[-1][0] / 'read'
+        anchors = [
+            {'anchor': 'opening', 'title': 'Opening <study>', 'kind': 'section', 'level': 2, 'scope': 'document'},
+            {'anchor': 'detail', 'title': 'Detail & evidence', 'kind': 'section', 'level': 3, 'scope': 'document'},
+            {'anchor': 'quoted', 'title': 'Quoted heading', 'kind': 'section', 'level': 2, 'scope': 'quotation:turn'},
+            {'anchor': 'closing', 'title': 'Closing', 'kind': 'section', 'level': 2, 'scope': 'document'}]
+        nav = json.loads((read / 'NAV.json').read_text())
+        nav['documents']['content/manuscript.md']['anchors'] = anchors
+        (read / 'NAV.json').write_text(json.dumps(nav))
+        _write_contents(self.output, [self.editions[-1]], collection=True)
+        html = (read / 'contents.html').read_text()
+        links = Markup(html).links
+        for anchor in ('opening', 'detail', 'closing'):
+            self.assertIn('index.html#' + anchor, links)
+        self.assertNotIn('index.html#quoted', links)
+        self.assertIn('Opening &lt;study&gt;', html)
+        self.assertIn('Detail &amp; evidence', html)
+        self.assertIn('</a><ol><li><a href="index.html#detail">', html)
+        self.assertIn('href="index.html">v1</a>', html)
+        self.assertNotIn('<script', html)
+        view = json.loads((read / 'VIEW.json').read_text())
+        self.assertEqual(hashlib.sha256(html.encode()).hexdigest(), view['files']['contents.html'])
 
     def test_pager_never_emits_unbounded_page_link_lists(self):
         nav = _static_pager(2500, 5000, first_href='../index.html', page_prefix='')

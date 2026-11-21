@@ -1,16 +1,13 @@
 """Optional work discovery; reading and source identities remain script-free."""
 from __future__ import annotations
 
-from contextlib import closing
 import hashlib
 from html import escape
 import json
 import re
 from pathlib import Path
-import sqlite3
 
 from guavajam_core.catalog import CatalogError, encoded
-from .search_artifact import download_attributes, emit_download
 from .search_index import create_index, emit_browser_assets
 
 
@@ -23,10 +20,11 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
     """
     from .site import citation_control, edition_label
     from .citation_pages import add_passage_links
-    from .citation_routes import citation_page, relative_href
+    from .citation_routes import relative_href, source_offsets
     from guavajam_core.bibliography import ordered_authors, author_text
     authors = author_text(ordered_authors(view["facts"]), identifiers=False)
     source_navigation = json.loads((reader / 'NAV.json').read_text('utf-8'))
+    starts = source_offsets(source_navigation)
     paths = [details['view'] for details in view['documents'].values()]
     paths.append('documents.html')
     destinations = {details['view']: source for source, details in view['documents'].items()}
@@ -46,9 +44,10 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         else:
             parts.append('<li><a href="' + prefix + 'index.html">' +
                          escape(edition_label(edition_number)) + '</a></li>')
-            current = 'Documents' if relative == 'documents.html' else 'Supporting document'
+            current = ('Documents' if relative == 'documents.html' else
+                       view['documents'][destinations[relative]]['title'])
             parts.append('<li>' + ('<h1 aria-current="page">' if relative == 'documents.html'
-                                   else '<span aria-current="page">') + current +
+                                   else '<span aria-current="page">') + escape(current) +
                          ('</h1>' if relative == 'documents.html' else '</span>') + '</li>')
         navigation = ('<nav class="guavajam-navigation" aria-label="Breadcrumb" tabindex="0"><ol>' +
                       ''.join(parts) + '</ol></nav>\n')
@@ -81,6 +80,10 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         if relative == 'index.html':
             from .citation import manuscript_citation
             text = text.replace(manuscript_citation(revision, view['facts']), '', 1)
+            # The native TOC moves to Contents on the site-owned reader only.
+            # The standalone renderer and its immutable cache keep their own TOC.
+            text = re.sub(r'<nav\b[^>]*class="guavajam-contents"[^>]*>.*?</nav>',
+                          '', text, count=1, flags=re.S)
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title)
@@ -89,25 +92,21 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             # redundant with the version menu in site-owned readers.
             from .navigation import reader_navigation
             text = text.replace(reader_navigation(source), '', 1)
-            text = add_passage_links(text, relative, source_navigation['documents'][source]['anchors'])
+            text = add_passage_links(text, relative, source,
+                                     source_navigation['documents'][source]['anchors'], starts[source])
             if relative == 'index.html':
                 # One compact route menu, directly above the manuscript; no
                 # second edition cover, repeated abstract, or extra citation.
                 menu = ('<nav class="guavajam-actions guavajam-version-menu" '
                         'aria-label="Version links">'
-                        '<a href="../../../browse/index.html?edition=' +
-                        escape(revision, quote=True) + '">Search</a>'
+                        '<a href="contents.html">Contents</a>'
                         '<a href="documents.html">Documents</a>'
-                        '<a href="cite.html">Passages</a>'
+                        '<a href="passages.html">Passages</a>'
                         '<a href="../locators.html">Locators</a>'
                         '<a href="../verify.html">Verify</a>'
                         '<a href="../license.html">License</a>'
                         '<a href="source.gfm" download>Download</a></nav>')
                 citation_html = menu + citation_html
-            else:
-                citation_html += ('<p class="guavajam-actions"><a href="' +
-                                  escape(relative_href(relative, citation_page(relative)), quote=True) +
-                                  '">Cite this document</a></p>')
         text = text.replace('<article class="guavajam-edition"',
                             citation_html + '<article class="guavajam-edition"', 1)
         text = text.replace('<div class="guavajam-source-identity">',
@@ -133,73 +132,10 @@ def build_work_index(output, catalog, *, repository='', search_assets=None):
     database = create_index(output, [{'repository': repository, 'path': '', 'tip': catalog['tip']}],
                             filename='work.sqlite', scope='work')
     if search_assets is None:
-        interactive = emit_browser_assets(output)
-        asset_prefix = '../'
+        emit_browser_assets(output)
     else:
         if search_assets and (not isinstance(search_assets, str)
                               or search_assets not in {'../../'}):
             raise CatalogError('work search: unsupported shared runtime location')
-        interactive = bool(search_assets)
-        asset_prefix = '../' + search_assets
-    directory = output / 'browse'
-    directory.mkdir()
-    (directory / 'index.html').write_text(
-        browse_page(output, catalog, interactive=interactive, assets=asset_prefix,
-                    collection=bool(search_assets)), encoding='utf-8')
+        # The work index is disposable and shared with the directory pages.
     return database
-
-
-def browse_page(output, catalog, *, interactive, assets, collection=False):
-    """Browse within the same editorial hierarchy, with full static fallback."""
-    from .site import page
-    from .directory_pages import search_activation
-    with closing(sqlite3.connect(output / 'work.sqlite')) as db:
-        title, latest = db.execute('SELECT title,latest_revision FROM works').fetchone()
-    body = ''
-    if interactive:
-        download = emit_download(output / 'work.sqlite')
-        body += (
-            '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
-            '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find in this work</h2>'
-            + search_activation(download) + '</div>'
-            '<form id="guavajam-search" role="search" '
-            'data-scope="work" data-root="../" ' + download_attributes(download, prefix='../') +
-            ' data-worker="' + escape(assets + 'search-worker.js', quote=True) + '">'
-            '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">Search text</label>'
-            '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
-            '<button type="submit">Search</button>'
-            '<details class="guavajam-search-filters"><summary>Browse and filter</summary>'
-            '<div class="guavajam-filter-fields">'
-            '<div><label for="guavajam-kind">Show</label><select id="guavajam-kind" name="kind">'
-            '<option value="documents">Documents</option><option value="editions">Editions</option>'
-            '<option value="passages">Sections and passages</option></select></div>'
-            '<div><label for="guavajam-edition">Edition</label><select id="guavajam-edition" name="edition">'
-            '<option value="latest">Latest version</option><option value="all">All versions</option></select></div>'
-            '<div><label for="guavajam-document">Document</label>'
-            '<select id="guavajam-document" name="document"><option value="">All documents</option></select></div>'
-            '<div><label for="guavajam-sort">Sort</label><select id="guavajam-sort" name="sort">'
-            '<option value="publication">Publication order (newest)</option>'
-            '<option value="oldest">Publication order (oldest)</option>'
-            '<option value="title">Title</option><option value="relevance">Relevance</option></select></div>'
-            '</div></details></form></section>')
-        body += ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading" '
-                 'id="guavajam-search-listing" hidden>'
-                 '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
-                 'data-static-heading="Results">Search results</h2>'
-                 '<p class="guavajam-meta" id="guavajam-search-status" role="status" '
-                 'aria-live="polite"></p>'
-                 '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>'
-                 '<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
-                 '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
-                 '<span id="guavajam-search-page"></span>'
-                 '<button type="button" id="guavajam-search-next" disabled>Next</button></nav></section>')
-    # Search is an optional interactive surface. No duplicate document/version
-    # menu is generated here: those routes already live on the version reader.
-    body += ('<section id="guavajam-static-section" class="guavajam-directory">'
-             '<noscript><p>Searching requires JavaScript.</p></noscript></section>')
-    if interactive:
-        body += '<script src="' + escape(assets + 'search.js', quote=True) + '" defer></script>'
-    # Search spans editions and has no singular Git-commit citation.
-    ancestors = ((('../../../index.html', 'GuavaJam'),) if collection else ()) + (( '../index.html', title),)
-    return page('Search ' + title, body, search=interactive,
-                ancestors=ancestors, breadcrumb_current='Search')
