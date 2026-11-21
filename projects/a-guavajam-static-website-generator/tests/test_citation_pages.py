@@ -164,7 +164,7 @@ class CitationPageTests(unittest.TestCase):
                                    'content/supporting/note.md', [{'anchor': 'main', 'position': 1}], 42)
         expected = ('<a class="guavajam-passage-cite" lang="en" href="' +
                     relative_href('supporting/note.html', target) + '" '
-                    'aria-label="Cite committed source passage main">Cite</a>')
+                    'aria-label="Cite committed source passage main"><span>Cite</span></a>')
         self.assertEqual(html, result.replace(expected, ''))
         self.assertEqual(1, result.count('class="guavajam-passage-cite"'))
         with self.assertRaisesRegex(CatalogError, 'lost a declared source permalink'):
