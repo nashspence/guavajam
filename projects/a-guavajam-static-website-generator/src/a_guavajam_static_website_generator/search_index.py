@@ -499,7 +499,7 @@ def homepage(site, *, interactive):
                 byline = escape(authors) if authors else ''
                 if day:
                     byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
-                entries.append('<li><article><h3 tabindex="0"><a href="' + escape(target, quote=True) + '">' +
+                entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
                                escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
                                '</h3>' +
                                ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work authors and date">' + byline + '</p>' if byline else '') +

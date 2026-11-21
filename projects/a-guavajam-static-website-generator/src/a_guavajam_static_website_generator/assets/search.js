@@ -242,7 +242,7 @@ if (form) {
     for (const row of rows) {
       const li = document.createElement('li');
       const article = document.createElement('article');
-      const heading = document.createElement('h3'); heading.tabIndex = 0;
+      const heading = document.createElement('h3');
       const link = document.createElement('a');
       link.href = work ? workURL(directory === 'citations' ? row.citation_url : row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));

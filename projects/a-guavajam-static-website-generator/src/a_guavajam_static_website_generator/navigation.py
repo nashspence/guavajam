@@ -220,7 +220,7 @@ def document_directory(navigation, *, prefix='', include_sections=False, heading
         url = prefix + document['view']
         kind = 'Manuscript' if path == 'content/manuscript.md' else 'Supporting document'
         link = '<a href="' + escape(url, quote=True) + '">' + escape(document['title']) + '</a>'
-        row = ('<li>' + ('<article><h3 tabindex="0">' + link + '</h3>' if headings else link) +
+        row = ('<li>' + ('<article><h3>' + link + '</h3>' if headings else link) +
                '<p class="' + ('guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Document source' if headings else 'guavajam-document-path') + '">' + kind + ' · <code>' + escape(path) + '</code></p>')
         if include_sections:
             sections = [record for record in document['anchors'] if record['kind'] == 'section'

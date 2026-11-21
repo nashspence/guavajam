@@ -159,9 +159,10 @@ try {
         }
         await parityPage.evaluate(() => { document.documentElement.style.fontSize = ''; });
         await parityPage.setViewportSize({width:390,height:900});
-        await heading.focus(); await heading.press('ArrowRight');
+        const titleLink = heading.locator('a').first();
+        await titleLink.focus(); await titleLink.press('ArrowRight');
         await parityPage.waitForTimeout(100);
-        assert(await heading.evaluate(n => n.scrollLeft > 0), 'long titles are keyboard-scrollable');
+        assert(await titleLink.evaluate(n => n.scrollLeft > 0), 'long titles are keyboard-scrollable');
         await keyboardControls(parityPage);
         await parityPage.emulateMedia({media:'print'});
         assert.equal(await heading.evaluate(n => getComputedStyle(n).whiteSpace), 'normal');
@@ -321,7 +322,7 @@ try {
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({width, height: 900});
         const layout = await page.evaluate(() => {
-          const title = document.querySelector('#guavajam-search-results h3');
+          const title = document.querySelector('#guavajam-search-results h3 > a');
           const byline = document.querySelector('#guavajam-search-results .guavajam-byline');
           const facets = document.querySelector('#guavajam-search-results .guavajam-facets');
           return {overflow: document.documentElement.scrollWidth > innerWidth + 1,

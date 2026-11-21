@@ -103,7 +103,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
 def _history_row(edition, *, links_prefix):
     revision, label, date, message = edition
     subject, _, details = message.partition('\n')
-    html = ('<li><article><h3 tabindex="0"><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
+    html = ('<li><article><h3><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
             '">' + escape(label) + '</a>' +
             '</h3><p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Version date and source"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +

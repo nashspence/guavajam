@@ -138,7 +138,7 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                     write(json_file, encoded(cited))
                     body += ('<li class="guavajam-citation-entry" id="' +
                              citation_fragment(source, anchor) + '" tabindex="-1">'
-                             '<article><h3 tabindex="0"><a href="#' + citation_fragment(source, anchor) + '">' +
+                             '<article><h3><a href="#' + citation_fragment(source, anchor) + '">' +
                              escape(record['title'] or '#' + anchor) + '</a></h3>'
                              '<p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Passage source">' +
                              escape(passage_context(source, anchor, record['scope'])) + '</p>' +

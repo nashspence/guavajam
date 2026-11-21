@@ -35,11 +35,7 @@
   display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
   align-items: center; justify-content: center; flex: none;
 }
-/* Keep the record action reachable beside a long, horizontally panned title. */
-.guavajam-record-link {
-  margin-inline-start: .2rem; transform: translateY(.04rem);
-  position: sticky; inset-inline-end: 6px; z-index: 1; background: var(--guavajam-paper);
-}
+.guavajam-record-link { margin-inline-start: .2rem; transform: translateY(.04rem); }
 .guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
@@ -47,13 +43,15 @@
 /* Long names and metadata scroll as single lines without a
    visible scrollbar. Native keyboard/touch scrolling remains available. */
 .guavajam-scrollline,
-.guavajam-record-list h3 {
+.guavajam-record-list h3 > a:first-child {
   max-width: 100%; overflow-x: auto; overflow-y: hidden;
   white-space: nowrap; scrollbar-width: none; -ms-overflow-style: none;
 }
-.guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3::-webkit-scrollbar { display: none; }
-.guavajam-record-list h3 { display: flex; align-items: baseline; gap: .2rem; flex-wrap: nowrap; }
-.guavajam-record-list h3 > a { flex: none; }
+.guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3 > a:first-child::-webkit-scrollbar { display: none; }
+.guavajam-record-list h3 { display: flex; align-items: baseline; gap: .2rem; flex-wrap: nowrap; white-space: nowrap; }
+/* The title owns its native scroll viewport; adjacent record controls keep
+   their own space and focus ring, even when the title exceeds the column. */
+.guavajam-record-list h3 > a:first-child { flex: 0 1 auto; min-width: 0; }
 .guavajam-facets {
   display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
@@ -107,13 +105,12 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 
 /* Scrolling clips descendant outlines. Reserve a six-pixel focus gutter
    inside each viewport, extending into the page margin without moving text. */
-:is(.guavajam-navigation, .guavajam-scrollline, .guavajam-record-list h3) {
+:is(.guavajam-navigation, .guavajam-scrollline) {
   padding-inline: 6px; margin-inline: -6px; max-width: calc(100% + 12px);
   scroll-padding-inline: 6px;
 }
-:is(.guavajam-scrollline, .guavajam-record-list h3) { padding-block: 6px; }
+.guavajam-scrollline { padding-block: 6px; }
 .guavajam-navigation { padding-top: 6px; margin-top: calc(-6px + .2rem); }
-.guavajam-record-list h3 { margin-block: -6px calc(.5rem - 6px); }
 .guavajam-record-list > li > article > .guavajam-scrollline { margin: -6px; }
 .guavajam-record-list > li > article > .guavajam-scrollline:has(+ .guavajam-scrollline) { margin-bottom: 0; }
 .guavajam-record-list > li > article > .guavajam-scrollline + .guavajam-scrollline { margin-top: calc(.35rem - 12px); }
@@ -207,11 +204,11 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 @media print {
   .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
   .guavajam-passage-cite, .guavajam-skip { display: none !important; }
-  .guavajam-scrollline, .guavajam-actions, .guavajam-record-list h3 {
+  .guavajam-scrollline, .guavajam-actions, .guavajam-record-list h3,
+  .guavajam-record-list h3 > a:first-child {
     overflow: visible; white-space: normal;
   }
   .guavajam-record-list h3 { display: block; }
-  .guavajam-record-link { position: static; background: transparent; }
   .guavajam-facets, .guavajam-actions { flex-wrap: wrap; }
   .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .guavajam-citation-entry:target { outline: none; }
@@ -288,7 +285,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-directory.guavajam-scrollline { max-width: calc(100% + 12px); }
 
 @media print {
-  :is(.guavajam-navigation, .guavajam-scrollline, .guavajam-record-list h3) {
+  :is(.guavajam-navigation, .guavajam-scrollline) {
     padding: 0; margin-inline: 0; max-width: 100%;
   }
   .guavajam-record-list h3 { margin-block: 0 .5rem; }
