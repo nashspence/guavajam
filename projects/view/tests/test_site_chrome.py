@@ -127,7 +127,7 @@ class ChromeTests(unittest.TestCase):
                     'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
                                   'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note', 'anchors': []}},
                     'files': {}}
-            (read / 'NAV.json').write_text(json.dumps({'documents': view['documents']}))
+            (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': view['documents']}))
             publication_navigation(read, view, 'c' * 40, work_title='Work', edition_number=2,
                                    published='2026-11-03')
             for relative in ('index.html', 'supporting/note.html', 'documents.html'):
@@ -151,17 +151,20 @@ class ChromeTests(unittest.TestCase):
                              manuscript.count('class="guavajam-actions guavajam-version-menu"'))
             self.assertIn('aria-label="Version links"', manuscript)
             self.assertIn('href="../verify.html">Verify</a>', manuscript)
-            self.assertIn('href="cite.html">Passages</a>', manuscript)
+            self.assertIn('href="passages.html">Passages</a>', manuscript)
+            self.assertIn('href="contents.html">Contents</a>', manuscript)
             self.assertIn('href="../locators.html">Locators</a>', manuscript)
             self.assertLess(manuscript.index('aria-label="Version links"'),
                             manuscript.index('<blockquote class="guavajam-citation"'))
             self.assertLess(manuscript.index('<blockquote class="guavajam-citation"'),
                             manuscript.index('Authored methods.'))
-            self.assertLess(manuscript.index('>Search</a>'),
+            self.assertLess(manuscript.index('>Contents</a>'),
                             manuscript.index('>Download</a>'))
             self.assertNotIn('Cite this document', manuscript)
             self.assertNotIn('guavajam-document-nav', manuscript)
             self.assertNotIn('guavajam-document-nav', supporting)
+            self.assertNotIn('Cite this document', supporting)
+            self.assertIn('>Note</span>', supporting)
 
 
     def test_history_rows_include_verified_message_and_metadata_for_filtering(self):
@@ -195,7 +198,7 @@ class ChromeTests(unittest.TestCase):
             (target / 'supporting').mkdir()
             view = {'facts': fact, 'documents': documents, 'files': {}}
             (target / 'VIEW.json').write_text(json.dumps(view))
-            (target / 'NAV.json').write_text(json.dumps({'documents': documents}))
+            (target / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': documents}))
             for relative, heading in (('index.html', 'Shoreline research'),
                                       ('documents.html', 'Documents in this edition'),
                                       ('supporting/note.html', 'Note')):
@@ -262,11 +265,12 @@ class ChromeTests(unittest.TestCase):
             manuscript = (output / 'editions' / sha2 / 'read/index.html').read_text()
             self.assertIn('aria-label="Version links"', manuscript)
             self.assertIn('href="../verify.html">Verify</a>', manuscript)
-            self.assertIn('href="cite.html">Passages</a>', manuscript)
+            self.assertIn('href="passages.html">Passages</a>', manuscript)
+            self.assertIn('href="contents.html">Contents</a>', manuscript)
             self.assertIn('href="documents.html">Documents</a>', manuscript)
             self.assertIn('href="../locators.html">Locators</a>', manuscript)
             self.assertTrue((output / 'editions' / sha2 / 'locators.html').exists())
-            self.assertLess(manuscript.index('>Search</a>'), manuscript.index('>Download</a>'))
+            self.assertLess(manuscript.index('>Contents</a>'), manuscript.index('>Download</a>'))
             self.assertIn('href="../license.html">License</a>', manuscript)
             license_html = (output / 'editions' / sha2 / 'license.html').read_text()
             self.assertIn('No rights statement was declared', license_html)

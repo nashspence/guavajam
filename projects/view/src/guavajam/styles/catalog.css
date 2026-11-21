@@ -220,9 +220,12 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 }
 .guavajam-site #guavajam-search .guavajam-filter-fields > div { min-width: 0; }
 .guavajam-work-citation { margin-bottom: 1.2rem; }
-.guavajam-locators { min-width: 0; }
-.guavajam-locators section > h2 { margin: 1.5rem 0 .5rem; font-size: 1.15rem; }
-.guavajam-locator-list h3 { font-size: 1.12rem; }
+/* One restrained bibliography of subjects and tags, with a quiet type label. */
+.guavajam-locator-list { list-style: none; padding: 0; margin: 0; }
+.guavajam-locator-list > li { padding: 1rem 0 1.15rem; margin: 0; border-bottom: 1px solid var(--guavajam-border); }
+.guavajam-locator-list > li:last-child { border: 0; padding-bottom: 0; }
+.guavajam-locator-kind { font: 600 .76rem/1.4 system-ui, sans-serif; color: var(--guavajam-muted); margin: 0 0 .15rem; }
+.guavajam-locator-list h2 { font: 600 1.15rem/1.4 Georgia, Cambria, serif; margin: 0 0 .35rem; overflow-wrap: anywhere; }
 .guavajam-locator-detail {
   display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
   margin: .2rem 0 0; gap: .12rem .85rem; font: .85rem/1.55 system-ui, sans-serif;
@@ -233,6 +236,16 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
   .guavajam-locator-detail { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .guavajam-locator-detail dd { margin-bottom: .35rem; }
 }
+/* The SQLite excerpt is bounded and its marked fragments are DOM text, not HTML. */
+.guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
+.guavajam-passage-excerpt mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
+/* Native, document-level contents, never an extra reader-side outline. */
+.guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
+.guavajam-contents-list > li { border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0; }
+.guavajam-contents-list > li:last-child { border: 0; }
+.guavajam-contents-list ol { margin-inline-start: 1.25rem; }
+.guavajam-contents-list li li { padding: .35rem 0; }
+.guavajam-contents-list a { display: inline-block; overflow-wrap: anywhere; }
 @media print {
   .guavajam-locators .guavajam-locator-detail { grid-template-columns: 9rem 1fr; }
 }

@@ -54,7 +54,7 @@ class DirectoryPageTests(unittest.TestCase):
             view = {'facts': {'title': 'Shoreline work', 'author': 'Mara Levin'},
                     'documents': documents, 'files': {'NAV.json': 'old'}}
             (read / 'VIEW.json').write_text(json.dumps(view))
-            (read / 'NAV.json').write_text(json.dumps({'documents': documents}))
+            (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': documents}))
             (read.parent / 'CITATION.json').write_text(json.dumps({
                 'revision': sha, 'manuscript': 'content/manuscript.md'}))
             (read.parent / 'SOURCE.json').write_text(json.dumps({

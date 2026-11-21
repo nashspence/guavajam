@@ -13,6 +13,7 @@ from urllib.parse import unquote, urljoin, urlsplit
 import yaml
 
 from guavajam.index import build_pages
+from guavajam.citation_routes import citation_fragment, citation_href
 from guavajam.search_index import create_index
 from guavajam.site import build_site
 from guavajam.update import update
@@ -123,10 +124,10 @@ class WorkSearchTests(unittest.TestCase):
         self.assertIn('../verify.html', Links(manuscript).links)
         self.assertIn('../license.html', Links(manuscript).links)
         view = json.loads((reader / 'VIEW.json').read_text())
-        for name in ('NAV.json', 'documents.html'):
+        for name in ('NAV.json', 'documents.html', 'contents.html', 'passages.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])
         site = json.loads((self.site / 'SITE.json').read_text())
-        for name in ('work.sqlite', 'browse/index.html'):
+        for name in ('work.sqlite', 'editions/index.html'):
             self.assertEqual(hashlib.sha256((self.site / name).read_bytes()).hexdigest(), site['files'][name])
 
     def test_work_records_keep_source_order_text_hashes_and_exact_fragment_targets(self):
@@ -222,13 +223,13 @@ class WorkSearchTests(unittest.TestCase):
             rows = db.execute('SELECT p.*,e.revision,d.path,d.url AS reader_url FROM passages p '
                               'JOIN editions e ON e.id=p.edition_id '
                               'JOIN documents d ON d.id=p.document_id').fetchall()
-            self.assertTrue(any('/cite/page/2.html#' in row['citation_url'] for row in rows))
+            self.assertTrue(any('/passages/page/2.html#' in row['citation_url'] for row in rows))
             self.assertTrue(any(row['scope'].startswith('quotation:') for row in rows))
             for row in rows:
                 with self.subTest(revision=row['revision'], document=row['path'], anchor=row['anchor']):
                     cited = urlsplit(row['citation_url'])
                     self.assertEqual('', cited.scheme)
-                    self.assertEqual('citation:' + row['anchor'], unquote(cited.fragment))
+                    self.assertEqual(citation_fragment(row['path'], row['anchor']), unquote(cited.fragment))
                     self.assertIn(row['revision'], cited.path)
                     target = self.site / unquote(cited.path)
                     self.assertIn(unquote(cited.fragment), Links(target.read_text()).ids)
@@ -246,7 +247,7 @@ class WorkSearchTests(unittest.TestCase):
                                "AND e.revision=? AND d.path='content/manuscript.md'",
                                (self.latest,)).fetchall()
             self.assertEqual(['editions/' + self.latest +
-                              '/read/cite/page/2.html#citation:section-24'],
+                              '/read/' + citation_href('content/manuscript.md', 25, 'section-24')],
                              [row['citation_url'] for row in found])
 
     def test_corrupt_navigation_cannot_create_a_partial_database(self):
@@ -301,7 +302,8 @@ class WorkSearchTests(unittest.TestCase):
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM passages').fetchone()[0])
             self.assertEqual('index.html', db.execute('SELECT url FROM search_records').fetchone()[0])
         self.assertIn('No signed editions', (site / 'index.html').read_text())
-        self.assertTrue((site / 'browse/index.html').is_file())
+        self.assertFalse((site / 'browse/index.html').exists())
+        self.assertTrue((site / 'editions/index.html').is_file())
 
     def test_aggregate_build_shares_one_runtime_across_work_search_pages(self):
         directory = self.root / 'shared-runtime'
@@ -329,17 +331,18 @@ class WorkSearchTests(unittest.TestCase):
             work = output / entry['path']
             with closing(sqlite3.connect(work / 'work.sqlite')) as db:
                 self.assertEqual(entry['repository'], db.execute('SELECT url FROM repositories').fetchone()[0])
-            browse = (work / 'browse/index.html').read_text()
-            self.assertIn('data-worker="../../../search-worker.js"', browse)
-            self.assertIn('src="../../../search.js"', browse)
-            self.assertRegex(browse, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
+            history = (work / 'editions/index.html').read_text()
+            self.assertIn('data-worker="../../../search-worker.js"', history)
+            self.assertIn('src="../../../search.js"', history)
+            self.assertRegex(history, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
             self.assertTrue((work / 'work.sqlite').is_file())
-            # Search is optional; ordinary directory links live on work and
-            # version pages, not in a redundant search-page menu.
-            self.assertNotIn('../editions/index.html', Links(browse).links)
-            self.assertNotIn('../editions/' + self.latest + '/read/documents.html', Links(browse).links)
-            self.assertIn('data-static-heading="Results"', browse)
-            self.assertIn('aria-label="Breadcrumb"', browse)
+            self.assertFalse((work / 'browse/index.html').exists())
+            self.assertIn('data-static-heading="Versions"', history)
+            self.assertIn('aria-label="Breadcrumb"', history)
+            manuscript = work / 'editions' / self.latest / 'read/index.html'
+            self.assertIn('href="contents.html">Contents</a>', manuscript.read_text())
+            self.assertIn('href="passages.html">Passages</a>', manuscript.read_text())
+
 
     def test_standalone_updater_rebuilds_when_external_runtime_changes(self):
         runtime = self.root / 'runtime'

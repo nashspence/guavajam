@@ -1,10 +1,9 @@
-"""Paged version locators, rendered directly from signed publication facts."""
+"""A compact, one-page index of locators declared by a signed version."""
 from __future__ import annotations
 
 from html import escape
 from pathlib import Path
 
-from .pagination import _slices, _static_pager
 from .site import page
 
 
@@ -17,45 +16,29 @@ SUBJECT_FIELDS = (
 )
 
 
-def render_subject(record):
-    """Preserve the full structured subject without inferring equivalences."""
-    result = '<li><article><h3 tabindex="0">' + escape(record['subject']) + '</h3>'
-    metadata = ''.join('<dt>' + label + '</dt><dd>' + escape(record[name]) + '</dd>'
-                       for name, label in SUBJECT_FIELDS if record.get(name))
-    if metadata:
-        result += '<dl class="guavajam-locator-detail">' + metadata + '</dl>'
-    return result + '</article></li>'
-
-
 def write_locators(directory, *, facts, title, ancestors):
-    """Create ordinary linked HTML pages, never an unbounded locator list."""
+    """Display both kinds together, with their type and full declared metadata.
+
+    No search runtime, extra hierarchy or static pagination is needed: the
+    source front-matter contract already bounds the supplied locator metadata.
+    """
     directory = Path(directory)
-    subjects = list(facts.get('subjects', ()))
-    tags = list(facts.get('keywords', ()))
-    entries = [('subject', subject) for subject in subjects] + [('tag', tag) for tag in tags]
-    chunks = _slices(entries)
-    for number, chunk in enumerate(chunks, 1):
-        first = number == 1
-        destination = (directory / 'locators.html' if first else
-                       directory / 'locators' / 'page' / f'{number}.html')
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        body = '<section class="guavajam-locators">'
-        for kind, heading in (('subject', 'Subjects'), ('tag', 'Tags')):
-            group = [value for entry_kind, value in chunk if entry_kind == kind]
-            if group:
-                body += ('<section aria-label="' + heading + '"><h2>' + heading + '</h2>'
-                         '<ol class="guavajam-editions guavajam-locator-list">')
-                for entry in group:
-                    body += (render_subject(entry) if kind == 'subject' else
-                             '<li><article><h3 tabindex="0">' + escape(entry) + '</h3></article></li>')
-                body += '</ol></section>'
-        if not entries:
-            body += '<p>No subjects or tags were declared for this version.</p>'
-        body += _static_pager(number, len(chunks),
-                              first_href='locators.html' if first else '../../locators.html',
-                              page_prefix='locators/page/' if first else '') + '</section>'
-        destination.write_text(page(title + ' — Locators' +
-                                    (f' — page {number}' if not first else ''), body,
-                                    ancestors=tuple(ancestors) if first else tuple(
-                                        ('../../' + path, name) for path, name in ancestors),
-                                    breadcrumb_current='Locators'), encoding='utf-8')
+    entries = ([('Subject', item) for item in facts.get('subjects', ())] +
+               [('Tag', item) for item in facts.get('keywords', ())])
+    body = '<ol class="guavajam-locator-list">'
+    for kind, value in entries:
+        name = value['subject'] if kind == 'Subject' else value
+        body += ('<li><article><p class="guavajam-locator-kind">' + kind + '</p>'
+                 '<h2>' + escape(name) + '</h2>')
+        if kind == 'Subject':
+            details = ''.join('<dt>' + label + '</dt><dd>' + escape(value[key]) + '</dd>'
+                              for key, label in SUBJECT_FIELDS if value.get(key))
+            if details:
+                body += '<dl class="guavajam-locator-detail">' + details + '</dl>'
+        body += '</article></li>'
+    body += '</ol>'
+    if not entries:
+        body += '<p>No subjects or tags were declared for this version.</p>'
+    (directory / 'locators.html').write_text(
+        page(title + ' — Locators', body, ancestors=tuple(ancestors),
+             breadcrumb_current='Locators'), encoding='utf-8')

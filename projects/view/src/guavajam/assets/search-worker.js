@@ -21,6 +21,13 @@ const WORK_ORDER = Object.freeze({
   'date-oldest': 'published ASC, position ASC, document_path, node_position, id'
 });
 
+const PASSAGE_ORDER = Object.freeze({
+  relevance: 'score ASC, document_order, node_position, id',
+  publication: 'document_order ASC, node_position ASC, id',
+  oldest: 'document_order DESC, node_position DESC, id',
+  title: 'title COLLATE NOCASE, document_order, node_position, id'
+});
+
 function literalQuery(value) {
   // Plain words with prefix matching, never user-supplied SQL or FTS operators.
   const words = String(value).slice(0, 256).match(/[\p{L}\p{N}]+/gu) || [];
@@ -81,7 +88,7 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
 }
 
 function searchWork({term = '', kind = 'documents', edition = 'latest', document = '',
-                     sort = 'publication', page = 1}) {
+                     supporting = 'all', sort = 'publication', page = 1}) {
   const selected = ['editions', 'documents', 'passages'].includes(kind) ? kind : 'documents';
   const fts = literalQuery(term);
   const bind = [];
@@ -123,13 +130,16 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       ${fts ? 'JOIN hits m ON m.document_id=d.id' : ''}`;
   } else {
     base = fts ? `WITH hits AS MATERIALIZED (
-      SELECT s.id, bm25(passage_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score
+      SELECT s.id, bm25(passage_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score,
+        snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS excerpt
       FROM passage_fts JOIN passage_records s ON s.id=passage_fts.rowid WHERE passage_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
     base += `SELECT p.id, p.title, p.url, p.citation_url, e.revision, e.published, e.position,
-      d.title AS document_title, d.path AS document_path, p.anchor, p.scope,
-      p.position AS node_position, ${fts ? 'm.score' : '0'} AS score, NULL AS hit_url
+      d.title AS document_title, d.path AS document_path, d.id AS document_order,
+      p.anchor, p.scope, p.position AS node_position,
+      ${fts ? 'm.score' : '0'} AS score, ${fts ? 'm.excerpt' : 'NULL'} AS excerpt,
+      NULL AS hit_url
     FROM passages p JOIN documents d ON d.id=p.document_id
       JOIN editions e ON e.id=p.edition_id JOIN works w ON w.id=e.work_id
       ${fts ? 'JOIN hits m ON m.id=p.id' : ''}`;
@@ -144,10 +154,17 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
     base += ` AND (? = '' OR d.path=?)`;
   }
   bind.push(String(document), String(document));
+  if (selected === 'passages') {
+    // One edition-wide directory; this opt-in scope excludes all supporting
+    // documents as a group, not just a single selected path.
+    base += ` AND (? <> 'manuscript' OR d.path = 'content/manuscript.md')`;
+    bind.push(supporting === 'manuscript' ? 'manuscript' : 'all');
+  }
   const total = db.selectObjects(`SELECT COUNT(*) AS total FROM (${base})`, bind)[0].total;
   const requested = Number.isSafeInteger(page) && page > 0 ? page : 1;
   const number = Math.min(requested, Math.max(1, Math.ceil(total / PAGE_SIZE)));
-  const order = Object.hasOwn(WORK_ORDER, sort) ? WORK_ORDER[sort] : WORK_ORDER.publication;
+  const orders = selected === 'passages' ? PASSAGE_ORDER : WORK_ORDER;
+  const order = Object.hasOwn(orders, sort) ? orders[sort] : orders.publication;
   const rows = db.selectObjects(`SELECT * FROM (${base}) ORDER BY ${order} LIMIT ? OFFSET ?`,
     [...bind, PAGE_SIZE, (number - 1) * PAGE_SIZE]);
   return {kind: selected, rows, total, page: number, pageSize: PAGE_SIZE};

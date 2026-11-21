@@ -1,7 +1,7 @@
-"""Bounded source citation pages and script-free reader links.
+"""One bounded Passages index per signed version, across all its documents.
 
-NAV supplies verified source order; Core supplies canonical citation identity.
-The optional search form uses the same work SQLite index as every directory.
+NAV determines source order; Core verifies canonical source citations. This
+index remains traversable through ordinary HTML links without JavaScript.
 """
 from __future__ import annotations
 
@@ -21,15 +21,16 @@ from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
 
 
-def add_passage_links(html, view, anchors):
-    """Append Cite only to the renderer's explicit source permalinks.
+def add_passage_links(html, view, source, anchors, start):
+    """Add a link only beside verified source permalinks, never renderer IDs.
 
-    Preserve the original HTML byte for byte around each insertion, including
-    quotations, footnotes and source anchors. Joining the edits once keeps this
-    linear even for readers with many passages.
+    Preserve every other source-derived HTML byte and the existing cache.
     """
+    # Reader Cite links target only the central index; canonical identity
+    # remains (revision, source, anchor), not a presentation URL.
     routes = {record['anchor']: relative_href(
-        view, citation_href(view, record['position'], record['anchor'])) for record in anchors}
+        view, citation_href(source, start + record['position'], record['anchor']))
+        for record in anchors}
     offsets = [0, *(index + 1 for index, char in enumerate(html) if char == '\n')]
     edits, stack, found = [], [], set()
     void = set('area base br col embed hr img input link meta param source track wbr'.split())
@@ -79,11 +80,10 @@ def add_passage_links(html, view, anchors):
 
 
 def build_citation_pages(output, editions, *, collection, runtime, download):
-    """Write 20 source-order entries per page, with bounded native page links.
+    """Emit one bounded human citation listing per version, plus exact JSON records.
 
-    The work index has already validated NAV against the signed view inventory.
-    Each canonical JSON is additionally checked against Core's verified proof.
-    No full passage list or alternate client-side index is embedded in HTML.
+    No parallel per-document citation HTML is generated. Both static and SQLite
+    links use the same source-order offsets and one set of citation identities.
     """
     from .directory_pages import _sqlite_controls, search_listing_open, search_listing_close
 
@@ -93,8 +93,7 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
         view = json.loads(view_path.read_text('utf-8'))
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
         proof = json.loads((read.parent / 'SOURCE.json').read_text('utf-8'))
-        # Core validates membership for each canonical record. Keep that check
-        # constant-time for long documents; this local proof is never serialized.
+        # Core verifies source membership; do not substitute HTML IDs as proof.
         proof['documents'] = {source: frozenset(anchors) for source, anchors in proof['documents'].items()}
         title = view['facts']['title']
         authors = author_text(ordered_authors(view['facts']), identifiers=False)
@@ -105,52 +104,55 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
             target.write_bytes(raw)
             view['files'][relative] = hashlib.sha256(raw).hexdigest()
 
-        for source, document in navigation['documents'].items():
-            reader = document['view']
-            document_title = document['title'] if source != proof['manuscript'] else ''
-            chunks = _slices(document['anchors'])
-            for number, chunk in enumerate(chunks, 1):
-                filename = citation_page(reader, (number - 1) * PAGE_SIZE)
+        records = [(source, navigation['documents'][source], anchor)
+                   for source in sorted(navigation['documents'])
+                   for anchor in navigation['documents'][source]['anchors']]
+        chunks = _slices(records)
+        for number, chunk in enumerate(chunks, 1):
+            filename = citation_page((number - 1) * PAGE_SIZE)
 
-                def relative(target):
-                    return relative_href(filename, target)
+            def relative(target):
+                return relative_href(filename, target)
 
-                root = relative('../../../') + '/'
-                ancestors = (((relative('../../../../../index.html'), 'GuavaJam'),) if collection else ()) + (
-                    (relative('../../../index.html'), title),
-                    (relative('index.html'), 'v' + str(position)),) + (
-                    ((relative(reader), 'Supporting document'),) if document_title else ())
-                body = ''
-                if download is not None:
-                    body += _sqlite_controls(kind='citations', edition=revision, document=source,
-                                             root=root, runtime=runtime, download=download)
-                body += search_listing_open('Passages', number, len(chunks), interactive=download is not None)
-                body += '<section id="guavajam-static-section" class="guavajam-directory">'
-                pager = _static_pager(number, len(chunks), first_href=relative(citation_page(reader)),
-                                      page_prefix=relative(str(PurePosixPath(citation_page(reader)).with_suffix('') / 'page')) + '/')
-                if chunk:
-                    body += pager + '<ol class="guavajam-citation-list">'
-                    for record in chunk:
-                        anchor = record['anchor']
-                        cited = citation(proof, anchor=anchor, document=source)
-                        json_file = passage_json(reader, anchor)
-                        write(json_file, encoded(cited))
-                        body += ('<li class="guavajam-citation-entry" id="' + citation_fragment(anchor) +
-                                 '" tabindex="-1"><h3>Passage <code>#' + escape(anchor) + '</code></h3>'
-                                 '<p class="guavajam-meta">' +
-                                 ('Quoted passage · ' if record['scope'].startswith('quotation:') else '') +
-                                 escape(record['title'][:240]) + '</p>' +
-                                 citation_control(cited, relative(json_file), title=title, authors=authors,
-                                                  published=published, edition_number=position,
-                                                  document_title=document_title) +
-                                 '<p><a href="' + escape(relative(reader) + '#' + anchor, quote=True) +
-                                 '">Read this passage</a></p></li>')
-                    body += '</ol>' + pager
-                else:
-                    body += '<p>No individually citable passages were declared.</p>'
-                body += '</section>' + search_listing_close(interactive=download is not None)
-                html = page(document['title'] + ' — Passages' + (f' — page {number}' if number > 1 else ''),
-                            body, search=download is not None, ancestors=ancestors,
-                            breadcrumb_current='Passages')
-                write(filename, html.encode('utf-8'))
+            root = relative('../../../') + '/'
+            ancestors = (((relative('../../../../../index.html'), 'GuavaJam'),) if collection else ()) + (
+                (relative('../../../index.html'), title),
+                (relative('index.html'), 'v' + str(position)),)
+            body = ''
+            if download is not None:
+                body += _sqlite_controls(kind='citations', edition=revision,
+                                         root=root, runtime=runtime, download=download)
+            body += search_listing_open('Passages', number, len(chunks), interactive=download is not None)
+            body += '<section id="guavajam-static-section" class="guavajam-directory">'
+            pager = _static_pager(number, len(chunks), first_href=relative(citation_page()),
+                                  page_prefix=relative('passages/page') + '/')
+            if chunk:
+                body += pager + '<ol class="guavajam-citation-list">'
+                for source, document, record in chunk:
+                    anchor = record['anchor']
+                    reader = document['view']
+                    document_title = document['title'] if source != proof['manuscript'] else ''
+                    cited = citation(proof, anchor=anchor, document=source)
+                    json_file = passage_json(reader, anchor)
+                    write(json_file, encoded(cited))
+                    body += ('<li class="guavajam-citation-entry" id="' +
+                             citation_fragment(source, anchor) + '" tabindex="-1">'
+                             '<h3>' + escape(record['title'][:240] or '#' + anchor) + '</h3>'
+                             '<p class="guavajam-meta">' +
+                             ('Supporting document · ' if document_title else 'Manuscript · ') +
+                             escape(source) + ' · <code>#' + escape(anchor) + '</code>' +
+                             (' · Quoted passage' if record['scope'].startswith('quotation:') else '') + '</p>' +
+                             citation_control(cited, relative(json_file), title=title, authors=authors,
+                                              published=published, edition_number=position,
+                                              document_title=document_title) +
+                             '<p><a href="' + escape(relative(reader) + '#' + anchor, quote=True) +
+                             '">Read this passage</a></p></li>')
+                body += '</ol>' + pager
+            else:
+                body += '<p>No individually citable passages were declared.</p>'
+            body += '</section>' + search_listing_close(interactive=download is not None)
+            html = page(title + ' — Passages' + (f' — page {number}' if number > 1 else ''),
+                        body, search=download is not None, ancestors=ancestors,
+                        breadcrumb_current='Passages')
+            write(filename, html.encode('utf-8'))
         view_path.write_bytes(encoded(view))

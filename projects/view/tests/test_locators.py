@@ -44,8 +44,9 @@ class LocatorsTests(unittest.TestCase):
             'keywords': ['Sediments', 'Hydrology & marine']})
         html = (self.root / 'locators.html').read_text()
         self.assertEqual(4, html.count('<li><article>'))
-        self.assertIn('<h2>Subjects</h2>', html)
-        self.assertIn('<h2>Tags</h2>', html)
+        self.assertEqual(2, html.count('<p class="guavajam-locator-kind">Subject</p>'))
+        self.assertEqual(2, html.count('<p class="guavajam-locator-kind">Tag</p>'))
+        self.assertIn('<h2>Coast &amp; sea</h2>', html)
         self.assertIn('Coast &amp; sea', html)
         self.assertIn('Fields &lt;international&gt;', html)
         self.assertIn('https://example.invalid/schema?x=1&amp;y=2', html)
@@ -57,26 +58,18 @@ class LocatorsTests(unittest.TestCase):
         self.assertIn("script-src 'none'", html)
         self.assertNotIn('guavajam-search', html.split('</style>', 1)[1])
 
-    def test_bounded_paging_and_relative_links_from_later_pages(self):
+    def test_single_unpaged_list_preserves_source_order_and_type(self):
         self.render({'subjects': [{'subject': f'Field-{i:02d}', 'value_uri': f'urn:field:{i}'}
                                   for i in range(35)],
                      'keywords': [f'Label-{i:02d}' for i in range(18)]})
-        paths = [self.root / 'locators.html'] + [self.root / 'locators/page' / f'{n}.html' for n in (2,3)]
-        collected = []
-        for page_number, (path, count) in enumerate(zip(paths, [20,20,13]), 1):
-            html = path.read_text()
-            self.assertEqual(count, html.count('<li><article>'))
-            self.assertIn(f'Page {page_number} of 3', html)
-            self.assertEqual(1, html.count('<h1 aria-current="page">Locators</h1>'))
-            self.assertNotIn('<script', html)
-            self.assertNotIn('version identity', html)
-            collected.extend([f'Field-{i:02d}' for i in range(35) if f'Field-{i:02d}</h3>' in html])
-            if page_number > 1:
-                self.assertIn('href="../../read/index.html">v9</a>', html)
-                self.assertIn('href="../../../../../../index.html">GuavaJam</a>', html)
-        self.assertEqual(35, len(collected))
-        self.assertIn('href="locators/page/2.html" rel="next"', paths[0].read_text())
-        self.assertIn('href="../../locators.html"', paths[-1].read_text())
+        html = (self.root / 'locators.html').read_text()
+        self.assertEqual(53, html.count('<li><article>'))
+        self.assertLess(html.index('<h2>Field-00</h2>'), html.index('<h2>Label-00</h2>'))
+        self.assertEqual(1, html.count('<h1 aria-current="page">Locators</h1>'))
+        self.assertNotIn('Directory pages', html)
+        self.assertFalse((self.root / 'locators/page/2.html').exists())
+        self.assertNotIn('<script', html)
+        self.assertIn('href="read/index.html">v9</a>', html)
 
     def test_empty_declared_locators_have_a_small_human_page(self):
         self.render({'title': 'Shoreline', 'subjects': [], 'keywords': []})

@@ -65,7 +65,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
     citations = kind == 'citations'
     heading = 'Find versions' if history else 'Find passages' if citations else 'Find documents'
     label = ('Search versions and commit messages' if history else
-             'Search passages in this document' if citations else 'Search documents and contents')
+             'Search passages in this version' if citations else 'Search documents and contents')
     sorts = (('<option value="publication">Publication order (newest)</option>'
               '<option value="oldest">Publication order (oldest)</option>'
               '<option value="date-newest">Commit date (newest)</option>'
@@ -89,11 +89,14 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
             '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
             '<div class="guavajam-filter-fields"><div class="guavajam-query-sort">'
             '<label for="guavajam-sort">Sort</label>'
-            '<select id="guavajam-sort" name="sort">' + sorts + '</select></div></div></details>'
+            '<select id="guavajam-sort" name="sort">' + sorts + '</select></div>' +
+            ('<div><label for="guavajam-supporting">Supporting documents</label>'
+             '<select id="guavajam-supporting" name="supporting">'
+             '<option value="all">Include</option><option value="manuscript">Exclude</option>'
+             '</select></div>' if citations else '') + '</div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
-            ('<input type="hidden" name="document" value="' + escape(document, quote=True) + '">'
-               if citations else '') +
+
             '</form></section><script src="' + escape(root + runtime + 'search.js', quote=True) +
             '" defer></script>')
 
@@ -179,6 +182,49 @@ def _write_documents(output, entries, *, collection, runtime, download):
         view_path.write_bytes(encoded(view))
 
 
+
+def _write_contents(output, entries, *, collection):
+    """One script-free Contents page per manuscript, from the verified NAV outline.
+
+    Keeping source anchors unchanged lets every TOC link target the original
+    manuscript reader. The standalone render cache retains its own outline.
+    """
+    for position, (revision, _, _, _) in enumerate(entries, 1):
+        read = output / 'editions' / revision / 'read'
+        view_path = read / 'VIEW.json'
+        view = json.loads(view_path.read_text('utf-8'))
+        navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
+        manuscript = navigation['canonical']['manuscript']
+        doc = navigation['documents'][manuscript]
+        sections = [record for record in doc['anchors']
+                    if record['kind'] == 'section' and record['scope'] == 'document'
+                    and record['level'] > 1]
+        by_id = {record['anchor']: {'record': record, 'children': []} for record in sections}
+        roots = []
+        for record in sections:
+            parent = by_id.get(record['parent'])
+            (parent['children'] if parent is not None else roots).append(by_id[record['anchor']])
+
+        def contents(nodes):
+            return '<ol>' + ''.join(
+                '<li><a href="index.html#' + escape(node['record']['anchor'], quote=True) + '">' +
+                escape(node['record']['title']) + '</a>' +
+                (contents(node['children']) if node['children'] else '') + '</li>'
+                for node in nodes) + '</ol>'
+
+        ancestors = ((( '../../../../../index.html', 'GuavaJam'),) if collection else ()) + (
+            ('../../../index.html', view['facts']['title']), ('index.html', 'v' + str(position)))
+        body = ('<nav class="guavajam-contents-directory" aria-label="Manuscript outline">'
+                '<div class="guavajam-contents-list">' + contents(roots) + '</div></nav>' if roots
+                else '<p>No individually titled sections were declared in this manuscript.</p>')
+        html = page(view['facts']['title'] + ' — Contents', body,
+                    ancestors=ancestors, breadcrumb_current='Contents')
+        target = read / 'contents.html'
+        target.write_text(html, encoding='utf-8')
+        view['files']['contents.html'] = hashlib.sha256(html.encode('utf-8')).hexdigest()
+        view_path.write_bytes(encoded(view))
+
+
 def build_directories(output, editions, *, collection, search_assets, database):
     """Generate every bounded HTML page after the verified SQLite index exists."""
     output = Path(output)
@@ -192,5 +238,6 @@ def build_directories(output, editions, *, collection, search_assets, database):
         title = 'Unpublished work'
     _write_history(output, editions, title, collection=collection, runtime=runtime, download=download)
     _write_documents(output, editions, collection=collection, runtime=runtime, download=download)
+    _write_contents(output, editions, collection=collection)
     from .citation_pages import build_citation_pages
     build_citation_pages(output, editions, collection=collection, runtime=runtime, download=download)
