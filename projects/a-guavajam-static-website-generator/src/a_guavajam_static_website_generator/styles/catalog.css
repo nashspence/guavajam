@@ -35,7 +35,11 @@
   display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
   align-items: center; justify-content: center; flex: none;
 }
-.guavajam-record-link { margin-inline-start: .2rem; transform: translateY(.04rem); }
+/* Keep the record action reachable beside a long, horizontally panned title. */
+.guavajam-record-link {
+  margin-inline-start: .2rem; transform: translateY(.04rem);
+  position: sticky; inset-inline-end: 6px; z-index: 1; background: var(--guavajam-paper);
+}
 .guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
@@ -53,6 +57,13 @@
 .guavajam-facets {
   display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
+}
+/* A partially visible metadata control must become fully readable on Tab. */
+.guavajam-scrollline:has(:is(a, button):focus-visible) {
+  overflow: visible; white-space: normal; flex-wrap: wrap;
+}
+.guavajam-scrollline:has(:is(a, button):focus-visible) .guavajam-facet {
+  max-width: 100%; white-space: normal; overflow-wrap: anywhere;
 }
 .guavajam-facet { flex: none; white-space: nowrap; }
 .guavajam-facet-type { font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -200,6 +211,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
     overflow: visible; white-space: normal;
   }
   .guavajam-record-list h3 { display: block; }
+  .guavajam-record-link { position: static; background: transparent; }
   .guavajam-facets, .guavajam-actions { flex-wrap: wrap; }
   .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .guavajam-citation-entry:target { outline: none; }

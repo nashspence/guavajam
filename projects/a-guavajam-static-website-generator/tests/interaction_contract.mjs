@@ -4,7 +4,13 @@ import assert from 'node:assert/strict';
 export async function keyboardControls(page) {
   const count = await page.evaluate(() => {
     const visible = [...document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')]
-      .filter(n => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden');
+      .filter(n => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden')
+      .filter(n => {
+        for (let p = n.parentElement; p; p = p.parentElement) {
+          if (p.matches('details:not([open])') && !p.querySelector(':scope > summary')?.contains(n)) return false;
+        }
+        return true;
+      });
     for (const n of visible) {
       if (n.matches('a[href]:not([aria-hidden=true]),button,input,select,textarea,summary') && n.tabIndex < 0)
         throw Error('Interactive control missing from Tab order: ' + (n.getAttribute('aria-label') || n.textContent));
@@ -18,7 +24,8 @@ export async function keyboardControls(page) {
   for (let step = 0; step < count; step++) {
     await page.keyboard.press('Tab');
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-    const state = await page.locator(':focus').evaluate(n => {
+    const state = await page.evaluate(() => {
+      const n = document.activeElement;
       const style = getComputedStyle(n), box = n.getBoundingClientRect();
       const ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
       const clipped = [];
@@ -31,7 +38,7 @@ export async function keyboardControls(page) {
         visible: n.matches(':focus-visible'), width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset),
         clipped, boxWidth: box.width, viewport: innerWidth};
     });
-    assert(state.index !== null && !seen.has(state.index), `Tab failed to reach each control: ${JSON.stringify(state)}`);
+    assert(state.index !== null && !seen.has(state.index), `Tab ${step + 1}/${count} failed to reach each control: ${JSON.stringify(state)}`);
     assert(state.visible && state.width >= 2 && state.offset >= 3, `Focus needs breathing room: ${JSON.stringify(state)}`);
     // An unbroken title may exceed its scroll viewport. Its explicit tab stop
     // remains keyboard-pannable; every control that fits must show its full ring.

@@ -162,6 +162,7 @@ try {
         await heading.focus(); await heading.press('ArrowRight');
         await parityPage.waitForTimeout(100);
         assert(await heading.evaluate(n => n.scrollLeft > 0), 'long titles are keyboard-scrollable');
+        await keyboardControls(parityPage);
         await parityPage.emulateMedia({media:'print'});
         assert.equal(await heading.evaluate(n => getComputedStyle(n).whiteSpace), 'normal');
         assert(await parityPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
