@@ -56,6 +56,30 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('href="../verify.html">Verify</a>', reader)
 
 
+    def test_manuscript_body_does_not_repeat_the_top_citation(self):
+        import re
+        self.publisher.source('Unique manuscript title', 'Body begins with the observation.')
+        sha = self.publisher.publish('Review metadata-only manuscript')
+        self.build()
+        reader = self.output / 'editions' / sha / 'read'
+        html = (reader / 'index.html').read_text()
+        body = html.split('<body>', 1)[1]
+        citations = re.findall(r'<blockquote class="guavajam-citation".*?</blockquote>', body, re.S)
+        self.assertEqual(1, len(citations))
+        self.assertIn('Example Author. <cite>Unique manuscript title</cite>.', citations[0])
+        remainder = body.replace(citations[0], '')
+        article = re.search(r'<article.*?</article>', body, re.S).group()
+        self.assertNotIn('Unique manuscript title', article)
+        self.assertIn('index.html">Unique manuscript title</a>', remainder)
+        self.assertNotIn('Example Author', remainder)
+        self.assertNotIn('<h1', body)
+        self.assertLess(body.index(citations[0]), body.index('<article'))
+        raw = (reader / 'source.gfm').read_text()
+        self.assertEqual(1, raw.count('Unique manuscript title'))
+        self.assertEqual(1, raw.count('Example Author'))
+        self.assertIn('## Opening', raw)
+        self.assertIn('name="citation_title" content="Unique manuscript title"', html)
+
     def test_downloads_and_citations_are_exact_and_supporting_links_work(self):
         supporting = self.publisher.repo / 'content/supporting'; supporting.mkdir()
         (supporting / 'note.md').write_text('<a name="document"></a>\n\n# Note\n\n<a name="claim"></a>\n\nA source claim.\n')

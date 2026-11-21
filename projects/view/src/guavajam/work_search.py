@@ -39,8 +39,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             parts.append('<li><a href="' + root + '../../index.html">GuavaJam</a></li>')
         parts.append('<li><a href="' + root + 'index.html">' + escape(work_title) + '</a></li>')
         if relative == 'index.html':
-            # Manuscript is now the version homepage; source-authored h1
-            # remains the sole document heading.
+            # The manuscript's bibliographic identity appears in its citation.
             parts.append('<li><span aria-current="page">' +
                          escape(edition_label(edition_number)) + '</span></li>')
         else:
@@ -67,9 +66,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         text = path.read_text('utf-8')
         if text.count('<main ') != 1 or text.count('</style>') != 1:
             raise CatalogError('work navigation: expected one generated reading landmark and stylesheet')
-        # The reader already has a document heading from the signed GFM.
-        # Breadcrumb labels therefore describe the reader surface, not repeat
-        # the source heading as a second visible page title.
+        # Breadcrumb labels describe the reader surface, not manuscript metadata.
         text = text.replace('</style>', '\n' + additions + '</style>', 1)
         text = text.replace('<header class="guavajam-status"><span>Verified signed source</span></header>', '', 1)
         text = text.replace('<main ', navigation + '<main ', 1)
@@ -80,6 +77,9 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             # directory with bounded static pages after creating the SQLite
             # search artifact. Standalone renders remain unchanged.
             text = text.replace('<h1>Documents in this edition</h1>', '', 1)
+        if relative == 'index.html':
+            from .citation import manuscript_citation
+            text = text.replace(manuscript_citation(revision, view['facts']), '', 1)
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title)

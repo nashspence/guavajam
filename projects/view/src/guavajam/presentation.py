@@ -72,12 +72,11 @@ def prepare_presentation_ast(ast: dict, navigation=None) -> dict:
 
     contents = contents_blocks(navigation['anchors'], ids)
     if contents:
-        # Preserve the title first; the navigation uses only source headings.
+        # Supporting documents have source titles; manuscripts use metadata citations.
         title_index = next((j for j, block in enumerate(new) if block.get("t") == "Header"
                             and block["c"][0] == 1), None)
-        if title_index is None:
-            raise AssetError("reader identity and contents require a manuscript title")
-        new[title_index + 1:title_index + 1] = contents
+        contents_index = 0 if title_index is None else title_index + 1
+        new[contents_index:contents_index] = contents
     if contents:
         ast.setdefault("meta", {})["guavajam_has_contents"] = {"t": "MetaBool", "c": True}
     ast["blocks"]=new

@@ -174,7 +174,9 @@ try {
       assert.equal(await plain.locator('#guavajam-static-list').isVisible(), true);
       await plain.locator('#guavajam-static-list h3 a').first().click();
       assert(plain.url().startsWith(base + 'sources/'));
-      assert.equal(await plain.locator('h1').count(), 1);
+      assert.equal(await plain.locator('h1').count(), 0);
+      assert.equal(await plain.locator('.guavajam-citation').count(), 1);
+      assert.equal(await plain.locator('.guavajam-citation cite').count(), 1);
       await disabled.close();
 
       for (const broken of ['sqlite3.wasm', 'database', 'decompression']) {

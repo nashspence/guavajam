@@ -163,9 +163,8 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
     if media:
         front,body,line,errors=validate_front_matter(Path(path),source)
         info,issues=inspect_manuscript_syntax(Path(path),body,line);errors.extend(issues)
-        heads=[n for n in walk(ast['blocks']) if n['t']=='Header']
         if front is not None:
-            errors.extend(validate_work_fields(Path(path),front,heads[0]['c'][2] if heads else []))
+            errors.extend(validate_work_fields(Path(path),front))
             errors.extend(validate_pandoc_front_matter(Path(path),front,ast))
         if errors:raise RenderError('; '.join(errors[:8]))
         anchors=info['anchors'];source_title=front['title']
@@ -182,12 +181,8 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
                 item=decode(block['c'][1],origin)
                 block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
         ast=prepare_presentation_ast(ast,navigation)
-        from guavajam_core.bibliography import ordered_authors,author_text
-        byline=author_text(ordered_authors(front),identifiers=True)
-        title_index=next(i for i,b in enumerate(ast['blocks']) if b['t']=='Header' and b['c'][0]==1)
-        ast['blocks'].insert(title_index+1,{'t':'Para','c':[{'t':'Span','c':[['',['guavajam-edition-identity'],[]],[{'t':'Str','c':byline}]]}]})
         if front.get('abstract'):
-            ast['blocks'].insert(title_index+2,{'t':'Div','c':[['',['guavajam-abstract'],[['role','group'],['aria-label','Abstract']]],[{'t':'Para','c':[{'t':'Strong','c':[{'t':'Str','c':'Abstract'}]}]},{'t':'Para','c':[{'t':'Str','c':front['abstract']}]}]]})
+            ast['blocks'].insert(0,{'t':'Div','c':[['',['guavajam-abstract'],[['role','group'],['aria-label','Abstract']]],[{'t':'Para','c':[{'t':'Strong','c':[{'t':'Str','c':'Abstract'}]}]},{'t':'Para','c':[{'t':'Str','c':front['abstract']}]}]]})
     else:
         from guavajam_core.supporting_gfm import parse_gfm_record
         from .supporting import present
@@ -231,9 +226,10 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     used=set(element_ids(body))
     while main_id in used:number+=1;main_id='guavajam-main-'+str(number)
     semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if facts.get('schema_type') else ''
-    if semantic:body=body.replace('<h1>', '<h1 itemprop="headline">',1)
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + (' · ' + path if path else ''))
+    from .citation import manuscript_citation
+    citation_html = manuscript_citation(revision_sha, facts, preview=preview) if facts else ''
     status = ('' if preview else '<header class="guavajam-status"><span>Verified signed source</span></header>\n')
     accessible = ('<span class="guavajam-preview-accessible">Unsigned proposed edition, not issued.</span>'
                   if preview else '')
@@ -245,7 +241,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             + '\n'.join(head) + '\n<title>' + escape(title) + ' — GuavaJam</title>\n<style>' + css + '</style></head><body>\n'
             '<a class="guavajam-skip" href="#'+main_id+'">Skip to content</a>\n'
             + status + navigation + '\n'
-            '<main id="'+main_id+'" tabindex="-1"><article class="guavajam-edition"'+semantic+'>\n'
+            '<main id="'+main_id+'" tabindex="-1">' + citation_html + '<article class="guavajam-edition"'+semantic+'>\n'
             + accessible + '<div class="guavajam-source-identity"><strong>Canonical source</strong>: <code>' +
             escape(canonical) + '</code></div>\n' + body +
             '\n</article></main><footer>'+rights+'<p>' +
@@ -349,6 +345,8 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     for name, raw in downloads.items():
         (output / 'downloads').mkdir(exist_ok=True)
         (output / 'downloads' / name).write_bytes(raw)
+    citation_bytes = encoded({'schema': 'guavajam.source-citation.v1', **canonical})
+    (output/'source.citation.json').write_bytes(citation_bytes)
     (output/'NAV.json').write_bytes(navigation_bytes)
     (output/'VIEW.json').write_text(json.dumps({
        'schema':'guavajam.view.v1','canonical':canonical, 'renderer':'guavajam', 'preview':preview,
@@ -356,7 +354,8 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
        'files': {**{name:hashlib.sha256(html.encode('utf-8')).hexdigest()
                  for name,html in sorted(all_files.items())},
                  **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())},
-                 'NAV.json':hashlib.sha256(navigation_bytes).hexdigest()}},indent=2,sort_keys=True)+'\n')
+                 'NAV.json':hashlib.sha256(navigation_bytes).hexdigest(),
+                 'source.citation.json':hashlib.sha256(citation_bytes).hexdigest()}},indent=2,sort_keys=True)+'\n')
     return len(documents)
 
 

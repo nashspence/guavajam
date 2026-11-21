@@ -6,8 +6,6 @@ language: en
 rights: all-rights-reserved
 ---
 
-# Sample Work
-
 <a id="sec-1"></a>
 ## § 1 — Definitions and mathematics
 

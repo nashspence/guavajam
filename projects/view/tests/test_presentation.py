@@ -76,7 +76,7 @@ class PresentationTests(unittest.TestCase):
         self.assertIn('Supporting note',text)
     def test_derived_output_digests_bind_every_emitted_html_page(self):
         self.build();manifest=json.loads((self.out/'VIEW.json').read_text());import hashlib
-        self.assertEqual({'index.html','supporting/note.html','documents.html','NAV.json'},set(manifest['files']))
+        self.assertEqual({'index.html','supporting/note.html','documents.html','NAV.json','source.citation.json'},set(manifest['files']))
         for name,digest in manifest['files'].items():self.assertEqual(digest,hashlib.sha256((self.out/name).read_bytes()).hexdigest())
 
     def test_semantic_time_and_tooltip_preserve_literal_source_values(self):
