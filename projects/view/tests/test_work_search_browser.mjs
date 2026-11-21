@@ -204,6 +204,11 @@ try {
         assert(await row.locator('.guavajam-passage-excerpt mark').count() > 0);
         assert((await row.locator('.guavajam-passage-excerpt').textContent()).includes('Café'));
       }
+      await query('Example', fixture.versionPassages, 'passages');
+      for (const excerpt of await page.locator('.guavajam-passage-excerpt').all()) {
+        assert.equal(await excerpt.textContent(), 'Example Author', 'prefer readable author text over raw provenance JSON');
+        assert(await excerpt.locator('mark').count() > 0);
+      }
       await query('Stereophotometric', 1, 'passages');
       const longQuote = page.locator('.guavajam-passage-excerpt');
       assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Passage match');
