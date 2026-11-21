@@ -142,41 +142,15 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                                edition_number=position, published=edition['published'],
                                in_collection=in_collection)
         ed_label = edition_label(position)
-        # The manuscript itself is the version homepage. Only the detailed
-        # verification record needs a separate generated page.
+        # The manuscript itself is the version homepage. One metadata tree
+        # presents the verified bibliography, provenance, rights and locators.
         edition_crumbs = ((('../../../../index.html', 'GuavaJam'),) if in_collection else ()) + (
             ('../../index.html', latest_title), ('read/index.html', ed_label))
-        message = edition['message']
-        body = ('<dl class="guavajam-verification">'
-                '<dt>Commit</dt><dd><code>' + escape(sha) + '</code></dd>'
-                '<dt>Publication date</dt><dd><time datetime="' +
-                escape(edition['published'], quote=True) + '">' +
-                escape(edition['published']) + '</time></dd>'
-                '<dt>Commit message</dt><dd class="guavajam-message">' +
-                escape(message) + '</dd>'
-                '<dt>Verified source</dt><dd><a href="SOURCE.json">Verification record (JSON)</a></dd>'
-                '<dt>Source citation</dt><dd><a href="CITATION.json" download>Canonical citation (JSON)</a></dd>')
-        if metadata['name']:
-            committer = escape(metadata['name'])
-            if metadata['email']:
-                committer = ('<a href="mailto:' + escape(metadata['email'], quote=True) +
-                             '">' + committer + '</a>')
-            body += '<dt>Committer</dt><dd>' + committer + '</dd>'
-        if repository:
-            body += ('<dt>Repository</dt><dd><a href="' + escape(repository, quote=True) +
-                     '">Source repository</a></dd>')
-        body += '</dl>'
-        (directory / 'verify.html').write_text(
-            page(latest_title + ' — ' + ed_label + ' — Verify', body, ancestors=edition_crumbs,
-                 breadcrumb_current='Verify'), encoding='utf-8')
-        rights = view['facts'].get('rights', '')
-        license_body = ('<p>Rights: <code>' + escape(rights) + '</code></p>' if rights
-                        else '<p>No rights statement was declared for this version.</p>')
-        (directory / 'license.html').write_text(
-            page(latest_title + ' — ' + ed_label + ' — License', license_body,
-                 ancestors=edition_crumbs, breadcrumb_current='License'), encoding='utf-8')
-        from .locators import write_locators
-        write_locators(directory, facts=view['facts'], title=latest_title, ancestors=edition_crumbs)
+        from .metadata import write_metadata
+        write_metadata(directory, facts=view['facts'], title=latest_title,
+                       ancestors=edition_crumbs, revision=sha,
+                       published=edition['published'], message=edition['message'],
+                       committer=metadata, repository=repository)
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
     if edition_rows:
         latest = edition_rows[-1][0]

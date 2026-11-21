@@ -452,7 +452,7 @@ def homepage(site, *, interactive):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import PAGE_SIZE, _static_pager, search_activation
+    from .directory_pages import PAGE_SIZE, _static_pager, search_summary
     from .site import detail_link, page
 
     site = Path(site)
@@ -500,9 +500,8 @@ def homepage(site, *, interactive):
             body = ''
             if interactive:
                 body += (
-                    '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
-                    '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find a work</h2>'
-                    + search_activation(download) + '</div>'
+                    '<details class="guavajam-index-search" id="guavajam-index-search" hidden>' +
+                    search_summary(download) +
                     '<form id="guavajam-search" role="search" '
                     'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
                     'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
@@ -520,7 +519,7 @@ def homepage(site, *, interactive):
                     '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
-                    '</form></section>')
+                    '</form></details>')
             body += '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
             body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading" data-static-heading="Works">Works</h2>'
             if interactive:

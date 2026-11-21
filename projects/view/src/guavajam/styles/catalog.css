@@ -87,9 +87,6 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 .guavajam-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 .guavajam-directory { margin: .75rem 0 0; }
 .guavajam-directory > :last-child { margin-bottom: 0; }
-.guavajam-verification { margin: 1.4rem 0; }
-.guavajam-verification dt { margin: 1rem 0 .15rem; color: var(--guavajam-muted); font: 600 .85rem/1.5 system-ui, sans-serif; }
-.guavajam-verification dd { margin: 0; overflow-wrap: anywhere; }
 .guavajam-version-menu { margin: .5rem 0 1.3rem; }
 
 
@@ -112,21 +109,20 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 .guavajam-citation-entry > p { margin: .45rem 0; }
 .guavajam-citation-entry .guavajam-citation { margin: .8rem 0; }
 
-/* Search is progressive disclosure, in the same typographic column as the records. */
+/* All indexes use the same native, collapsed disclosure. Opening it loads the
+   disposable SQLite derivative; static pagination never depends on scripts. */
 .guavajam-index-search {
-  border-bottom: 1px solid var(--guavajam-border);
-  padding: .85rem 0 1rem;
-  margin: 1.7rem 0;
+  border: 0; padding: 0; margin: 1.1rem 0 1.5rem;
 }
-.guavajam-index-search h2 { font-size: 1.15rem; margin: 0 0 .4rem; }
-.guavajam-index-search .guavajam-search-intro { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; }
-.guavajam-index-search .guavajam-search-intro h2 { flex: 1 1 auto; }
-.guavajam-index-search .guavajam-search-intro button { font: 600 .87rem/1.4 system-ui, sans-serif; }
-/* One opt-in search control, transfer size, and native progress cue site-wide. */
-.guavajam-search-activation { display: inline-flex; gap: .5rem; align-items: center; }
-.guavajam-index-size { color: var(--guavajam-muted); font: .75rem/1.4 system-ui, sans-serif; white-space: nowrap; }
+.guavajam-search-summary {
+  color: var(--guavajam-link); cursor: pointer; width: fit-content;
+  font: 600 .92rem/1.6 system-ui, sans-serif; padding: .25rem .2rem;
+}
+.guavajam-search-summary:hover { text-decoration: underline; text-underline-offset: .16em; }
+.guavajam-index-size { color: var(--guavajam-muted); font: normal .79rem/1.4 system-ui, sans-serif; white-space: nowrap; }
 .guavajam-search-spinner {
-  display: inline-block; width: .95rem; height: .95rem; flex: none;
+  display: inline-block; width: .85rem; height: .85rem; margin: 0 .4rem 0 .15rem;
+  vertical-align: -.12rem;
   border: 2px solid var(--guavajam-border); border-top-color: var(--guavajam-link);
   border-radius: 50%; animation: guavajam-spin .7s linear infinite;
 }
@@ -156,8 +152,7 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
 .guavajam-search-filters summary { cursor: pointer; font: .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
-/* All directory search surfaces reuse the collection's inline disclosure.
-   The controls are revealed by search.js, but loading remains explicit. */
+/* A single disclosure looks and operates the same in every directory. */
 .guavajam-document-list { list-style: none; margin: 0; padding: 0; }
 .guavajam-document-list > li { list-style: none; padding: 1.2rem 0 1.4rem; margin: 0; border-bottom: 1px solid var(--guavajam-border); break-inside: avoid; }
 .guavajam-document-list > li:first-child { padding-top: .5rem; }
@@ -174,7 +169,7 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 .guavajam-static-pages [aria-current="page"] { color: var(--guavajam-ink); font-weight: 600; }
 .guavajam-static-pages :focus-visible { outline: 3px solid var(--guavajam-focus); outline-offset: 2px; }
 
-/* Search already has one separator; never double-rule its result list. */
+/* Search and its directory list never need a redundant separator. */
 .guavajam-listing { border: 0; padding-top: 0; }
 .guavajam-list-heading { margin: .65rem 0 .45rem; font-size: 1.15rem; }
 .guavajam-pagination { display: flex; flex-wrap: nowrap; align-items: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
@@ -220,32 +215,48 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 }
 .guavajam-site #guavajam-search .guavajam-filter-fields > div { min-width: 0; }
 .guavajam-work-citation { margin-bottom: 1.2rem; }
-/* One restrained bibliography of subjects and tags, with a quiet type label. */
-.guavajam-locator-list { list-style: none; padding: 0; margin: 0; }
-.guavajam-locator-list > li { padding: 1rem 0 1.15rem; margin: 0; border-bottom: 1px solid var(--guavajam-border); }
-.guavajam-locator-list > li:last-child { border: 0; padding-bottom: 0; }
-.guavajam-locator-kind { font: 600 .76rem/1.4 system-ui, sans-serif; color: var(--guavajam-muted); margin: 0 0 .15rem; }
-.guavajam-locator-list h2 { font: 600 1.15rem/1.4 Georgia, Cambria, serif; margin: 0 0 .35rem; overflow-wrap: anywhere; }
-.guavajam-locator-detail {
-  display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
-  margin: .2rem 0 0; gap: .12rem .85rem; font: .85rem/1.55 system-ui, sans-serif;
+/* Bibliographic metadata is one readable outline: titled branches with
+   narrower indented leaves, not three competing record pages or UI cards. */
+.guavajam-metadata-branch { margin: 1.65rem 0; scroll-margin-top: 1rem; }
+.guavajam-metadata-branch h2 { font: 600 1.16rem/1.45 Georgia, Cambria, serif; margin: 0 0 .65rem; }
+.guavajam-metadata-fields {
+  border-inline-start: 2px solid var(--guavajam-border);
+  padding-inline-start: 1rem; margin: 0; min-width: 0;
 }
-.guavajam-locator-detail dt { color: var(--guavajam-muted); }
-.guavajam-locator-detail dd { margin: 0; overflow-wrap: anywhere; }
-@media (max-width: 430px) {
-  .guavajam-locator-detail { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .guavajam-locator-detail dd { margin-bottom: .35rem; }
+.guavajam-metadata-field {
+  display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  column-gap: 1rem; padding: .4rem 0; min-width: 0;
+}
+.guavajam-metadata-field dt { color: var(--guavajam-muted); font: 600 .82rem/1.5 system-ui, sans-serif; }
+.guavajam-metadata-field dd {
+  margin: 0; font: .95rem/1.6 system-ui, sans-serif; overflow-wrap: anywhere;
+  white-space: pre-wrap; min-width: 0;
+}
+.guavajam-metadata-locators { list-style: none; padding: 0; margin: 0; }
+.guavajam-metadata-locators > li { margin: 0 0 .95rem; }
+.guavajam-metadata-leaf {
+  border-inline-start: 2px solid var(--guavajam-border);
+  padding: .15rem 0 .2rem 1rem; min-width: 0;
+}
+.guavajam-metadata-kind {
+  margin: 0 0 .05rem; color: var(--guavajam-muted);
+  font: 700 .74rem/1.5 system-ui, sans-serif; letter-spacing: .025em;
+}
+.guavajam-metadata-leaf h3 {
+  font: 600 1.04rem/1.45 Georgia, Cambria, serif; margin: 0 0 .25rem;
+  overflow-wrap: anywhere;
+}
+.guavajam-metadata-leaf .guavajam-metadata-fields { margin: .35rem 0 0 .35rem; }
+@media (max-width: 580px) {
+  .guavajam-metadata-field { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; }
 }
 /* The SQLite excerpt is bounded and its marked fragments are DOM text, not HTML. */
 .guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
 .guavajam-passage-excerpt mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
-/* Native, document-level contents, never an extra reader-side outline. */
+/* A traditional contents outline: headings, indentation, and clean line
+   spacing rather than horizontal rules between manuscript sections. */
 .guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
-.guavajam-contents-list > ol > li { border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0; }
-.guavajam-contents-list > ol > li:last-child { border: 0; }
-.guavajam-contents-list ol { margin-inline-start: 1.25rem; }
-.guavajam-contents-list li li { padding: .35rem 0; }
-.guavajam-contents-list a { display: inline-block; overflow-wrap: anywhere; }
-@media print {
-  .guavajam-locator-detail { grid-template-columns: 9rem 1fr; }
-}
+.guavajam-contents-list > ol > li { padding: 0; border: 0; margin: .5rem 0 .8rem; font-weight: 600; }
+.guavajam-contents-list ol ol { margin: .15rem 0 .2rem 1.35rem; }
+.guavajam-contents-list li li { padding: .1rem 0; font-weight: 400; font-size: .95em; }
+.guavajam-contents-list a { display: inline-block; padding: .12rem 0; overflow-wrap: anywhere; }

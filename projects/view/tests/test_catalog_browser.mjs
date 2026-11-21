@@ -34,8 +34,7 @@ const edition = `editions/${revision}/`;
 const first = `editions/${fixture.revisions[0]}/`;
 const passages = position => 'read/' + (position < 20 ? 'passages.html' : `passages/page/${Math.floor(position / 20) + 1}.html`);
 const fragment = (source, anchor) => 'citation:' + createHash('sha256').update(source).digest('hex').slice(0, 20) + ':' + anchor;
-const pages = ['index.html', 'editions/index.html', edition + 'locators.html',
-  edition + 'verify.html', edition + 'license.html', edition + 'read/index.html',
+const pages = ['index.html', 'editions/index.html', edition + 'metadata.html', edition + 'read/index.html',
   edition + 'read/contents.html', edition + 'read/documents.html',
   edition + 'read/supporting/note.html', edition + passages(0), edition + passages(40),
   edition + passages(80), first + 'read/index.html'];
@@ -77,7 +76,7 @@ try {
       assert(await page.locator('.guavajam-version-menu').evaluate(node =>
         Boolean(node.compareDocumentPosition(document.querySelector('main .guavajam-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
       assert.deepEqual(await page.locator('.guavajam-version-menu a').allTextContents(),
-        ['Contents', 'Documents', 'Passages', 'Locators', 'Verify', 'License', 'Download']);
+        ['Contents', 'Documents', 'Passages', 'Metadata', 'Download']);
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
         'Contents has moved off the manuscript without changing the standalone renderer');
       const downloadedSource = page.waitForEvent('download');
@@ -85,8 +84,11 @@ try {
       const source = await downloadedSource;
       assert.equal(source.suggestedFilename(), 'source.gfm');
       assert.deepEqual(await fs.readFile(await source.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
-      await page.getByRole('link', {name: 'License', exact: true}).click();
+      await page.getByRole('link', {name: 'Metadata', exact: true}).click();
       assert((await page.locator('main').textContent()).includes('CC-BY-4.0'));
+      for (const branch of ['Publication', 'Provenance', 'Rights', 'Locators']) {
+        assert.equal(await page.getByRole('heading', {name: branch, exact: true}).count(), 1);
+      }
       await page.getByRole('link', {name: 'v2', exact: true}).click();
       await page.getByRole('link', {name: 'Contents', exact: true}).click();
       assert(page.url().endsWith('/read/contents.html'));
@@ -137,12 +139,15 @@ try {
       assert(cited.includes('content/supporting/note.md'));
       await support.getByRole('link', {name: 'Read this passage'}).click();
       assert(page.url().endsWith('/read/supporting/note.html#supporting-tail'));
-      await page.goto(base + edition + 'locators.html');
-      assert.equal(await page.locator('.guavajam-locator-list > li').count() > 0, true);
+      await page.goto(base + edition + 'metadata.html');
+      assert.equal(await page.locator('.guavajam-metadata-locators > li').count() > 0, true);
       assert.equal(await page.locator('.guavajam-static-pages').count(), 0);
-      assert.equal(await page.locator('.guavajam-locator-list > li').count(), 23);
-      assert((await page.locator('.guavajam-locator-detail').first().textContent()).includes('Example authority'));
+      assert.equal(await page.locator('.guavajam-metadata-locators > li').count(), 23);
+      assert((await page.locator('.guavajam-metadata-leaf').first().textContent()).includes('Example authority'));
       assert.equal(await page.locator('script').count(), 0);
+      for (const old of ['locators.html', 'verify.html', 'license.html']) {
+        assert.equal((await page.request.get(base + edition + old)).status(), 404);
+      }
       for (const filename of pages) {
         for (const [width, scheme, enlarge] of [[320, 'light', false], [1280, 'dark', false], [360, 'light', true]]) {
           await page.setViewportSize({width, height: 900});

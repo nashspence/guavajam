@@ -75,7 +75,7 @@ try {
         }
       };
       const enable = async (total, kind) => {
-        await page.locator('#guavajam-search-enable').click();
+        await page.locator('#guavajam-index-search > summary').click();
         await waitTotal(total, kind);
       };
       const query = async (term, total, kind) => {
@@ -109,9 +109,9 @@ try {
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
+      await enable(fixture.documents, 'documents');
       await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
-      await enable(fixture.documents, 'documents');
       await waitTotal(fixture.documents, 'documents');
       await query('Abyssalappendixselector', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
@@ -215,7 +215,7 @@ try {
       }
       assert.equal(total, fixture.versionPassages, 'every manuscript and supporting passage remains discoverable without JS');
       await plain.goto(passagesURL);
-      assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
+      assert.equal(await plain.locator('#guavajam-index-search').isVisible(), false);
       await disabled.close();
 
       for (const broken of ['sqlite3.wasm', 'database', 'search-worker.js', 'redirect', 'truncated', 'corrupt', 'wrong-size', 'decompression']) {
@@ -244,13 +244,14 @@ try {
         } else if (broken === 'wrong-size') {
           await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
-        await fallback.locator('#guavajam-search-enable').click();
+        await fallback.locator('#guavajam-index-search > summary').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('.guavajam-listing').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
         assert.equal(await fallback.locator('#guavajam-static-section').isVisible(), true);
-        assert.equal(await fallback.locator('#guavajam-search-enable').textContent(), 'Retry search');
+        assert((await fallback.locator('#guavajam-index-search > summary').textContent()).includes('Indexed Search'));
+        assert.equal(await fallback.locator('#guavajam-index-search').getAttribute('open'), '');
         assert.equal(await fallback.locator('#guavajam-search-results').isVisible(), false);
         assert.deepEqual(unexpected, [], `${name}: failure must not make external requests`);
         if (broken === 'redirect') {
@@ -259,7 +260,8 @@ try {
         if (broken === 'database' || broken === 'redirect') {
           if (broken === 'database') await failure.unroute(databaseRoute);
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
-          await fallback.locator('#guavajam-search-enable').click();
+          await fallback.locator('#guavajam-index-search > summary').click(); // close
+          await fallback.locator('#guavajam-index-search > summary').click(); // retry on reopen
           await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
             `${total} section(s) / passage(s) found`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));

@@ -13,18 +13,21 @@ if (form) {
   const edition = form.querySelector('[name="edition"]');
   const documentFilter = form.querySelector('[name="document"]');
   const supportingFilter = form.querySelector('[name="supporting"]');
-  const enable = document.querySelector('#guavajam-search-enable');
+  const disclosure = document.querySelector('#guavajam-index-search');
+  const disclosureSummary = disclosure.querySelector('.guavajam-search-summary');
   const spinner = document.querySelector('#guavajam-search-spinner');
   const listing = document.querySelector('#guavajam-search-listing');
   const directory = form.dataset.directory || '';
-  if (directory) document.querySelector('#guavajam-directory-enhancement').hidden = false;
+  // A non-JS page never exposes an unusable search form. JavaScript reveals
+  // only the closed disclosure; opening it requests the optional database.
+  disclosure.hidden = false;
   const reload = document.createElement('button');
   reload.id = 'guavajam-search-reload';
   reload.type = 'button';
   reload.textContent = 'Reload page';
   reload.hidden = true;
   reload.addEventListener('click', () => location.reload());
-  (enable || summary).after(' ', reload);
+  disclosureSummary.after(' ', reload);
   const back = document.querySelector('#guavajam-search-prev');
   const next = document.querySelector('#guavajam-search-next');
   const pageLabel = document.querySelector('#guavajam-search-page');
@@ -58,12 +61,8 @@ if (form) {
     pageLabel.textContent = '';
     pagination.hidden = true;
     if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Works';
-    if (enable) {
-      enable.hidden = false;
-      enable.disabled = false;
-      enable.removeAttribute('aria-disabled');
-      enable.textContent = 'Retry search';
-    }
+    // Closing and reopening the disclosure retries the same worker, with no
+    // competing Enable/Retry search buttons or separate query implementation.
   }
 
   function option(select, item) {
@@ -263,8 +262,8 @@ if (form) {
         meta.textContent = context.join(' · ');
         if (resultKind === 'editions') {
           const verify = document.createElement('a');
-          verify.href = workURL('editions/' + row.revision + '/verify.html');
-          verify.textContent = 'Verify';
+          verify.href = workURL('editions/' + row.revision + '/metadata.html#provenance');
+          verify.textContent = 'Metadata';
           meta.append(document.createTextNode(' · '), verify);
         }
         article.append(meta);
@@ -375,9 +374,8 @@ if (form) {
     reload.hidden = true;
     if (spinner) spinner.hidden = false;
     if (listing) listing.hidden = false;
-    // Keep keyboard focus while loading. The loading guard rejects duplicate
-    // requests; native disabled would blur the very button we need to restore.
-    if (enable) enable.setAttribute('aria-disabled', 'true');
+    // The summary remains keyboard-focusable while loading; the spinner is an
+    // in-place cue without replacing or disabling the native disclosure.
     summary.textContent = 'Loading local search…';
     try {
       worker = new Worker(new URL(form.dataset.worker || './search-worker.js', document.baseURI), {type: 'module'});
@@ -413,12 +411,6 @@ if (form) {
           loading = false;
           if (spinner) spinner.hidden = true;
           promoteStaticFacets();
-          if (enable) {
-            const heldFocus = document.activeElement === enable;
-            enable.removeAttribute('aria-disabled');
-            enable.hidden = true;
-            if (heldFocus) input.focus();
-          }
           request();
         } else {
           renderRows(data);
@@ -434,6 +426,9 @@ if (form) {
       unavailable();
     }
   }
-  if (enable) enable.addEventListener('click', initialize);
-  else initialize();
+  disclosure.addEventListener('toggle', () => {
+    if (disclosure.open && !ready && !loading) initialize();
+  });
+  // Browsers can restore an opened disclosure through session history.
+  if (disclosure.open) initialize();
 }

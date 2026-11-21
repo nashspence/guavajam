@@ -21,15 +21,15 @@ from .search_artifact import download_attributes, emit_download
 from .site import page
 
 
-def search_activation(download):
-    """Shared opt-in action with a discreet transfer size and loading affordance."""
+def search_summary(download):
+    """Native disclosure is the sole entry point to the optional SQLite index."""
     kib = (download['transfer_size'] + 1023) // 1024
-    return ('<span class="guavajam-search-activation">'
-            '<button type="button" id="guavajam-search-enable">Enable search</button>'
-            '<small class="guavajam-index-size" aria-label="Index download size: ' + str(kib) +
-            ' KiB">' + str(kib) + ' KiB</small>'
+    return ('<summary class="guavajam-search-summary">'
             '<span class="guavajam-search-spinner" id="guavajam-search-spinner" '
-            'aria-hidden="true" hidden></span></span>')
+            'aria-hidden="true" hidden></span>'
+            'Indexed Search <span class="guavajam-index-size" '
+            'aria-label="Index download size: ' + str(kib) + ' KiB">(' + str(kib) +
+            ' KiB)</span></summary>')
 
 
 def search_listing_open(title, number, pages, *, interactive, result_class='guavajam-editions'):
@@ -55,15 +55,13 @@ def search_listing_close(*, interactive):
 
 
 def _sqlite_controls(*, kind, edition, root, runtime, download):
-    """Use the collection's explicit, opt-in SQLite search disclosure.
+    """Use the same collapsed native search disclosure as the works index.
 
-    JS only reveals the controls. It must not fetch the worker/WASM/database
-    until Enable search (or an explicit form submission). Static HTML is still
-    complete, bounded and navigable without a script or a secondary index.
+    JavaScript reveals the closed details control, then initializes the worker
+    only if the reader opens it. Static HTML stays independent of JavaScript.
     """
     history = kind == 'editions'
     citations = kind == 'citations'
-    heading = 'Find versions' if history else 'Find passages' if citations else 'Find documents'
     label = ('Search versions and commit messages' if history else
              'Search passages in this version' if citations else 'Search documents and contents')
     sorts = (('<option value="publication">Publication order (newest)</option>'
@@ -74,10 +72,8 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
              ('<option value="publication">Source order</option>'
               '<option value="title">Title (A–Z)</option>'
               '<option value="relevance">Relevance</option>'))
-    return ('<section class="guavajam-index-search guavajam-directory-enhancement" '
-            'id="guavajam-directory-enhancement" aria-labelledby="guavajam-search-heading" hidden>'
-            '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">' + heading + '</h2>'
-            + search_activation(download) + '</div>'
+    return ('<details class="guavajam-index-search guavajam-directory-enhancement" '
+            'id="guavajam-index-search" hidden>' + search_summary(download) +
             '<form id="guavajam-search" role="search" '
             'data-scope="work" data-directory="' + escape(kind, quote=True) + '" '
             'data-root="' + escape(root, quote=True) + '" ' +
@@ -96,7 +92,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
              '</select></div>' if citations else '') + '</div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
-            '</form></section><script src="' + escape(root + runtime + 'search.js', quote=True) +
+            '</form></details><script src="' + escape(root + runtime + 'search.js', quote=True) +
             '" defer></script>')
 
 
@@ -108,8 +104,8 @@ def _history_row(edition, *, links_prefix):
             '</h3><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
             '">' + escape(revision[:12]) + '</code> · <a href="' +
-            escape(links_prefix + revision + '/verify.html', quote=True) +
-            '">Verify</a></p>' +
+            escape(links_prefix + revision + '/metadata.html#provenance', quote=True) +
+            '">Metadata</a></p>' +
             '<p class="guavajam-message">' + escape(subject) + '</p>')
     if details.strip():
         html += ('<details class="guavajam-message-detail"><summary>Full commit message</summary>'

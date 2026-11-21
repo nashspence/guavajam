@@ -57,9 +57,9 @@ try {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
         }
       };
-      // The Works index is the layout reference for every lazy search form.
-      // Compare rendered controls at mobile and intermediate widths;
-      // checking only root overflow would miss different breakpoints or gaps.
+      // All four directories use the same CLOSED native disclosure. Inspect
+      // its rendered summary at phone widths without activating SQLite, plus
+      // form typography for the controls available once it opens.
       const parityContext = await browser.newContext();
       const parityPage = await parityContext.newPage();
       const parityDownloads = [];
@@ -78,32 +78,23 @@ try {
         });
         return parityPage.evaluate(() => {
           const section = document.querySelector('.guavajam-index-search').getBoundingClientRect();
-          const intro = document.querySelector('.guavajam-search-intro').getBoundingClientRect();
-          const form = document.querySelector('#guavajam-search').getBoundingClientRect();
+          const summary = document.querySelector('.guavajam-search-summary').getBoundingClientRect();
           const crumb = document.querySelector('.guavajam-navigation').getBoundingClientRect();
-          // WebKit may report initial inherited values on textless containers;
-          // rendered boxes protect the actual layout, including gaps and padding.
-          const geometry = {sectionWidth: section.width, headingGap: section.top - crumb.bottom,
-            topPadding: intro.top - section.top, bottomPadding: section.bottom - form.bottom,
-            formGap: form.top - intro.bottom, formWidth: form.width, formHeight: form.height};
-          for (const [name, selector] of [['input', '#guavajam-search input[name=q]'],
-            ['submit', '#guavajam-search > button[type=submit]'], ['filters', '.guavajam-search-filters']]) {
-            const box = document.querySelector(selector).getBoundingClientRect();
-            for (const [key, value] of Object.entries({x: box.x - form.x, y: box.y - form.y,
-              width: box.width, height: box.height})) geometry[name + '.' + key] = value;
-          }
-          const typography = ['#guavajam-search input[name=q]', '#guavajam-search > button[type=submit]',
+          const geometry = {sectionWidth: section.width, summaryHeight: summary.height,
+            summaryOffset: summary.top - section.top, headingGap: section.top - crumb.bottom};
+          const typography = ['.guavajam-search-summary', '#guavajam-search input[name=q]', '#guavajam-search > button[type=submit]',
             '.guavajam-search-filters summary'].map(selector => {
             const style = getComputedStyle(document.querySelector(selector));
             return Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
           });
-          return {geometry, typography};
+          return {geometry, typography, collapsed: !document.querySelector('#guavajam-index-search').open};
         });
       };
       for (const width of [320, 390, 500, 760]) {
         await parityPage.setViewportSize({width, height: 900});
         await parityPage.goto(base);
         const reference = await controls();
+        assert.equal(reference.collapsed, true);
         for (const url of surfaces) {
           await parityPage.goto(url);
           const actual = await controls();
@@ -143,7 +134,7 @@ try {
       assert.equal(await page.locator('#guavajam-static-list > li').count(), fixture.works - 20);
       assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../');
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
-      await page.locator('#guavajam-search-enable').click();
+      await page.locator('#guavajam-index-search > summary').click();
       await waitTotal(fixture.works);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
@@ -155,10 +146,11 @@ try {
       assert(pagedHit.startsWith('../sources/'));
       assert((await page.request.get(new URL(pagedHit, page.url()).href)).ok());
       await page.goto(base);
-      await page.locator('#guavajam-search-enable').focus();
-      await page.locator('#guavajam-search-enable').press('Enter');
+      await page.locator('#guavajam-index-search > summary').focus();
+      await page.locator('#guavajam-index-search > summary').press('Enter');
       await waitTotal(fixture.works);
-      assert.equal(await page.locator('input[name=q]').evaluate(node => node === document.activeElement), true);
+      assert.equal(await page.locator('#guavajam-index-search > summary').evaluate(node => node === document.activeElement), true,
+        'the native summary retains keyboard focus after loading');
       assert.equal(await page.evaluate(() => crossOriginIsolated), false);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -178,7 +170,7 @@ try {
       assert(page.url().endsWith(fixture.historical));
       assert((await page.locator('article').textContent()).includes('Palaeoriver'));
       await page.goto(base);
-      await page.locator('#guavajam-search-enable').click();
+      await page.locator('#guavajam-index-search > summary').click();
       await waitTotal(fixture.works);
       await query('Glaciolacustrine', 1);
       const support = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
@@ -305,7 +297,7 @@ try {
       const waiting = await delayed.newPage();
       try {
         await waiting.goto(base);
-        await waiting.locator('#guavajam-search-enable').click();
+        await waiting.locator('#guavajam-index-search > summary').click();
         await Promise.race([signalled, new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
@@ -351,7 +343,7 @@ try {
         }
         const fallback = await failure.newPage();
         await fallback.goto(base);
-        await fallback.locator('#guavajam-search-enable').click();
+        await fallback.locator('#guavajam-index-search > summary').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-list > li').count(), 20);
@@ -366,12 +358,12 @@ try {
       await stale.locator('#guavajam-search').evaluate(form => {
         form.dataset.database = './index.' + '0'.repeat(64) + '.sqlite.gz';
       });
-      await stale.locator('#guavajam-search-enable').click();
+      await stale.locator('#guavajam-index-search > summary').click();
       await stale.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
       assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
       await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
-      await stale.locator('#guavajam-search-enable').click();
+      await stale.locator('#guavajam-index-search > summary').click();
       await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} work(s) found`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();

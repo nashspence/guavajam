@@ -86,9 +86,11 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('class="guavajam-index-size"', page)
         self.assertIn('Showing static page 1 of 1.', page)
         self.assertNotIn('Browse independently verified works', page)
-        self.assertIn('Find a work', page)
+        self.assertIn('Indexed Search <span class="guavajam-index-size"', page)
         self.assertIn('>Works</h2>', page)
-        self.assertLess(page.index('Find a work'), page.index('>Works</h2>'))
+        self.assertLess(page.index('Indexed Search'), page.index('>Works</h2>'))
+        self.assertIn('id="guavajam-index-search" hidden', page)
+        self.assertNotIn('Enable search', page)
         self.assertIn('<details class="guavajam-search-filters"><summary>Filters and sort</summary>', page)
         self.assertIn('class="guavajam-byline guavajam-scrollline"', page)
         self.assertIn('class="guavajam-abstract"', page)
@@ -99,7 +101,7 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('id="guavajam-static-list"', page)
         self.assertIn('aria-label="Search result pages" hidden', page)
         static = homepage(self.site, interactive=False)
-        self.assertNotIn('id="guavajam-search-enable"', static)
+        self.assertNotIn('id="guavajam-index-search"', static)
         self.assertIn('id="guavajam-static-list"', static)
 
     def test_works_index_static_pages_are_bounded_and_sqlite_enhanced(self):
@@ -116,7 +118,8 @@ class SearchIndexTests(unittest.TestCase):
             self.assertLessEqual(len(work_rows), 20)
             unique.extend(number for _, number in work_rows)
             self.assertEqual(1, markup.count('<h1 aria-current="page">GuavaJam</h1>'))
-            self.assertIn('id="guavajam-search-enable"', markup)
+            self.assertIn('id="guavajam-index-search" hidden', markup)
+            self.assertNotIn('Enable search', markup)
             self.assertIn('id="guavajam-search-results"', markup)
             self.assertIn('rel="next"' if n < 3 else 'rel="prev"', markup)
             if n == 1:
@@ -138,7 +141,7 @@ class SearchIndexTests(unittest.TestCase):
         static = homepage(self.site, interactive=False)
         self.assertEqual(20, static.count('<li><article><h3>'))
         self.assertNotIn('<script', static)
-        self.assertNotIn('id="guavajam-search-enable"', static)
+        self.assertNotIn('id="guavajam-index-search"', static)
         self.assertEqual(5, (self.site / 'page/3.html').read_text().count('<li><article><h3>'))
 
     def test_subject_context_is_preserved_and_duplicate_claims_remain_in_facts(self):
