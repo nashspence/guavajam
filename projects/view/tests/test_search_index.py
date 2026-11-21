@@ -2,6 +2,7 @@
 from contextlib import closing
 import hashlib
 import json
+import re
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -72,6 +73,68 @@ class SearchIndexTests(unittest.TestCase):
             self.assertEqual(0, db.execute(
                 "SELECT count(*) FROM search_fts WHERE search_fts MATCH 'stylesheet'").fetchone()[0])
 
+    def test_directory_restores_editorial_hierarchy_with_optional_search(self):
+        entry = self.source('alpha', 'Field Notes', 'Arctic ecology', keywords=['fieldwork'])
+        marker = self.site / entry['path'] / 'editions' / entry['tip'] / 'COMMITTER.json'
+        marker.write_text(json.dumps({'name': 'Signer Test', 'email': 'signer@example.org'}))
+        create_index(self.site, [entry])
+        page = homepage(self.site, interactive=True)
+        self.assertIn('href="mailto:signer@example.org"', page)
+        self.assertIn('Find a work', page)
+        self.assertIn('>Works</h2>', page)
+        self.assertLess(page.index('Find a work'), page.index('>Works</h2>'))
+        self.assertIn('<details class="guavajam-search-filters"><summary>Filters and sort</summary>', page)
+        self.assertIn('class="guavajam-byline"', page)
+        self.assertIn('class="guavajam-abstract"', page)
+        self.assertIn('aria-current="page">GuavaJam</h1>', page)
+        self.assertIn('sources/alpha/editions/' + entry['tip'] + '/read/index.html', page)
+        self.assertIn('aria-label="Field Notes work page"', page)
+        self.assertNotIn(' edition(s) · ', page)
+        self.assertIn('id="guavajam-static-list"', page)
+        self.assertIn('aria-label="Search result pages" hidden', page)
+        static = homepage(self.site, interactive=False)
+        self.assertNotIn('id="guavajam-search-enable"', static)
+        self.assertIn('id="guavajam-static-list"', static)
+
+    def test_works_index_static_pages_are_bounded_and_sqlite_enhanced(self):
+        entries = [self.source(f'work-{n:02d}', f'Work {n:02d}', f'Notes {n:02d}')
+                   for n in range(1, 46)]
+        create_index(self.site, entries)
+        first = homepage(self.site, interactive=True)
+        pages = [first] + [(self.site / 'page' / f'{n}.html').read_text('utf-8')
+                           for n in (2, 3)]
+        unique = []
+        for n, markup in enumerate(pages, 1):
+            work_rows = re.findall(r'<li><article><h3><a href="([^"]+)">Work (\d+)</a>', markup)
+            self.assertEqual([20, 20, 5][n - 1], len(work_rows))
+            self.assertLessEqual(len(work_rows), 20)
+            unique.extend(number for _, number in work_rows)
+            self.assertEqual(1, markup.count('<h1 aria-current="page">GuavaJam</h1>'))
+            self.assertIn('id="guavajam-search-enable"', markup)
+            self.assertIn('id="guavajam-search-results"', markup)
+            self.assertIn('rel="next"' if n < 3 else 'rel="prev"', markup)
+            if n == 1:
+                self.assertIn('href="page/2.html" rel="next"', markup)
+                self.assertIn('src="search.js"', markup)
+                self.assertIn('data-worker="search-worker.js"', markup)
+            else:
+                self.assertIn('data-root="../"', markup)
+                self.assertIn('data-worker="../search-worker.js"', markup)
+                self.assertIn('src="../search.js"', markup)
+                self.assertTrue(all(href.startswith('../sources/') for href, _ in work_rows))
+                self.assertIn('href="../index.html"', markup)
+                self.assertIn('href="../sources/', markup)
+        self.assertEqual({f'{n:02d}' for n in range(1, 46)}, set(unique))
+        self.assertEqual(45, len(unique))
+        self.assertEqual(1, len(re.findall('href="page/2.html" rel="next"', first)))
+        # Rendering without the runtime still has exactly the same bounded pages,
+        # with no nonfunctional controls or script payloads.
+        static = homepage(self.site, interactive=False)
+        self.assertEqual(20, static.count('<li><article><h3>'))
+        self.assertNotIn('<script', static)
+        self.assertNotIn('id="guavajam-search-enable"', static)
+        self.assertEqual(5, (self.site / 'page/3.html').read_text().count('<li><article><h3>'))
+
     def test_subject_context_is_preserved_and_duplicate_claims_remain_in_facts(self):
         one = {'subject': 'Java', 'subject_scheme': 'Programming languages', 'value_uri': 'urn:example:java'}
         two = {'subject': 'Java', 'subject_scheme': 'Places', 'language': 'en'}
@@ -109,7 +172,7 @@ class SearchIndexTests(unittest.TestCase):
         empty.mkdir()
         with closing(sqlite3.connect(create_index(empty, []))) as db:
             self.assertEqual(0, db.execute('SELECT count(*) FROM works').fetchone()[0])
-        self.assertIn('All works', homepage(empty, interactive=False))
+        self.assertIn('>Works</h2>', homepage(empty, interactive=False))
 
     def test_runtime_identity_and_static_fallback_are_explicit(self):
         from guavajam.site import page

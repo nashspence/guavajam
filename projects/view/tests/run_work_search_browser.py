@@ -59,7 +59,10 @@ def prepare(directory):
             ]})
             (support / 'correspondence.md').write_bytes(reviewed)
         date = '2026-10-01T12:00:00Z' if number == 22 else f'2026-11-{number:02d}T12:00:00Z'
-        revision = publisher.publish(f'Observation {number:02d}', date=date)
+        message = f'Observation {number:02d}'
+        if number == 1:
+            message += '\n\nShorelinechronicle records the historical review.\nRechecked provenance.'
+        revision = publisher.publish(message, date=date)
         if number == 1:
             older = revision
     relative = 'sources/work'

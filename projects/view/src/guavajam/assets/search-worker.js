@@ -15,7 +15,9 @@ const WORK_ORDER = Object.freeze({
   relevance: 'score ASC, position DESC, document_path, node_position, id',
   publication: 'position DESC, document_path, node_position, id',
   oldest: 'position ASC, document_path, node_position, id',
-  title: 'title COLLATE NOCASE, position DESC, document_path, node_position, id'
+  title: 'title COLLATE NOCASE, position DESC, document_path, node_position, id',
+  'date-newest': 'published DESC, position DESC, document_path, node_position, id',
+  'date-oldest': 'published ASC, position ASC, document_path, node_position, id'
 });
 
 function literalQuery(value) {
@@ -40,13 +42,13 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
       FROM hits
     )
     SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url
+      w.latest_revision, w.committer_name, w.committer_email, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url
     FROM works w JOIN repositories r ON w.repository_id = r.id
       JOIN ranked m ON m.work_id = w.id AND m.position = 1`;
     binds = [fts];
   } else {
     base = `SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.edition_count, r.path, r.url AS repository, 0 AS score, NULL AS hit_url
+      w.latest_revision, w.committer_name, w.committer_email, w.edition_count, r.path, r.url AS repository, 0 AS score, NULL AS hit_url
     FROM works w JOIN repositories r ON w.repository_id = r.id`;
     binds = [];
   }
@@ -82,15 +84,15 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
         SELECT *, ROW_NUMBER() OVER (PARTITION BY edition_id ORDER BY score, id DESC) AS rank
         FROM hits
       )
-      SELECT e.id, e.message AS title, 'editions/' || e.revision || '/index.html' AS url,
-        e.revision, e.published, e.position, '' AS document_title, '' AS document_path,
+      SELECT e.id, 'Edition ' || (e.position + 1) AS title, 'editions/' || e.revision || '/read/index.html' AS url,
+        e.revision, e.published, e.position, e.message, '' AS document_title, '' AS document_path,
         '' AS anchor, '' AS scope, 0 AS node_position, m.score, m.url AS hit_url
       FROM editions e JOIN works w ON w.id=e.work_id
         JOIN ranked m ON m.edition_id=e.id AND m.rank=1`;
       bind.push(fts, String(document), String(document));
     } else {
-      base = `SELECT e.id, e.message AS title, 'editions/' || e.revision || '/index.html' AS url,
-        e.revision, e.published, e.position, '' AS document_title, '' AS document_path,
+      base = `SELECT e.id, 'Edition ' || (e.position + 1) AS title, 'editions/' || e.revision || '/read/index.html' AS url,
+        e.revision, e.published, e.position, e.message, '' AS document_title, '' AS document_path,
         '' AS anchor, '' AS scope, 0 AS node_position, 0 AS score, NULL AS hit_url
       FROM editions e JOIN works w ON w.id=e.work_id`;
     }
@@ -119,8 +121,9 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       ${fts ? 'JOIN hits m ON m.id=p.id' : ''}`;
   }
   // Publication order is independent of a publisher's claimed Git dates.
-  base += ` WHERE (? = 'all' OR (? = 'latest' AND e.revision=w.latest_revision) OR e.revision=?)`;
-  bind.push(String(edition), String(edition), String(edition));
+  base += ` WHERE (? = 'all' OR (? = 'previous' AND e.revision <> w.latest_revision)
+                OR (? = 'latest' AND e.revision=w.latest_revision) OR e.revision=?)`;
+  bind.push(String(edition), String(edition), String(edition), String(edition));
   if (selected === 'editions') {
     base += ` AND (? = '' OR EXISTS
       (SELECT 1 FROM documents selected WHERE selected.edition_id=e.id AND selected.path=?))`;
@@ -165,7 +168,7 @@ self.onmessage = async event => {
       }
       if (scope === 'work') {
         if (db.selectValue('SELECT COUNT(*) FROM works') !== 1) throw new Error('Invalid work search database');
-        const editions = db.selectObjects(`SELECT revision AS key, message AS name, published, 1 AS total
+        const editions = db.selectObjects(`SELECT revision AS key, 'Edition ' || (position + 1) AS name, published, 1 AS total
           FROM editions ORDER BY position DESC`);
         const documents = db.selectObjects(`WITH ranked AS (
           SELECT d.path, d.title, ROW_NUMBER() OVER (PARTITION BY d.path ORDER BY e.position DESC) AS rank,

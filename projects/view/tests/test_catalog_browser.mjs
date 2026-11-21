@@ -31,8 +31,9 @@ const base = `http://127.0.0.1:${server.address().port}/collection/`;
 const revision = fixture.revisions[1];
 const edition = `editions/${revision}/`;
 const first = `editions/${fixture.revisions[0]}/`;
-const pages = ['index.html', edition + 'index.html', edition + 'read/index.html',
-  edition + 'read/supporting/note.html', first + 'index.html', first + 'read/index.html'];
+const pages = ['index.html', 'editions/index.html', edition + 'index.html', edition + 'read/index.html',
+  edition + 'read/documents.html', edition + 'read/supporting/note.html',
+  first + 'index.html', first + 'read/index.html'];
 const results = [];
 try {
   for (const [name, engine] of Object.entries({chromium, firefox, webkit})) {
@@ -49,14 +50,18 @@ try {
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
       assert.equal(await page.locator(':focus').evaluate(n => n.tagName), 'MAIN');
-      await page.getByRole('link', {name: 'Improve the field observations', exact: true}).click();
+      await page.getByRole('link', {name: 'Previous editions', exact: true}).click();
+      assert(page.url().endsWith('/editions/index.html'));
+      assert.equal(await page.getByRole('link', {name: 'Edition 1', exact: true}).count(), 1);
+      await page.goto(base);
+      await page.getByRole('link', {name: 'Edition 2 record', exact: true}).click();
       assert(page.url().includes(edition));
       const downloaded = page.waitForEvent('download');
-      await page.getByRole('link', {name: 'Download exact Markdown'}).click();
+      await page.getByRole('link', {name: 'Download', exact: true}).click();
       const download = await downloaded;
       assert.equal(download.suggestedFilename(), 'source.gfm');
       assert.deepEqual(await fs.readFile(await download.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
-      await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
+      await page.getByRole('link', {name: 'Read', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       await page.getByRole('link', {name: 'the supporting claim', exact: true}).click();
       assert(page.url().endsWith('/supporting/note.html#claim'));
@@ -80,8 +85,8 @@ try {
         }
       }
       await page.goto(base + first + 'index.html');
-      assert.equal(await page.getByRole('link', {name: 'Read this edition', exact: true}).count(), 1);
-      await page.getByRole('link', {name: 'Read this edition', exact: true}).click();
+      assert.equal(await page.getByRole('link', {name: 'Read', exact: true}).count(), 1);
+      await page.getByRole('link', {name: 'Read', exact: true}).click();
       assert((await page.locator('main').textContent()).includes('The first observation.'));
       await page.emulateMedia({media: 'print', colorScheme: 'light'});
       assert.equal(await page.locator('main').isVisible(), true);
