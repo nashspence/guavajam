@@ -5,8 +5,10 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from guavajam.citation_pages import add_passage_links, build_citation_pages
+from guavajam.citation_routes import relative_href
 from guavajam_core.catalog import CatalogError
 
 
@@ -55,6 +57,21 @@ class CitationPageTests(unittest.TestCase):
         for target, data in ((self.read / 'VIEW.json', view), (self.read / 'NAV.json', nav),
                              (self.read.parent / 'SOURCE.json', proof)):
             target.write_text(json.dumps(data))
+
+    def test_citation_routes_do_not_depend_on_process_directory_depth(self):
+        cases = (
+            ('cite.html', '../../../', '../../..'),
+            ('cite/page/2.html', '../../../', '../../../../..'),
+            ('supporting/note.cite/page/2.html', '../../../', '../../../../../..'),
+            ('cite/page/2.html', 'index.html#main', '../../index.html#main'),
+            ('supporting/note.html', 'supporting/note.cite/page/2.html#citation:main',
+             'note.cite/page/2.html#citation:main'),
+        )
+        for directory in ('/', '/state', '/home/runner/work/guavajam/guavajam'):
+            with patch('os.getcwd', return_value=directory):
+                for filename, target, expected in cases:
+                    with self.subTest(directory=directory, filename=filename, target=target):
+                        self.assertEqual(expected, relative_href(filename, target))
 
     def build(self, download=None):
         build_citation_pages(self.output, self.editions, collection=True, runtime='../../', download=download)

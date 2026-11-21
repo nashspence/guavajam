@@ -36,4 +36,13 @@ def source_download(view):
 
 def relative_href(filename, target):
     """Both arguments are generator-owned paths relative to the reader root."""
-    return posixpath.relpath(target, posixpath.dirname(filename) or '.')
+    # posixpath.relpath resolves relative inputs against the process cwd,
+    # which can clamp leading '..' components at '/' in a shallow container
+    # workdir. These paths are relative to the reader root, so compare their
+    # lexical components without consulting the host filesystem.
+    origin = PurePosixPath(posixpath.dirname(filename)).parts
+    destination = PurePosixPath(posixpath.normpath(target)).parts
+    common = 0
+    while common < min(len(origin), len(destination)) and origin[common] == destination[common]:
+        common += 1
+    return '/'.join(['..'] * (len(origin) - common) + list(destination[common:])) or '.'
