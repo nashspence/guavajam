@@ -119,6 +119,16 @@ try {
             gap: metaNode.getBoundingClientRect().top-title.getBoundingClientRect().bottom,
             whiteSpace:heading.whiteSpace, overflowX:heading.overflowX}};
       });
+      const assertRowStyle = (actual, expected, message) => {
+        // Engines preserve fractional layout positions with different floating
+        // precision. Numeric geometry must agree within half a CSS pixel;
+        // typography and overflow contracts still match exactly.
+        for (const [group, values] of Object.entries(expected)) for (const [property, value] of Object.entries(values)) {
+          if (typeof value === 'number') assert(Math.abs(actual[group][property]-value)<.5,
+            `${message}: ${group}.${property}: ${actual[group][property]} versus ${value}`);
+          else assert.equal(actual[group][property],value,`${message}: ${group}.${property}`);
+        }
+      };
       const contain = async () => {
         const rows = parityPage.locator('.guavajam-record-list:visible');
         assert(await rows.count() > 0);
@@ -165,12 +175,12 @@ try {
       for (const url of [base, ...surfaces]) {
         await parityPage.goto(url);
         const staticRow = parityPage.locator('.guavajam-record-list:visible > li').first();
-        assert.deepEqual(await rowStyle(staticRow), await expectedRow(staticRow), `${name}: static Works row parity at ${url}`);
+        assertRowStyle(await rowStyle(staticRow), await expectedRow(staticRow), `${name}: static Works row parity at ${url}`);
         await contain();
         await parityPage.locator('#guavajam-index-search > summary').click();
         await parityPage.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
           !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
-        assert.deepEqual(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
+        assertRowStyle(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
           `${name}: SQLite Works row parity at ${url}`);
         await contain();
       }
