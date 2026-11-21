@@ -203,6 +203,20 @@ try {
         assert.equal(layout.bylineScrollable, true);
         assert.deepEqual([layout.titleWrap, layout.bylineWrap, layout.facetWrap], ['nowrap', 'nowrap', 'nowrap']);
       }
+      // Printed collection rows expose all metadata rather than clipping a
+      // screen-only scroller or letting a nonshrinking flex item escape paper.
+      await page.locator('#guavajam-search-results .guavajam-facet').first().evaluate(node => {
+        node.append(document.createTextNode(' A long subject label '.repeat(25)));
+      });
+      await page.emulateMedia({media: 'print'});
+      const printed = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth > innerWidth + 1,
+        rows: [...document.querySelectorAll('#guavajam-search-results h3, #guavajam-search-results .guavajam-scrollline')]
+          .map(node => ({wrap: getComputedStyle(node).whiteSpace, overflow: getComputedStyle(node).overflowX}))
+      }));
+      assert.equal(printed.overflow, false, `${name}: printed collection metadata leaves the page`);
+      assert(printed.rows.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
+      await page.emulateMedia({media: 'screen'});
       await page.locator('#layout-stress-subject').evaluate(option => option.remove());
       await page.evaluate(axe.source);
       const audit = await page.evaluate(() => axe.run(document, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}}));

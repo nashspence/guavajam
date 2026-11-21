@@ -199,9 +199,12 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
   .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
   .guavajam-passage-cite, .guavajam-skip { display: none !important; }
   .guavajam-scrollline, .guavajam-actions, .guavajam-works h3,
-  .guavajam-editions > li > h2, .guavajam-document-list > li > a {
+  .guavajam-editions h3, .guavajam-editions > li > h2, .guavajam-document-list > li > a {
     overflow: visible; white-space: normal;
   }
+  .guavajam-works h3 { display: block; }
+  .guavajam-facets, .guavajam-actions { flex-wrap: wrap; }
+  .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .guavajam-citation-entry:target { outline: none; }
   .guavajam-site .guavajam-navigation { direction: ltr; overflow: visible; border: 0; }
   .guavajam-site .guavajam-navigation li:not(:last-child),

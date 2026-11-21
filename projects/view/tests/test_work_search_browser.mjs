@@ -261,6 +261,18 @@ try {
       await page.locator('#guavajam-search-next').click();
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 5);
+      await page.locator('#guavajam-search-results h3 a').first().evaluate(node => {
+        node.textContent = 'A long supporting document title '.repeat(35);
+      });
+      await page.emulateMedia({media: 'print'});
+      const printedDocuments = await page.evaluate(() => ({
+        overflow: document.documentElement.scrollWidth > innerWidth + 1,
+        headings: [...document.querySelectorAll('#guavajam-search-results h3')]
+          .map(node => ({wrap: getComputedStyle(node).whiteSpace, overflow: getComputedStyle(node).overflowX}))
+      }));
+      assert.equal(printedDocuments.overflow, false, `${name}: printed document titles leave the page`);
+      assert(printedDocuments.headings.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
+      await page.emulateMedia({media: 'screen'});
       await query('Appendix 23', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 
