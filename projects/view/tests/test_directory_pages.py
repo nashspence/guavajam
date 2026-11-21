@@ -57,6 +57,10 @@ class DirectoryPageTests(unittest.TestCase):
             (read / 'NAV.json').write_text(json.dumps({'documents': documents}))
             (read.parent / 'CITATION.json').write_text(json.dumps({
                 'revision': sha, 'manuscript': 'content/manuscript.md'}))
+            (read.parent / 'SOURCE.json').write_text(json.dumps({
+                'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
+                'revision': sha, 'manuscript': 'content/manuscript.md',
+                'documents': {path: [] for path in documents}}))
         self.database = self.output / 'work.sqlite'
         with sqlite3.connect(self.database) as db:
             db.execute('CREATE TABLE representative (x INTEGER)')

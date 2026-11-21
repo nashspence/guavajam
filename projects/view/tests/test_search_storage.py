@@ -2,12 +2,14 @@
 from contextlib import closing
 import hashlib
 import json
+import os
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from guavajam.search_index import create_index
+from guavajam.search_index import MAX_DOCUMENT_BYTES, create_index
 
 
 FIELDS = 'title,authors,abstract,labels,body,git'
@@ -83,6 +85,33 @@ def source(root, name, number):
 
 
 class SearchStorageTests(unittest.TestCase):
+    def test_generated_file_inventories_share_the_total_budget_not_the_source_text_cap(self):
+        """Many bounded citation files can outgrow one source document's limit."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            entry, _ = source(root / 'sources/alpha', 'alpha', 1)
+            ordinary_stat = Path.stat
+
+            def inventory_size(path, *args, **kwargs):
+                result = ordinary_stat(path, *args, **kwargs)
+                if path.name in {'VIEW.json', 'SITE.json'}:
+                    fields = list(result)
+                    fields[6] = MAX_DOCUMENT_BYTES + 1
+                    return os.stat_result(fields)
+                return result
+
+            with patch.object(Path, 'stat', inventory_size):
+                # Four generated inventories each exceed the text limit, but
+                # together remain inside the 256 MiB aggregate input budget.
+                database = create_index(root, [entry])
+                database.unlink()
+                # The same actual source text still fits. Only the inventory
+                # accounting exceeds this reduced aggregate input allowance.
+                with patch('guavajam.search_index.MAX_INDEXED_BYTES', 4 * MAX_DOCUMENT_BYTES), \
+                        self.assertRaisesRegex(ValueError, 'inventories exceed indexing bounds'):
+                    create_index(root, [entry])
+                self.assertFalse(database.exists())
+
     def assert_ranked_results(self, actual, table, rows):
         records = 'search_records' if table == 'search_fts' else 'passage_records'
         with closing(sqlite3.connect(':memory:')) as reference:

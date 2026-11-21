@@ -150,7 +150,10 @@ try {
       await waitTotal(fixture.manuscriptPassages, 'passages');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       await page.locator('#guavajam-search-next').click();
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 3');
+      assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
+      await page.locator('#guavajam-search-next').click();
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 3 of 3');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 5);
       await query('Bathymetric ecology', 1, 'passages');
       assert.equal(await page.locator('#guavajam-search-results h3 a').getAttribute('href'), base + fixture.section);
@@ -172,6 +175,21 @@ try {
       const quotedAnchor = new URL(page.url()).hash.slice(1);
       assert.equal(await page.locator('[id="' + quotedAnchor + '"]').count(), 1);
       assert.equal(await page.locator('script').count(), 0);
+      // Both a reviewed quotation and its nested heading retain independently
+      // citable source identities, rather than being flattened into one hit.
+      for (const anchor of new Set([quotedAnchor, 'm-reply'])) {
+        await page.goto(quotedURL);
+        await page.getByRole('link', {name: 'Cite committed source passage ' + anchor, exact: true}).click();
+        assert(page.url().endsWith('/supporting/correspondence.cite.html#citation:' + anchor));
+        const cited = page.locator('[id="citation:' + anchor + '"]');
+        assert.equal(await cited.count(), 1);
+        for (const identity of [fixture.latest, 'content/supporting/correspondence.md', '#' + anchor]) {
+          assert((await cited.locator('blockquote').textContent()).includes(identity));
+        }
+        await cited.getByRole('link', {name: 'Read this passage', exact: true}).click();
+        assert.equal(new URL(page.url()).hash, '#' + anchor);
+        assert.equal(await page.locator('script').count(), 0);
+      }
 
       // Directory pages are genuinely pre-paged HTML. Their interactive controls
       // use the SAME work SQLite worker rather than filtering the static DOM.
@@ -224,6 +242,102 @@ try {
       await query('Appendix 23', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 
+      const citationURL = base + fixture.work + `editions/${fixture.latest}/read/cite.html`;
+      const deepCitationURL = base + fixture.work + `editions/${fixture.latest}/read/cite/page/3.html`;
+      const supportCitationURL = base + fixture.work +
+        `editions/${fixture.latest}/read/supporting/unlinked-23.cite/page/3.html`;
+      const runtimeLoads = () => loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
+      const loadsBeforeCitation = runtimeLoads();
+      await page.goto(deepCitationURL + '?kind=documents&edition=all&document=content/supporting/unlinked-23.md&q=Bathyal#citation:section-44');
+      assert.equal(await page.locator('#guavajam-search').getAttribute('data-directory'), 'citations');
+      assert.equal(await page.locator('input[name=kind]').inputValue(), 'passages');
+      assert.equal(await page.locator('input[name=edition]').inputValue(), fixture.latest);
+      assert.equal(await page.locator('input[name=document]').inputValue(), 'content/manuscript.md');
+      assert.equal(await page.locator('#guavajam-static-section .guavajam-citation-entry').count(), 5);
+      assert.equal(await page.locator('[id="citation:section-44"]').isVisible(), true);
+      assert.equal(runtimeLoads(), loadsBeforeCitation, 'opening a deep citation link must not initialize SQLite');
+      await page.screenshot({path: path.join(output, `${name}-citation-static-deep.png`), fullPage: true});
+      await query('Bathyal', 1, 'passages');
+      const citationResult = page.locator('#guavajam-search-results > li');
+      assert.equal(await citationResult.locator('h3 a').getAttribute('href'), deepCitationURL + '#citation:section-44');
+      assert.equal(await citationResult.getByRole('link', {name: 'Read this passage', exact: true}).getAttribute('href'), base + fixture.lastSection);
+      const loadsBeforeStaticResult = runtimeLoads();
+      await citationResult.locator('h3 a').click();
+      assert.equal(page.url(), deepCitationURL + '#citation:section-44');
+      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(runtimeLoads(), loadsBeforeStaticResult, 'a search result is an ordinary static citation link');
+      await query('', fixture.manuscriptPassages, 'passages');
+      assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
+      assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 3');
+      for (const number of [2, 3]) {
+        await page.locator('#guavajam-search-next').click();
+        await page.waitForFunction(expected => document.querySelector('#guavajam-search-page').textContent === expected,
+          `Page ${number} of 3`);
+        assert.equal(await page.locator('#guavajam-search-results > li').count(), number === 2 ? 20 : 5);
+      }
+      await query('Bathymetric ecology', 1, 'passages');
+      assert((await page.locator('#guavajam-search-results h3 a').getAttribute('href')).endsWith('/read/cite/page/2.html#citation:section-24'));
+      await page.locator('#guavajam-search-results h3 a').click();
+      assert(page.url().endsWith('/read/cite/page/2.html#citation:section-24'));
+      const previousCitation = new URL(page.url());
+      previousCitation.hash = 'citation:section-23';
+      await page.goto(previousCitation.href);
+      await query('Bathymetric ecology', 1, 'passages');
+      const samePageOrigin = await page.evaluate(() => performance.timeOrigin);
+      await page.locator('#guavajam-search-results h3 a').click();
+      assert.equal(await page.evaluate(() => performance.timeOrigin), samePageOrigin,
+        'a citation on this static page uses ordinary fragment navigation');
+      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(await page.locator('#guavajam-search-results').isVisible(), false);
+      assert.equal(await page.locator('[id="citation:section-24"]').isVisible(), true);
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'citation:section-24');
+      await query('Bathymetric ecology', 1, 'passages');
+      await page.goBack();
+      assert.equal(new URL(page.url()).hash, '#citation:section-23');
+      await page.locator('[id="citation:section-23"]').waitFor({state: 'visible'});
+      assert.equal(await page.locator('#guavajam-search-results').isVisible(), false);
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'citation:section-23');
+      assert.equal(await page.evaluate(() => performance.timeOrigin), samePageOrigin);
+      await query('Bathymetric ecology', 1, 'passages');
+      await page.locator('#guavajam-search-results h3 a').click();
+      await query('Bathymetric ecology', 1, 'passages');
+      await page.locator('#guavajam-search-results h3 a').click();
+      assert.equal(new URL(page.url()).hash, '#citation:section-24');
+      assert.equal(await page.evaluate(() => performance.timeOrigin), samePageOrigin);
+      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(await page.locator('#guavajam-search-results').isVisible(), false);
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'citation:section-24',
+        'clicking a result for the existing fragment restores and focuses it without hashchange');
+      await query('Bathymetric ecology', 1, 'passages');
+      await page.locator('#guavajam-search-results').getByRole('link', {name: 'Read this passage', exact: true}).click();
+      assert.equal(page.url(), base + fixture.section);
+      assert.equal(await page.locator('script').count(), 0);
+
+      await page.goto(supportCitationURL + '?edition=all&document=content/manuscript.md');
+      assert.equal(await page.locator('input[name=document]').inputValue(), 'content/supporting/unlinked-23.md');
+      assert.equal(await page.locator('#guavajam-static-section .guavajam-citation-entry').count(), 6);
+      // The containing document section and its explicit source passage both
+      // match. Each retains its own source position and citation page.
+      await query('Bathyal', 2, 'passages');
+      const supportingResult = page.locator('#guavajam-search-results > li').filter({
+        has: page.locator('h3 a[href$="#citation:support-44"]')
+      });
+      assert.equal(await supportingResult.locator('h3 a').getAttribute('href'), supportCitationURL + '#citation:support-44');
+      assert((await supportingResult.getByRole('link', {name: 'Read this passage', exact: true}).getAttribute('href')).endsWith('/read/supporting/unlinked-23.html#support-44'));
+      await page.goto(citationURL);
+      await query('', fixture.manuscriptPassages, 'passages');
+      for (const width of [320, 390, 1280]) {
+        await page.setViewportSize({width, height: 900});
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false,
+          `${name}: ${width}px citation search overflow`);
+      }
+      await page.evaluate(axe.source);
+      const citationAudit = await page.evaluate(() => axe.run(document, {
+        runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']}
+      }));
+      assert.deepEqual(citationAudit.violations.map(v => ({id: v.id, targets: v.nodes.map(n => n.target)})), [],
+        `${name}: citation search accessibility`);
+
       await page.goto(browse);
       await enable();
       await page.locator('.guavajam-search-filters summary').click();
@@ -275,14 +389,14 @@ try {
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
-      await plain.locator('.guavajam-static-pages a[rel=next]').click();
+      await plain.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert(plain.url().endsWith('/editions/page/2.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 2);
       assert((await plain.locator('#guavajam-static-section .guavajam-editions').textContent()).includes('Edition 1'));
       const directory = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       await plain.goto(directory);
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
-      await plain.locator('.guavajam-static-pages a[rel=next]').click();
+      await plain.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
       const unlinked = plain.getByRole('link', {name: 'Appendix 23', exact: true});
       assert.equal(await unlinked.count(), 1);
@@ -290,7 +404,39 @@ try {
       assert(plain.url().endsWith(`/editions/${fixture.latest}/read/supporting/unlinked-23.html`));
       assert((await plain.locator('article').textContent()).includes('Unlinked supporting evidence 23'));
       assert.equal(await plain.locator('script').count(), 0);
+      await plain.getByRole('link', {name: 'Cite committed source passage support-44', exact: true}).click();
+      assert.equal(plain.url(), supportCitationURL + '#citation:support-44');
+      assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
+      assert.equal(await plain.locator('#guavajam-static-section .guavajam-citation-entry').count(), 6);
+      await plain.locator('[id="citation:support-44"]').getByRole('link', {name: 'Read this passage', exact: true}).click();
+      assert(plain.url().endsWith('/read/supporting/unlinked-23.html#support-44'));
+      await plain.goto(citationURL);
+      const plainAnchors = [];
+      for (const [index, expected] of [20, 20, 5].entries()) {
+        const entries = plain.locator('#guavajam-static-section .guavajam-citation-entry');
+        assert.equal(await entries.count(), expected);
+        plainAnchors.push(...await entries.evaluateAll(nodes => nodes.map(node => node.id)));
+        if (index < 2) await plain.locator('.guavajam-static-pages a[rel=next]').first().click();
+      }
+      assert.equal(plainAnchors.length, fixture.manuscriptPassages);
+      assert.equal(new Set(plainAnchors).size, fixture.manuscriptPassages);
+      assert.equal(plainAnchors.at(-1), 'citation:section-44');
       await disabled.close();
+
+      // A failed citation enhancement keeps the current static page and exact
+      // fragment usable; it never sends the reader back through earlier pages.
+      const citationFailure = await browser.newContext();
+      await citationFailure.route(/\/work\.[a-f0-9]{64}\.sqlite\.gz$/, route => route.abort());
+      const citationFallback = await citationFailure.newPage();
+      await citationFallback.goto(deepCitationURL + '#citation:section-44');
+      await citationFallback.locator('input[name=q]').fill('Bathyal');
+      await citationFallback.locator('#guavajam-search button[type=submit]').click();
+      await citationFallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
+      assert.equal(await citationFallback.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(await citationFallback.locator('#guavajam-search-results').isVisible(), false);
+      await citationFallback.locator('[id="citation:section-44"]').getByRole('link', {name: 'Read this passage', exact: true}).click();
+      assert.equal(citationFallback.url(), base + fixture.lastSection);
+      await citationFailure.close();
 
       for (const broken of ['sqlite3.wasm', 'database', 'search-worker.js', 'redirect', 'truncated', 'corrupt', 'wrong-size', 'decompression']) {
         const failure = await browser.newContext();
@@ -340,7 +486,8 @@ try {
       reports.push({engine: name, version: browser.version(), editions: fixture.editions,
         latestDocuments: fixture.documents, pagination: true, publicationOrder: true,
         exactHistoricalRouting: true, quotedSections: true, deferredRuntime: true,
-        staticDirectory: true, fallback: true, accessibility: true});
+        staticDirectory: true, staticCitations: true, citationSearch: true,
+        citationScope: true, citationFallback: true, fallback: true, accessibility: true});
       console.log(`${name}: work SQLite WASM search, edition/document/passage paging, exact routes and fallbacks passed`);
     } finally { await browser.close(); }
   }

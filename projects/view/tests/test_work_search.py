@@ -9,7 +9,7 @@ import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 import yaml
 
 from guavajam.index import build_pages
@@ -24,6 +24,7 @@ class Links(HTMLParser):
     def __init__(self, source):
         super().__init__()
         self.links = []
+        self.passage_citations = []
         self.ids = set()
         self.feed(source)
 
@@ -31,6 +32,8 @@ class Links(HTMLParser):
         attrs = dict(attrs)
         if tag == 'a' and 'href' in attrs:
             self.links.append(attrs['href'])
+            if 'guavajam-passage-cite' in attrs.get('class', '').split():
+                self.passage_citations.append(attrs['href'])
         if 'id' in attrs:
             self.ids.add(attrs['id'])
 
@@ -208,6 +211,41 @@ class WorkSearchTests(unittest.TestCase):
                          '"ecol"* AND "estuar"*', '"quoted"*'):
                 sql = 'SELECT rowid FROM search_fts WHERE search_fts MATCH ? ORDER BY rowid'
                 self.assertEqual(work.execute(sql, (term,)).fetchall(), aggregate.execute(sql, (term,)).fetchall())
+
+    def test_sqlite_citation_targets_match_reader_links_and_static_pages(self):
+        """A hit retains its source page even when filtering changes result order."""
+        origin = 'https://example.invalid/prefix/'
+        with closing(sqlite3.connect(self.site / 'work.sqlite')) as db:
+            db.row_factory = sqlite3.Row
+            rows = db.execute('SELECT p.*,e.revision,d.path,d.url AS reader_url FROM passages p '
+                              'JOIN editions e ON e.id=p.edition_id '
+                              'JOIN documents d ON d.id=p.document_id').fetchall()
+            self.assertTrue(any('/cite/page/2.html#' in row['citation_url'] for row in rows))
+            self.assertTrue(any(row['scope'].startswith('quotation:') for row in rows))
+            for row in rows:
+                with self.subTest(revision=row['revision'], document=row['path'], anchor=row['anchor']):
+                    cited = urlsplit(row['citation_url'])
+                    self.assertEqual('', cited.scheme)
+                    self.assertEqual('citation:' + row['anchor'], unquote(cited.fragment))
+                    self.assertIn(row['revision'], cited.path)
+                    target = self.site / unquote(cited.path)
+                    self.assertIn(unquote(cited.fragment), Links(target.read_text()).ids)
+                    reading = self.site / unquote(row['reader_url'])
+                    links = Links(reading.read_text())
+                    self.assertIn(origin + row['citation_url'], [
+                        urljoin(origin + row['reader_url'], href) for href in links.passage_citations])
+            # Query a later source passage by its unique anchor label. This hit
+            # becomes result one but must still link to the second static page.
+            found = db.execute('SELECT p.citation_url FROM passage_fts '
+                               'JOIN passages p ON p.id=passage_fts.rowid '
+                               'JOIN editions e ON e.id=p.edition_id '
+                               'JOIN documents d ON d.id=p.document_id '
+                               "WHERE passage_fts MATCH '\"section\"* AND \"24\"*' "
+                               "AND e.revision=? AND d.path='content/manuscript.md'",
+                               (self.latest,)).fetchall()
+            self.assertEqual(['editions/' + self.latest +
+                              '/read/cite/page/2.html#citation:section-24'],
+                             [row['citation_url'] for row in found])
 
     def test_corrupt_navigation_cannot_create_a_partial_database(self):
         for name in ('hash', 'schema', 'revision', 'preview', 'documents', 'anchors', 'missing'):

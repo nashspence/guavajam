@@ -113,7 +113,7 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       FROM passage_fts JOIN passage_records s ON s.id=passage_fts.rowid WHERE passage_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
-    base += `SELECT p.id, p.title, p.url, e.revision, e.published, e.position,
+    base += `SELECT p.id, p.title, p.url, p.citation_url, e.revision, e.published, e.position,
       d.title AS document_title, d.path AS document_path, p.anchor, p.scope,
       p.position AS node_position, ${fts ? 'm.score' : '0'} AS score, NULL AS hit_url
     FROM passages p JOIN documents d ON d.id=p.document_id
