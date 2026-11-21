@@ -33,7 +33,7 @@ class PrivateComposeTests(unittest.TestCase):
             override.write_text(json.dumps({'services':{'private-preview':{'user':str(os.getuid())+':'+str(os.getgid()),
                 'volumes':[str(state)+':/state']}}}))
             project='guavajam-private-'+uuid.uuid4().hex[:12]
-            compose=['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override)]
+            compose=['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override)]
             def dc(*args):return run(compose+list(args),env=env)
             def get(path='/',auth=True):
                 headers={'Host':'127.0.0.1:'+selected}
@@ -79,7 +79,7 @@ class PrivateComposeTests(unittest.TestCase):
             override.write_text(json.dumps({'services':{'private-preview':{
                 'user':str(os.getuid())+':'+str(os.getgid()), 'volumes':[str(state)+':/state']}}}))
             project = 'guavajam-bootstrap-'+uuid.uuid4().hex[:12]
-            compose = ['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override)]
+            compose = ['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override)]
             def dc(*args): return run(compose+list(args),env=env)
             def get(auth=True):
                 headers = {'Cookie':'guavajam_preview='+token} if auth else {}

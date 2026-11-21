@@ -1,0 +1,127 @@
+services:
+  updater:
+    build: {context: ../.., dockerfile: some-implementations/a-guavajam-static-website-generator/Dockerfile, target: a-guavajam-static-website-generator}
+    image: a-guavajam-static-website-generator:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      GUAVAJAM_INDEX_URL: ${GUAVAJAM_INDEX_URL:-}
+      GUAVAJAM_TRUST_FILE: ${GUAVAJAM_TRUST_FILE:-/trust/repositories.yaml}
+      GUAVAJAM_POLL_SECONDS: ${GUAVAJAM_POLL_SECONDS:-300}
+      GIT_SSH_COMMAND: ssh -F /trust/ssh_config -o BatchMode=yes -o StrictHostKeyChecking=yes
+    volumes:
+      - state:/state
+      - type: bind
+        source: ${GUAVAJAM_TRUST_DIR:-./deploy/trust}
+        target: /trust
+        read_only: true
+        bind: {create_host_path: false}
+    healthcheck:
+      test: [CMD, python, -m, a_guavajam_static_website_generator.service, --health]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+  web:
+    depends_on: [updater]
+    build: {context: ../.., dockerfile: some-implementations/a-guavajam-static-website-generator/Dockerfile, target: web}
+    image: guavajam-web:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PORT:-8080}:8080']
+    volumes:
+      - state:/srv/guavajam:ro
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 5s
+  assets:
+    profiles: [local-assets]
+    build: {context: ../.., dockerfile: some-implementations/a-guavajam-static-website-generator/Dockerfile, target: gateway}
+    image: guavajam-assets:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      ASSET_HOST: ${ASSET_HOST:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET:-publication-assets}
+      S3_ADDRESSING_STYLE: path
+      S3_ACCESS_KEY_ID_FILE: /run/secrets/delivery-access-key
+      S3_SECRET_ACCESS_KEY_FILE: /run/secrets/delivery-secret-key
+    volumes:
+      - type: bind
+        source: ${S3_ACCESS_KEY_ID_FILE:-./deploy/private/delivery-access-key}
+        target: /run/secrets/delivery-access-key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${S3_SECRET_ACCESS_KEY_FILE:-./deploy/private/delivery-secret-key}
+        target: /run/secrets/delivery-secret-key
+        read_only: true
+        bind: {create_host_path: false}
+    ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_ASSET_PORT:-8081}:8080']
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+  private-preview:
+    profiles: [private-preview]
+    build: {context: ../.., dockerfile: some-implementations/a-guavajam-static-website-generator/Dockerfile, target: preview}
+    image: guavajam-preview:local
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp]
+    environment:
+      GUAVAJAM_PREVIEW_REPO: /source
+      GUAVAJAM_PREVIEW_REF: ${GUAVAJAM_PREVIEW_REF:-refs/heads/draft}
+      GUAVAJAM_PREVIEW_ORIGIN: ${GUAVAJAM_PREVIEW_ORIGIN:-}
+      GUAVAJAM_PREVIEW_TOKEN_FILE: /run/preview/session.key
+      GUAVAJAM_POLL_SECONDS: ${GUAVAJAM_POLL_SECONDS:-30}
+      S3_ENV: /run/preview/readonly.env
+    volumes:
+      - preview-state:/state
+      - type: bind
+        source: ${GUAVAJAM_PREVIEW_SOURCE:-./deploy/source}
+        target: /source
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${GUAVAJAM_PREVIEW_INPUTS:-./deploy/private}
+        target: /run/preview
+        read_only: true
+        bind: {create_host_path: false}
+    ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_PREVIEW_PORT:-8082}:8080']
+    healthcheck:
+      test: [CMD, python, -m, a_guavajam_static_website_generator.preview_service, --health]
+      interval: 30s
+      timeout: 5s
+  seaweedfs:
+    profiles: [local-assets]
+    image: chrislusf/seaweedfs:4.53@sha256:ccad23e18639c8b98cee17e7100b95830a06077b56d8e5b006d6dcf8ec5e94a0
+    command: [mini, '-dir=/data', '-ip=seaweedfs', '-s3.config=/run/secrets/s3-identities.json', '-webdav=false']
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-publication-assets}
+    volumes:
+      - objects:/data
+      - type: bind
+        source: ${SEAWEEDFS_IDENTITIES:-./deploy/private/s3-identities.json}
+        target: /run/secrets/s3-identities.json
+        read_only: true
+        bind: {create_host_path: false}
+    ports: ['${GUAVAJAM_BIND_ADDRESS:-127.0.0.1}:${GUAVAJAM_S3_PORT:-8333}:8333']
+volumes:
+  state:
+  objects:
+  preview-state:

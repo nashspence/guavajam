@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [core, a-guavajam-static-website-generator]
+        package: [guavajam, a-guavajam-static-website-generator]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -28,8 +28,8 @@ jobs:
       - run: mise install
       - name: Install only this package and its dependencies
         run: |
-          if [ "${{ matrix.package }}" = core ]; then
-            mise exec -- uv sync --locked --package guavajam-core --no-dev
+          if [ "${{ matrix.package }}" = guavajam ]; then
+            mise exec -- uv sync --locked --package guavajam --no-dev
           else
             mise exec -- uv sync --locked --all-packages --group dev
           fi
@@ -43,7 +43,7 @@ jobs:
         run: mise exec -- make test-${{ matrix.package }} PYTHON=.venv/bin/python
       - name: Build wheel and standalone source distribution
         run: |
-          mise exec -- uv build --package guavajam-core
+          mise exec -- uv build --package guavajam
           if [ "${{ matrix.package }}" = a-guavajam-static-website-generator ]; then
             mise exec -- uv build --package a-guavajam-static-website-generator
           fi
@@ -54,13 +54,13 @@ jobs:
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
       - name: Qualify capture extension and importer
-        if: matrix.package == 'core'
+        if: matrix.package == 'guavajam'
         run: mise exec -- make test-capture-browser PYTHON=.venv/bin/python
       - name: Qualify rendering, catalog, native playback, accessibility and print
         if: matrix.package == 'a-guavajam-static-website-generator'
         run: mise exec -- make test-browser PYTHON=.venv/bin/python
       - name: Verify Python syntax
-        run: .venv/bin/python -m compileall -q projects/${{ matrix.package }}
+        run: .venv/bin/python -c 'from pathlib import Path; import sys; sys.path.insert(0, str(Path("tools").resolve())); from workspace import PROJECTS; import compileall; assert compileall.compile_dir(PROJECTS["${{ matrix.package }}"] / "src", quiet=1)'
 
   compose:
     name: Verify Compose and local S3

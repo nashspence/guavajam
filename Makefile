@@ -1,45 +1,27 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup test test-core test-a-guavajam-static-website-generator test-browser benchmark-search-download test-capture-browser test-compose test-deployment-config test-repository render preview site index update build check-artifacts version check-boundaries check-licenses
-PYTHON := mise exec -- uv run --locked --all-packages --group dev python
+.PHONY: help setup test test-guavajam test-a-guavajam-static-website-generator test-browser test-capture-browser test-compose test-deployment-config test-repository build check-artifacts version check-boundaries check-licenses
+PYTHON := mise exec -- uv run --locked --package guavajam --no-dev python
+GENERATOR_PYTHON := mise exec -- uv run --locked --package a-guavajam-static-website-generator --group dev python
 export REPO REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS PREVIEW PREVIOUS_CATALOG INDEX TRUST SOURCE_REF REMOTE NO_FETCH REBUILD SERVE PORT REQUIRE_RETENTION
+include src/guavajam/resources/commands.mk
+
 help: ## Show commands.
-	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' Makefile
+	@awk -F ':.*## ' '/^[a-z][a-z-]*:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 setup: ## Install pinned project tools and dependencies.
 	mise install
-	mise exec -- uv sync --locked --all-packages --group dev
-test: check-licenses check-boundaries test-core test-a-guavajam-static-website-generator test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
-test-core: ## Run source, capture, storage and preservation contracts.
-	@$(PYTHON) tools/run_tests.py core
-	@mise exec -- node --test projects/core/tests/test_worker.mjs projects/core/tests/test_gateway_server.mjs projects/core/tests/test_private_preview.mjs projects/core/tests/test_chatgpt_capture.mjs
+	mise exec -- uv sync --locked --package guavajam --no-dev
+test: check-licenses check-boundaries test-guavajam test-a-guavajam-static-website-generator test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
+test-guavajam: ## Run source, capture, storage and preservation contracts.
+	@$(PYTHON) tools/run_tests.py guavajam
+	@mise exec -- node --test tests/guavajam/test_worker.mjs tests/guavajam/test_gateway_server.mjs tests/guavajam/test_private_preview.mjs tests/guavajam/test_chatgpt_capture.mjs
 test-a-guavajam-static-website-generator: ## Run rendering, catalog and update contracts.
-	@$(PYTHON) tools/run_tests.py a-guavajam-static-website-generator
-	@mise exec -- node --test projects/a-guavajam-static-website-generator/tests/test_download_transport.mjs
-test-browser: ## Run reader, keyboard, accessibility and print journeys; requires pinned Playwright browsers.
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_browser.py
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_catalog_browser.py
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_search_browser.py
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_work_search_browser.py
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_search_download_browser.py --profiles local --repetitions 1
-benchmark-search-download: ## Report browser transfer, cache, memory and timing evidence; OUTPUT=directory, BENCHMARK_ARGS='--help' for variants.
-	@$(PYTHON) projects/a-guavajam-static-website-generator/tests/run_search_download_browser.py --output "$${OUTPUT:-.build/search-download}" $(BENCHMARK_ARGS)
-render: ## REPO=path REV=full-sha OUTPUT=new-directory TRUSTED_GPG_FINGERPRINT=fingerprint|SSH_ALLOWED_SIGNERS=path [PREVIEW=1]
-	@set --; if [ "$$PREVIEW" = 1 ]; then set -- --unsigned-preview; elif [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust or PREVIEW=1}"; fi; \
-	$(PYTHON) -m a_guavajam_static_website_generator render --repo "$${REPO:?Set REPO}" --revision "$${REV:?Set REV}" --output "$${OUTPUT:?Set OUTPUT}" "$$@"
-
-site: ## REPO=path OUTPUT=new-directory [SOURCE_REF=refs/heads/main PREVIOUS_CATALOG=last.json]; independent trust as render.
-	@test "$$PREVIEW" != 1 || { echo 'A public site cannot contain unsigned previews.' >&2; exit 1; }
-	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set external signer trust}"; fi; \
-	$(PYTHON) -m a_guavajam_static_website_generator site --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:-refs/heads/main}" --output "$${OUTPUT:?Set OUTPUT}" $${PREVIOUS_CATALOG:+"--previous-catalog=$$PREVIOUS_CATALOG"} "$$@"
-
-index: ## INDEX=public-url-or-yaml TRUST=operator-policy.yml OUTPUT=managed-directory; aggregate independently verified work repositories.
-	@$(PYTHON) -m a_guavajam_static_website_generator index --index "$${INDEX:?Set INDEX}" --trust "$${TRUST:?Set TRUST to an external policy file}" --output "$${OUTPUT:?Set OUTPUT}"
-
-update: ## REPO=path [OUTPUT=.build/site] Fetch origin/main, verify GuavaJam conventions, reuse unchanged views, atomically select OUTPUT/current. External trust once; safe for periodic invocation.
-	@set --; if [ "$$NO_FETCH" = 1 ]; then set -- --no-fetch; fi; if [ "$$REBUILD" = 1 ]; then set -- "$$@" --rebuild; fi; \
-	$(PYTHON) -m a_guavajam_static_website_generator update --repo "$${REPO:?Set REPO}" --output "$${OUTPUT:-.build/site}" --ref "$${SOURCE_REF:-refs/heads/main}" --remote "$${REMOTE:-origin}" "$$@"
+	@$(GENERATOR_PYTHON) tools/run_tests.py a-guavajam-static-website-generator
+	@mise exec -- node --test some-implementations/a-guavajam-static-website-generator/tests/test_download_transport.mjs
+test-browser: ## Qualify the optional website implementation.
+	@$(MAKE) -C some-implementations/a-guavajam-static-website-generator test-browser PYTHON="$(GENERATOR_PYTHON)"
 
 test-capture-browser: ## Qualify the capture extension and installed import commands.
-	@$(PYTHON) projects/core/tests/run_capture_browser.py
+	@$(PYTHON) tests/guavajam/run_capture_browser.py
 build: ## Build both wheels and source distributions without publishing.
 	mise exec -- uv build --all-packages
 check-artifacts: build ## Verify isolated wheels and rebuild standalone source distributions.
@@ -48,7 +30,7 @@ version: ## VERSION=x.y.z Update both package versions and their dependency; the
 	@$(PYTHON) tools/version.py "$${VERSION:?Set VERSION}"
 	mise exec -- uv lock
 
-check-boundaries: ## Enforce core independence and single implementation ownership.
+check-boundaries: ## Enforce GuavaJam independence and single implementation ownership.
 	@$(PYTHON) tools/check_boundaries.py
 
 check-licenses: ## Verify REUSE copyright and license coverage.
@@ -60,14 +42,8 @@ test-repository: ## Verify licensing, the documentation boundary and onboarding 
 test-deployment-config: ## Verify Compose boundaries and pinned build inputs without Docker.
 	@$(PYTHON) -m unittest discover -s tests/deployment -p test_configuration.py -v
 
-test-compose: test-deployment-config ## Build and qualify default/local-assets Compose with disposable signed source and real S3 media.
-	docker compose build updater web assets private-preview
-	@$(PYTHON) tests/deployment/test_compose.py
-	$(PYTHON) tests/deployment/test_preview_compose.py
-
-preview: ## REPO=path SOURCE_REF=refs/heads/draft OUTPUT=new-directory [SERVE=1 PORT=0]; explicit unsigned preview, no public writes.
-	@set --; case "$${SERVE:-0}" in 1) set -- --serve;; 0) ;; *) echo 'SERVE must be 0 or 1'; exit 1;; esac; \
-	$(PYTHON) -m a_guavajam_static_website_generator preview --repo "$${REPO:?Set REPO}" --ref "$${SOURCE_REF:?Set SOURCE_REF}" --output "$${OUTPUT:?Set OUTPUT}" --port "$${PORT:-0}" "$$@"
+test-compose: ## Qualify the optional website implementation.
+	@$(MAKE) -C some-implementations/a-guavajam-static-website-generator test-compose PYTHON="$(GENERATOR_PYTHON)"
 
 .PHONY: test-provider
 test-provider: ## Opt-in real S3 rehearsal; PROVIDER_ARGS='--help' for explicit credentials, gateway, run directory and apply options.

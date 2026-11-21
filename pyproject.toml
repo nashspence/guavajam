@@ -1,8 +1,31 @@
+[project]
+name = "guavajam"
+version = "0.1.0"
+description = "Signed Git publications, source validation, assets and preservation"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml"]
+requires-python = ">=3.12,<3.13"
+dependencies = ["PyYAML==6.0.3", "Pillow==13.0.0", "av==19.0.2"]
+
+[project.scripts]
+guavajam = "guavajam.cli:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+guavajam = ["resources/*", "resources/**/*"]
+
 [tool.uv.workspace]
-members = ["projects/core", "projects/a-guavajam-static-website-generator"]
+members = ["some-implementations/a-guavajam-static-website-generator"]
 
 [dependency-groups]
-dev = ["PyMuPDF==1.26.5"]
+dev = []
 licensing = [
     "reuse==6.3.0",
 ]
