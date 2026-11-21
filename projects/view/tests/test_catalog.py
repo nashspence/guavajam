@@ -32,16 +32,17 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('Revised Field Notes', landing)
         self.assertIn('editions/' + second + '/read/index.html', landing)
         self.assertNotIn('Latest edition', landing)
-        self.assertIn('href="editions/' + second + '/verify.html"', landing)
+        self.assertNotIn('href="editions/' + second + '/verify.html"', landing)
 
-        self.assertIn('href="editions/index.html">History</a>', landing)
+        self.assertIn('href="editions/index.html">Versions</a>', landing)
         self.assertNotIn('>v1</a>', landing)
         history = (self.output / 'editions/index.html').read_text()
         self.assertIn('>v1</a>', history)
         self.assertIn('>v2</a>', history)
         self.assertIn('href="' + first + '/read/index.html"', history)
         self.assertIn('<blockquote class="guavajam-citation"', landing)
-        self.assertIn('href="editions/' + second + '/read/documents.html">Documents</a>', landing)
+        self.assertNotIn('>Documents</a>', landing)
+        self.assertIn('href="' + second + '/verify.html">Verify</a>', history)
         edition = (self.output / 'editions' / second / 'verify.html').read_text()
         self.assertIn('Explain why &lt;script&gt;', edition)
         self.assertNotIn('<script>', edition)
@@ -54,6 +55,8 @@ class CatalogBuildTests(unittest.TestCase):
         reader = (self.output / 'editions' / second / 'read/index.html').read_text()
         self.assertIn('href="documents.html">Documents</a>', reader)
         self.assertIn('href="../verify.html">Verify</a>', reader)
+        self.assertIn('href="../license.html">License</a>', reader)
+        self.assertIn('href="cite.html">Passages</a>', reader)
 
 
     def test_manuscript_body_does_not_repeat_the_top_citation(self):

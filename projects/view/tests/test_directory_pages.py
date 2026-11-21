@@ -78,11 +78,14 @@ class DirectoryPageTests(unittest.TestCase):
             markup = location.read_text()
             self.assertIn('aria-label="Breadcrumb"', markup)
             self.assertIn('Search versions and commit messages', markup)
-            self.assertIn('data-lazy="interaction"', markup)
+            self.assertIn('id="guavajam-search-enable">Enable search</button>', markup)
+            self.assertIn('class="guavajam-index-search guavajam-directory-enhancement"', markup)
+            self.assertNotIn('data-lazy=', markup)
+            self.assertIn('<summary>Filters and sort</summary>', markup)
             self.assertIn('name="edition" value="all"', markup)
             self.assertIn('data-worker="../../../search-worker.js"' if number == 1
                           else 'data-worker="../../../../search-worker.js"', markup)
-            # Simple labels, reading-first links, record icons and messages.
+            # Simple labels, reading-first links, textual verification and messages.
             rows = re.findall(r'<li><h2><a [^>]*>(v\d+)</a>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
@@ -90,6 +93,8 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('id="guavajam-search-prev"', markup)
             self.assertIn('href="' + self.editions[-1][0] + '/verify.html"', history_pages[0].read_text())
             self.assertIn('guavajam-editions { list-style: none', markup)
+            self.assertIn('>Verify</a>', markup)
+            self.assertNotIn('<a class="guavajam-record-link"', markup)
 
             self.assertNotIn('listing.js', markup)
         self.assertEqual([f'v{n}' for n in range(27, 0, -1)], old)

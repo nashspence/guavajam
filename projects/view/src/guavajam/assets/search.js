@@ -131,8 +131,7 @@ if (form) {
       if (directory === 'citations') link.addEventListener('click', openStaticCitation);
       heading.append(link);
       if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
-      else if (resultKind === 'editions') heading.append(recordLink(
-        workURL('editions/' + row.revision + '/verify.html'), 'Verify ' + row.title));
+
       article.append(heading);
       if (!work) {
         const byline = document.createElement('p');
@@ -174,6 +173,12 @@ if (form) {
         if (row.document_path) context.push(row.document_path + (row.anchor ? '#' + row.anchor : ''));
         if (resultKind === 'editions') context.push(row.revision.slice(0, 12));
         meta.textContent = context.join(' · ');
+        if (resultKind === 'editions') {
+          const verify = document.createElement('a');
+          verify.href = workURL('editions/' + row.revision + '/verify.html');
+          verify.textContent = 'Verify';
+          meta.append(document.createTextNode(' · '), verify);
+        }
         article.append(meta);
         if (resultKind === 'passages') {
           const action = document.createElement('a');
@@ -236,7 +241,7 @@ if (form) {
   function changed() {
     clearTimeout(timer); page = 1;
     if (ready) request();
-    else if (form.dataset.lazy === 'interaction') initialize();
+    else summary.textContent = 'Enable search to apply your query or sort order.';
   }
   input.addEventListener('input', () => {
     // Invalidate in-flight replies immediately, including the debounce window.
@@ -321,5 +326,5 @@ if (form) {
     }
   }
   if (enable) enable.addEventListener('click', initialize);
-  else if (form.dataset.lazy !== 'interaction') initialize();
+  else initialize();
 }

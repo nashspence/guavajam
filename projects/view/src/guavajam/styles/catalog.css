@@ -5,9 +5,12 @@
 .guavajam-navigation {
   direction: rtl; overflow-x: auto; overflow-y: hidden; max-width: 100%;
   border-bottom: 1px solid var(--guavajam-border);
-  padding: .2rem 0 .7rem; margin: 0 0 .9rem; scrollbar-width: thin;
+  padding: .2rem 0 .7rem; margin: 0 0 .9rem; scrollbar-width: none;
   font: .91rem/1.55 system-ui, sans-serif;
 }
+/* A single-line breadcrumb remains touch/keyboard-scrollable without a
+   permanent scrollbar competing with the editorial heading. */
+.guavajam-navigation::-webkit-scrollbar { display: none; }
 .guavajam-navigation ol {
   direction: ltr; display: flex; flex-wrap: nowrap; align-items: baseline;
   gap: .15rem .35rem; list-style: none; width: max-content; min-width: 100%;
@@ -20,12 +23,12 @@
 .guavajam-navigation [aria-current="page"]:not(h1) { color: var(--guavajam-ink); font-weight: 600; }
 .guavajam-navigation :focus-visible { outline: 3px solid var(--guavajam-focus); outline-offset: 1px; }
 
-.guavajam-record-link, .guavajam-feed-link {
+.guavajam-record-link {
   display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
   align-items: center; justify-content: center; flex: none;
 }
 .guavajam-record-link { margin-inline-start: .2rem; transform: translateY(.04rem); }
-.guavajam-works h3 .guavajam-record-link, .guavajam-editions h3 .guavajam-record-link { font-size: .83rem; }
+.guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
 
 .guavajam-byline { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; margin: 0 0 .85rem; }
 .guavajam-abstract { margin: .65rem 0 1.25rem; }
@@ -44,7 +47,7 @@
 }
 .guavajam-works > li:first-child, .guavajam-editions > li:first-child { padding-top: .5rem; }
 .guavajam-works > li:last-child, .guavajam-editions > li:last-child,
-.guavajam-document-list > li:last-child, .guavajam-citation-entry:last-child { border-bottom: 0; }
+.guavajam-document-list > li:last-child, .guavajam-citation-entry:last-child { border-bottom: 0; padding-bottom: 0; }
 .guavajam-works h3, .guavajam-editions h3, .guavajam-editions h2 { font-size: 1.25rem; margin: 0 0 .5rem; }
 .guavajam-works p, .guavajam-editions p { margin: .35rem 0; }
 .guavajam-editions li time { display: inline; }
@@ -52,16 +55,12 @@
 .guavajam-editions .guavajam-meta { margin-top: .35rem; }
 
 .guavajam-message { white-space: pre-wrap; overflow-wrap: anywhere; }
-.guavajam-site .guavajam-provenance { margin-top: 1.7rem; padding-top: .5rem; }
-.guavajam-provenance summary { font: 600 .86rem/1.7 system-ui, sans-serif; cursor: pointer; }
-.guavajam-provenance code { overflow-wrap: anywhere; }
-.guavajam-provenance pre { white-space: pre-wrap; overflow-wrap: anywhere; background: none; padding: .2rem 0; font-size: .85rem; }
-.guavajam-directory { margin-block: 1.5rem; }
+.guavajam-directory { margin: .75rem 0 0; }
+.guavajam-directory > :last-child { margin-bottom: 0; }
 .guavajam-verification { margin: 1.4rem 0; }
 .guavajam-verification dt { margin: 1rem 0 .15rem; color: var(--guavajam-muted); font: 600 .85rem/1.5 system-ui, sans-serif; }
 .guavajam-verification dd { margin: 0; overflow-wrap: anywhere; }
 .guavajam-version-menu { margin: .5rem 0 1.3rem; }
-.guavajam-actions > span { display: inline-flex; align-items: baseline; gap: .2rem; }
 
 
 /* Source permalinks keep their original targets; Cite opens a bounded directory. */
@@ -116,13 +115,9 @@
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
 .guavajam-search-filters summary { cursor: pointer; font: .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
-/* The same SQLite form as the work browser, integrated with bounded static pages. */
-.guavajam-directory-enhancement { margin-top: 1rem; padding-top: 0; }
-.guavajam-directory-enhancement #guavajam-search {
-  grid-template-columns: minmax(0, 1fr) minmax(9rem, .6fr) auto;
-  align-items: end;
-}
-.guavajam-directory-enhancement .guavajam-query-sort { min-width: 0; }
+/* All directory search surfaces reuse the collection's inline disclosure.
+   The controls are revealed by search.js, but loading remains explicit. */
+.guavajam-directory-enhancement { margin: 1.2rem 0 .65rem; }
 .guavajam-directory-enhancement .guavajam-pagination { margin-bottom: .7rem; }
 .guavajam-document-list { list-style: none; margin: 0; padding: 0; }
 .guavajam-document-list > li { list-style: none; padding: 1.2rem 0 1.4rem; margin: 0; border-bottom: 1px solid var(--guavajam-border); break-inside: avoid; }
@@ -151,7 +146,7 @@
 .guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
 .guavajam-pagination button { padding: .3rem .7rem; }
 .guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
-.guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 3rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
+.guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
 [hidden] { display: none !important; }
 @media (max-width: 430px) {
   #guavajam-search { grid-template-columns: minmax(0, 1fr); }

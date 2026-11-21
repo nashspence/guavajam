@@ -100,9 +100,9 @@ class WorkSearchTests(unittest.TestCase):
 
     def test_static_directories_reach_every_document_without_script(self):
         home = (self.site / 'index.html').read_text()
-        self.assertIn('browse/index.html', Links(home).links)
+        self.assertNotIn('browse/index.html', Links(home).links)
         self.assertIn('editions/' + self.latest + '/read/index.html', Links(home).links)
-        self.assertIn('editions/' + self.latest + '/verify.html', Links(home).links)
+        self.assertNotIn('editions/' + self.latest + '/verify.html', Links(home).links)
         self.assertIn('editions/index.html', Links(home).links)
         history = (self.site / 'editions/index.html').read_text()
         for revision in self.publisher.revisions:
@@ -121,6 +121,7 @@ class WorkSearchTests(unittest.TestCase):
         manuscript = (reader / 'index.html').read_text()
         self.assertIn('documents.html', Links(manuscript).links)
         self.assertIn('../verify.html', Links(manuscript).links)
+        self.assertIn('../license.html', Links(manuscript).links)
         view = json.loads((reader / 'VIEW.json').read_text())
         for name in ('NAV.json', 'documents.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])

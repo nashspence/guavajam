@@ -130,7 +130,10 @@ class CitationPageTests(unittest.TestCase):
     def test_deep_sqlite_page_uses_fixed_scope_and_only_its_static_slice(self):
         self.build(download={'url': 'work.hash.sqlite.gz', 'encoding': 'gzip', 'size': 1234, 'transfer_size': 567})
         html = (self.read / 'cite/page/3.html').read_text()
-        self.assertIn('data-directory="citations" data-lazy="interaction"', html)
+        self.assertIn('data-directory="citations"', html)
+        self.assertNotIn('data-lazy=', html)
+        self.assertIn('id="guavajam-search-enable">Enable search</button>', html)
+        self.assertIn('<h2 class="guavajam-list-heading">Passages</h2>', html)
         self.assertIn('data-root="../../../../../"', html)
         self.assertIn('data-worker="../../../../../../../search-worker.js"', html)
         self.assertIn('name="edition" value="' + self.sha + '"', html)

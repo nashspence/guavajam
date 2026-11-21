@@ -83,6 +83,9 @@ try {
       };
       await page.goto(base + fixture.work);
       assert.equal(await page.locator('script').count(), 0, 'work homepage remains script-free');
+      const workActions = await page.locator('nav[aria-label="Work links"] a').allTextContents();
+      assert.deepEqual(workActions, ['Read', 'Versions', 'Source']);
+      assert.equal(await page.locator('main .guavajam-record-link').count(), 0);
       await page.goto(browse);
       assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
@@ -199,13 +202,21 @@ try {
       await page.goto(historyURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await page.locator('#guavajam-directory-enhancement').isVisible(), true);
+      assert.equal(await page.getByRole('button', {name: 'Enable search'}).count(), 1);
+      assert.equal(await page.locator('#guavajam-directory-enhancement .guavajam-search-intro').isVisible(), true);
       assert.equal(await page.locator('#guavajam-search-results').isVisible(), false);
       assert.equal(loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length,
         downloadsBeforeDirectory, 'opening the static directory must not initialize SQLite');
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/editions/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 3);
+      // Sorting in the static view must not silently download SQLite.
+      await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('oldest');
+      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length,
+        downloadsBeforeDirectory, 'changing sort alone must not enable SQLite');
+      await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.editions, 'editions');
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v1');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
@@ -233,6 +244,9 @@ try {
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/read/documents/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
+      await page.locator('#guavajam-search-enable').click();
+      await waitTotal(fixture.documents, 'documents');
+      await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -384,8 +398,8 @@ try {
       const plain = await disabled.newPage();
       await plain.goto(browse);
       assert.equal(await plain.locator('#guavajam-static-section').isVisible(), true);
-      assert((await plain.locator('#guavajam-static-section').textContent()).includes('History'));
-      await plain.getByRole('link', {name: 'History', exact: true}).click();
+      assert((await plain.locator('#guavajam-static-section').textContent()).includes('Versions'));
+      await plain.getByRole('link', {name: 'Versions', exact: true}).click();
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
