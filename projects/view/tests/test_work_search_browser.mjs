@@ -260,7 +260,7 @@ try {
       await page.goto(documentsURL + '?kind=passages&edition=all&document=content/manuscript.md');
       assert.equal(await page.locator('input[name=kind]').inputValue(), 'documents');
       assert.equal(await page.locator('input[name=edition]').inputValue(), fixture.latest);
-      await query('Appendix 23', 1, 'documents');
+      await query('Abyssalappendixselector', 1, 'documents');
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
@@ -292,7 +292,7 @@ try {
       assert.equal(printedDocuments.overflow, false, `${name}: printed document titles leave the page`);
       assert(printedDocuments.headings.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
       await page.emulateMedia({media: 'screen'});
-      await query('Appendix 23', 1, 'documents');
+      await query('Abyssalappendixselector', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 
       const citationURL = base + fixture.work + `editions/${fixture.latest}/read/cite.html`;
