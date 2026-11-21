@@ -47,6 +47,7 @@ export async function hoverControls(page) {
     '.guavajam-search-filters > summary', '.guavajam-message-detail > summary', '#guavajam-search button:not(:disabled)']) {
     const target = page.locator(selector).first();
     if (!await target.isVisible()) continue;
+    await page.evaluate(() => document.activeElement?.blur());
     await page.mouse.move(0, 0);
     const paint = async () => target.evaluate(n => {
       const s = getComputedStyle(n), label = getComputedStyle(n.querySelector('span') || n);
