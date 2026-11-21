@@ -52,7 +52,8 @@ def prepare(directory):
             for appendix in range(1, 24):
                 (support / f'unlinked-{appendix:02d}.md').write_text(
                     '<a name="document"></a>\n\n' + f'# Appendix {appendix:02d}\n\n' +
-                    '<a name="evidence"></a>\n\n' + f'Unlinked supporting evidence {appendix}.\n')
+                    '<a name="evidence"></a>\n\n' + f'Unlinked supporting evidence {appendix}.' +
+                    (' Abyssalappendixselector.' if appendix == 23 else '') + '\n')
             with (support / 'unlinked-23.md').open('a') as stream:
                 for passage in range(1, 45):
                     phrase = 'Bathyal supporting citation.' if passage == 44 else f'Supporting proof {passage}.'
