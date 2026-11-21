@@ -423,7 +423,7 @@ def homepage(site, *, interactive):
         ''')
         download = emit_download(site / 'index.sqlite') if interactive else None
         for number in range(1, pages + 1):
-            base = '' if number == 1 else '../../'
+            base = '' if number == 1 else '../'
             entries = []
             for _, title, authors, abstract, day, revision, committer_name, committer_email, path, source in cursor.fetchmany(PAGE_SIZE):
                 work = base + path + '/'
@@ -479,7 +479,7 @@ def homepage(site, *, interactive):
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,
-                                  first_href='index.html' if number == 1 else '../../index.html',
+                                  first_href='index.html' if number == 1 else '../index.html',
                                   page_prefix='page/' if number == 1 else '')
             body += '</div>'
             if interactive:

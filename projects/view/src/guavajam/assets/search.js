@@ -30,7 +30,7 @@ if (form) {
   let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
   if (work) {
-    if (['documents', 'editions', 'passages'].includes(initial.get('kind'))) kind.value = initial.get('kind');
+    if (!directory && ['documents', 'editions', 'passages'].includes(initial.get('kind'))) kind.value = initial.get('kind');
     if (!directory && kind.value === 'editions') edition.value = 'all';
     if (initial.has('q')) input.value = initial.get('q').slice(0, 256);
   }
@@ -247,7 +247,7 @@ if (form) {
               option(documentFilter, {...item, name: `${item.name} · ${item.key}`});
             if (!initialized) {
               for (const [select, name] of [[edition, 'edition'], [documentFilter, 'document']]) {
-                if (initial.has(name)) values.set(select, initial.get(name));
+                if (select?.tagName === 'SELECT' && initial.has(name)) values.set(select, initial.get(name));
               }
             }
           } else {

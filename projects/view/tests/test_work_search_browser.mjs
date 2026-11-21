@@ -202,6 +202,10 @@ try {
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 2);
 
+      await page.goto(documentsURL + '?kind=passages&edition=all&document=content/manuscript.md');
+      assert.equal(await page.locator('input[name=kind]').inputValue(), 'documents');
+      assert.equal(await page.locator('input[name=edition]').inputValue(), fixture.latest);
+      await query('Appendix 23', 1, 'documents');
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       await page.locator('.guavajam-static-pages a[rel=next]').click();

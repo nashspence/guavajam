@@ -68,19 +68,19 @@ try {
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'the collection does not download its database or runtime before search is enabled');
       // Page two has real static links and can activate the same SQLite
-      // worker, including relative URLs rooted two directories higher.
+      // worker, including relative URLs rooted one directory higher.
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-list > li').count(), fixture.works - 20);
-      assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../../');
+      assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../');
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
       await page.locator('#guavajam-search-enable').click();
       await waitTotal(fixture.works);
       const pagedResult = await page.locator('#guavajam-search-results h3 a').first().getAttribute('href');
-      assert(pagedResult.startsWith('../../sources/'));
+      assert(pagedResult.startsWith('../sources/'));
       await query('Glaciolacustrine', 1);
       const pagedHit = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
-      assert(pagedHit.startsWith('../../sources/'));
+      assert(pagedHit.startsWith('../sources/'));
       assert((await page.request.get(new URL(pagedHit, page.url()).href)).ok());
       await page.goto(base);
       await page.locator('#guavajam-search-enable').focus();

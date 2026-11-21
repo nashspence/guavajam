@@ -99,8 +99,12 @@ class WorkSearchTests(unittest.TestCase):
         home = (self.site / 'index.html').read_text()
         self.assertIn('browse/index.html', Links(home).links)
         self.assertIn('editions/' + self.latest + '/read/index.html', Links(home).links)
-        for revision in self.publisher.revisions:
-            self.assertIn('editions/' + revision + '/index.html', Links(home).links)
+        self.assertIn('editions/' + self.latest + '/index.html', Links(home).links)
+        self.assertIn('editions/index.html', Links(home).links)
+        history = (self.site / 'editions/index.html').read_text()
+        for revision in self.publisher.revisions[:-1]:
+            self.assertIn(revision + '/index.html', Links(history).links)
+            self.assertIn(revision + '/read/index.html', Links(history).links)
         self.assertIn("script-src 'none'", home)
         self.assertNotIn('<script', home)
         reader = self.reader(self.latest)
@@ -112,7 +116,7 @@ class WorkSearchTests(unittest.TestCase):
         self.assertIn('../index.html', Links(supporting).links)
         self.assertIn('../documents.html', Links(supporting).links)
         landing = (reader.parent / 'index.html').read_text()
-        self.assertIn('read/supporting/unlinked.html', Links(landing).links)
+        self.assertIn('read/documents.html', Links(landing).links)
         view = json.loads((reader / 'VIEW.json').read_text())
         for name in ('NAV.json', 'documents.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])
@@ -289,7 +293,9 @@ class WorkSearchTests(unittest.TestCase):
             self.assertIn('data-worker="../../../search-worker.js"', browse)
             self.assertIn('src="../../../search.js"', browse)
             self.assertRegex(browse, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
-            self.assertIn('href="../work.sqlite" download', browse)
+            self.assertTrue((work / 'work.sqlite').is_file())
+            self.assertIn('../editions/index.html', Links(browse).links)
+            self.assertIn('../editions/' + self.latest + '/read/documents.html', Links(browse).links)
 
     def test_standalone_updater_rebuilds_when_external_runtime_changes(self):
         runtime = self.root / 'runtime'
