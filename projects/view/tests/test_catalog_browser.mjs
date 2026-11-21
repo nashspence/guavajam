@@ -117,7 +117,7 @@ try {
         assert.equal(await page.locator('script').count(), 0);
       }
       await page.goto(base + edition + 'verify.html');
-      await page.getByRole('link', {name: 'Read', exact: true}).click();
+      await page.getByRole('link', {name: 'v2', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       await page.getByRole('link', {name: 'the supporting claim', exact: true}).click();
       assert(page.url().endsWith('/supporting/note.html#claim'));

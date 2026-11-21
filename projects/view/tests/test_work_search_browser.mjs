@@ -219,7 +219,7 @@ try {
       assert.equal(await page.locator('#guavajam-search-results').getByText('Shorelinechronicle records the historical review.', {exact:false}).isVisible(), true);
       await query('', fixture.editions, 'editions');
       await page.locator('select[name=sort]').selectOption('publication');
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'v22');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'v23');
       await page.locator('#guavajam-search-next').click();
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 3);
@@ -391,7 +391,7 @@ try {
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);
       await plain.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert(plain.url().endsWith('/editions/page/2.html'));
-      assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 2);
+      assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 3);
       assert((await plain.locator('#guavajam-static-section .guavajam-editions').textContent()).includes('v1'));
       const directory = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       await plain.goto(directory);
