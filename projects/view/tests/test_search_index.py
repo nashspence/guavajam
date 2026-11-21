@@ -113,7 +113,7 @@ class SearchIndexTests(unittest.TestCase):
                            for n in (2, 3)]
         unique = []
         for n, markup in enumerate(pages, 1):
-            work_rows = re.findall(r'<li><article><h3><a href="([^"]+)">Work (\d+)</a>', markup)
+            work_rows = re.findall(r'<li><article><h3[^>]*><a href="([^"]+)">Work (\d+)</a>', markup)
             self.assertEqual([20, 20, 5][n - 1], len(work_rows))
             self.assertLessEqual(len(work_rows), 20)
             unique.extend(number for _, number in work_rows)
@@ -139,10 +139,10 @@ class SearchIndexTests(unittest.TestCase):
         # Rendering without the runtime still has exactly the same bounded pages,
         # with no nonfunctional controls or script payloads.
         static = homepage(self.site, interactive=False)
-        self.assertEqual(20, static.count('<li><article><h3>'))
+        self.assertEqual(20, len(re.findall(r'<li><article><h3\b', static)))
         self.assertNotIn('<script', static)
         self.assertNotIn('id="guavajam-index-search"', static)
-        self.assertEqual(5, (self.site / 'page/3.html').read_text().count('<li><article><h3>'))
+        self.assertEqual(5, len(re.findall(r'<li><article><h3\b', (self.site / 'page/3.html').read_text())))
 
     def test_subject_context_is_preserved_and_duplicate_claims_remain_in_facts(self):
         one = {'subject': 'Java', 'subject_scheme': 'Programming languages', 'value_uri': 'urn:example:java'}

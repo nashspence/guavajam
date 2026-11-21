@@ -131,14 +131,17 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
   } else {
     base = fts ? `WITH hits AS MATERIALIZED (
       SELECT s.id, bm25(passage_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score,
-        snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS excerpt
+        snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS body_excerpt,
+        snippet(passage_fts, -1, char(57344), char(57345), '…', 24) AS matched_excerpt
       FROM passage_fts JOIN passage_records s ON s.id=passage_fts.rowid WHERE passage_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
     base += `SELECT p.id, p.title, p.url, p.citation_url, e.revision, e.published, e.position,
       d.title AS document_title, d.path AS document_path, d.id AS document_order,
-      p.anchor, p.scope, p.position AS node_position,
-      ${fts ? 'm.score' : '0'} AS score, ${fts ? 'm.excerpt' : 'NULL'} AS excerpt,
+      p.anchor, p.scope, p.citation_json, p.position AS node_position,
+      ${fts ? 'm.score' : '0'} AS score,
+      ${fts ? 'CASE WHEN instr(m.body_excerpt, char(57344)) > 0 THEN m.body_excerpt ELSE m.matched_excerpt END' : 'NULL'} AS excerpt,
+      ${fts ? "CASE WHEN instr(m.body_excerpt, char(57344)) > 0 THEN 'passage' ELSE 'metadata' END" : 'NULL'} AS excerpt_context,
       NULL AS hit_url
     FROM passages p JOIN documents d ON d.id=p.document_id
       JOIN editions e ON e.id=p.edition_id JOIN works w ON w.id=e.work_id

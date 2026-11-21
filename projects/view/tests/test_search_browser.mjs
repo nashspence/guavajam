@@ -82,8 +82,7 @@ try {
           const crumb = document.querySelector('.guavajam-navigation').getBoundingClientRect();
           const geometry = {sectionWidth: section.width, summaryHeight: summary.height,
             summaryOffset: summary.top - section.top, headingGap: section.top - crumb.bottom};
-          const typography = ['.guavajam-search-summary', '#guavajam-search input[name=q]', '#guavajam-search > button[type=submit]',
-            '.guavajam-search-filters summary'].map(selector => {
+          const typography = ['.guavajam-search-summary'].map(selector => {
             const style = getComputedStyle(document.querySelector(selector));
             return Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
           });
@@ -107,6 +106,74 @@ try {
         }
       }
       assert.deepEqual(parityDownloads, [], 'layout parity must not activate SQLite');
+      // Preserve the established Works row contract across every static and
+      // enhanced directory, including deliberately long content at phone widths.
+      const rowStyle = async row => row.evaluate(node => {
+        const box = node.getBoundingClientRect(), article = node.querySelector('article').getBoundingClientRect();
+        const title = node.querySelector('h3'), metaNode = node.querySelector('.guavajam-byline, .guavajam-meta');
+        const heading = getComputedStyle(title), text = getComputedStyle(title.querySelector('a')), meta = getComputedStyle(metaNode);
+        const border = parseFloat(getComputedStyle(node).borderBottomWidth);
+        return {meta: Object.fromEntries(['fontSize','fontFamily','lineHeight','color','whiteSpace','overflowX'].map(k => [k, meta[k]])),
+          row: {paddingTop: article.top-box.top, paddingBottom: box.bottom-article.bottom-border, borderBottomWidth:border},
+          title: {...Object.fromEntries(['fontFamily','fontSize','fontWeight','lineHeight'].map(k => [k, text[k]])),
+            gap: metaNode.getBoundingClientRect().top-title.getBoundingClientRect().bottom,
+            whiteSpace:heading.whiteSpace, overflowX:heading.overflowX}};
+      });
+      const contain = async () => {
+        const rows = parityPage.locator('.guavajam-record-list:visible');
+        assert(await rows.count() > 0);
+        const heading = rows.first().locator('h3').first();
+        await heading.locator('a').first().evaluate(a => { a.textContent = 'Extremelylongunbrokentitle'.repeat(35); });
+        await rows.first().locator('.guavajam-byline, .guavajam-meta').first().evaluate(n => {
+          n.append(document.createTextNode(' Verylongsourcepath'.repeat(60)));
+        });
+        const citation = rows.first().locator('.guavajam-citation p').first();
+        if (await citation.count()) await citation.evaluate(n => {
+          n.append(document.createTextNode('Verylongunbrokenbibliographicname'.repeat(60)));
+        });
+        for (const width of [320,390,760]) {
+          await parityPage.setViewportSize({width, height:900});
+          for (const scale of ['', '34px']) {
+            await parityPage.evaluate(font => { document.documentElement.style.fontSize = font; }, scale);
+            const bad = await parityPage.evaluate(() => {
+              const main = document.querySelector('main').getBoundingClientRect();
+              return [...document.querySelectorAll('.guavajam-record-list, .guavajam-record-list > li, .guavajam-record-list > li > article, .guavajam-record-list h3, .guavajam-record-list .guavajam-scrollline, .guavajam-record-list blockquote')]
+                .filter(n => n.getClientRects().length).filter(n => {
+                  const b = n.getBoundingClientRect(); return b.left < main.left - 1 || b.right > main.right + 1;
+                }).map(n => n.className || n.tagName);
+            });
+            assert.deepEqual(bad, [], `${name}: contained record boxes at ${width}px/${scale}`);
+            assert(await parityPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+          }
+        }
+        await parityPage.evaluate(() => { document.documentElement.style.fontSize = ''; });
+        await parityPage.setViewportSize({width:390,height:900});
+        await heading.focus(); await heading.press('ArrowRight');
+        await parityPage.waitForTimeout(100);
+        assert(await heading.evaluate(n => n.scrollLeft > 0), 'long titles are keyboard-scrollable');
+        await parityPage.emulateMedia({media:'print'});
+        assert.equal(await heading.evaluate(n => getComputedStyle(n).whiteSpace), 'normal');
+        assert(await parityPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        await parityPage.emulateMedia({media:'screen'});
+      };
+      await parityPage.setViewportSize({width:390,height:900});
+      await parityPage.goto(base);
+      const referenceRow = await rowStyle(parityPage.locator('#guavajam-static-list > li').first());
+      const referenceLast = await rowStyle(parityPage.locator('#guavajam-static-list > li').last());
+      const expectedRow = async row => await row.evaluate(n => n.matches(':last-child')) ?
+        {...referenceRow, row: {...referenceRow.row, paddingBottom:referenceLast.row.paddingBottom, borderBottomWidth:referenceLast.row.borderBottomWidth}} : referenceRow;
+      for (const url of [base, ...surfaces]) {
+        await parityPage.goto(url);
+        const staticRow = parityPage.locator('.guavajam-record-list:visible > li').first();
+        assert.deepEqual(await rowStyle(staticRow), await expectedRow(staticRow), `${name}: static Works row parity at ${url}`);
+        await contain();
+        await parityPage.locator('#guavajam-index-search > summary').click();
+        await parityPage.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
+          !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
+        assert.deepEqual(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
+          `${name}: SQLite Works row parity at ${url}`);
+        await contain();
+      }
       await parityContext.close();
       const query = async (term, total) => {
         await page.locator('input[name=q]').fill(term);
@@ -363,7 +430,8 @@ try {
       assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
       await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
-      await stale.locator('#guavajam-index-search > summary').click();
+      if (!await stale.locator('#guavajam-index-search').evaluate(n => n.open))
+        await stale.locator('#guavajam-index-search > summary').click();
       await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} work(s) found`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();

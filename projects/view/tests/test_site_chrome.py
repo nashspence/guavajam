@@ -60,8 +60,7 @@ class ChromeTests(unittest.TestCase):
     def test_shared_list_chrome_scrolls_without_visible_scrollbars(self):
         styles = (Path(__file__).resolve().parents[1] / 'src/guavajam/styles/catalog.css').read_text()
         for component in ('.guavajam-scrollline', '.guavajam-actions', '.guavajam-pagination',
-                          '.guavajam-works h3', '.guavajam-editions h3',
-                          '.guavajam-document-list h3'):
+                          '.guavajam-record-list h3'):
             self.assertIn(component, styles)
         self.assertIn('scrollbar-width: none', styles)
         self.assertIn('flex-wrap: nowrap', styles)

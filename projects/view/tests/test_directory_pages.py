@@ -88,13 +88,13 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('data-worker="../../../search-worker.js"' if number == 1
                           else 'data-worker="../../../../search-worker.js"', markup)
             # Simple labels, reading-first links, textual verification and messages.
-            rows = re.findall(r'<li><article><h3><a [^>]*>(v\d+)</a>', markup)
+            rows = re.findall(r'<li><article><h3[^>]*><a [^>]*>(v\d+)</a>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
             old.extend(rows)
             self.assertIn('id="guavajam-search-prev"', markup)
             self.assertIn('href="' + self.editions[-1][0] + '/metadata.html#provenance"', history_pages[0].read_text())
-            self.assertIn('guavajam-editions { list-style: none', markup)
+            self.assertIn('guavajam-record-list { list-style: none', markup)
             self.assertIn('data-static-heading="Versions"', markup)
             self.assertIn(f'Showing static page {number} of 2.', markup)
             self.assertIn('id="guavajam-search-spinner"', markup)
@@ -113,8 +113,8 @@ class DirectoryPageTests(unittest.TestCase):
         totals = []
         for number, location in enumerate(doc_pages, 1):
             html = location.read_text()
-            documents = re.findall(r'<li><article><h3><a href="[^"]+">', re.search(
-                r'<ul class="guavajam-document-list">(.*?)</ul>', html, re.S).group(1))
+            documents = re.findall(r'<li><article><h3[^>]*><a href="[^"]+">', re.search(
+                r'<ul class="guavajam-document-list guavajam-record-list">(.*?)</ul>', html, re.S).group(1))
             totals.append(len(documents))
             self.assertLessEqual(len(documents), PAGE_SIZE)
             self.assertIn('value="documents"', html)
@@ -123,7 +123,7 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('data-static-heading="Documents"', html)
             self.assertIn(f'Showing static page {number} of 3.', html)
             self.assertIn('id="guavajam-search-spinner"', html)
-            self.assertIn('.guavajam-document-list { list-style: none;', html)
+            self.assertIn('.guavajam-record-list { list-style: none;', html)
             self.assertIn('>v27</a>', html)
 
             self.assertNotIn('Manuscript and supporting documents in this edition.', html)

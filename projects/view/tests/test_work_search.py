@@ -99,6 +99,23 @@ class WorkSearchTests(unittest.TestCase):
     def reader(self, revision):
         return self.site / 'editions' / revision / 'read'
 
+    def test_search_citations_keep_the_same_exact_download_and_source_parts(self):
+        with sqlite3.connect(self.site / 'work.sqlite') as db:
+            for payload, revision, source, anchor in db.execute(
+                    'SELECT p.citation_json,e.revision,d.path,p.anchor FROM passages p '
+                    'JOIN editions e ON e.id=p.edition_id JOIN documents d ON d.id=p.document_id'):
+                presented = json.loads(payload)
+                self.assertIn(['code', revision], presented['source'])
+                self.assertIn(['code', source], presented['source'])
+                self.assertIn(['code', '#' + anchor], presented['source'])
+                self.assertIn('#' + anchor, presented['context'])
+                cited = json.loads((self.site / unquote(presented['href'])).read_text())
+                self.assertEqual(revision, cited['revision'])
+                self.assertEqual(anchor, cited['anchor'])
+                self.assertEqual(source, cited.get('document', cited['manuscript']))
+                self.assertEqual('Download official citation JSON', presented['label'])
+                self.assertTrue(presented['description'])
+
     def test_static_directories_reach_every_document_without_script(self):
         home = (self.site / 'index.html').read_text()
         self.assertNotIn('browse/index.html', Links(home).links)

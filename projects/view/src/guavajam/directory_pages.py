@@ -40,7 +40,11 @@ def search_listing_open(title, number, pages, *, interactive, result_class='guav
     if interactive:
         body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
                  'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
-                 '<ol id="guavajam-search-results" class="' + result_class + '" hidden></ol>')
+                 '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>')
+    if interactive and title == 'Passages':
+        from .citation import citation_control
+        body += ('<template id="guavajam-citation-template">' +
+                 citation_control({'revision': ''}, '') + '</template>')
     return body
 
 
@@ -99,9 +103,9 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
 def _history_row(edition, *, links_prefix):
     revision, label, date, message = edition
     subject, _, details = message.partition('\n')
-    html = ('<li><article><h3><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
+    html = ('<li><article><h3 tabindex="0"><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
             '">' + escape(label) + '</a>' +
-            '</h3><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
+            '</h3><p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Version date and source"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
             '">' + escape(revision[:12]) + '</code> · <a href="' +
             escape(links_prefix + revision + '/metadata.html#provenance', quote=True) +
@@ -128,7 +132,7 @@ def _write_history(output, entries, title, *, collection, runtime, download):
                                      runtime=runtime, download=download)
         body += search_listing_open('Versions', number, len(chunks), interactive=download is not None)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
-                 '<ol class="guavajam-editions">' +
+                 '<ol class="guavajam-editions guavajam-record-list">' +
                  ''.join(_history_row(item, links_prefix='' if first else '../') for item in chunk) +
                  '</ol>')
         if not entries:

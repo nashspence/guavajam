@@ -79,6 +79,8 @@ try {
         await waitTotal(total, kind);
       };
       const query = async (term, total, kind) => {
+        if (!await page.locator('#guavajam-index-search').evaluate(node => node.open))
+          await page.locator('#guavajam-index-search > summary').click();
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
         await waitTotal(total, kind);
@@ -119,7 +121,17 @@ try {
       await page.goto(passagesURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
       assert.equal(await page.locator('select[name=supporting]').inputValue(), 'all');
+      const canonicalFirst = await page.locator('#guavajam-static-section .guavajam-citation-entry').first().evaluate(row => ({
+        text: row.querySelector('.guavajam-citation').textContent,
+        download: row.querySelector('.guavajam-citation a[download]').href,
+        context: row.querySelector('.guavajam-meta').textContent
+      }));
       await enable(fixture.versionPassages, 'passages');
+      assert.deepEqual(await page.locator('#guavajam-search-results > li').first().evaluate(row => ({
+        text: row.querySelector('.guavajam-citation').textContent,
+        download: row.querySelector('.guavajam-citation a[download]').href,
+        context: row.querySelector('.guavajam-meta').textContent
+      })), canonicalFirst, 'enhancement retains the full canonical citation and its download');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-page').textContent(),
         `Page 1 of ${Math.ceil(fixture.versionPassages / 20)}`);
@@ -183,6 +195,23 @@ try {
       await query('Quotientwave', 3, 'passages');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Quoted passage'));
       assert((await page.locator('#guavajam-search-results').textContent()).includes('content/supporting/correspondence.md'));
+
+      // A match on signed metadata must show the native FTS highlight and
+      // identify that context, rather than quoting an unrelated passage body.
+      await query('Café studies', fixture.versionPassages, 'passages');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label').first().textContent(), 'Metadata match');
+      for (const row of await page.locator('#guavajam-search-results > li').all()) {
+        assert(await row.locator('.guavajam-passage-excerpt mark').count() > 0);
+        assert((await row.locator('.guavajam-passage-excerpt').textContent()).includes('Café'));
+      }
+      await query('Stereophotometric', 1, 'passages');
+      const longQuote = page.locator('.guavajam-passage-excerpt');
+      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Passage match');
+      assert((await longQuote.textContent()).startsWith('…'));
+      assert([...await longQuote.textContent()].length <= 322);
+      assert.equal(await longQuote.locator('mark').textContent(), 'Stereophotometric');
+      await query('Café Stereophotometric', 1, 'passages');
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Stereophotometric');
 
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({width, height: 900});
