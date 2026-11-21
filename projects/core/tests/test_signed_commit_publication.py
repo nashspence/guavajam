@@ -25,8 +25,6 @@ language: en
 rights: all-rights-reserved
 ---
 
-# Recorded Notes
-
 <a id="recording"></a>
 ## Recording
 

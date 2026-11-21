@@ -34,16 +34,30 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
-/* Reviewed identity belongs with the title, including in saved reading copies. */
-.guavajam-edition-identity {
-  margin: -.25rem 0 1.7rem;
-  color: var(--guavajam-muted);
-  font: .94rem/1.55 system-ui, sans-serif;
-  overflow-wrap: anywhere;
-  break-inside: avoid;
-  break-after: avoid;
+/* A scholarly citation, not an input or a second page heading. */
+blockquote.guavajam-citation {
+  position: relative; margin: .1rem 0 1.65rem; padding: .35rem 2rem .35rem 1rem;
+  border-inline-start: .2rem solid var(--guavajam-border);
+  background: transparent; min-width: 0; color: var(--guavajam-ink);
 }
-.guavajam-edition-identity p { margin: 0; }
+.guavajam-citation p { margin: 0; font: .97rem/1.6 Georgia, Cambria, serif; }
+.guavajam-citation p + p { margin-top: .35rem; }
+.guavajam-citation cite { font-style: italic; }
+.guavajam-citation .guavajam-citation-source {
+  color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.guavajam-citation-source code { font-size: .96em; overflow-wrap: anywhere; }
+.guavajam-citation > a {
+  position: absolute; top: .25rem; right: .1rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.75rem; height: 1.75rem;
+}
+.guavajam-citation a:focus-visible { outline: 3px solid var(--guavajam-focus); outline-offset: 2px; }
+.guavajam-citation svg, .guavajam-record-link svg, .guavajam-feed-link svg {
+  width: .94rem; height: .94rem; stroke: currentColor; fill: none; stroke-width: 1.7;
+  stroke-linejoin: round; stroke-linecap: round;
+}
 
 /* Preserve link affordances even when color or a color scheme is unavailable. */
 a { color: var(--guavajam-link); text-underline-offset: .12em; }

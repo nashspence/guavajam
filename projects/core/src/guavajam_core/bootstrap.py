@@ -124,7 +124,7 @@ def make_work(repo, env, env_file, ref):
     _, signer_data = authorized_signers(required(env, 'GUAVAJAM_ALLOWED_SIGNERS'), env_file, repo)
     facts = {'schema': 'guavajam.work.v1', 'title': title, 'author': author,
              'language': language, 'rights': env.get('GUAVAJAM_RIGHTS', 'all-rights-reserved')}
-    document = '---\n' + yaml.safe_dump(facts, sort_keys=False, allow_unicode=True) + '---\n\n# ' + title + '\n'
+    document = '---\n' + yaml.safe_dump(facts, sort_keys=False, allow_unicode=True) + '---\n\nReplace this paragraph with your manuscript.\n'
     put(repo / 'content/manuscript.md', document)
     put(repo / '.gitignore', '.env\n.env.*\n.build/\n__pycache__/\n')
     put(repo / 'README.md', '# ' + title + '\n\nThe work lives in `content/`. Review changes in branches and PRs; '

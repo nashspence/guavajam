@@ -42,8 +42,6 @@ language: en
 rights: CC-BY-4.0
 ---
 
-# {title}
-
 <a id="opening"></a>
 ## Opening
 

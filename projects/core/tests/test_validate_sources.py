@@ -13,8 +13,7 @@ from guavajam_core.validate_sources import parse_document, validate_repository, 
 
 
 from guavajam_test_support import FIXTURES, RESOURCES
-MANUSCRIPT = ("# On Structure and Identity\n\n"
-              "<a id=\"sec-1\"></a>\n## § 1 — Foundations\n\n"
+MANUSCRIPT = ("<a id=\"sec-1\"></a>\n## § 1 — Foundations\n\n"
               "Let $S$ denote symbols, and consider $x \\in S$.\n\n"
               "$$\n\\forall x \\in S, \\quad x=x\n$$\n\n"
               "See [the section](#sec-1).\n")
@@ -75,7 +74,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertTrue({"Header", "Strong", "Emph", "Strikeout", "Code", "CodeBlock",
                          "BulletList", "OrderedList", "BlockQuote", "Table", "Note",
                          "Image", "Link", "Math"} <= kinds)
-        self.assertEqual([1, 2, 3, 3, 3, 4, 2, 2],
+        self.assertEqual([2, 3, 3, 3, 4, 2, 2],
                          [node["c"][0] for node in nodes if node["t"] == "Header"])
         # Preserve literal LaTeX in the fixture so mobile rendering failures remain visible.
         self.assertIn("Let $S$ be a set.", (self.root / source).read_text(encoding="utf-8"))
@@ -128,7 +127,7 @@ class StrictSourceTests(unittest.TestCase):
         self.assertTrue(any("BOM" in e for e in self.check(front_matter=front)))
 
     def test_nfc(self):
-        self.assert_bad("NFC", MANUSCRIPT.replace("Identity", "Identite\u0301"))
+        self.assert_bad("NFC", MANUSCRIPT + "Identite\u0301\n")
 
     def test_bidi_override_prohibited(self):
         self.assert_bad("bidirectional override", MANUSCRIPT + "Suspicious \u202e reversal.\n")
@@ -145,11 +144,12 @@ class StrictSourceTests(unittest.TestCase):
     def test_trailing_whitespace(self):
         self.assert_bad("trailing whitespace", MANUSCRIPT.replace("## § 1 — Foundations\n", "## § 1 — Foundations \n"))
 
-    def test_no_h1(self):
-        self.assert_bad("exactly one ATX H1", MANUSCRIPT.replace("# On Structure", "## On Structure"))
+    def test_metadata_only_identity_accepts_body_with_or_without_sections(self):
+        self.assertEqual([], self.check())
+        self.assertEqual([], self.check("A manuscript without sections.\n"))
 
-    def test_duplicate_h1(self):
-        self.assert_bad("exactly one ATX H1", MANUSCRIPT + "\n# Another title\n")
+    def test_title_is_not_repeated_in_manuscript_body(self):
+        self.assert_bad("title belongs only in YAML metadata", "# On Structure and Identity\n\n" + MANUSCRIPT)
 
     def test_skip_heading_level(self):
         self.assert_bad("heading level skipped", MANUSCRIPT.replace("## § 1", "#### § 1"))
@@ -272,13 +272,9 @@ class StrictSourceTests(unittest.TestCase):
     def test_metadata_schema(self):
         self.assert_bad("schema keys mismatch", metadata={**METADATA, "extra": "unexpected"})
 
-    def test_bibliographic_title_for_mathematical_h1(self):
-        source = MANUSCRIPT.replace(METADATA["title"], r"The $\alpha$-invariant")
-        self.assertEqual([], self.check(source, {**METADATA, "title": "The α-invariant"}))
-        self.assert_bad("use words or Unicode", source, {**METADATA, "title": r"The \alpha-invariant"})
-
-    def test_metadata_title_mismatch(self):
-        self.assert_bad("title must exactly match", metadata={**METADATA, "title": "Incorrect"})
+    def test_metadata_title_is_independent_of_body_headings(self):
+        self.assertEqual([], self.check(metadata={**METADATA, "title": "The α-invariant"}))
+        self.assertEqual([], self.check(metadata={**METADATA, "title": "A different bibliographic title"}))
 
     def test_metadata_slug_is_not_part_of_the_protocol(self):
         self.assert_bad("schema keys mismatch", metadata={**METADATA, "slug": "other"})

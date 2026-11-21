@@ -15,6 +15,7 @@ from guavajam_core.publication_protocol import discover
 from guavajam_core.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
+from .citation import citation_control, edition_label
 from .view_cache import cached_render
 
 
@@ -26,44 +27,6 @@ def detail_link(href, label):
             'aria-hidden="true" focusable="false"><path d="M6 3.5h9l3 3V20.5H6z"/>'
             '<path d="M15 3.5v4h4M9 12h6M9 15h6"/></svg></a>')
 
-
-def citation_control(record, href, *, title='', authors='', published='', edition_number=None,
-                     document_title=''):
-    """Readable Git-commit citation; keep canonical machine JSON downloadable.
-
-    The bibliographic display uses verified manuscript facts and the signed
-    edition's claimed date. The repository commit remains the exact identity;
-    no HTML URL is treated as publication authority.
-    """
-    if record is None:
-        return ''
-    revision = record['revision']
-    manuscript = record.get('manuscript', '')
-    document = record.get('document', manuscript)
-    subject = document_title or title
-    description = (escape(authors) + '. ' if authors else '')
-    if subject:
-        description += '<cite>' + escape(subject) + '</cite>'
-        if document_title and title and document_title != title:
-            description += '. In <cite>' + escape(title) + '</cite>'
-        description += '.'
-    details = []
-    if edition_number is not None:
-        details.append(edition_label(edition_number))
-    if published:
-        details.append(escape(published))
-    if details:
-        description += (' ' if description else '') + ', '.join(details) + '.'
-    source = ('Git commit <code>' + escape(revision) + '</code>' +
-              (' · <code>' + escape(document) + '</code>' if document else '') +
-              (' · <code>#' + escape(record['anchor']) + '</code>' if record.get('anchor') else ''))
-    return ('<blockquote class="guavajam-citation" aria-label="Git source citation">'
-            + ('<p>' + description + '</p>' if description else '') +
-            '<p class="guavajam-citation-source">' + source + '</p>' +
-            '<a href="' + escape(href, quote=True) + '" download '
-            'aria-label="Download official citation JSON" title="Download citation JSON">'
-            '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
-            '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg></a></blockquote>')
 
 
 def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
@@ -98,11 +61,6 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
             '<body class="guavajam-site"><a class="guavajam-skip" href="#main">Skip to content</a>'
             + crumb + '<main id="main" tabindex="-1">' + citation_html + body + '</main>'
             '<footer><p>GuavaJam' + feed_html + '</p></footer></body></html>\n')
-
-
-def edition_label(position):
-    """The verified first-parent sequence, not a publisher-claimed timestamp."""
-    return 'v' + str(position)
 
 
 def inventory(root):

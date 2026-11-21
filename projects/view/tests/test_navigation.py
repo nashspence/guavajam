@@ -175,7 +175,7 @@ class NavigationTests(unittest.TestCase):
         self.assertIn('href="documents.html"', (self.output / 'index.html').read_text())
         for name, digest in self.view['files'].items():
             self.assertEqual(digest, hashlib.sha256((self.output / name).read_bytes()).hexdigest())
-        self.assertEqual({'index.html', 'supporting/unlinked.html', 'documents.html', 'NAV.json'},
+        self.assertEqual({'index.html', 'supporting/unlinked.html', 'documents.html', 'NAV.json', 'source.citation.json'},
                          set(self.view['files']))
         for name in ('index.html', 'supporting/unlinked.html', 'documents.html'):
             html = (self.output / name).read_text()

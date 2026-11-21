@@ -22,8 +22,6 @@ language: en
 rights: all-rights-reserved
 ---
 
-# Field Notes
-
 <a id="opening"></a>
 ## Opening
 
@@ -108,6 +106,22 @@ class PortableViewTests(unittest.TestCase):
         self.assertTrue(view['preview'])
         with self.assertRaisesRegex(RenderError,'new or empty'):
             render(self.root,self.rev,self.output,preview=True)
+
+    def test_draft_identity_is_rendered_only_as_one_metadata_citation(self):
+        render(self.root, self.rev, self.output, preview=True)
+        html = (self.output / 'index.html').read_text()
+        body = html.split('<body>', 1)[1]
+        citations = re.findall(r'<blockquote class="guavajam-citation".*?</blockquote>', body, re.S)
+        self.assertEqual(1, len(citations))
+        self.assertIn('Example Author. <cite>Field Notes</cite>.', citations[0])
+        self.assertIn('Download draft source identity JSON', citations[0])
+        self.assertNotIn('Field Notes', body.replace(citations[0], ''))
+        self.assertNotIn('Example Author', body.replace(citations[0], ''))
+        self.assertNotIn('<h1', body)
+        self.assertIn('Unsigned proposed edition, not issued.', body)
+        citation = json.loads((self.output / 'source.citation.json').read_text())
+        self.assertEqual(self.rev, citation['revision'])
+        self.assertEqual('guavajam.source-citation.v1', citation['schema'])
 
     def test_revision_is_never_a_branch_or_floating_tag(self):
         for wrong in ('HEAD','main','v1','A'*40,'a'*39,'a'*41):

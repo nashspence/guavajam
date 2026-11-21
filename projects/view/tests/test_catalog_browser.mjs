@@ -148,7 +148,7 @@ try {
             width: document.documentElement.scrollWidth, viewport: innerWidth,
             ids: [...document.querySelectorAll('[id]')].map(n => n.id),
             csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]').content}));
-          assert.equal(shape.scripts, 0); assert.equal(shape.main, 1); assert.equal(shape.h1, 1);
+          assert.equal(shape.scripts, 0); assert.equal(shape.main, 1); assert.equal(shape.h1, filename.endsWith('/read/index.html') ? 0 : 1);
           assert(shape.width <= shape.viewport + 1, `${name} ${filename} ${width} enlarged=${enlarge} overflow`);
           assert.equal(shape.ids.length, new Set(shape.ids).size);
           assert(shape.csp.includes("script-src 'none'"));

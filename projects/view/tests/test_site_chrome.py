@@ -89,14 +89,14 @@ class ChromeTests(unittest.TestCase):
                 path.write_text('<!doctype html><html><head><style>body{margin:0}</style></head><body>'
                                 '<header class="guavajam-status"><span>Verified signed source</span></header>'
                                 '<main id="guavajam-main"><article class="guavajam-edition">'
-                                '<div class="guavajam-source-identity">Old source label</div>'
-                                '<h1>' + title + '</h1>' +
+                                '<div class="guavajam-source-identity">Old source label</div>' +
+                                ('' if path.name == 'index.html' else '<h1>' + title + '</h1>') +
                                 ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
                                  if path.name == 'documents.html' else
                                  reader_navigation('content/manuscript.md' if path.name == 'index.html'
                                                    else 'content/supporting/note.md')) +
                                 '</article></main><footer></footer></body></html>')
-            view = {'facts': {'author': 'Mara Levin'},
+            view = {'facts': {'author': 'Mara Levin', 'title': 'Work'},
                     'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
                                   'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note', 'anchors': []}},
                     'files': {}}
@@ -111,7 +111,8 @@ class ChromeTests(unittest.TestCase):
                 self.assertIn('v2, 2026-11-03.', html)
                 self.assertNotIn('<script', html)
                 self.assertLess(html.index('class="guavajam-citation"'), html.index('<article'))
-                self.assertEqual(1, [tag for tag, _ in Controls(html).nodes].count('h1'))
+                self.assertEqual(0 if relative == 'index.html' else 1,
+                                 [tag for tag, _ in Controls(html).nodes].count('h1'))
             self.assertNotIn('<h1>Documents in this edition</h1>', (read / 'documents.html').read_text())
             self.assertIn('<h1 aria-current="page">Documents</h1>', (read / 'documents.html').read_text())
             supporting = (read / 'supporting/note.html').read_text()
@@ -166,8 +167,8 @@ class ChromeTests(unittest.TestCase):
                 path.write_text('<!doctype html><html><head><style>body{margin:0}</style></head>'
                                 '<body><header class="guavajam-status"><span>Verified signed source</span></header>'
                                 '<main id="guavajam-main"><article class="guavajam-edition">'
-                                '<div class="guavajam-source-identity">Source</div>'
-                                '<h1>' + heading + '</h1>' +
+                                '<div class="guavajam-source-identity">Source</div>' +
+                                ('' if relative == 'index.html' else '<h1>' + heading + '</h1>') +
                                 ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
                                  if relative == 'documents.html' else '') +
                                 '</article></main><footer></footer></body></html>')

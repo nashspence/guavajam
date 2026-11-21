@@ -224,11 +224,10 @@ def inspect_manuscript_syntax(relative: Path, source: str, first_line: int = 1) 
     for ident, number in footnote_defs.items():
         if not any(ref == ident for ref, _ in footnote_refs):
             errors.append(issue(relative, f"unused footnote definition [^{ident}]", number))
-    if len([h for h in headings if h[1] == 1]) != 1:
-        errors.append(issue(relative, "manuscript requires exactly one ATX H1 title"))
-    if headings and headings[0][1] != 1:
-        errors.append(issue(relative, "first heading must be H1", headings[0][0]))
-    last = 0
+    for number, level, _ in headings:
+        if level == 1:
+            errors.append(issue(relative, "manuscript title belongs only in YAML metadata; body headings start at H2", number))
+    last = 1
     for number, level, _ in headings:
         if last and level > last + 1:
             errors.append(issue(relative, f"heading level skipped H{last} → H{level}", number))
@@ -391,7 +390,7 @@ def validate_front_matter(relative: Path, source: str) -> tuple[dict | None, str
     return data, body, body_line, errors
 
 
-def validate_work_fields(relative: Path, data: dict, title_inlines: list) -> list[str]:
+def validate_work_fields(relative: Path, data: dict) -> list[str]:
     errors: list[str] = []
     unknown = set(data) - META_REQUIRED - META_OPTIONAL
     missing = META_REQUIRED - set(data)
@@ -411,11 +410,6 @@ def validate_work_fields(relative: Path, data: dict, title_inlines: list) -> lis
         return errors
     if data["schema"] != "guavajam.work.v1":
         errors.append(issue(relative, "schema must be guavajam.work.v1"))
-    if any(node["t"] == "Math" for node in walk(title_inlines)):
-        if re.search(r"\\[A-Za-z]+", data["title"]):
-            errors.append(issue(relative, "use words or Unicode in the bibliographic title for a mathematical H1"))
-    elif data["title"] != plain_text(title_inlines):
-        errors.append(issue(relative, "title must exactly match the manuscript H1 plain text"))
     if data["rights"] not in RIGHTS:
         errors.append(issue(relative, "rights must be one of " + ", ".join(sorted(RIGHTS))))
     if "identifiers" in data:
@@ -585,7 +579,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             if [n['c'][0] for n in headers] != [h[1] for h in info['headings']]:
                 errors.append(issue(rel, "heading levels differ between source and AST"))
             if front is not None:
-                errors.extend(validate_work_fields(rel, front, headers[0]['c'][2] if headers else []))
+                errors.extend(validate_work_fields(rel, front))
                 errors.extend(validate_pandoc_front_matter(rel, front, parsed))
             raw = [n['c'][1] for n in walk(parsed['blocks']) if n['t'] in {'RawInline','RawBlock'} and n['c'][0]=='html']
             expected = []
