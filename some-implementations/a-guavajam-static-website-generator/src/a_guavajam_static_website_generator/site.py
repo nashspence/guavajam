@@ -66,6 +66,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
                                      document_title=citation_document_title) if citation_href else '')
     return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            '<meta name="robots" content="noindex, follow">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
             'style-src \'unsafe-inline\'; img-src data:; ' + script +
             'base-uri \'none\'; object-src \'none\'; ' + form_action + '">'

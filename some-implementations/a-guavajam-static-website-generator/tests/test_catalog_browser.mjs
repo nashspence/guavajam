@@ -119,7 +119,7 @@ try {
         assert.equal(page.url(), destination);
         const entry = page.locator('[id="' + fragment('content/manuscript.md', anchor) + '"]');
         assert.equal(await entry.count(), 1);
-        const citation = await entry.locator('blockquote').textContent();
+        const citation = await entry.locator('.guavajam-citation').textContent();
         for (const part of [revision, 'content/manuscript.md', '#' + anchor]) assert(citation.includes(part));
         const downloaded = page.waitForEvent('download');
         const downloadLink = entry.getByRole('link', {name: 'Download official citation JSON'});
@@ -138,7 +138,7 @@ try {
       await page.getByRole('link', {name: 'Cite committed source passage supporting-tail'}).click();
       assert(page.url().endsWith('/read/passages/page/5.html#' + fragment('content/supporting/note.md', 'supporting-tail')));
       const support = page.locator('[id="' + fragment('content/supporting/note.md', 'supporting-tail') + '"]');
-      const cited = (await support.locator('blockquote').textContent());
+      const cited = (await support.locator('.guavajam-citation').textContent());
       assert(cited.includes('content/supporting/note.md'));
       await support.getByRole('link', {name: 'Read this passage'}).click();
       assert(page.url().endsWith('/read/supporting/note.html#supporting-tail'));

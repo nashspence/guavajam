@@ -43,29 +43,38 @@ def passage_context(source, anchor, scope):
             (' · Quoted passage' if scope.startswith('quotation:') else ''))
 
 
-def citation_control(record, href, **options):
-    """Readable Git citation with its exact canonical JSON download."""
+def citation_control(record, href, *, heading=False, **options):
+    """Readable Git citation, optionally carrying the manuscript's real title."""
     if record is None:
         return ''
     data = citation_presentation(record, href, **options)
 
-    def inline(parts):
-        return ''.join(escape(value) if kind == 'text' else
-                       '<' + kind + '>' + escape(value) + '</' + kind + '>' for kind, value in parts)
+    def inline(parts, *, title_heading=False):
+        rendered = []
+        for kind, value in parts:
+            item = escape(value) if kind == 'text' else '<' + kind + '>' + escape(value) + '</' + kind + '>'
+            if title_heading and kind == 'cite':
+                item = '<h1 class="guavajam-citation-title">' + item + '</h1>'
+                title_heading = False
+            rendered.append(item)
+        return ''.join(rendered)
 
-    return ('<blockquote class="guavajam-citation" aria-label="Git source citation">'
-            + ('<p>' + inline(data['description']) + '</p>' if data['description'] else '') +
+    # A bibliography describes a source; it is not a quotation from that source.
+    # The description is flow content so its title can be a native heading.
+    return ('<div class="guavajam-citation" role="group" aria-label="Git source citation">'
+            + ('<div class="guavajam-citation-description">' +
+               inline(data['description'], title_heading=heading) + '</div>' if data['description'] else '') +
             '<p class="guavajam-citation-source">' + inline(data['source']) + '</p>' +
             '<a href="' + escape(data['href'], quote=True) + '" download '
             'aria-label="' + data['label'] + '" title="Download citation JSON">'
             '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
-            '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg></a></blockquote>')
+            '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg></a></div>')
 
 
 def manuscript_citation(revision, facts, *, preview=False):
     record = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
               'revision': revision, 'manuscript': 'content/manuscript.md'}
-    return citation_control(record, 'source.citation.json', title=facts['title'],
+    return citation_control(record, 'source.citation.json', heading=True, title=facts['title'],
                             authors=author_text(ordered_authors(facts), identifiers=False),
                             provisional=preview)
 
@@ -73,5 +82,5 @@ def manuscript_citation(revision, facts, *, preview=False):
 def work_bibliography(title, authors):
     """Bibliographic work identity without claiming any one Git revision."""
     description = (escape(authors) + '. ' if authors else '') + '<cite>' + escape(title) + '</cite>.'
-    return ('<blockquote class="guavajam-citation guavajam-work-citation" '
-            'aria-label="Work bibliography"><p>' + description + '</p></blockquote>')
+    return ('<div class="guavajam-citation guavajam-work-citation" '
+            'role="group" aria-label="Work bibliography"><p>' + description + '</p></div>')

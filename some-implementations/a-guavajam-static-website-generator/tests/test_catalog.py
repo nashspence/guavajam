@@ -45,8 +45,8 @@ class CatalogBuildTests(unittest.TestCase):
             self.assertNotIn('<claim>', markup)
             if page != draft / 'index.html':
                 label = 'Work links' if page == self.output / 'index.html' else 'Version links'
-                self.assertLess(markup.index('aria-label="' + label + '"'), markup.index('<blockquote'))
-                self.assertLess(markup.index('<blockquote'), markup.index(blocks[0]))
+                self.assertLess(markup.index('aria-label="' + label + '"'), markup.index('<div class="guavajam-citation'))
+                self.assertLess(markup.index('<div class="guavajam-citation'), markup.index(blocks[0]))
 
     def test_latest_comes_from_history_and_message_is_plain_text(self):
         first = self.publisher.revisions[0]
@@ -66,7 +66,7 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('>v1</a>', history)
         self.assertIn('>v2</a>', history)
         self.assertIn('href="' + first + '/read/index.html"', history)
-        self.assertIn('<blockquote class="guavajam-citation guavajam-work-citation"', landing)
+        self.assertIn('<div class="guavajam-citation guavajam-work-citation"', landing)
         self.assertNotIn('>Documents</a>', landing)
         self.assertIn('href="' + second + '/metadata.html#provenance">Metadata</a>', history)
         edition = (self.output / 'editions' / second / 'metadata.html').read_text()
@@ -94,16 +94,17 @@ class CatalogBuildTests(unittest.TestCase):
         reader = self.output / 'editions' / sha / 'read'
         html = (reader / 'index.html').read_text()
         body = html.split('<body>', 1)[1]
-        citations = re.findall(r'<blockquote class="guavajam-citation".*?</blockquote>', body, re.S)
+        citations = re.findall(r'<div class="guavajam-citation".*?</a></div>', body, re.S)
         self.assertEqual(1, len(citations))
-        self.assertIn('Example Author. <cite>Unique manuscript title</cite>.', citations[0])
+        self.assertIn('Example Author. <h1 class="guavajam-citation-title"><cite>Unique manuscript title</cite></h1>.', citations[0])
         remainder = body.replace(citations[0], '')
         article = re.search(r'<article.*?</article>', body, re.S).group()
-        self.assertNotIn('Unique manuscript title', article)
+        self.assertEqual(1, article.count('Unique manuscript title'))
+        self.assertIn(citations[0], article)
         self.assertIn('index.html">Unique manuscript title</a>', remainder)
         self.assertNotIn('Example Author', remainder)
-        self.assertNotIn('<h1', body)
-        self.assertLess(body.index(citations[0]), body.index('<article'))
+        self.assertEqual(1, body.count('<h1'))
+        self.assertLess(body.index('<article'), body.index(citations[0]))
         raw = (reader / 'source.gfm').read_text()
         self.assertEqual(1, raw.count('Unique manuscript title'))
         self.assertEqual(1, raw.count('Example Author'))

@@ -1,4 +1,4 @@
-"""Bounded, indexable HTML directories enhanced by the existing work SQLite worker.
+"""Bounded, crawlable HTML directories enhanced by the existing work SQLite worker.
 
 Static pages are rendered from verified catalog/NAV records, never from a
 client-side metadata index. Searching/sorting uses the same opt-in SQLite

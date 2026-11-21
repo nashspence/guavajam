@@ -34,14 +34,15 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
-/* A scholarly citation, not an input or a second page heading. */
-blockquote.guavajam-citation {
+/* The bibliography keeps its compact presentation, including a native title. */
+div.guavajam-citation {
   position: relative; margin: .1rem 0 1.65rem; padding: .35rem 2rem .35rem 1rem;
   border-inline-start: .2rem solid var(--guavajam-border);
   background: transparent; min-width: 0; color: var(--guavajam-ink);
 }
-.guavajam-citation p { margin: 0; font: .97rem/1.6 Georgia, Cambria, serif; }
-.guavajam-citation p + p { margin-top: .35rem; }
+.guavajam-citation p, .guavajam-citation-description { margin: 0; font: .97rem/1.6 Georgia, Cambria, serif; }
+.guavajam-citation :is(p, .guavajam-citation-description) + p { margin-top: .35rem; }
+.guavajam-citation-title { display: inline; margin: 0; font: inherit; text-wrap: inherit; }
 .guavajam-citation cite { font-style: italic; }
 .guavajam-citation .guavajam-citation-source {
   color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif;
@@ -434,7 +435,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
   th, td { white-space: normal; overflow-wrap: anywhere; }
   pre { white-space: pre-wrap; overflow-wrap: anywhere; }
   pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
-  figure, blockquote, pre, .guavajam-math-scroll { break-inside: avoid; }
+  figure, blockquote, pre, .guavajam-citation, .guavajam-math-scroll { break-inside: avoid; }
   /* An atomic wrapper keeps MathML fraction/limit glyphs off page cuts. */
   .guavajam-math-scroll { display: inline-block; width: 100%; }
   figure.guavajam-turn, figure.guavajam-turn > blockquote.guavajam-turn-quotation { break-inside: auto; }
