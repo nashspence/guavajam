@@ -57,6 +57,8 @@ try {
       assert(bibliographic.includes('Field Notes'));
       assert(!bibliographic.includes(revision) && !bibliographic.includes('Git commit'));
       assert.deepEqual(await page.locator('nav[aria-label="Work links"] a').allTextContents(), ['Latest', 'History']);
+      assert(await page.locator('nav[aria-label="Work links"]').evaluate(node =>
+        Boolean(node.compareDocumentPosition(document.querySelector('.guavajam-work-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
       await page.keyboard.press('Tab');
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
@@ -74,6 +76,8 @@ try {
       await page.getByRole('link', {name: 'v2', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
+      assert(await page.locator('.guavajam-version-menu').evaluate(node =>
+        Boolean(node.compareDocumentPosition(document.querySelector('main .guavajam-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
       assert.deepEqual(await page.locator('.guavajam-version-menu a').allTextContents(),
         ['Search', 'Documents', 'Passages', 'Locators', 'Verify', 'License', 'Download']);
       await page.getByRole('link', {name: 'Locators', exact: true}).click();

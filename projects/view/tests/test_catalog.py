@@ -43,10 +43,10 @@ class CatalogBuildTests(unittest.TestCase):
             blocks = re.findall(pattern, markup, re.S)
             self.assertEqual([abstract_html(facts['abstract'])], blocks)
             self.assertNotIn('<claim>', markup)
-            if page == self.output / 'index.html':
-                self.assertLess(markup.index('aria-label="Work links"'), markup.index(blocks[0]))
-            elif page != draft / 'index.html':
-                self.assertLess(markup.index(blocks[0]), markup.index('aria-label="Version links"'))
+            if page != draft / 'index.html':
+                label = 'Work links' if page == self.output / 'index.html' else 'Version links'
+                self.assertLess(markup.index('aria-label="' + label + '"'), markup.index('<blockquote'))
+                self.assertLess(markup.index('<blockquote'), markup.index(blocks[0]))
 
     def test_latest_comes_from_history_and_message_is_plain_text(self):
         first = self.publisher.revisions[0]

@@ -153,8 +153,10 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('href="../verify.html">Verify</a>', manuscript)
             self.assertIn('href="cite.html">Passages</a>', manuscript)
             self.assertIn('href="../locators.html">Locators</a>', manuscript)
-            self.assertLess(manuscript.index('Authored methods.'),
-                            manuscript.index('aria-label="Version links"'))
+            self.assertLess(manuscript.index('aria-label="Version links"'),
+                            manuscript.index('<blockquote class="guavajam-citation"'))
+            self.assertLess(manuscript.index('<blockquote class="guavajam-citation"'),
+                            manuscript.index('Authored methods.'))
             self.assertLess(manuscript.index('>Search</a>'),
                             manuscript.index('>Download</a>'))
             self.assertNotIn('Cite this document', manuscript)
@@ -231,7 +233,8 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('class="guavajam-latest-edition"', work)
             self.assertNotIn('>v1</a>', work)
             self.assertNotIn('href="https://github.com/example/work.git">Source</a>', work)
-            self.assertLess(work.index('aria-label="Work links"'), work.index('Observations of the coast.'))
+            self.assertLess(work.index('aria-label="Work links"'), work.index('<blockquote'))
+            self.assertLess(work.index('<blockquote'), work.index('Observations of the coast.'))
             self.assertNotIn('Git commit', work.split('<main', 1)[-1].split('</main>')[0])
             self.assertNotIn('href="editions/' + sha2 + '/CITATION.json"', work)
             self.assertIn('Mara Levin. <cite>Shoreline research</cite>.', work)

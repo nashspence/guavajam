@@ -183,10 +183,10 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         names = author_text(ordered_authors(latest_facts), identifiers=False)
         abstract = latest_facts.get('abstract', '')
         # The work is not a single publication commit; its citation has no SHA.
-        body = work_bibliography(latest_title, names)
-        body += ('<nav class="guavajam-actions" aria-label="Work links">'
+        body = ('<nav class="guavajam-actions" aria-label="Work links">'
                  '<a href="editions/' + latest + '/read/index.html">Latest</a>'
                  '<a href="editions/index.html">History</a></nav>')
+        body += work_bibliography(latest_title, names)
         body += abstract_html(abstract)
     else:
         latest = None
