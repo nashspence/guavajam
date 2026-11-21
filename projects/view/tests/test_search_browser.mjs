@@ -58,7 +58,7 @@ try {
         }
       };
       // The Works index is the layout reference for every lazy search form.
-      // Compare actual computed controls at mobile and intermediate widths;
+      // Compare rendered controls at mobile and intermediate widths;
       // checking only root overflow would miss different breakpoints or gaps.
       const parityContext = await browser.newContext();
       const parityPage = await parityContext.newPage();
@@ -78,13 +78,27 @@ try {
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
         return parityPage.evaluate(() => {
-          const properties = ['display', 'gridTemplateColumns', 'rowGap', 'columnGap',
-            'fontSize', 'fontFamily', 'lineHeight', 'padding', 'margin', 'width', 'boxSizing'];
-          return ['.guavajam-index-search', '.guavajam-search-intro', '#guavajam-search', '#guavajam-search input[name=q]',
-            '#guavajam-search > button[type=submit]', '.guavajam-search-filters'].map(selector => {
+          const section = document.querySelector('.guavajam-index-search').getBoundingClientRect();
+          const intro = document.querySelector('.guavajam-search-intro').getBoundingClientRect();
+          const form = document.querySelector('#guavajam-search').getBoundingClientRect();
+          const crumb = document.querySelector('.guavajam-navigation').getBoundingClientRect();
+          // WebKit may report initial inherited values on textless containers;
+          // rendered boxes protect the actual layout, including gaps and padding.
+          const geometry = {sectionWidth: section.width, headingGap: section.top - crumb.bottom,
+            topPadding: intro.top - section.top, bottomPadding: section.bottom - form.bottom,
+            formGap: form.top - intro.bottom, formWidth: form.width, formHeight: form.height};
+          for (const [name, selector] of [['input', '#guavajam-search input[name=q]'],
+            ['submit', '#guavajam-search > button[type=submit]'], ['filters', '.guavajam-search-filters']]) {
+            const box = document.querySelector(selector).getBoundingClientRect();
+            for (const [key, value] of Object.entries({x: box.x - form.x, y: box.y - form.y,
+              width: box.width, height: box.height})) geometry[name + '.' + key] = value;
+          }
+          const typography = ['#guavajam-search input[name=q]', '#guavajam-search > button[type=submit]',
+            '.guavajam-search-filters summary'].map(selector => {
             const style = getComputedStyle(document.querySelector(selector));
-            return Object.fromEntries(properties.map(property => [property, style[property]]));
+            return Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
           });
+          return {geometry, typography};
         });
       };
       for (const width of [320, 390, 500, 760]) {
@@ -93,7 +107,12 @@ try {
         const reference = await controls();
         for (const url of surfaces) {
           await parityPage.goto(url);
-          assert.deepEqual(await controls(), reference, `${name}: ${width}px control parity at ${url}`);
+          const actual = await controls();
+          assert.deepEqual(actual.typography, reference.typography, `${name}: ${width}px control text at ${url}`);
+          for (const [property, expected] of Object.entries(reference.geometry)) {
+            assert(Math.abs(actual.geometry[property] - expected) < .5,
+              `${name}: ${width}px ${property} at ${url}: ${actual.geometry[property]} versus ${expected}`);
+          }
           assert.equal(await parityPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
         }
       }

@@ -115,15 +115,15 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 /* Search is progressive disclosure, in the same typographic column as the records. */
 .guavajam-index-search {
   border-bottom: 1px solid var(--guavajam-border);
-  padding: .85em 0 1em;
+  padding: .85rem 0 1rem;
   margin: 1.7rem 0;
 }
 .guavajam-index-search h2 { font-size: 1.15rem; margin: 0 0 .4rem; }
-.guavajam-index-search .guavajam-search-intro { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35em 1em; }
+.guavajam-index-search .guavajam-search-intro { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; }
 .guavajam-index-search .guavajam-search-intro h2 { flex: 1 1 auto; }
 .guavajam-index-search .guavajam-search-intro button { font: 600 .87rem/1.4 system-ui, sans-serif; }
 /* One opt-in search control, transfer size, and native progress cue site-wide. */
-.guavajam-search-activation { display: inline-flex; gap: .5em; align-items: center; }
+.guavajam-search-activation { display: inline-flex; gap: .5rem; align-items: center; }
 .guavajam-index-size { color: var(--guavajam-muted); font: .75rem/1.4 system-ui, sans-serif; white-space: nowrap; }
 .guavajam-search-spinner {
   display: inline-block; width: .95rem; height: .95rem; flex: none;
@@ -134,7 +134,7 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 @media (prefers-reduced-motion: reduce) { .guavajam-search-spinner { animation: none; border-style: dotted; } }
 .guavajam-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .guavajam-search-help { margin: .3rem 0 .7rem; }
-#guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65em .8em; align-items: end; margin: .75rem 0 0; }
+#guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem .8rem; align-items: end; margin: .75rem 0 0; }
 #guavajam-search > .guavajam-query-field { min-width: 0; }
 #guavajam-search label { display: block; font: 600 .83rem/1.4 system-ui, sans-serif; margin-bottom: .25rem; }
 #guavajam-search input, #guavajam-search select, #guavajam-search button,
