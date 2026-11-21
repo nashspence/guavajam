@@ -19,6 +19,7 @@ from .citation_routes import (citation_fragment, citation_href, citation_page,
                               passage_json, relative_href)
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
+from .citation import passage_context
 
 
 def add_passage_links(html, view, source, anchors, start):
@@ -122,12 +123,12 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
             if download is not None:
                 body += _sqlite_controls(kind='citations', edition=revision,
                                          root=root, runtime=runtime, download=download)
-            body += search_listing_open('Passages', number, len(chunks), interactive=download is not None)
+            body += search_listing_open('Passages', number, len(chunks), interactive=download is not None, result_class='guavajam-citation-list')
             body += '<section id="guavajam-static-section" class="guavajam-directory">'
             pager = _static_pager(number, len(chunks), first_href=relative(citation_page()),
                                   page_prefix=relative('passages/page') + '/')
             if chunk:
-                body += pager + '<ol class="guavajam-citation-list">'
+                body += pager + '<ol class="guavajam-citation-list guavajam-record-list">'
                 for source, document, record in chunk:
                     anchor = record['anchor']
                     reader = document['view']
@@ -137,16 +138,15 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                     write(json_file, encoded(cited))
                     body += ('<li class="guavajam-citation-entry" id="' +
                              citation_fragment(source, anchor) + '" tabindex="-1">'
-                             '<h3>' + escape(record['title'][:240] or '#' + anchor) + '</h3>'
-                             '<p class="guavajam-meta">' +
-                             ('Supporting document · ' if document_title else 'Manuscript · ') +
-                             escape(source) + ' · <code>#' + escape(anchor) + '</code>' +
-                             (' · Quoted passage' if record['scope'].startswith('quotation:') else '') + '</p>' +
+                             '<article><h3 tabindex="0"><a href="#' + citation_fragment(source, anchor) + '">' +
+                             escape(record['title'] or '#' + anchor) + '</a></h3>'
+                             '<p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Passage source">' +
+                             escape(passage_context(source, anchor, record['scope'])) + '</p>' +
                              citation_control(cited, relative(json_file), title=title, authors=authors,
                                               published=published, edition_number=position,
                                               document_title=document_title) +
                              '<p><a href="' + escape(relative(reader) + '#' + anchor, quote=True) +
-                             '">Read this passage</a></p></li>')
+                             '">Read this passage</a></p></article></li>')
                 body += '</ol>' + pager
             else:
                 body += '<p>No individually citable passages were declared.</p>'

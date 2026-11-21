@@ -17,11 +17,12 @@ import shutil
 import sqlite3
 from urllib.parse import quote
 
-from guavajam_core.bibliography import ordered_authors
+from guavajam_core.bibliography import ordered_authors, author_text
 from guavajam_core.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYTES
 from guavajam_core.identifiers import SLUG
 
-from .citation_routes import citation_href, source_offsets
+from .citation_routes import citation_href, passage_json, source_offsets
+from .citation import citation_presentation, passage_context
 from .search_artifact import download_attributes, emit_download
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
@@ -213,7 +214,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                     work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
                     title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
                     position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                    url TEXT NOT NULL, citation_url TEXT NOT NULL,
+                    url TEXT NOT NULL, citation_url TEXT NOT NULL, citation_json TEXT NOT NULL,
                     UNIQUE(document_id, anchor)
                 );
                 CREATE TABLE passage_records (
@@ -328,12 +329,20 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                             cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
                                 source_path, passage_starts[source_path] + anchor['position'],
                                 anchor['anchor']), safe='/#:')
+                            identity = {'revision': sha, 'manuscript': 'content/manuscript.md',
+                                        'document': source_path, 'anchor': anchor['anchor']}
+                            presentation = citation_presentation(identity,
+                                quote(prefix + 'editions/' + sha + '/read/' + passage_json(view_path, anchor['anchor']), safe='/'),
+                                title=facts['title'], authors=author_text(ordered_authors(facts)), published=edition['published'],
+                                edition_number=position + 1,
+                                document_title=detail['title'] if source_path != 'content/manuscript.md' else '')
+                            presentation['context'] = passage_context(source_path, anchor['anchor'], anchor['scope'])
                             cursor = conn.execute('INSERT INTO passages '
-                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url,citation_url) '
-                                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                                '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url,citation_url,citation_json) '
+                                'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
                                 (edition_id, document_id, number, anchor['anchor'], anchor['title'],
                                  anchor['kind'], anchor['level'], anchor['position'], anchor['parent'],
-                                 anchor['scope'], target, cited))
+                                 anchor['scope'], target, cited, json.dumps(presentation, ensure_ascii=False)))
                             passage_id = cursor.lastrowid
                             conn.execute('INSERT INTO passage_records VALUES (?,?,?,?,?)',
                                          (passage_id, number, edition_id, document_id, target))
@@ -452,7 +461,7 @@ def homepage(site, *, interactive):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import PAGE_SIZE, _static_pager, search_activation
+    from .directory_pages import PAGE_SIZE, _static_pager, search_summary
     from .site import detail_link, page
 
     site = Path(site)
@@ -490,7 +499,7 @@ def homepage(site, *, interactive):
                 byline = escape(authors) if authors else ''
                 if day:
                     byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
-                entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
+                entries.append('<li><article><h3 tabindex="0"><a href="' + escape(target, quote=True) + '">' +
                                escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
                                '</h3>' +
                                ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work authors and date">' + byline + '</p>' if byline else '') +
@@ -500,9 +509,8 @@ def homepage(site, *, interactive):
             body = ''
             if interactive:
                 body += (
-                    '<section class="guavajam-index-search" aria-labelledby="guavajam-search-heading">'
-                    '<div class="guavajam-search-intro"><h2 id="guavajam-search-heading">Find a work</h2>'
-                    + search_activation(download) + '</div>'
+                    '<details class="guavajam-index-search" id="guavajam-index-search" hidden>' +
+                    search_summary(download) +
                     '<form id="guavajam-search" role="search" '
                     'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
                     'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
@@ -520,16 +528,16 @@ def homepage(site, *, interactive):
                     '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
-                    '</form></section>')
+                    '</form></details>')
             body += '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
             body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading" data-static-heading="Works">Works</h2>'
             if interactive:
                 body += (
                     '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
                     'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
-                    '<ol id="guavajam-search-results" class="guavajam-works" hidden></ol>')
+                    '<ol id="guavajam-search-results" class="guavajam-works guavajam-record-list" hidden></ol>')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
-                     'class="guavajam-works">' + ''.join(entries) + '</ol>')
+                     'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,
                                   first_href='index.html' if number == 1 else '../index.html',
                                   page_prefix='page/' if number == 1 else '')

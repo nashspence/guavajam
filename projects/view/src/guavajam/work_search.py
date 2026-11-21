@@ -102,9 +102,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                         '<a href="contents.html">Contents</a>'
                         '<a href="documents.html">Documents</a>'
                         '<a href="passages.html">Passages</a>'
-                        '<a href="../locators.html">Locators</a>'
-                        '<a href="../verify.html">Verify</a>'
-                        '<a href="../license.html">License</a>'
+                        '<a href="../metadata.html">Metadata</a>'
                         '<a href="source.gfm" download>Download</a></nav>')
                 citation_html = menu + citation_html
         text = text.replace('<article class="guavajam-edition"',

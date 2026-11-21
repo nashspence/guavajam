@@ -46,6 +46,8 @@ def prepare(directory):
             with manuscript.open('a') as stream:
                 for section in range(1, 45):
                     phrase = 'Bathymetric eco**logy**.' if section == 24 else f'Indexed evidence {section}.'
+                    if section == 30:
+                        phrase = 'x' * 900 + ' Stereophotometric evidence stays visible.'
                     if section == 44:
                         phrase = 'Bathyal citational evidence for the last passage.'
                     stream.write(f'\n<a id="section-{section}"></a>\n## Section {section:02d}\n\n{phrase}\n')

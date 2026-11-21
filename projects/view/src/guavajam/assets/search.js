@@ -13,18 +13,21 @@ if (form) {
   const edition = form.querySelector('[name="edition"]');
   const documentFilter = form.querySelector('[name="document"]');
   const supportingFilter = form.querySelector('[name="supporting"]');
-  const enable = document.querySelector('#guavajam-search-enable');
+  const disclosure = document.querySelector('#guavajam-index-search');
+  const disclosureSummary = disclosure.querySelector('.guavajam-search-summary');
   const spinner = document.querySelector('#guavajam-search-spinner');
   const listing = document.querySelector('#guavajam-search-listing');
   const directory = form.dataset.directory || '';
-  if (directory) document.querySelector('#guavajam-directory-enhancement').hidden = false;
+  // A non-JS page never exposes an unusable search form. JavaScript reveals
+  // only the closed disclosure; opening it requests the optional database.
+  disclosure.hidden = false;
   const reload = document.createElement('button');
   reload.id = 'guavajam-search-reload';
   reload.type = 'button';
   reload.textContent = 'Reload page';
   reload.hidden = true;
   reload.addEventListener('click', () => location.reload());
-  (enable || summary).after(' ', reload);
+  disclosureSummary.after(' ', reload);
   const back = document.querySelector('#guavajam-search-prev');
   const next = document.querySelector('#guavajam-search-next');
   const pageLabel = document.querySelector('#guavajam-search-page');
@@ -48,7 +51,7 @@ if (form) {
     demoteStaticFacets();
     if (listing) listing.hidden = false;
     summary.textContent = directory || !work ?
-      'Search is unavailable. The static pages remain accessible; retry search or reload.' :
+      'Search is unavailable. The static pages remain accessible; close and reopen Indexed Search to retry, or reload.' :
       'Search is unavailable. Retry or reload this page.';
     reload.hidden = false;
     fallback.hidden = false;
@@ -58,12 +61,8 @@ if (form) {
     pageLabel.textContent = '';
     pagination.hidden = true;
     if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Works';
-    if (enable) {
-      enable.hidden = false;
-      enable.disabled = false;
-      enable.removeAttribute('aria-disabled');
-      enable.textContent = 'Retry search';
-    }
+    // Closing and reopening the disclosure retries the same worker, with no
+    // competing Enable/Retry search buttons or separate query implementation.
   }
 
   function option(select, item) {
@@ -177,11 +176,45 @@ if (form) {
     if (fallback.hidden) showStaticCitation(location.hash)?.scrollIntoView();
   });
 
-  function matchedExcerpt(raw) {
+  function inlineParts(target, parts) {
+    for (const [kind, value] of parts) {
+      if (kind === 'cite' || kind === 'code') {
+        const node = document.createElement(kind); node.textContent = value; target.append(node);
+      } else target.append(document.createTextNode(value));
+    }
+  }
+
+  function resultCitation(data) {
+    const cited = document.querySelector('#guavajam-citation-template').content.firstElementChild.cloneNode(true);
+    if (data.description.length) {
+      const description = document.createElement('p'); inlineParts(description, data.description); cited.prepend(description);
+    }
+    const identity = cited.querySelector('.guavajam-citation-source'); identity.replaceChildren();
+    inlineParts(identity, data.source);
+    const download = cited.querySelector('a[download]'); download.href = workURL(data.href);
+    download.setAttribute('aria-label', data.label);
+    return cited;
+  }
+
+  function matchedExcerpt(raw, context) {
     // FTS5 snippet() surrounds matched source tokens with private-use markers.
     // Never insert database text as HTML; create native marked text nodes.
-    const excerpt = String(raw).slice(0, 320);
-    const quote = document.createElement('blockquote');
+    // Long source tokens can push the first native FTS marker beyond 320
+    // characters. Center the bounded window on that marker, never on a new
+    // JavaScript word search. Keep Unicode code points intact.
+    const text = String(raw), first = text.indexOf('\uE000');
+    if (first < 0) return null;
+    let start = Math.max(0, first - 80);
+    // Slice a bounded number of UTF-16 units without splitting a surrogate pair.
+    if (start && /[\uDC00-\uDFFF]/.test(text[start])) start--;
+    let end = Math.min(text.length, start + 320);
+    if (end < text.length && /[\uDC00-\uDFFF]/.test(text[end])) end--;
+    const excerpt = text.slice(start, end);
+    const container = document.createElement('div'); container.className = 'guavajam-search-excerpt';
+    const label = document.createElement('p'); label.className = 'guavajam-excerpt-label';
+    label.textContent = context === 'metadata' ? 'Metadata match' : 'Passage match';
+    const quote = document.createElement(context === 'metadata' ? 'p' : 'blockquote');
+    if (start) quote.append(document.createTextNode('…'));
     quote.className = 'guavajam-passage-excerpt';
     let buffer = '', marked = false;
     function flush() {
@@ -199,8 +232,9 @@ if (form) {
       else buffer += char;
     }
     flush();
-    if (String(raw).length > excerpt.length) quote.append(document.createTextNode('…'));
-    return quote;
+    if (end < text.length) quote.append(document.createTextNode('…'));
+    container.append(label, quote);
+    return container;
   }
 
   function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
@@ -208,7 +242,7 @@ if (form) {
     for (const row of rows) {
       const li = document.createElement('li');
       const article = document.createElement('article');
-      const heading = document.createElement('h3');
+      const heading = document.createElement('h3'); heading.tabIndex = 0;
       const link = document.createElement('a');
       link.href = work ? workURL(directory === 'citations' ? row.citation_url : row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
@@ -250,42 +284,33 @@ if (form) {
           article.append(abstract);
         }
       } else {
+        const presentation = resultKind === 'passages' ? JSON.parse(row.citation_json) : null;
         const meta = document.createElement('p');
-        meta.className = 'guavajam-search-meta';
-        const context = [row.published];
-        if (resultKind !== 'editions') context.unshift(row.revision.slice(0, 12));
-        if (resultKind === 'passages') {
-          context.push(row.document_title);
-          if (row.scope.startsWith('quotation:')) context.push('Quoted passage');
-        }
-        if (row.document_path) context.push(row.document_path + (row.anchor ? '#' + row.anchor : ''));
-        if (resultKind === 'editions') context.push(row.revision.slice(0, 12));
-        meta.textContent = context.join(' · ');
-        if (resultKind === 'editions') {
-          const verify = document.createElement('a');
-          verify.href = workURL('editions/' + row.revision + '/verify.html');
-          verify.textContent = 'Verify';
-          meta.append(document.createTextNode(' · '), verify);
+        meta.className = 'guavajam-meta guavajam-scrollline'; meta.tabIndex = 0;
+        meta.setAttribute('aria-label', resultKind === 'passages' ? 'Passage source' : resultKind === 'documents' ? 'Document source' : 'Version date and source');
+        if (resultKind === 'passages') meta.textContent = presentation.context;
+        else if (resultKind === 'documents') {
+          meta.append(document.createTextNode((row.document_path === 'content/manuscript.md' ? 'Manuscript' : 'Supporting document') + ' · '));
+          const path = document.createElement('code'); path.textContent = row.document_path; meta.append(path);
+        } else {
+          const date = document.createElement('time'); date.dateTime = row.published; date.textContent = row.published;
+          const revision = document.createElement('code'); revision.title = row.revision; revision.textContent = row.revision.slice(0, 12);
+          const metadata = document.createElement('a');
+          metadata.href = workURL('editions/' + row.revision + '/metadata.html#provenance'); metadata.textContent = 'Metadata';
+          meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' · '), metadata);
         }
         article.append(meta);
         if (resultKind === 'passages') {
-          if (directory === 'citations') {
-            // The search result is a preview of the same canonical citation
-            // entry, not an alternative human citation or destination.
-            const cited = document.createElement('blockquote');
-            cited.className = 'guavajam-citation';
-            const identity = document.createElement('p');
-            identity.className = 'guavajam-citation-source';
-            identity.textContent = `Git commit ${row.revision} · ${row.document_path} · #${row.anchor}`;
-            cited.append(identity);
-            article.append(cited);
+          if (directory === 'citations') article.append(resultCitation(presentation));
+          if (row.excerpt) {
+            const excerpt = matchedExcerpt(row.excerpt, row.excerpt_context);
+            if (excerpt) article.append(excerpt);
           }
-          if (row.excerpt) article.append(matchedExcerpt(row.excerpt));
           const action = document.createElement('a');
           action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
           action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
           if (directory !== 'citations') action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
-          article.append(action);
+          const actions = document.createElement('p'); actions.append(action); article.append(actions);
         }
         if (resultKind === 'editions' && row.message) {
           const [subject, ...more] = row.message.split('\n');
@@ -375,9 +400,8 @@ if (form) {
     reload.hidden = true;
     if (spinner) spinner.hidden = false;
     if (listing) listing.hidden = false;
-    // Keep keyboard focus while loading. The loading guard rejects duplicate
-    // requests; native disabled would blur the very button we need to restore.
-    if (enable) enable.setAttribute('aria-disabled', 'true');
+    // The summary remains keyboard-focusable while loading; the spinner is an
+    // in-place cue without replacing or disabling the native disclosure.
     summary.textContent = 'Loading local search…';
     try {
       worker = new Worker(new URL(form.dataset.worker || './search-worker.js', document.baseURI), {type: 'module'});
@@ -413,12 +437,6 @@ if (form) {
           loading = false;
           if (spinner) spinner.hidden = true;
           promoteStaticFacets();
-          if (enable) {
-            const heldFocus = document.activeElement === enable;
-            enable.removeAttribute('aria-disabled');
-            enable.hidden = true;
-            if (heldFocus) input.focus();
-          }
           request();
         } else {
           renderRows(data);
@@ -434,6 +452,9 @@ if (form) {
       unavailable();
     }
   }
-  if (enable) enable.addEventListener('click', initialize);
-  else initialize();
+  disclosure.addEventListener('toggle', () => {
+    if (disclosure.open && !ready && !loading) initialize();
+  });
+  // Browsers can restore an opened disclosure through session history.
+  if (disclosure.open) initialize();
 }
