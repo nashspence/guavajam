@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["projects/core", "projects/view"]
+members = ["projects/core", "projects/a-guavajam-static-website-generator"]
 
 [dependency-groups]
 dev = ["PyMuPDF==1.26.5"]

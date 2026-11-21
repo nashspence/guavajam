@@ -17,7 +17,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         cls.dockerfile = (ROOT / 'Dockerfile').read_text()
         cls.stages = {
             name: body for name, body in re.findall(
-                r'^FROM \S+ AS (\w+)\n(.*?)(?=^FROM |\Z)', cls.dockerfile, re.M | re.S)
+                r'^FROM \S+ AS ([\w-]+)\n(.*?)(?=^FROM |\Z)', cls.dockerfile, re.M | re.S)
         }
 
     def test_hosted_preview_has_read_only_source_and_only_reader_credentials(self):
@@ -44,14 +44,14 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual({'assets', 'seaweedfs'}, {
             name for name, service in self.services.items() if service.get('profiles') == ['local-assets']
         })
-        for name, target in [('updater', 'view'), ('web', 'web'), ('assets', 'gateway')]:
+        for name, target in [('updater', 'a-guavajam-static-website-generator'), ('web', 'web'), ('assets', 'gateway')]:
             with self.subTest(service=name):
                 self.assertEqual({'context': '.', 'target': target}, self.services[name]['build'])
         # The gateway can target an existing S3 service without starting local storage.
         self.assertFalse(self.services['assets'].get('depends_on'))
 
     def test_application_containers_are_unprivileged_with_read_only_roots(self):
-        for name, stage, user in [('updater', 'view', '1000:1000'),
+        for name, stage, user in [('updater', 'a-guavajam-static-website-generator', '1000:1000'),
                                   ('assets', 'gateway', '1000:1000'), ('web', 'web', '101:101')]:
             with self.subTest(service=name):
                 service = self.services[name]
@@ -120,7 +120,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
             with self.subTest(image=image):
                 self.assertRegex(image, r'@sha256:[0-9a-f]{64}$')
         self.assertIn('RUN uv sync --locked --all-packages --no-dev --no-editable', self.stages['packages'])
-        self.assertIn('RUN python /tmp/install_pandoc.py', self.stages['view'])
+        self.assertIn('RUN python /tmp/install_pandoc.py', self.stages['a-guavajam-static-website-generator'])
         self.assertIn('COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway',
                       self.stages['gateway'])
         self.assertIn('ENTRYPOINT ["node", "server.mjs"]', self.stages['gateway'])
@@ -141,13 +141,13 @@ class DeploymentConfigurationTests(unittest.TestCase):
         for name in ['package.json', 'package-lock.json']:
             self.assertIn('!' + name, (ROOT / '.dockerignore').read_text().splitlines())
         for source, target in [('index.mjs', 'sqlite3.mjs'), ('sqlite3.wasm', 'sqlite3.wasm')]:
-            self.assertIn('/dist/' + source + ' projects/view/src/guavajam/assets/' + target,
+            self.assertIn('/dist/' + source + ' projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/' + target,
                           self.stages['packages'])
         template = (ROOT / 'projects/core/src/guavajam_core/resources/templates/github/pages-index.yml').read_text()
         workflow = yaml.safe_load(template.replace('@@GUAVAJAM_REF@@', '0' * 40))
         steps = workflow['jobs']['pages']['steps']
         self.assertTrue(any(install in step.get('run', '') for step in steps))
-        generation = next(step for step in steps if 'python -m guavajam.index' in step.get('run', ''))
+        generation = next(step for step in steps if 'python -m a_guavajam_static_website_generator.index' in step.get('run', ''))
         self.assertEqual('1', generation['env']['GUAVAJAM_REQUIRE_SEARCH'])
         self.assertTrue(generation['env']['GUAVAJAM_SQLITE_WASM_DIR'].endswith(
             '/.guavajam-tool/node_modules/@sqlite.org/sqlite-wasm/dist'))

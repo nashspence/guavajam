@@ -14,9 +14,9 @@ def run(*args, cwd=None):
 def main():
     root = Path.cwd()
     repo = root / 'publisher'
-    view = sys.argv[1] == 'view'
+    view = sys.argv[1] == 'a-guavajam-static-website-generator'
     if not view:
-        assert importlib.util.find_spec('guavajam') is None, 'core installed the view'
+        assert importlib.util.find_spec('a_guavajam_static_website_generator') is None, 'core installed the view'
     assert importlib.util.find_spec('guavajam_test_support') is None, 'test helpers leaked into a runtime distribution'
     import guavajam_core
     assert Path(guavajam_core.__file__).is_relative_to(Path(sys.prefix)), 'core came from a checkout'
@@ -67,14 +67,14 @@ def main():
         export(repo, sha, archive, allowed_signers=signers)
     check(archive, sha, allowed_signers=signers)
     if view:
-        from guavajam.preview import build_preview
+        from a_guavajam_static_website_generator.preview import build_preview
         preview = build_preview(repo, sha, root / 'draft-preview')
         assert not preview['publication'] and (root / 'draft-preview/PREVIEW.json').is_file()
-        assert '--serve' in run(sys.executable, '-m', 'guavajam', 'preview', '--help', cwd=repo)
-        from guavajam.renderer import render
+        assert '--serve' in run(str(Path(sys.executable).with_name('a-guavajam-static-website-generator')), 'preview', '--help', cwd=repo)
+        from a_guavajam_static_website_generator.renderer import render
         render(repo, sha, root / 'view', allowed_signers=signers)
         assert 'Artifact Work' in (root / 'view/index.html').read_text()
-        assert (Path(__import__('guavajam').__file__).parent / 'styles/reading.css').read_text() in (root / 'view/index.html').read_text()
+        assert (Path(__import__('a_guavajam_static_website_generator').__file__).parent / 'styles/reading.css').read_text() in (root / 'view/index.html').read_text()
     print('Installed ' + ('core + view' if view else 'core alone') + ': signed source, resources and preservation verified.')
 
 

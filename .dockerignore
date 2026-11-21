@@ -9,10 +9,10 @@
 !projects/core/pyproject.toml
 !projects/core/src/
 !projects/core/src/**
-!projects/view/
-!projects/view/pyproject.toml
-!projects/view/src/
-!projects/view/src/**
+!projects/a-guavajam-static-website-generator/
+!projects/a-guavajam-static-website-generator/pyproject.toml
+!projects/a-guavajam-static-website-generator/src/
+!projects/a-guavajam-static-website-generator/src/**
 !deploy/
 !deploy/install_pandoc.py
 **/__pycache__
@@ -24,6 +24,6 @@
 !projects/core/LICENSES/
 !projects/core/LICENSES/**
 !projects/core/REUSE.toml
-!projects/view/LICENSES/
-!projects/view/LICENSES/**
-!projects/view/REUSE.toml
+!projects/a-guavajam-static-website-generator/LICENSES/
+!projects/a-guavajam-static-website-generator/LICENSES/**
+!projects/a-guavajam-static-website-generator/REUSE.toml

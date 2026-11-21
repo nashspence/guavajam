@@ -9,18 +9,18 @@ COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /build
 COPY pyproject.toml uv.lock ./
 COPY projects/core/pyproject.toml projects/core/pyproject.toml
-COPY projects/view/pyproject.toml projects/view/pyproject.toml
+COPY projects/a-guavajam-static-website-generator/pyproject.toml projects/a-guavajam-static-website-generator/pyproject.toml
 COPY projects/core/LICENSES projects/core/LICENSES
 COPY projects/core/REUSE.toml projects/core/REUSE.toml
-COPY projects/view/LICENSES projects/view/LICENSES
-COPY projects/view/REUSE.toml projects/view/REUSE.toml
+COPY projects/a-guavajam-static-website-generator/LICENSES projects/a-guavajam-static-website-generator/LICENSES
+COPY projects/a-guavajam-static-website-generator/REUSE.toml projects/a-guavajam-static-website-generator/REUSE.toml
 COPY projects/core/src projects/core/src
-COPY projects/view/src projects/view/src
-COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/index.mjs projects/view/src/guavajam/assets/sqlite3.mjs
-COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm projects/view/src/guavajam/assets/sqlite3.wasm
+COPY projects/a-guavajam-static-website-generator/src projects/a-guavajam-static-website-generator/src
+COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/index.mjs projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3.mjs
+COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3.wasm
 RUN uv sync --locked --all-packages --no-dev --no-editable
 
-FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c AS view
+FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c AS a-guavajam-static-website-generator
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git openssh-client gnupg libgmp10 && rm -rf /var/lib/apt/lists/*
 COPY deploy/install_pandoc.py /tmp/install_pandoc.py
 RUN python /tmp/install_pandoc.py && rm /tmp/install_pandoc.py
@@ -29,13 +29,13 @@ ENV PATH="/opt/guavajam/bin:$PATH" PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 
 RUN groupadd --gid 1000 guavajam && useradd --uid 1000 --gid guavajam --home-dir /state --no-create-home --shell /usr/sbin/nologin guavajam && mkdir /state && chown 1000:1000 /state
 USER 1000:1000
 WORKDIR /state
-ENTRYPOINT ["python", "-m", "guavajam.service"]
+ENTRYPOINT ["python", "-m", "a_guavajam_static_website_generator.service"]
 
 FROM node:24.10.0-bookworm-slim@sha256:b8d2197aff9129d16c801a3e3e1b2a873c4946480f5a310f38056df2268c38d9 AS node
 
-FROM view AS preview
+FROM a-guavajam-static-website-generator AS preview
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-ENTRYPOINT ["python", "-m", "guavajam.preview_service"]
+ENTRYPOINT ["python", "-m", "a_guavajam_static_website_generator.preview_service"]
 
 FROM node AS gateway
 COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway

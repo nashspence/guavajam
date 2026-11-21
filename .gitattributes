@@ -1,4 +1,4 @@
 /projects/core/src/guavajam_core/**/*.py text eol=lf
 /projects/core/src/guavajam_core/**/*.css text eol=lf
-/projects/view/src/guavajam/**/*.py text eol=lf
-/projects/view/src/guavajam/**/*.css text eol=lf
+/projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/**/*.py text eol=lf
+/projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/**/*.css text eol=lf

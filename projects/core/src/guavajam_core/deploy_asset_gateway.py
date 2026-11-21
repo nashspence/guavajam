@@ -43,7 +43,7 @@ def cf_request(account, path, token, *, body=None, content_type="application/jso
 
 def upload_worker(source, account, name, token, bindings):
     metadata = {"main_module": "worker.js", "compatibility_date": "2026-11-04", "bindings": bindings}
-    boundary = "guavajam" + uuid.uuid4().hex
+    boundary = "a_guavajam_static_website_generator" + uuid.uuid4().hex
     body = (
         f'--{boundary}\r\nContent-Disposition: form-data; name="metadata"\r\n'
         'Content-Type: application/json\r\n\r\n' + json.dumps(metadata) +
