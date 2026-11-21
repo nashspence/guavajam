@@ -125,7 +125,7 @@ class ChromeTests(unittest.TestCase):
                                 '</article></main><footer></footer></body></html>')
             view = {'facts': {'author': 'Mara Levin', 'title': 'Work'},
                     'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
-                                  'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note', 'anchors': []}},
+                                  'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note <untrusted> & evidence', 'anchors': []}},
                     'files': {}}
             (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': view['documents']}))
             publication_navigation(read, view, 'c' * 40, work_title='Work', edition_number=2,
@@ -143,7 +143,7 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('<h1>Documents in this edition</h1>', (read / 'documents.html').read_text())
             self.assertIn('<h1 aria-current="page">Documents</h1>', (read / 'documents.html').read_text())
             supporting = (read / 'supporting/note.html').read_text()
-            self.assertIn('Note</cite>. In <cite>Work</cite>', supporting)
+            self.assertIn('Note &lt;untrusted&gt; &amp; evidence</cite>. In <cite>Work</cite>', supporting)
             self.assertIn('content/supporting/note.md</code>', supporting)
             self.assertIn('href="note.citation.json"', supporting)
             manuscript = (read / 'index.html').read_text()
@@ -164,7 +164,8 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('guavajam-document-nav', manuscript)
             self.assertNotIn('guavajam-document-nav', supporting)
             self.assertNotIn('Cite this document', supporting)
-            self.assertIn('>Note</span>', supporting)
+            self.assertIn('>Note &lt;untrusted&gt; &amp; evidence</span>', supporting)
+            self.assertNotIn('<untrusted>', supporting)
 
 
     def test_history_rows_include_verified_message_and_metadata_for_filtering(self):
@@ -191,7 +192,7 @@ class ChromeTests(unittest.TestCase):
         fact = {'title': 'Shoreline research', 'author': 'Mara Levin',
                 'abstract': 'Observations of the coast.'}
         documents = {'content/manuscript.md': {'title': 'Shoreline research', 'view': 'index.html', 'anchors': []},
-                     'content/supporting/note.md': {'title': 'Note', 'view': 'supporting/note.html', 'anchors': []}}
+                     'content/supporting/note.md': {'title': 'Note <untrusted> & evidence', 'view': 'supporting/note.html', 'anchors': []}}
 
         def render_stub(_repo, revision, target, **_kwargs):
             target.mkdir()

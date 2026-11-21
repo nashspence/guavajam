@@ -47,7 +47,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             current = ('Documents' if relative == 'documents.html' else
                        view['documents'][destinations[relative]]['title'])
             parts.append('<li>' + ('<h1 aria-current="page">' if relative == 'documents.html'
-                                   else '<span aria-current="page">') + current +
+                                   else '<span aria-current="page">') + escape(current) +
                          ('</h1>' if relative == 'documents.html' else '</span>') + '</li>')
         navigation = ('<nav class="guavajam-navigation" aria-label="Breadcrumb" tabindex="0"><ol>' +
                       ''.join(parts) + '</ol></nav>\n')

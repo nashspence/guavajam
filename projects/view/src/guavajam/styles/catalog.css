@@ -241,11 +241,11 @@ button.guavajam-facet:focus-visible { outline: 3px solid var(--guavajam-focus); 
 .guavajam-passage-excerpt mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
 /* Native, document-level contents, never an extra reader-side outline. */
 .guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
-.guavajam-contents-list > li { border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0; }
-.guavajam-contents-list > li:last-child { border: 0; }
+.guavajam-contents-list > ol > li { border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0; }
+.guavajam-contents-list > ol > li:last-child { border: 0; }
 .guavajam-contents-list ol { margin-inline-start: 1.25rem; }
 .guavajam-contents-list li li { padding: .35rem 0; }
 .guavajam-contents-list a { display: inline-block; overflow-wrap: anywhere; }
 @media print {
-  .guavajam-locators .guavajam-locator-detail { grid-template-columns: 9rem 1fr; }
+  .guavajam-locator-detail { grid-template-columns: 9rem 1fr; }
 }

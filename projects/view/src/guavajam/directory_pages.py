@@ -54,7 +54,7 @@ def search_listing_close(*, interactive):
     return body + '</section>'
 
 
-def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
+def _sqlite_controls(*, kind, edition, root, runtime, download):
     """Use the collection's explicit, opt-in SQLite search disclosure.
 
     JS only reveals the controls. It must not fetch the worker/WASM/database
@@ -96,7 +96,6 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
              '</select></div>' if citations else '') + '</div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
-
             '</form></section><script src="' + escape(root + runtime + 'search.js', quote=True) +
             '" defer></script>')
 
@@ -196,14 +195,8 @@ def _write_contents(output, entries, *, collection):
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
         manuscript = navigation['canonical']['manuscript']
         doc = navigation['documents'][manuscript]
-        sections = [record for record in doc['anchors']
-                    if record['kind'] == 'section' and record['scope'] == 'document'
-                    and record['level'] > 1]
-        by_id = {record['anchor']: {'record': record, 'children': []} for record in sections}
-        roots = []
-        for record in sections:
-            parent = by_id.get(record['parent'])
-            (parent['children'] if parent is not None else roots).append(by_id[record['anchor']])
+        from .navigation import section_outline
+        roots = section_outline(doc['anchors'])
 
         def contents(nodes):
             return '<ol>' + ''.join(

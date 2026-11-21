@@ -153,6 +153,21 @@ def extract(ast, positions=None):
     return {'text': ' '.join(text for _, _, text in chunks if text), 'anchors': records}
 
 
+def section_outline(records):
+    """Share the verified author outline between standalone and site contents."""
+    sections = [record for record in records
+                if record['kind'] == 'section' and record['level'] > 1 and record['scope'] == 'document']
+    roots, stack = [], []
+    for record in sections:
+        node = {'record': record, 'children': []}
+        while stack and stack[-1]['record']['level'] >= record['level']:
+            stack.pop()
+        (stack[-1]['children'] if stack else roots).append(node)
+        stack.append(node)
+
+    return roots
+
+
 def contents_blocks(records, used):
     """A nested native TOC from the same document outline used for indexing."""
     sections = [record for record in records
@@ -169,13 +184,7 @@ def contents_blocks(records, used):
         used.add(name)
         return name
 
-    roots, stack = [], []
-    for record in sections:
-        node = {'record': record, 'children': []}
-        while stack and stack[-1]['record']['level'] >= record['level']:
-            stack.pop()
-        (stack[-1]['children'] if stack else roots).append(node)
-        stack.append(node)
+    roots = section_outline(records)
 
     def items(nodes):
         result = []

@@ -82,7 +82,7 @@ class CitationPageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             citation_page(-1)
         with self.assertRaises(ValueError):
-            citation_page(-1)
+            citation_page(True)
 
     def test_all_documents_share_one_bounded_index_with_unique_fragments(self):
         self.build()
