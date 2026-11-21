@@ -193,7 +193,8 @@ try {
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       await query('Observation 01', 1, 'editions');
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Edition 1');
+      // Publisher creates the initial signed edition before Observation 01.
+      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Edition 2');
       assert((await page.locator('#guavajam-search-results .guavajam-message').textContent()).includes('Observation 01'));
       await query('', fixture.editions - 1, 'editions');
       await page.locator('select[name=sort]').selectOption('publication');
