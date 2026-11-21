@@ -86,7 +86,8 @@ try {
       await page.getByRole('link', {name: 'Passages', exact: true}).click();
       assert(page.url().endsWith('/read/cite.html'), 'Passages opens a human citation page');
       assert((await page.locator('main').textContent()).includes(revision));
-      assert.equal(await page.getByRole('heading', {name: 'Passages', exact: true}).count(), 1);
+      assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Passages');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Passages');
       assert.equal(await page.getByRole('link', {name: 'Return to reading', exact: true}).count(), 0);
       assert.equal(await page.getByRole('link', {name: 'Download exact GFM source', exact: true}).count(), 0);
       const staticAnchors = [];
