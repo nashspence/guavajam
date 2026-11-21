@@ -71,7 +71,7 @@ class DirectoryPageTests(unittest.TestCase):
     def test_generation_bounds_every_page_and_links_to_every_record(self):
         build_directories(self.output, self.editions, collection=True,
                           search_assets='../../', database=self.database)
-        history = self.output / 'editions'
+        history = self.output
         history_pages = [history / 'index.html', history / 'page/2.html']
         old = []
         for number, location in enumerate(history_pages, 1):
@@ -85,15 +85,15 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertNotIn('data-lazy=', markup)
             self.assertIn('<summary>Filters and sort</summary>', markup)
             self.assertIn('name="edition" value="all"', markup)
-            self.assertIn('data-worker="../../../search-worker.js"' if number == 1
-                          else 'data-worker="../../../../search-worker.js"', markup)
+            self.assertIn('data-worker="../../search-worker.js"' if number == 1
+                          else 'data-worker="../../../search-worker.js"', markup)
             # Simple labels, reading-first links, textual verification and messages.
             rows = re.findall(r'<li><article><h3[^>]*><a [^>]*>(v\d+)</a>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
             old.extend(rows)
             self.assertIn('id="guavajam-search-prev"', markup)
-            self.assertIn('href="' + self.editions[-1][0] + '/metadata.html#provenance"', history_pages[0].read_text())
+            self.assertIn('href="editions/' + self.editions[-1][0] + '/metadata.html#provenance"', history_pages[0].read_text())
             self.assertIn('guavajam-record-list { list-style: none', markup)
             self.assertIn('data-static-heading="Versions"', markup)
             self.assertIn(f'Showing static page {number} of 2.', markup)
@@ -141,11 +141,30 @@ class DirectoryPageTests(unittest.TestCase):
             relative = location.relative_to(latest).as_posix()
             self.assertEqual(hashlib.sha256(location.read_bytes()).hexdigest(), view['files'][relative])
 
+    def test_standalone_work_pages_resolve_search_and_readers_from_the_work_root(self):
+        build_directories(self.output, self.editions, collection=False,
+                          search_assets='', database=self.database)
+        for number, location in enumerate((self.output / 'index.html', self.output / 'page/2.html'), 1):
+            html = location.read_text()
+            prefix = '' if number == 1 else '../'
+            self.assertIn('data-root="' + prefix + '"', html)
+            self.assertIn('data-worker="' + prefix + 'search-worker.js"', html)
+            self.assertIn('src="' + prefix + 'search.js"', html)
+            self.assertRegex(html, 'data-database="' + re.escape(prefix) + r'work\.[a-f0-9]{64}\.sqlite\.gz"')
+            self.assertIn('<title>Shoreline work' + ('' if number == 1 else ' — page 2') + ' — GuavaJam</title>', html)
+            if number == 1:
+                self.assertIn('<h1 aria-current="page">Shoreline work</h1>', html)
+            else:
+                self.assertIn('href="../index.html">Shoreline work</a>', html)
+                self.assertIn('<h1 aria-current="page">Page 2</h1>', html)
+            self.assertTrue(any(link.startswith(prefix + 'editions/') and link.endswith('/read/index.html')
+                                for link in Markup(html).links))
+
     def test_static_only_mode_shows_native_paging_without_nonfunctional_controls(self):
         (self.output / 'search.js').unlink()
         build_directories(self.output, self.editions, collection=False,
                           search_assets='', database=None)
-        history = (self.output / 'editions/index.html').read_text()
+        history = (self.output / 'index.html').read_text()
         docs = (self.output / 'editions' / self.editions[-1][0] / 'read/documents.html').read_text()
         for html in (history, docs):
             self.assertNotIn('data-directory=', html)

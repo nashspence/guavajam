@@ -100,7 +100,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                 # One compact route menu, directly above the manuscript; no
                 # second edition cover, repeated abstract, or extra citation.
                 menu = ('<nav class="guavajam-actions guavajam-version-menu" '
-                        'aria-label="Version links">'
+                        'aria-label="Version links" tabindex="0">'
                         '<a href="contents.html">Contents</a>'
                         '<a href="documents.html">Documents</a>'
                         '<a href="passages.html">Passages</a>'

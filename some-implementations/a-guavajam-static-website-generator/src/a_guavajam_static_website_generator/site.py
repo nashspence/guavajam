@@ -17,9 +17,8 @@ from guavajam.publication_protocol import discover
 from guavajam.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
-from .citation import citation_control, edition_label, work_bibliography
+from .citation import citation_control, edition_label
 from .view_cache import cached_render
-from .presentation import abstract_html
 
 
 def detail_link(href, label):
@@ -104,13 +103,10 @@ def committer_identity(repo, revision):
 def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
            repository, search_assets):
     from .work_search import build_work_index, publication_navigation
-    from guavajam.bibliography import ordered_authors, author_text
     output.mkdir()
     latest_title = 'Unpublished work'
-    latest_facts = {}
     edition_rows = []
     in_collection = search_assets is not None and bool(repository)
-    work_crumbs = (('../../index.html', 'GuavaJam'),) if in_collection else ()
     for position, edition in enumerate(catalog['editions'], 1):
         sha = edition['revision']
         directory = output / 'editions' / sha
@@ -125,7 +121,6 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
             render(repo, sha, reader, fingerprints=fingerprints, allowed_signers=allowed_signers)
         view = json.loads((reader / 'VIEW.json').read_text('utf-8'))
         latest_title = view['facts']['title']
-        latest_facts = view['facts']
         metadata = committer_identity(repo, sha)
         (directory / 'COMMITTER.json').write_bytes(encoded(metadata))
         (directory / 'SOURCE.json').write_bytes(encoded(proof))
@@ -153,22 +148,6 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                        published=edition['published'], message=edition['message'],
                        committer=metadata, repository=repository)
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
-    if edition_rows:
-        latest = edition_rows[-1][0]
-        names = author_text(ordered_authors(latest_facts), identifiers=False)
-        abstract = latest_facts.get('abstract', '')
-        # The work is not a single publication commit; its citation has no SHA.
-        body = ('<nav class="guavajam-actions" aria-label="Work links">'
-                 '<a href="editions/' + latest + '/read/index.html">Latest</a>'
-                 '<a href="editions/index.html">History</a></nav>')
-        body += work_bibliography(latest_title, names)
-        body += abstract_html(abstract)
-    else:
-        latest = None
-        body = '<p>No signed editions have been published on the selected history.</p>'
-    (output / 'index.html').write_text(
-        page(latest_title, body, ancestors=work_crumbs),
-        encoding='utf-8')
     (output / 'CATALOG.json').write_bytes(encoded(catalog))
     database = build_work_index(output, catalog, repository=repository, search_assets=search_assets)
     from .directory_pages import build_directories

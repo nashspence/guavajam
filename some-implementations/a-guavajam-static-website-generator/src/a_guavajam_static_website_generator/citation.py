@@ -77,10 +77,3 @@ def manuscript_citation(revision, facts, *, preview=False):
     return citation_control(record, 'source.citation.json', heading=True, title=facts['title'],
                             authors=author_text(ordered_authors(facts), identifiers=False),
                             provisional=preview)
-
-
-def work_bibliography(title, authors):
-    """Bibliographic work identity without claiming any one Git revision."""
-    description = (escape(authors) + '. ' if authors else '') + '<cite>' + escape(title) + '</cite>.'
-    return ('<div class="guavajam-citation guavajam-work-citation" '
-            'role="group" aria-label="Work bibliography"><p>' + description + '</p></div>')
