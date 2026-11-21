@@ -72,15 +72,21 @@ try {
       const surfaces = [base + 'sources/work-02/browse/index.html',
         base + 'sources/work-02/editions/index.html',
         latest.replace('index.html', 'documents.html'), latest.replace('index.html', 'cite.html')];
-      const controls = async () => parityPage.evaluate(() => {
-        const properties = ['display', 'gridTemplateColumns', 'rowGap', 'columnGap',
-          'fontSize', 'fontFamily', 'lineHeight', 'padding', 'margin', 'width', 'boxSizing'];
-        return ['.guavajam-index-search', '.guavajam-search-intro', '#guavajam-search', '#guavajam-search input[name=q]',
-          '#guavajam-search > button[type=submit]', '.guavajam-search-filters'].map(selector => {
-          const style = getComputedStyle(document.querySelector(selector));
-          return Object.fromEntries(properties.map(property => [property, style[property]]));
+      const controls = async () => {
+        await parityPage.evaluate(async () => {
+          await document.fonts.ready;
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
-      });
+        return parityPage.evaluate(() => {
+          const properties = ['display', 'gridTemplateColumns', 'rowGap', 'columnGap',
+            'fontSize', 'fontFamily', 'lineHeight', 'padding', 'margin', 'width', 'boxSizing'];
+          return ['.guavajam-index-search', '.guavajam-search-intro', '#guavajam-search', '#guavajam-search input[name=q]',
+            '#guavajam-search > button[type=submit]', '.guavajam-search-filters'].map(selector => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return Object.fromEntries(properties.map(property => [property, style[property]]));
+          });
+        });
+      };
       for (const width of [320, 390, 500, 760]) {
         await parityPage.setViewportSize({width, height: 900});
         await parityPage.goto(base);
