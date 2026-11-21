@@ -17,7 +17,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tests/support'))
 from guavajam_test_support.discovery_fixture import Publisher
-from guavajam_core.local_assets import initialize
+from guavajam.local_assets import initialize
 
 
 def run(args,*,env=None):
@@ -151,7 +151,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 'tls':{'profiles':['local-assets'],'image':'nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a','entrypoint':['nginx'],'command':['-g','daemon off;'],'volumes':[str(config)+':/etc/nginx/nginx.conf:ro',str(cert)+':/tls:ro'],'networks':{'default':{'aliases':['assets.publisher.test','storage.publisher.test']}}}}}
             override_path=work/'override.json';override_path.write_text(json.dumps(override))
             project='guavajam-check-'+uuid.uuid4().hex[:12]
-            compose=['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override_path)]
+            compose=['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override_path)]
             def dc(*args):return run(compose+list(args),env=env)
             origin='http://127.0.0.1:'+env['GUAVAJAM_PORT']
             def catalog():

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
-from guavajam_core.asset_storage import S3, credentials
+from guavajam.asset_storage import S3, credentials
 
 
 def persistence(phase):

@@ -5,8 +5,8 @@ import hashlib
 import io
 import time
 
-from guavajam_core.asset_policy import AssetError
-from guavajam_core.object_store import StoredObject, immutable_version, same_version
+from guavajam.asset_policy import AssetError
+from guavajam.object_store import StoredObject, immutable_version, same_version
 
 RAW = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><circle cx="5" cy="5" r="4"/></svg>\n'
 KEY = 'sha256/' + hashlib.sha256(RAW).hexdigest() + '.svg'

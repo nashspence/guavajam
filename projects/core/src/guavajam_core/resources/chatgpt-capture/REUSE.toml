@@ -1,7 +1,0 @@
-version = 1
-
-[[annotations]]
-path = "**"
-precedence = "closest"
-SPDX-FileCopyrightText = "2026 Nash Spence"
-SPDX-License-Identifier = "Apache-2.0"
