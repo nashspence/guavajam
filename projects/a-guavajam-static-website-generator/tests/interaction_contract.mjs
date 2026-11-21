@@ -24,8 +24,8 @@ export async function keyboardControls(page) {
       const clipped = [];
       for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) {
         const css = getComputedStyle(p), bounds = p.getBoundingClientRect();
-        if (css.overflowX !== 'visible' && (box.left - ring < bounds.left - 1 || box.right + ring > bounds.right + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY]});
-        if (css.overflowY !== 'visible' && (box.top - ring < bounds.top - 1 || box.bottom + ring > bounds.bottom + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY]});
+        if (css.overflowX !== 'visible' && (box.left - ring < bounds.left - 1 || box.right + ring > bounds.right + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY], pannable:p.tabIndex>=0 && p.scrollWidth>p.clientWidth, axis:'x'});
+        if (css.overflowY !== 'visible' && (box.top - ring < bounds.top - 1 || box.bottom + ring > bounds.bottom + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY], axis:'y'});
       }
       return {index: n.getAttribute('data-keyboard-test'), label: n.getAttribute('aria-label') || n.textContent.slice(0, 60),
         visible: n.matches(':focus-visible'), width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset),
@@ -33,8 +33,11 @@ export async function keyboardControls(page) {
     });
     assert(state.index !== null && !seen.has(state.index), `Tab failed to reach each control: ${JSON.stringify(state)}`);
     assert(state.visible && state.width >= 2 && state.offset >= 3, `Focus needs breathing room: ${JSON.stringify(state)}`);
-    // An unbroken title wider than the entire viewport is deliberately pannable.
-    if (state.boxWidth + 12 < state.viewport) assert.deepEqual(state.clipped, [], `Clipped focus ring: ${JSON.stringify(state)}`);
+    // An unbroken title may exceed its scroll viewport. Its explicit tab stop
+    // remains keyboard-pannable; every control that fits must show its full ring.
+    const clipped = state.clipped.filter(c => !(c.axis === 'x' && c.pannable &&
+      state.boxWidth + 12 > c.bounds[2] - c.bounds[0]));
+    assert.deepEqual(clipped, [], `Clipped focus ring: ${JSON.stringify(state)}`);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Keyboard focus must keep the page horizontally contained');
     seen.add(state.index);
   }
