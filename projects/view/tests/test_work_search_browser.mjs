@@ -84,12 +84,20 @@ try {
       await page.goto(base + fixture.work);
       assert.equal(await page.locator('script').count(), 0, 'work homepage remains script-free');
       const workActions = await page.locator('nav[aria-label="Work links"] a').allTextContents();
-      assert.deepEqual(workActions, ['Read', 'Versions']);
+      assert.deepEqual(workActions, ['Latest', 'History']);
       assert.equal(await page.locator('main .guavajam-record-link').count(), 0);
       await page.goto(browse);
       assert.equal(await page.locator('#guavajam-static-section a').count(), 0);
       assert.equal(await page.locator('#guavajam-search-listing').isVisible(), false);
       assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Search');
+      // Search has the same fixed-column mobile bounds as every other index.
+      // Only an explicitly scrollable breadcrumb or title may overflow.
+      for (const width of [320, 390, 760]) {
+        await page.setViewportSize({width, height: 900});
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false,
+          `${name}: ${width}px search page overflow before SQLite activation`);
+      }
+      await page.setViewportSize({width: 390, height: 900});
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'a small work must not download the runtime before search is enabled');
       await page.locator('#guavajam-search-enable').focus();
@@ -432,7 +440,7 @@ try {
       assert.equal(await plain.getByRole('link', {name: 'Versions', exact: true}).count(), 0);
       // Static directories remain reachable from the work, not duplicated on Search.
       await plain.goto(base + fixture.work);
-      await plain.getByRole('link', {name: 'Versions', exact: true}).click();
+      await plain.getByRole('link', {name: 'History', exact: true}).click();
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);

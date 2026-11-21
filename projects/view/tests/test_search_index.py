@@ -162,11 +162,35 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('data-facet="keyword" data-value="Coastal &amp; studies"', html)
         self.assertIn('data-facet="subject" data-value="' + subject_key(subject) + '"', html)
         self.assertIn('Landscape &amp; sea', html)
-        self.assertIn('Field &lt;authority&gt;', html)
+        self.assertNotIn('Field &lt;authority&gt;', html)
         self.assertIn('class="guavajam-facets guavajam-scrollline"', html)
         self.assertNotIn('Committed by', html)
         self.assertNotIn('class="guavajam-facet" type="button"', html)
         self.assertIn('class="guavajam-byline guavajam-scrollline"', html)
+
+    def test_subject_names_are_short_until_two_distinct_authorities_collide(self):
+        # Two works with an identical structured subject do not make it
+        # ambiguous; a third work with the same title but a different scheme does.
+        shared = {'subject': 'Landscape & sea', 'subject_scheme': 'Field authority'}
+        other = {'subject': 'Birds', 'subject_scheme': 'Ornithological index'}
+        source_a = self.source('alpha', 'Ocean work', 'Evidence', subjects=[shared])
+        source_b = self.source('beta', 'Sky work', 'Observations', subjects=[shared, other])
+        database = create_index(self.site, [source_a, source_b])
+        plain = homepage(self.site, interactive=True)
+        self.assertIn('Landscape &amp; sea</span>', plain)
+        self.assertIn('Birds</span>', plain)
+        self.assertNotIn('Field authority</span>', plain)
+        self.assertNotIn('Ornithological index</span>', plain)
+        database.unlink()
+
+        ambiguous = {'subject': 'Landscape & sea', 'subject_scheme': 'Marine taxonomy'}
+        third = self.source('gamma', 'Third work', 'Insights', subjects=[ambiguous])
+        create_index(self.site, [source_a, source_b, third])
+        html = homepage(self.site, interactive=True)
+        self.assertIn('Landscape &amp; sea · Field authority', html)
+        self.assertIn('Landscape &amp; sea · Marine taxonomy', html)
+        self.assertIn('Birds</span>', html)
+        self.assertNotIn('Birds · Ornithological index', html)
 
     def test_failed_or_redirected_inputs_leave_no_partial_database(self):
         entry = self.source('alpha', 'Field Notes', 'Safe words')

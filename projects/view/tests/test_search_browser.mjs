@@ -132,6 +132,8 @@ try {
       await query('', fixture.works);
       await page.locator('.guavajam-search-filters summary').click();
       const options = await page.locator('select[name=subject] option').evaluateAll(nodes => nodes.slice(1).map(n => ({key: n.value, label: n.textContent})));
+      assert(options.filter(item => item.label.includes('Java · ')).length >= 2,
+        'same-name subjects keep their distinct authority metadata');
       assert.equal(options.length, 2);
       assert.equal(new Set(options.map(o => o.key)).size, 2);
       assert(options.every(o => o.label.includes('Java')));

@@ -115,6 +115,9 @@ class ChromeTests(unittest.TestCase):
                                 '<main id="guavajam-main"><article class="guavajam-edition">'
                                 '<div class="guavajam-source-identity">Old source label</div>' +
                                 ('' if path.name == 'index.html' else '<h1>' + title + '</h1>') +
+                                ('<div class="guavajam-abstract" role="group" aria-label="Abstract">'
+                                 '<p><strong>Abstract</strong></p><p>Authored methods.</p></div>'
+                                 if path.name == 'index.html' else '') +
                                 ('<ul class="guavajam-document-list"><li><a href="index.html">Work</a></li></ul>'
                                  if path.name == 'documents.html' else
                                  reader_navigation('content/manuscript.md' if path.name == 'index.html'
@@ -149,6 +152,11 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('aria-label="Version links"', manuscript)
             self.assertIn('href="../verify.html">Verify</a>', manuscript)
             self.assertIn('href="cite.html">Passages</a>', manuscript)
+            self.assertIn('href="../locators.html">Locators</a>', manuscript)
+            self.assertLess(manuscript.index('Authored methods.'),
+                            manuscript.index('aria-label="Version links"'))
+            self.assertLess(manuscript.index('>Search</a>'),
+                            manuscript.index('>Download</a>'))
             self.assertNotIn('Cite this document', manuscript)
             self.assertNotIn('guavajam-document-nav', manuscript)
             self.assertNotIn('guavajam-document-nav', supporting)
@@ -218,12 +226,15 @@ class ChromeTests(unittest.TestCase):
             verify = (output / 'editions' / sha2 / 'verify.html').read_text()
             history = (output / 'editions/index.html').read_text()
             directory = (output / 'editions' / sha2 / 'read/documents.html').read_text()
-            self.assertIn('href="editions/index.html">Versions</a>', work)
+            self.assertIn('href="editions/index.html">History</a>', work)
             self.assertNotIn('Latest edition', work)
             self.assertNotIn('class="guavajam-latest-edition"', work)
             self.assertNotIn('>v1</a>', work)
             self.assertNotIn('href="https://github.com/example/work.git">Source</a>', work)
-            self.assertLess(work.index('aria-label="Work links"'), work.index('<h2>Abstract</h2>'))
+            self.assertLess(work.index('Observations of the coast.'), work.index('aria-label="Work links"'))
+            self.assertNotIn('Git commit', work.split('<main', 1)[-1].split('</main>')[0])
+            self.assertNotIn('href="editions/' + sha2 + '/CITATION.json"', work)
+            self.assertIn('Mara Levin. <cite>Shoreline research</cite>.', work)
             self.assertIn('Observations of the coast.', work)
             self.assertNotIn('Publication provenance', work)
             self.assertNotIn('>Documents</a>', work)
@@ -250,6 +261,9 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('href="../verify.html">Verify</a>', manuscript)
             self.assertIn('href="cite.html">Passages</a>', manuscript)
             self.assertIn('href="documents.html">Documents</a>', manuscript)
+            self.assertIn('href="../locators.html">Locators</a>', manuscript)
+            self.assertTrue((output / 'editions' / sha2 / 'locators.html').exists())
+            self.assertLess(manuscript.index('>Search</a>'), manuscript.index('>Download</a>'))
             self.assertIn('href="../license.html">License</a>', manuscript)
             license_html = (output / 'editions' / sha2 / 'license.html').read_text()
             self.assertIn('No rights statement was declared', license_html)

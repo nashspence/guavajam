@@ -31,7 +31,7 @@ const base = `http://127.0.0.1:${server.address().port}/collection/`;
 const revision = fixture.revisions[1];
 const edition = `editions/${revision}/`;
 const first = `editions/${fixture.revisions[0]}/`;
-const pages = ['index.html', 'editions/index.html', edition + 'verify.html', edition + 'read/index.html',
+const pages = ['index.html', 'editions/index.html', edition + 'locators.html', edition + 'verify.html', edition + 'read/index.html',
   edition + 'read/documents.html', edition + 'read/supporting/note.html',
   edition + 'read/cite.html', edition + 'read/cite/page/3.html',
   edition + 'read/supporting/note.cite.html', edition + 'read/supporting/note.cite/page/3.html',
@@ -52,15 +52,20 @@ try {
       const page = await context.newPage();
       page.setDefaultTimeout(15000);
       await page.goto(base);
+      const bibliographic = await page.locator('main .guavajam-work-citation').textContent();
+      assert(bibliographic.includes('Example Author'));
+      assert(bibliographic.includes('Field Notes'));
+      assert(!bibliographic.includes(revision) && !bibliographic.includes('Git commit'));
+      assert.deepEqual(await page.locator('nav[aria-label="Work links"] a').allTextContents(), ['Latest', 'History']);
       await page.keyboard.press('Tab');
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
       assert.equal(await page.locator(':focus').evaluate(n => n.tagName), 'MAIN');
-      await page.getByRole('link', {name: 'Versions', exact: true}).click();
+      await page.getByRole('link', {name: 'History', exact: true}).click();
       assert(page.url().endsWith('/editions/index.html'));
       assert.equal(await page.getByRole('link', {name: 'v1', exact: true}).count(), 1);
       await page.goto(base);
-      await page.getByRole('link', {name: 'Versions', exact: true}).click();
+      await page.getByRole('link', {name: 'History', exact: true}).click();
       await page.getByRole('link', {name: 'Verify', exact: true}).first().click();
       assert(page.url().endsWith('/verify.html'));
       assert.equal(await page.locator('main .guavajam-verification').count(), 1);
@@ -69,6 +74,13 @@ try {
       await page.getByRole('link', {name: 'v2', exact: true}).click();
       assert(page.url().endsWith('/read/index.html'));
       assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
+      assert.deepEqual(await page.locator('.guavajam-version-menu a').allTextContents(),
+        ['Search', 'Documents', 'Passages', 'Locators', 'Verify', 'License', 'Download']);
+      await page.getByRole('link', {name: 'Locators', exact: true}).click();
+      assert(page.url().endsWith('/locators.html'));
+      assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Locators');
+      assert.equal(await page.locator('script').count(), 0);
+      await page.getByRole('link', {name: 'v2', exact: true}).click();
       assert.equal(await page.getByRole('link', {name: 'Cite this document', exact: true}).count(), 0);
       assert.equal(await page.getByRole('link', {name: 'All documents in this edition', exact: true}).count(), 0);
       await page.getByRole('link', {name: 'License', exact: true}).click();

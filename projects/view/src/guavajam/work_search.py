@@ -93,15 +93,23 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             if relative == 'index.html':
                 # One compact route menu, directly above the manuscript; no
                 # second edition cover, repeated abstract, or extra citation.
-                citation_html += ('<nav class="guavajam-actions guavajam-version-menu" '
-                                  'aria-label="Version links">'
-                                  '<a href="cite.html">Passages</a>'
-                                  '<a href="source.gfm" download>Download</a>'
-                                  '<a href="documents.html">Documents</a>'
-                                  '<a href="../../../browse/index.html?edition=' +
-                                  escape(revision, quote=True) + '">Search</a>'
-                                  '<a href="../verify.html">Verify</a>'
-                                  '<a href="../license.html">License</a></nav>')
+                menu = ('<nav class="guavajam-actions guavajam-version-menu" '
+                        'aria-label="Version links">'
+                        '<a href="../../../browse/index.html?edition=' +
+                        escape(revision, quote=True) + '">Search</a>'
+                        '<a href="documents.html">Documents</a>'
+                        '<a href="cite.html">Passages</a>'
+                        '<a href="../locators.html">Locators</a>'
+                        '<a href="../verify.html">Verify</a>'
+                        '<a href="../license.html">License</a>'
+                        '<a href="source.gfm" download>Download</a></nav>')
+                # The first rendered source block is the abstract when one is
+                # present. Show navigation after it instead of above the text.
+                match = re.search(r'<div class="guavajam-abstract"[^>]*>.*?</div>', text, re.S)
+                if match:
+                    text = text[:match.end()] + menu + text[match.end():]
+                else:
+                    citation_html += menu
             else:
                 citation_html += ('<p class="guavajam-actions"><a href="' +
                                   escape(relative_href(relative, citation_page(relative)), quote=True) +

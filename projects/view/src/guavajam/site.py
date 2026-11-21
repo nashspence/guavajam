@@ -17,7 +17,7 @@ from guavajam_core.publication_protocol import discover
 from guavajam_core.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
-from .citation import citation_control, edition_label
+from .citation import citation_control, edition_label, work_bibliography
 from .view_cache import cached_render
 
 
@@ -174,26 +174,26 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         (directory / 'license.html').write_text(
             page(latest_title + ' — ' + ed_label + ' — License', license_body,
                  ancestors=edition_crumbs, breadcrumb_current='License'), encoding='utf-8')
+        from .locators import write_locators
+        write_locators(directory, facts=view['facts'], title=latest_title, ancestors=edition_crumbs)
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
     if edition_rows:
         latest = edition_rows[-1][0]
         names = author_text(ordered_authors(latest_facts), identifiers=False)
         abstract = latest_facts.get('abstract', '')
-        latest_citation = json.loads((output / 'editions' / latest / 'CITATION.json').read_text('utf-8'))
-        body = ('<nav class="guavajam-actions" aria-label="Work links"><a href="editions/' + latest +
-                '/read/index.html">Read</a><a href="editions/index.html">Versions</a></nav>')
+        # The work is not a single publication commit; its citation has no SHA.
+        body = work_bibliography(latest_title, names)
         if abstract:
-            body += '<section class="guavajam-work-summary"><h2>Abstract</h2>' + '<p class="guavajam-abstract">' + escape(abstract) + '</p></section>'
+            body += ('<div class="guavajam-abstract" role="group" aria-label="Abstract">'
+                     '<p><strong>Abstract</strong></p><p>' + escape(abstract) + '</p></div>')
+        body += ('<nav class="guavajam-actions" aria-label="Work links">'
+                 '<a href="editions/' + latest + '/read/index.html">Latest</a>'
+                 '<a href="editions/index.html">History</a></nav>')
     else:
-        latest_citation = None
         latest = None
         body = '<p>No signed editions have been published on the selected history.</p>'
     (output / 'index.html').write_text(
-        page(latest_title, body, ancestors=work_crumbs, citation_record=latest_citation,
-             citation_href=('editions/' + latest + '/CITATION.json') if latest else None,
-             citation_title=latest_title, citation_authors=names if latest else '',
-             citation_published=edition_rows[-1][2] if latest else '',
-             citation_edition=len(edition_rows) if latest else None),
+        page(latest_title, body, ancestors=work_crumbs),
         encoding='utf-8')
     (output / 'CATALOG.json').write_bytes(encoded(catalog))
     database = build_work_index(output, catalog, repository=repository, search_assets=search_assets)
