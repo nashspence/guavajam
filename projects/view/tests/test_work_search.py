@@ -334,8 +334,12 @@ class WorkSearchTests(unittest.TestCase):
             self.assertIn('src="../../../search.js"', browse)
             self.assertRegex(browse, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
             self.assertTrue((work / 'work.sqlite').is_file())
-            self.assertIn('../editions/index.html', Links(browse).links)
-            self.assertIn('../editions/' + self.latest + '/read/documents.html', Links(browse).links)
+            # Search is optional; ordinary directory links live on work and
+            # version pages, not in a redundant search-page menu.
+            self.assertNotIn('../editions/index.html', Links(browse).links)
+            self.assertNotIn('../editions/' + self.latest + '/read/documents.html', Links(browse).links)
+            self.assertIn('data-static-heading="Results"', browse)
+            self.assertIn('aria-label="Breadcrumb"', browse)
 
     def test_standalone_updater_rebuilds_when_external_runtime_changes(self):
         runtime = self.root / 'runtime'

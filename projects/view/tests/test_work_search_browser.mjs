@@ -398,7 +398,8 @@ try {
         await page.screenshot({path: path.join(output, `${name}-work-search-${width}.png`), fullPage: true});
       }
       await page.goto(base + fixture.unpublished + 'browse/index.html');
-      assert((await page.locator('#guavajam-static-section').textContent()).includes('No signed editions'));
+      assert.equal(await page.locator('#guavajam-static-section a').count(), 0);
+      assert.equal(await page.locator('#guavajam-search-listing').isVisible(), false);
       await enable(0, 'documents');
       await page.locator('.guavajam-search-filters summary').click();
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 1');
@@ -413,7 +414,10 @@ try {
       const plain = await disabled.newPage();
       await plain.goto(browse);
       assert.equal(await plain.locator('#guavajam-static-section').isVisible(), true);
-      assert((await plain.locator('#guavajam-static-section').textContent()).includes('Versions'));
+      assert((await plain.locator('#guavajam-static-section').textContent()).includes('Searching requires JavaScript.'));
+      assert.equal(await plain.getByRole('link', {name: 'Versions', exact: true}).count(), 0);
+      // Static directories remain reachable from the work, not duplicated on Search.
+      await plain.goto(base + fixture.work);
       await plain.getByRole('link', {name: 'Versions', exact: true}).click();
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
