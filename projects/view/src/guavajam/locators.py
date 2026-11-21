@@ -19,7 +19,7 @@ SUBJECT_FIELDS = (
 
 def render_subject(record):
     """Preserve the full structured subject without inferring equivalences."""
-    result = '<li><article><h3>' + escape(record['subject']) + '</h3>'
+    result = '<li><article><h3 tabindex="0">' + escape(record['subject']) + '</h3>'
     metadata = ''.join('<dt>' + label + '</dt><dd>' + escape(record[name]) + '</dd>'
                        for name, label in SUBJECT_FIELDS if record.get(name))
     if metadata:
@@ -47,7 +47,7 @@ def write_locators(directory, *, facts, title, ancestors):
                          '<ol class="guavajam-editions guavajam-locator-list">')
                 for entry in group:
                     body += (render_subject(entry) if kind == 'subject' else
-                             '<li><article><h3>' + escape(entry) + '</h3></article></li>')
+                             '<li><article><h3 tabindex="0">' + escape(entry) + '</h3></article></li>')
                 body += '</ol></section>'
         if not entries:
             body += '<p>No subjects or tags were declared for this version.</p>'

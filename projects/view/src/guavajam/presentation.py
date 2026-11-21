@@ -1,5 +1,6 @@
 """Semantic HTML presentation of source headings, contents, overflow and code."""
 from __future__ import annotations
+from html import escape
 from html.parser import HTMLParser
 import re
 from guavajam_core.asset_policy import AssetError
@@ -18,6 +19,14 @@ FORMAL_KINDS = frozenset({
 
 
 
+
+
+def abstract_html(text):
+    """One literal metadata abstract for work, signed reader and draft views."""
+    if not text:
+        return ''
+    return ('<div class="guavajam-abstract" role="group" aria-label="Abstract">'
+            '<p><strong>Abstract</strong></p><p>' + escape(text) + '</p></div>')
 
 
 def prepare_presentation_ast(ast: dict, navigation=None) -> dict:

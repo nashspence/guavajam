@@ -53,8 +53,10 @@ def prepare(directory):
                  keyword='Café studies' if number == 1 else 'Field observations', subject=subject)
         revision = publisher.publish(f'Publish work {number:02d}', date=f'2026-11-{number:02d}T12:00:00Z')
         relative = 'sources/' + name
-        build_site(publisher.repo, site / relative, **publisher.trust)
-        entries.append({'repository': f'https://example.org/{name}.git', 'path': relative, 'tip': revision})
+        entry = {'repository': f'https://example.org/{name}.git', 'path': relative, 'tip': revision}
+        build_site(publisher.repo, site / relative, repository=entry['repository'],
+                   search_assets='../../', **publisher.trust)
+        entries.append(entry)
     create_index(site, entries)
     runtime = REPO_ROOT / 'node_modules/@sqlite.org/sqlite-wasm/dist'
     if 'GUAVAJAM_SQLITE_WASM_DIR' not in os.environ and runtime.is_dir():

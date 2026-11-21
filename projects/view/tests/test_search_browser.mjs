@@ -57,6 +57,42 @@ try {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
         }
       };
+      // The Works index is the layout reference for every lazy search form.
+      // Compare actual computed controls at mobile and intermediate widths;
+      // checking only root overflow would miss different breakpoints or gaps.
+      const parityContext = await browser.newContext();
+      const parityPage = await parityContext.newPage();
+      const parityDownloads = [];
+      parityContext.on('request', request => {
+        if (/(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(request.url()))
+          parityDownloads.push(request.url());
+      });
+      await parityPage.goto(base + 'sources/work-02/index.html');
+      const latest = new URL(await parityPage.getByRole('link', {name: 'Latest', exact: true}).getAttribute('href'), parityPage.url()).href;
+      const surfaces = [base + 'sources/work-02/browse/index.html',
+        base + 'sources/work-02/editions/index.html',
+        latest.replace('index.html', 'documents.html'), latest.replace('index.html', 'cite.html')];
+      const controls = async () => parityPage.evaluate(() => {
+        const properties = ['display', 'gridTemplateColumns', 'rowGap', 'columnGap',
+          'fontSize', 'fontFamily', 'lineHeight', 'padding', 'margin', 'width', 'boxSizing'];
+        return ['.guavajam-index-search', '#guavajam-search', '#guavajam-search input[name=q]',
+          '#guavajam-search > button[type=submit]', '.guavajam-search-filters'].map(selector => {
+          const style = getComputedStyle(document.querySelector(selector));
+          return Object.fromEntries(properties.map(property => [property, style[property]]));
+        });
+      });
+      for (const width of [320, 390, 500, 760]) {
+        await parityPage.setViewportSize({width, height: 900});
+        await parityPage.goto(base);
+        const reference = await controls();
+        for (const url of surfaces) {
+          await parityPage.goto(url);
+          assert.deepEqual(await controls(), reference, `${name}: ${width}px control parity at ${url}`);
+          assert.equal(await parityPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+        }
+      }
+      assert.deepEqual(parityDownloads, [], 'layout parity must not activate SQLite');
+      await parityContext.close();
       const query = async (term, total) => {
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();

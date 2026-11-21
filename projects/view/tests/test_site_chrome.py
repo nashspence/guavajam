@@ -61,7 +61,7 @@ class ChromeTests(unittest.TestCase):
         styles = (Path(__file__).resolve().parents[1] / 'src/guavajam/styles/catalog.css').read_text()
         for component in ('.guavajam-scrollline', '.guavajam-actions', '.guavajam-pagination',
                           '.guavajam-works h3', '.guavajam-editions h3',
-                          '.guavajam-document-list > li > a'):
+                          '.guavajam-document-list h3'):
             self.assertIn(component, styles)
         self.assertIn('scrollbar-width: none', styles)
         self.assertIn('flex-wrap: nowrap', styles)
@@ -231,7 +231,7 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('class="guavajam-latest-edition"', work)
             self.assertNotIn('>v1</a>', work)
             self.assertNotIn('href="https://github.com/example/work.git">Source</a>', work)
-            self.assertLess(work.index('Observations of the coast.'), work.index('aria-label="Work links"'))
+            self.assertLess(work.index('aria-label="Work links"'), work.index('Observations of the coast.'))
             self.assertNotIn('Git commit', work.split('<main', 1)[-1].split('</main>')[0])
             self.assertNotIn('href="editions/' + sha2 + '/CITATION.json"', work)
             self.assertIn('Mara Levin. <cite>Shoreline research</cite>.', work)

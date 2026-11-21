@@ -206,6 +206,11 @@ try {
 
       // Directory pages are genuinely pre-paged HTML. Their interactive controls
       // use the SAME work SQLite worker rather than filtering the static DOM.
+      const rowTypography = async locator => locator.evaluate(node => {
+        const style = getComputedStyle(node);
+        return Object.fromEntries(['fontSize', 'fontWeight', 'lineHeight', 'marginTop',
+          'marginBottom', 'whiteSpace', 'overflowX'].map(property => [property, style[property]]));
+      });
       const historyURL = base + fixture.work + 'editions/index.html';
       const documentsURL = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       const downloadsBeforeDirectory = loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
@@ -213,6 +218,7 @@ try {
       assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Versions');
+      const historyTypography = await rowTypography(page.locator('#guavajam-static-section .guavajam-editions > li > article > h3').first());
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-directory-enhancement').isVisible(), true);
       assert.equal(await page.getByRole('button', {name: 'Enable search'}).count(), 1);
@@ -234,6 +240,7 @@ try {
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v1');
+      assert.deepEqual(await rowTypography(page.locator('#guavajam-search-results h3').first()), historyTypography);
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       // A unique message token cannot collide with publisher date/time claims.
@@ -258,6 +265,7 @@ try {
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Documents');
+      const documentTypography = await rowTypography(page.locator('#guavajam-static-section .guavajam-document-list > li > article > h3').first());
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/read/documents/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
@@ -265,6 +273,7 @@ try {
       await waitTotal(fixture.documents, 'documents');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       await page.locator('.guavajam-search-filters summary').click();
+      assert.deepEqual(await rowTypography(page.locator('#guavajam-search-results h3').first()), documentTypography);
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);

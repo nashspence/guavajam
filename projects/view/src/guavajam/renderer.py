@@ -158,7 +158,7 @@ def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
 def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=True, source=None):
     from guavajam_core.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk,plain_text
     from guavajam_core.table_captions import normalize_table_captions
-    from .presentation import prepare_presentation_ast
+    from .presentation import abstract_html, prepare_presentation_ast
     from .navigation import extract
     if media:
         front,body,line,errors=validate_front_matter(Path(path),source)
@@ -182,7 +182,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
                 block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
         ast=prepare_presentation_ast(ast,navigation)
         if front.get('abstract'):
-            ast['blocks'].insert(0,{'t':'Div','c':[['',['guavajam-abstract'],[['role','group'],['aria-label','Abstract']]],[{'t':'Para','c':[{'t':'Strong','c':[{'t':'Str','c':'Abstract'}]}]},{'t':'Para','c':[{'t':'Str','c':front['abstract']}]}]]})
+            ast['blocks'].insert(0, {'t': 'RawBlock', 'c': ['html', abstract_html(front['abstract'])]})
     else:
         from guavajam_core.supporting_gfm import parse_gfm_record
         from .supporting import present

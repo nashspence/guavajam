@@ -19,6 +19,7 @@ from .citation_routes import source_download
 from .renderer import git_blob, render
 from .citation import citation_control, edition_label, work_bibliography
 from .view_cache import cached_render
+from .presentation import abstract_html
 
 
 def detail_link(href, label):
@@ -183,12 +184,10 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         abstract = latest_facts.get('abstract', '')
         # The work is not a single publication commit; its citation has no SHA.
         body = work_bibliography(latest_title, names)
-        if abstract:
-            body += ('<div class="guavajam-abstract" role="group" aria-label="Abstract">'
-                     '<p><strong>Abstract</strong></p><p>' + escape(abstract) + '</p></div>')
         body += ('<nav class="guavajam-actions" aria-label="Work links">'
                  '<a href="editions/' + latest + '/read/index.html">Latest</a>'
                  '<a href="editions/index.html">History</a></nav>')
+        body += abstract_html(abstract)
     else:
         latest = None
         body = '<p>No signed editions have been published on the selected history.</p>'
