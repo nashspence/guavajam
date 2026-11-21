@@ -87,7 +87,9 @@ try {
       assert.deepEqual(workActions, ['Read', 'Versions']);
       assert.equal(await page.locator('main .guavajam-record-link').count(), 0);
       await page.goto(browse);
-      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
+      assert.equal(await page.locator('#guavajam-static-section a').count(), 0);
+      assert.equal(await page.locator('#guavajam-search-listing').isVisible(), false);
+      assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Search');
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'a small work must not download the runtime before search is enabled');
       await page.locator('#guavajam-search-enable').focus();
@@ -511,7 +513,10 @@ try {
         }
         await fallback.locator('#guavajam-search-enable').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
-        assert.equal(await fallback.locator('#guavajam-static-section').isVisible(), true);
+        assert.equal(await fallback.locator('#guavajam-search-listing').isVisible(), true);
+        assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
+        assert.equal(await fallback.locator('#guavajam-static-section a').count(), 0);
+        assert.equal(await fallback.locator('#guavajam-search-enable').textContent(), 'Retry search');
         assert.equal(await fallback.locator('#guavajam-search-results').isVisible(), false);
         assert.deepEqual(unexpected, [], `${name}: failure must not make external requests`);
         if (broken === 'redirect') {
