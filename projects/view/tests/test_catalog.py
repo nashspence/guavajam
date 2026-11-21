@@ -22,6 +22,32 @@ class CatalogBuildTests(unittest.TestCase):
         return build_site(self.publisher.repo, output or self.output,
                           **self.publisher.trust, **options)
 
+    def test_work_reader_and_draft_share_literal_abstract(self):
+        import re
+        import yaml
+        from guavajam.renderer import render
+        from guavajam.presentation import abstract_html
+        path = self.publisher.repo / 'content/manuscript.md'
+        _, header, body = path.read_text().split('---\n', 2)
+        facts = yaml.safe_load(header)
+        facts['abstract'] = 'Literal <claim> & *emphasis*.'
+        path.write_text('---\n' + yaml.safe_dump(facts, allow_unicode=True, sort_keys=False) + '---\n' + body)
+        revision = self.publisher.publish('Review the abstract')
+        self.build()
+        draft = self.root / 'draft'
+        render(self.publisher.repo, revision, draft, preview=True)
+        pattern = r'<div class="guavajam-abstract"[^>]*>.*?</div>'
+        for page in [self.output / 'index.html',
+                     self.output / 'editions' / revision / 'read/index.html', draft / 'index.html']:
+            markup = page.read_text()
+            blocks = re.findall(pattern, markup, re.S)
+            self.assertEqual([abstract_html(facts['abstract'])], blocks)
+            self.assertNotIn('<claim>', markup)
+            if page != draft / 'index.html':
+                label = 'Work links' if page == self.output / 'index.html' else 'Version links'
+                self.assertLess(markup.index('aria-label="' + label + '"'), markup.index('<blockquote'))
+                self.assertLess(markup.index('<blockquote'), markup.index(blocks[0]))
+
     def test_latest_comes_from_history_and_message_is_plain_text(self):
         first = self.publisher.revisions[0]
         self.publisher.source('Revised Field Notes', 'A revised observation.')
@@ -34,13 +60,13 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertNotIn('Latest edition', landing)
         self.assertNotIn('href="editions/' + second + '/verify.html"', landing)
 
-        self.assertIn('href="editions/index.html">Versions</a>', landing)
+        self.assertIn('href="editions/index.html">History</a>', landing)
         self.assertNotIn('>v1</a>', landing)
         history = (self.output / 'editions/index.html').read_text()
         self.assertIn('>v1</a>', history)
         self.assertIn('>v2</a>', history)
         self.assertIn('href="' + first + '/read/index.html"', history)
-        self.assertIn('<blockquote class="guavajam-citation"', landing)
+        self.assertIn('<blockquote class="guavajam-citation guavajam-work-citation"', landing)
         self.assertNotIn('>Documents</a>', landing)
         self.assertIn('href="' + second + '/verify.html">Verify</a>', history)
         edition = (self.output / 'editions' / second / 'verify.html').read_text()

@@ -86,7 +86,7 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('data-worker="../../../search-worker.js"' if number == 1
                           else 'data-worker="../../../../search-worker.js"', markup)
             # Simple labels, reading-first links, textual verification and messages.
-            rows = re.findall(r'<li><h2><a [^>]*>(v\d+)</a>', markup)
+            rows = re.findall(r'<li><article><h3><a [^>]*>(v\d+)</a>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
             old.extend(rows)
@@ -111,7 +111,7 @@ class DirectoryPageTests(unittest.TestCase):
         totals = []
         for number, location in enumerate(doc_pages, 1):
             html = location.read_text()
-            documents = re.findall(r'<li><a href="[^"]+">', re.search(
+            documents = re.findall(r'<li><article><h3><a href="[^"]+">', re.search(
                 r'<ul class="guavajam-document-list">(.*?)</ul>', html, re.S).group(1))
             totals.append(len(documents))
             self.assertLessEqual(len(documents), PAGE_SIZE)

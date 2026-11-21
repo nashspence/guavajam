@@ -409,6 +409,19 @@ def emit_browser_assets(site):
     return bool(files)
 
 
+def _collection_subject_names(conn):
+    """Display the bare subject name unless multiple distinct latest subjects share it."""
+    rows = conn.execute('''
+        SELECT DISTINCT es.key, es.subject
+        FROM edition_subjects es JOIN editions e ON e.id=es.edition_id
+        JOIN works w ON w.id=e.work_id AND w.latest_revision=e.revision
+    ''').fetchall()
+    variants = {}
+    for key, name in rows:
+        variants.setdefault(name, set()).add(key)
+    return {key: (name if len(variants[name]) == 1 else None) for key, name in rows}
+
+
 def _facets(keywords, subjects):
     """Expose verified metadata; the existing SQLite options enable filtering."""
     if not keywords and not subjects:
@@ -450,6 +463,7 @@ def homepage(site, *, interactive):
             ORDER BY w.latest_published DESC,w.title COLLATE NOCASE,w.id
         ''')
         download = emit_download(site / 'index.sqlite') if interactive else None
+        subject_names = _collection_subject_names(conn)
         for number in range(1, pages + 1):
             base = '' if number == 1 else '../'
             records = cursor.fetchmany(PAGE_SIZE)
@@ -464,7 +478,7 @@ def homepage(site, *, interactive):
                 for work_id, key, label in conn.execute(
                         'SELECT work_id, key, label FROM subjects WHERE work_id IN (' + placeholders +
                         ') ORDER BY label COLLATE NOCASE, key', ids):
-                    subjects[work_id].append((key, label))
+                    subjects[work_id].append((key, subject_names.get(key) or label))
             entries = []
             for work_id, title, authors, abstract, day, revision, _committer_name, _committer_email, path, source in records:
                 work = base + path + '/'

@@ -84,12 +84,20 @@ try {
       await page.goto(base + fixture.work);
       assert.equal(await page.locator('script').count(), 0, 'work homepage remains script-free');
       const workActions = await page.locator('nav[aria-label="Work links"] a').allTextContents();
-      assert.deepEqual(workActions, ['Read', 'Versions']);
+      assert.deepEqual(workActions, ['Latest', 'History']);
       assert.equal(await page.locator('main .guavajam-record-link').count(), 0);
       await page.goto(browse);
       assert.equal(await page.locator('#guavajam-static-section a').count(), 0);
       assert.equal(await page.locator('#guavajam-search-listing').isVisible(), false);
       assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Search');
+      // Search has the same fixed-column mobile bounds as every other index.
+      // Only an explicitly scrollable breadcrumb or title may overflow.
+      for (const width of [320, 390, 760]) {
+        await page.setViewportSize({width, height: 900});
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false,
+          `${name}: ${width}px search page overflow before SQLite activation`);
+      }
+      await page.setViewportSize({width: 390, height: 900});
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false,
         'a small work must not download the runtime before search is enabled');
       await page.locator('#guavajam-search-enable').focus();
@@ -198,6 +206,11 @@ try {
 
       // Directory pages are genuinely pre-paged HTML. Their interactive controls
       // use the SAME work SQLite worker rather than filtering the static DOM.
+      const rowTypography = async locator => locator.evaluate(node => {
+        const style = getComputedStyle(node);
+        return Object.fromEntries(['fontSize', 'fontWeight', 'lineHeight', 'marginTop',
+          'marginBottom', 'whiteSpace', 'overflowX'].map(property => [property, style[property]]));
+      });
       const historyURL = base + fixture.work + 'editions/index.html';
       const documentsURL = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
       const downloadsBeforeDirectory = loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
@@ -205,6 +218,7 @@ try {
       assert.equal(await page.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Versions');
+      const historyTypography = await rowTypography(page.locator('#guavajam-static-section .guavajam-editions > li > article > h3').first());
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-directory-enhancement').isVisible(), true);
       assert.equal(await page.getByRole('button', {name: 'Enable search'}).count(), 1);
@@ -226,6 +240,7 @@ try {
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'v1');
+      assert.deepEqual(await rowTypography(page.locator('#guavajam-search-results h3').first()), historyTypography);
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Observation 01'));
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       // A unique message token cannot collide with publisher date/time claims.
@@ -245,11 +260,12 @@ try {
       await page.goto(documentsURL + '?kind=passages&edition=all&document=content/manuscript.md');
       assert.equal(await page.locator('input[name=kind]').inputValue(), 'documents');
       assert.equal(await page.locator('input[name=edition]').inputValue(), fixture.latest);
-      await query('Appendix 23', 1, 'documents');
+      await query('Abyssalappendixselector', 1, 'documents');
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Documents');
+      const documentTypography = await rowTypography(page.locator('#guavajam-static-section .guavajam-document-list > li > article > h3').first());
       await page.locator('.guavajam-static-pages a[rel=next]').click();
       assert(page.url().endsWith('/read/documents/page/2.html'));
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
@@ -257,6 +273,7 @@ try {
       await waitTotal(fixture.documents, 'documents');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       await page.locator('.guavajam-search-filters summary').click();
+      assert.deepEqual(await rowTypography(page.locator('#guavajam-search-results h3').first()), documentTypography);
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -275,7 +292,7 @@ try {
       assert.equal(printedDocuments.overflow, false, `${name}: printed document titles leave the page`);
       assert(printedDocuments.headings.every(row => row.wrap === 'normal' && row.overflow === 'visible'));
       await page.emulateMedia({media: 'screen'});
-      await query('Appendix 23', 1, 'documents');
+      await query('Abyssalappendixselector', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 
       const citationURL = base + fixture.work + `editions/${fixture.latest}/read/cite.html`;
@@ -432,7 +449,7 @@ try {
       assert.equal(await plain.getByRole('link', {name: 'Versions', exact: true}).count(), 0);
       // Static directories remain reachable from the work, not duplicated on Search.
       await plain.goto(base + fixture.work);
-      await plain.getByRole('link', {name: 'Versions', exact: true}).click();
+      await plain.getByRole('link', {name: 'History', exact: true}).click();
       assert(plain.url().endsWith('/editions/index.html'));
       assert.equal(await plain.locator('#guavajam-static-section .guavajam-editions > li').count(), 20);
       assert.equal(await plain.locator('#guavajam-directory-enhancement').isVisible(), false);

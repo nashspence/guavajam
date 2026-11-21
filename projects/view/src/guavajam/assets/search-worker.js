@@ -3,6 +3,7 @@ import sqlite3InitModule from './sqlite3.mjs';
 import {loadDatabase} from './search-download.js';
 
 let db, scope;
+let subjectNames = new Map();
 const PAGE_SIZE = 20;
 const ORDER = Object.freeze({
   relevance: 'score ASC, w.latest_published DESC, w.title COLLATE NOCASE, w.id',
@@ -71,6 +72,11 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
   const order = Object.hasOwn(ORDER, sort) ? ORDER[sort] : ORDER.recent;
   const rows = db.selectObjects(base + ` ORDER BY ${order} LIMIT ? OFFSET ?`,
     [...binds, PAGE_SIZE, (number - 1) * PAGE_SIZE]);
+  for (const row of rows) {
+    const subjects = JSON.parse(row.subjects_json || '[]');
+    for (const item of subjects) item.label = subjectNames.get(item.key) || item.label;
+    row.subjects_json = JSON.stringify(subjects);
+  }
   return {rows, total, page: number, pageSize: PAGE_SIZE};
 }
 
@@ -187,8 +193,16 @@ self.onmessage = async event => {
       }
       const keywords = db.selectObjects(`SELECT name AS key, name, COUNT(*) AS total
         FROM keywords GROUP BY name ORDER BY name COLLATE NOCASE, name`);
-      const subjects = db.selectObjects(`SELECT key, label AS name, COUNT(*) AS total
+      const rawSubjects = db.selectObjects(`SELECT key, label AS name, COUNT(*) AS total
         FROM subjects GROUP BY key, label ORDER BY label COLLATE NOCASE, key`);
+      const names = db.selectObjects(`SELECT DISTINCT es.key, es.subject AS name
+        FROM edition_subjects es JOIN editions e ON e.id=es.edition_id
+        JOIN works w ON w.id=e.work_id AND w.latest_revision=e.revision`);
+      const collisions = new Map();
+      for (const item of names) collisions.set(item.name, (collisions.get(item.name) || 0) + 1);
+      subjectNames = new Map(names.map(item => [item.key,
+        collisions.get(item.name) === 1 ? item.name : null]));
+      const subjects = rawSubjects.map(item => ({...item, name: subjectNames.get(item.key) || item.name}));
       self.postMessage({id, ok: true, ready: true, keywords, subjects});
     } else if (action === 'search' && db) {
       self.postMessage({id, ok: true, ...(scope === 'work' ? searchWork(event.data) : search(event.data))});

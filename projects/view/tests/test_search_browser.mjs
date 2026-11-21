@@ -57,6 +57,67 @@ try {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
         }
       };
+      // The Works index is the layout reference for every lazy search form.
+      // Compare rendered controls at mobile and intermediate widths;
+      // checking only root overflow would miss different breakpoints or gaps.
+      const parityContext = await browser.newContext();
+      const parityPage = await parityContext.newPage();
+      const parityDownloads = [];
+      parityContext.on('request', request => {
+        if (/(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(request.url()))
+          parityDownloads.push(request.url());
+      });
+      await parityPage.goto(base + 'sources/work-02/index.html');
+      const latest = new URL(await parityPage.getByRole('link', {name: 'Latest', exact: true}).getAttribute('href'), parityPage.url()).href;
+      const surfaces = [base + 'sources/work-02/browse/index.html',
+        base + 'sources/work-02/editions/index.html',
+        latest.replace('index.html', 'documents.html'), latest.replace('index.html', 'cite.html')];
+      const controls = async () => {
+        await parityPage.evaluate(async () => {
+          await document.fonts.ready;
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        });
+        return parityPage.evaluate(() => {
+          const section = document.querySelector('.guavajam-index-search').getBoundingClientRect();
+          const intro = document.querySelector('.guavajam-search-intro').getBoundingClientRect();
+          const form = document.querySelector('#guavajam-search').getBoundingClientRect();
+          const crumb = document.querySelector('.guavajam-navigation').getBoundingClientRect();
+          // WebKit may report initial inherited values on textless containers;
+          // rendered boxes protect the actual layout, including gaps and padding.
+          const geometry = {sectionWidth: section.width, headingGap: section.top - crumb.bottom,
+            topPadding: intro.top - section.top, bottomPadding: section.bottom - form.bottom,
+            formGap: form.top - intro.bottom, formWidth: form.width, formHeight: form.height};
+          for (const [name, selector] of [['input', '#guavajam-search input[name=q]'],
+            ['submit', '#guavajam-search > button[type=submit]'], ['filters', '.guavajam-search-filters']]) {
+            const box = document.querySelector(selector).getBoundingClientRect();
+            for (const [key, value] of Object.entries({x: box.x - form.x, y: box.y - form.y,
+              width: box.width, height: box.height})) geometry[name + '.' + key] = value;
+          }
+          const typography = ['#guavajam-search input[name=q]', '#guavajam-search > button[type=submit]',
+            '.guavajam-search-filters summary'].map(selector => {
+            const style = getComputedStyle(document.querySelector(selector));
+            return Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
+          });
+          return {geometry, typography};
+        });
+      };
+      for (const width of [320, 390, 500, 760]) {
+        await parityPage.setViewportSize({width, height: 900});
+        await parityPage.goto(base);
+        const reference = await controls();
+        for (const url of surfaces) {
+          await parityPage.goto(url);
+          const actual = await controls();
+          assert.deepEqual(actual.typography, reference.typography, `${name}: ${width}px control text at ${url}`);
+          for (const [property, expected] of Object.entries(reference.geometry)) {
+            assert(Math.abs(actual.geometry[property] - expected) < .5,
+              `${name}: ${width}px ${property} at ${url}: ${actual.geometry[property]} versus ${expected}`);
+          }
+          assert.equal(await parityPage.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false);
+        }
+      }
+      assert.deepEqual(parityDownloads, [], 'layout parity must not activate SQLite');
+      await parityContext.close();
       const query = async (term, total) => {
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
@@ -132,6 +193,8 @@ try {
       await query('', fixture.works);
       await page.locator('.guavajam-search-filters summary').click();
       const options = await page.locator('select[name=subject] option').evaluateAll(nodes => nodes.slice(1).map(n => ({key: n.value, label: n.textContent})));
+      assert(options.filter(item => item.label.includes('Java · ')).length >= 2,
+        'same-name subjects keep their distinct authority metadata');
       assert.equal(options.length, 2);
       assert.equal(new Set(options.map(o => o.key)).size, 2);
       assert(options.every(o => o.label.includes('Java')));

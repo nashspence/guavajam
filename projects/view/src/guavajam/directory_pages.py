@@ -101,9 +101,9 @@ def _sqlite_controls(*, kind, edition, root, runtime, download, document=''):
 def _history_row(edition, *, links_prefix):
     revision, label, date, message = edition
     subject, _, details = message.partition('\n')
-    html = ('<li><h2><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
+    html = ('<li><article><h3><a href="' + escape(links_prefix + revision + '/read/index.html', quote=True) +
             '">' + escape(label) + '</a>' +
-            '</h2><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
+            '</h3><p class="guavajam-meta"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
             '">' + escape(revision[:12]) + '</code> · <a href="' +
             escape(links_prefix + revision + '/verify.html', quote=True) +
@@ -112,7 +112,7 @@ def _history_row(edition, *, links_prefix):
     if details.strip():
         html += ('<details class="guavajam-message-detail"><summary>Full commit message</summary>'
                  '<p class="guavajam-message">' + escape(details) + '</p></details>')
-    return html + '</li>'
+    return html + '</article></li>'
 
 
 def _write_history(output, entries, title, *, collection, runtime, download):
@@ -166,7 +166,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
             body += search_listing_open('Documents', number, len(chunks), interactive=download is not None)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
                      document_directory({'documents': dict(chunk)}, prefix=read_root,
-                                        include_sections=False))
+                                        include_sections=False, headings=True))
             body += _static_pager(number, len(chunks),
                                   first_href='documents.html' if first else '../../documents.html',
                                   page_prefix='documents/page/' if first else '')
