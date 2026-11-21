@@ -33,7 +33,7 @@ class PrivateComposeTests(unittest.TestCase):
             override.write_text(json.dumps({'services':{'private-preview':{'user':str(os.getuid())+':'+str(os.getgid()),
                 'volumes':[str(state)+':/state']}}}))
             project='guavajam-private-'+uuid.uuid4().hex[:12]
-            compose=['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override)]
+            compose=['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override)]
             def dc(*args):return run(compose+list(args),env=env)
             def get(path='/',auth=True):
                 headers={'Host':'127.0.0.1:'+selected}
@@ -53,7 +53,7 @@ class PrivateComposeTests(unittest.TestCase):
                 p.source('Field Notes','An updated private local observation.')
                 p.git('add','-A');p.git('commit','-qm','Revise private local draft')
                 wait_for(lambda:b'updated private local' in content())
-                dc('exec','-T','private-preview','python','-m','guavajam.preview_service','--health')
+                dc('exec','-T','private-preview','python','-m','a_guavajam_static_website_generator.preview_service','--health')
                 self.assertEqual('draft',p.git('branch','--show-current'))
                 print(json.dumps({'private_preview_image_session_local_refresh_and_health':True}),flush=True)
             finally:
@@ -79,7 +79,7 @@ class PrivateComposeTests(unittest.TestCase):
             override.write_text(json.dumps({'services':{'private-preview':{
                 'user':str(os.getuid())+':'+str(os.getgid()), 'volumes':[str(state)+':/state']}}}))
             project = 'guavajam-bootstrap-'+uuid.uuid4().hex[:12]
-            compose = ['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override)]
+            compose = ['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override)]
             def dc(*args): return run(compose+list(args),env=env)
             def get(auth=True):
                 headers = {'Cookie':'guavajam_preview='+token} if auth else {}
@@ -97,7 +97,7 @@ class PrivateComposeTests(unittest.TestCase):
                 def revised():
                     with get() as response: return b'First Local Revision' in response.read()
                 wait_for(revised)
-                dc('exec','-T','private-preview','python','-m','guavajam.preview_service','--health')
+                dc('exec','-T','private-preview','python','-m','a_guavajam_static_website_generator.preview_service','--health')
                 self.assertNotEqual(first,draft.git('rev-parse','HEAD'))
                 self.assertEqual('',draft.git('remote'))
                 self.assertEqual({'session.key'},{p.name for p in inputs.iterdir()})

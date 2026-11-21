@@ -20,15 +20,15 @@ from unittest.mock import patch
 
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
-from guavajam_core.asset_policy import AssetError, AssetPolicy, public_response, response_chunks
-from guavajam_core.asset_storage import S3, credentials
-from guavajam_core.asset_release import Releases, release
-from guavajam_core.asset_versions import pin_key
-from guavajam_core.gateway_index import Index
-from guavajam_core.ingest_asset import upload_media
-from guavajam_core.manage_assets import upload, candidates
-from guavajam_core.object_store import PREFIX, LEASE_PREFIX
-from guavajam_core.s3 import S3Error, response
+from guavajam.asset_policy import AssetError, AssetPolicy, public_response, response_chunks
+from guavajam.asset_storage import S3, credentials
+from guavajam.asset_release import Releases, release
+from guavajam.asset_versions import pin_key
+from guavajam.gateway_index import Index
+from guavajam.ingest_asset import upload_media
+from guavajam.manage_assets import upload, candidates
+from guavajam.object_store import PREFIX, LEASE_PREFIX
+from guavajam.s3 import S3Error, response
 from .discovery_fixture import Publisher
 from .media_fixture import audio, video
 

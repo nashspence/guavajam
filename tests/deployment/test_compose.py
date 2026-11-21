@@ -1,5 +1,7 @@
 """Executable deployment lifecycle: make test-compose; owns only disposable resources."""
 from pathlib import Path
+import gzip
+from html.parser import HTMLParser
 import json
 import hashlib
 import os
@@ -15,7 +17,7 @@ import unittest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'tests/support'))
 from guavajam_test_support.discovery_fixture import Publisher
-from guavajam_core.local_assets import initialize
+from guavajam.local_assets import initialize
 
 
 def run(args,*,env=None):
@@ -45,6 +47,61 @@ def wait_for(predicate):
 
 
 class ComposeLifecycleTests(unittest.TestCase):
+    def qualify_search_downloads(self, origin):
+        class SearchForm(HTMLParser):
+            descriptor = None
+
+            def handle_starttag(parser, tag, attributes):
+                values = dict(attributes)
+                if tag == 'form' and values.get('id') == 'guavajam-search':
+                    parser.descriptor = values
+
+        def receive(relative, headers=None):
+            request = urllib.request.Request(origin + '/' + relative, headers=headers or {})
+            with urllib.request.urlopen(request, timeout=5) as response:
+                self.assertEqual('nosniff', response.headers['X-Content-Type-Options'])
+                self.assertEqual('no-referrer', response.headers['Referrer-Policy'])
+                return response.read(), response.headers, response.status
+
+        html, headers, _ = receive('index.html')
+        self.assertEqual('no-cache', headers['Cache-Control'])
+        parser = SearchForm()
+        parser.feed(html.decode('utf-8'))
+        descriptor = parser.descriptor
+        self.assertIsNotNone(descriptor)
+        artifact = descriptor['data-database']
+        self.assertRegex(artifact, r'^index\.[0-9a-f]{64}\.sqlite\.gz$')
+        compressed, headers, _ = receive(artifact)
+        self.assertEqual('public, max-age=31536000, immutable', headers['Cache-Control'])
+        self.assertIsNone(headers.get('Content-Encoding'), 'The precompressed artifact must not be double encoded')
+        self.assertEqual(int(descriptor['data-database-transfer-size']), len(compressed))
+        self.assertEqual(artifact.split('.')[1], hashlib.sha256(compressed).hexdigest())
+        raw, raw_headers, _ = receive('index.sqlite')
+        self.assertEqual('no-cache', raw_headers['Cache-Control'])
+        self.assertEqual(int(descriptor['data-database-size']), len(raw))
+        self.assertEqual(raw, gzip.decompress(compressed))
+        part, part_headers, status = receive(artifact, {'Range': 'bytes=0-63'})
+        self.assertEqual(206, status)
+        self.assertEqual(compressed[:64], part)
+        self.assertEqual(headers['Cache-Control'], part_headers['Cache-Control'])
+        with self.assertRaises(urllib.error.HTTPError) as unchanged:
+            receive(artifact, {'If-None-Match': headers['ETag']})
+        self.assertEqual(304, unchanged.exception.code)
+        self.assertEqual(headers['Cache-Control'], unchanged.exception.headers['Cache-Control'])
+        with self.assertRaises(urllib.error.HTTPError) as missing:
+            receive('index.' + '0' * 64 + '.sqlite.gz')
+        self.assertEqual(404, missing.exception.code)
+        self.assertEqual('no-cache', missing.exception.headers['Cache-Control'])
+        for asset in ('search.js', 'sqlite3.mjs', 'sqlite3.wasm'):
+            plain, _, _ = receive(asset, {'Accept-Encoding': 'identity'})
+            encoded, encoded_headers, _ = receive(asset, {'Accept-Encoding': 'gzip'})
+            self.assertEqual('gzip', encoded_headers['Content-Encoding'])
+            self.assertIn('Accept-Encoding', encoded_headers['Vary'])
+            self.assertEqual('no-cache', encoded_headers['Cache-Control'])
+            self.assertEqual(plain, gzip.decompress(encoded))
+            self.assertLess(len(encoded), len(plain))
+        return artifact
+
     def test_signed_updates_isolation_media_and_persistent_recreation(self):
         (ROOT/'.build').mkdir(exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='compose-',dir=ROOT/'.build') as temporary:
@@ -94,7 +151,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 'tls':{'profiles':['local-assets'],'image':'nginx:stable-alpine@sha256:901e593c95dc85f5a729f5765516321366ef4ac401821431d408897e95287d0a','entrypoint':['nginx'],'command':['-g','daemon off;'],'volumes':[str(config)+':/etc/nginx/nginx.conf:ro',str(cert)+':/tls:ro'],'networks':{'default':{'aliases':['assets.publisher.test','storage.publisher.test']}}}}}
             override_path=work/'override.json';override_path.write_text(json.dumps(override))
             project='guavajam-check-'+uuid.uuid4().hex[:12]
-            compose=['docker','compose','-p',project,'-f',str(ROOT/'compose.yaml'),'-f',str(override_path)]
+            compose=['docker','compose','-p',project,'-f',str(ROOT/'some-implementations/a-guavajam-static-website-generator/compose.yaml'),'-f',str(override_path)]
             def dc(*args):return run(compose+list(args),env=env)
             origin='http://127.0.0.1:'+env['GUAVAJAM_PORT']
             def catalog():
@@ -109,7 +166,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                     ('container logs',['logs','--no-color','--tail','60','source','updater','web','assets','seaweedfs','tls']),
                     ('updater identity and health',['exec','-T','updater','python','-c',
                      'import os,pwd;from pathlib import Path;print(pwd.getpwuid(os.getuid()));print(Path("/state/health.json").read_text())']),
-                    ('independent collection qualification',['exec','-T','updater','python','-m','guavajam','index',
+                    ('independent collection qualification',['exec','-T','updater','python','-m','a_guavajam_static_website_generator','index',
                      '--index',env['GUAVAJAM_INDEX_URL'],'--trust','/trust/repositories.yaml',
                      '--output','/tmp/diagnostic-site-'+uuid.uuid4().hex])]
                 for label,args in commands:
@@ -125,6 +182,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 # OpenSSH requires a passwd entry even when verification needs no home files.
                 dc('exec','-T','updater','python','-c','import os,pwd;assert pwd.getpwuid(os.getuid()).pw_uid==1000')
                 wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
+                first_download = self.qualify_search_downloads(origin)
                 assert set(dc('ps','--services','--status','running').splitlines())=={'source','updater','web'}
                 selected=dc('exec','-T','updater','readlink','/state/site/current')
                 wait_for(lambda:service_health()['status']=='unchanged')
@@ -137,6 +195,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                 for path in [p.repo,*p.repo.rglob('*')]:
                     if not path.is_symlink():path.chmod(0o755 if path.is_dir() else 0o644)
                 wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
+                self.assertNotEqual(first_download, self.qualify_search_downloads(origin))
                 selected=dc('exec','-T','updater','readlink','/state/site/current')
                 saved=public.read_text();public.write_text('invalid test signer policy')
                 wait_for(lambda:service_health()['passed'] is False)

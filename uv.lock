@@ -4,13 +4,28 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
-    "guavajam-core",
-    "guavajam-view",
+    "a-guavajam-static-website-generator",
+    "guavajam",
 ]
 
-[manifest.dependency-groups]
+[[package]]
+name = "a-guavajam-static-website-generator"
+version = "0.1.0"
+source = { editable = "some-implementations/a-guavajam-static-website-generator" }
+dependencies = [
+    { name = "guavajam" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pymupdf" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "guavajam", editable = "." }]
+
+[package.metadata.requires-dev]
 dev = [{ name = "pymupdf", specifier = "==1.26.5" }]
-licensing = [{ name = "reuse", specifier = "==6.3.0" }]
 
 [[package]]
 name = "attrs"
@@ -57,13 +72,18 @@ wheels = [
 ]
 
 [[package]]
-name = "guavajam-core"
+name = "guavajam"
 version = "0.1.0"
-source = { editable = "projects/core" }
+source = { editable = "." }
 dependencies = [
     { name = "av" },
     { name = "pillow" },
     { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+licensing = [
+    { name = "reuse" },
 ]
 
 [package.metadata]
@@ -73,16 +93,9 @@ requires-dist = [
     { name = "pyyaml", specifier = "==6.0.3" },
 ]
 
-[[package]]
-name = "guavajam-view"
-version = "0.1.0"
-source = { editable = "projects/view" }
-dependencies = [
-    { name = "guavajam-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "guavajam-core", editable = "projects/core" }]
+[package.metadata.requires-dev]
+dev = []
+licensing = [{ name = "reuse", specifier = "==6.3.0" }]
 
 [[package]]
 name = "jinja2"

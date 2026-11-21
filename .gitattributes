@@ -1,4 +1,11 @@
-/projects/core/src/guavajam_core/**/*.py text eol=lf
-/projects/core/src/guavajam_core/**/*.css text eol=lf
-/projects/view/src/guavajam/**/*.py text eol=lf
-/projects/view/src/guavajam/**/*.css text eol=lf
+/src/guavajam/** text=auto
+/src/guavajam/**/*.py text eol=lf
+/src/guavajam/**/*.css text eol=lf
+/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/**/*.py text eol=lf
+/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/**/*.css text eol=lf
+/src/guavajam/**/*.md text eol=lf
+/src/guavajam/**/*.markdown text eol=lf
+/src/guavajam/**/*.json text eol=lf
+/src/guavajam/**/*.yml text eol=lf
+/src/guavajam/**/*.yaml text eol=lf
+/tests/guavajam/*.py text eol=lf

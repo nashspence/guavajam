@@ -9,15 +9,15 @@ ROOT = Path(__file__).resolve().parents[2]
 ONBOARDING = {'README.md', 'AGENTS.md'}
 # Actual source documents consumed by the authoring, GFM and browser contracts.
 MARKDOWN_DATA = {
-    'projects/core/src/guavajam_core/resources/templates/work/manuscript.md',
-    'projects/core/src/guavajam_core/resources/templates/work/supporting/note.md',
+    'src/guavajam/resources/templates/work/manuscript.md',
+    'src/guavajam/resources/templates/work/supporting/note.md',
     'tests/fixtures/chatgpt/lantern-current.gfm.md',
     'tests/fixtures/chatgpt/lantern-alternate.gfm.md',
 }
-LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'projects/core/LICENSES/Apache-2.0.txt',
-                'projects/view/LICENSES/Apache-2.0.txt',
-                'projects/view/src/guavajam/assets/sqlite3-LICENSE.txt',
-                'projects/core/src/guavajam_core/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
+LICENSE_TEXT = {'LICENSES/Apache-2.0.txt',
+                'some-implementations/a-guavajam-static-website-generator/LICENSES/Apache-2.0.txt',
+                'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3-LICENSE.txt',
+                'src/guavajam/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
 PROSE_SUFFIXES = {'.md', '.markdown', '.mdown', '.mkd', '.rst', '.adoc', '.asciidoc', '.txt'}
 
 

@@ -9,8 +9,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 RENDERER_ROOTS = (
-    "projects/core/src/guavajam_core",
-    "projects/view/src/guavajam",
+    "src/guavajam",
+    "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator",
 )
 JS_SUFFIXES = {".js", ".mjs"}
 
@@ -24,9 +24,12 @@ class RendererCheckoutTests(unittest.TestCase):
         head = git(ROOT, "rev-parse", "HEAD").decode().strip()
         paths = git(ROOT, "ls-tree", "-r", "-z", "--name-only", head)
         tracked = {PurePosixPath(os.fsdecode(p)) for p in paths.split(b"\0") if p}
-        selected = {p for p in tracked if p.suffix in JS_SUFFIXES
-                    and any(p.is_relative_to(root) for root in RENDERER_ROOTS)}
-        self.assertTrue(selected, "no tracked JavaScript fingerprint inputs")
+        selected = set()
+        for root in RENDERER_ROOTS:
+            root_inputs = {p for p in tracked if p.suffix in JS_SUFFIXES
+                           and p.is_relative_to(root)}
+            self.assertTrue(root_inputs, f"no tracked JavaScript fingerprint inputs under {root}")
+            selected.update(root_inputs)
         attributes = {
             parent / ".gitattributes"
             for path in selected

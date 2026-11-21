@@ -10,8 +10,8 @@ class NamespaceTests(unittest.TestCase):
     def test_owned_runtime_format_identifiers_use_one_namespace_and_version(self):
         identifiers = set()
         pattern = re.compile(r'''['"]([a-z][a-z0-9_-]*(?:[./][a-z0-9_-]+)*[./]v[0-9]+)['"]''')
-        for project in ['core', 'view']:
-            for path in (ROOT / 'projects' / project / 'src').rglob('*'):
+        for project in [ROOT, ROOT / 'some-implementations/a-guavajam-static-website-generator']:
+            for path in (project / 'src').rglob('*'):
                 if path.suffix not in {'.py', '.js', '.mjs', '.json', '.md'}:
                     continue
                 for identifier in pattern.findall(path.read_text()):
@@ -25,9 +25,22 @@ class NamespaceTests(unittest.TestCase):
                          'guavajam.asset-release.v1',
                          'guavajam.chatgpt-capture-reference.v1'} <= identifiers)
 
+    def test_runtime_distribution_and_command_ownership(self):
+        import tomllib
+        root = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+        self.assertEqual(['some-implementations/a-guavajam-static-website-generator'],
+                         root['tool']['uv']['workspace']['members'])
+        self.assertEqual('guavajam', root['project']['name'])
+        self.assertEqual({'guavajam': 'guavajam.cli:main'}, root['project']['scripts'])
+        generator = tomllib.loads((ROOT / root['tool']['uv']['workspace']['members'][0] / 'pyproject.toml').read_text())['project']
+        self.assertEqual('a-guavajam-static-website-generator', generator['name'])
+        self.assertEqual({'a-guavajam-static-website-generator':
+                          'a_guavajam_static_website_generator.renderer:main'}, generator['scripts'])
+        self.assertEqual(['guavajam==' + generator['version']], generator['dependencies'])
+
     def test_work_starter_has_only_bibliographic_metadata(self):
         import yaml
-        resources = ROOT / 'projects/core/src/guavajam_core/resources'
+        resources = ROOT / 'src/guavajam/resources'
         source = (resources / 'templates/work/manuscript.md').read_text()
         settings = yaml.safe_load(source.split('---', 2)[1])
         self.assertEqual('guavajam.work.v1', settings['schema'])

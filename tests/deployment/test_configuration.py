@@ -7,17 +7,18 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+APP = ROOT / 'some-implementations/a-guavajam-static-website-generator'
 
 
 class DeploymentConfigurationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.compose = yaml.safe_load((ROOT / 'compose.yaml').read_text())
+        cls.compose = yaml.safe_load((APP / 'compose.yaml').read_text())
         cls.services = cls.compose['services']
-        cls.dockerfile = (ROOT / 'Dockerfile').read_text()
+        cls.dockerfile = (APP / 'Dockerfile').read_text()
         cls.stages = {
             name: body for name, body in re.findall(
-                r'^FROM \S+ AS (\w+)\n(.*?)(?=^FROM |\Z)', cls.dockerfile, re.M | re.S)
+                r'^FROM \S+ AS ([\w-]+)\n(.*?)(?=^FROM |\Z)', cls.dockerfile, re.M | re.S)
         }
 
     def test_hosted_preview_has_read_only_source_and_only_reader_credentials(self):
@@ -25,7 +26,7 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual(['private-preview'], preview['profiles'])
         self.assertTrue(preview['read_only'])
         self.assertEqual(['ALL'], preview['cap_drop'])
-        self.assertEqual({'context': '.', 'target': 'preview'}, preview['build'])
+        self.assertEqual({'context': '../..', 'dockerfile': 'some-implementations/a-guavajam-static-website-generator/Dockerfile', 'target': 'preview'}, preview['build'])
         mounts = [m for m in preview['volumes'] if isinstance(m, dict)]
         self.assertEqual({'/source', '/run/preview'}, {m['target'] for m in mounts})
         self.assertTrue(all(m['read_only'] and not m['bind']['create_host_path'] for m in mounts))
@@ -44,14 +45,14 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual({'assets', 'seaweedfs'}, {
             name for name, service in self.services.items() if service.get('profiles') == ['local-assets']
         })
-        for name, target in [('updater', 'view'), ('web', 'web'), ('assets', 'gateway')]:
+        for name, target in [('updater', 'a-guavajam-static-website-generator'), ('web', 'web'), ('assets', 'gateway')]:
             with self.subTest(service=name):
-                self.assertEqual({'context': '.', 'target': target}, self.services[name]['build'])
+                self.assertEqual({'context': '../..', 'dockerfile': 'some-implementations/a-guavajam-static-website-generator/Dockerfile', 'target': target}, self.services[name]['build'])
         # The gateway can target an existing S3 service without starting local storage.
         self.assertFalse(self.services['assets'].get('depends_on'))
 
     def test_application_containers_are_unprivileged_with_read_only_roots(self):
-        for name, stage, user in [('updater', 'view', '1000:1000'),
+        for name, stage, user in [('updater', 'a-guavajam-static-website-generator', '1000:1000'),
                                   ('assets', 'gateway', '1000:1000'), ('web', 'web', '101:101')]:
             with self.subTest(service=name):
                 service = self.services[name]
@@ -97,8 +98,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertEqual('${GUAVAJAM_INDEX_URL:-}', updater['GUAVAJAM_INDEX_URL'])
         self.assertEqual('${GUAVAJAM_TRUST_FILE:-/trust/repositories.yaml}', updater['GUAVAJAM_TRUST_FILE'])
         self.assertNotIn('GUAVAJAM_SOURCE_URL', updater)
-        index = yaml.safe_load((ROOT / 'deploy/index.example.yaml').read_text())
-        trust = yaml.safe_load((ROOT / 'deploy/trust.example.yaml').read_text())
+        index = yaml.safe_load((APP / 'deploy/index.example.yaml').read_text())
+        trust = yaml.safe_load((APP / 'deploy/trust.example.yaml').read_text())
         self.assertEqual({'repositories'}, set(index))
         self.assertEqual(set(index['repositories']), set(trust))
         self.assertTrue(all(url.startswith('https://') for url in index['repositories']))
@@ -120,8 +121,8 @@ class DeploymentConfigurationTests(unittest.TestCase):
             with self.subTest(image=image):
                 self.assertRegex(image, r'@sha256:[0-9a-f]{64}$')
         self.assertIn('RUN uv sync --locked --all-packages --no-dev --no-editable', self.stages['packages'])
-        self.assertIn('RUN python /tmp/install_pandoc.py', self.stages['view'])
-        self.assertIn('COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam_core/resources/storage /opt/gateway',
+        self.assertIn('RUN python /tmp/install_pandoc.py', self.stages['a-guavajam-static-website-generator'])
+        self.assertIn('COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam/resources/storage /opt/gateway',
                       self.stages['gateway'])
         self.assertIn('ENTRYPOINT ["node", "server.mjs"]', self.stages['gateway'])
 
@@ -139,23 +140,41 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertIn('COPY package.json package-lock.json ./', self.stages['search_assets'])
         self.assertIn(install, self.stages['search_assets'])
         for name in ['package.json', 'package-lock.json']:
-            self.assertIn('!' + name, (ROOT / '.dockerignore').read_text().splitlines())
+            self.assertIn('!' + name, (APP / 'Dockerfile.dockerignore').read_text().splitlines())
         for source, target in [('index.mjs', 'sqlite3.mjs'), ('sqlite3.wasm', 'sqlite3.wasm')]:
-            self.assertIn('/dist/' + source + ' projects/view/src/guavajam/assets/' + target,
+            self.assertIn('/dist/' + source + ' some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/' + target,
                           self.stages['packages'])
-        template = (ROOT / 'projects/core/src/guavajam_core/resources/templates/github/pages-index.yml').read_text()
+        template = (ROOT / 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/templates/pages-index.yml').read_text()
         workflow = yaml.safe_load(template.replace('@@GUAVAJAM_REF@@', '0' * 40))
         steps = workflow['jobs']['pages']['steps']
         self.assertTrue(any(install in step.get('run', '') for step in steps))
-        generation = next(step for step in steps if 'python -m guavajam.index' in step.get('run', ''))
+        generation = next(step for step in steps if 'python -m a_guavajam_static_website_generator.index' in step.get('run', ''))
         self.assertEqual('1', generation['env']['GUAVAJAM_REQUIRE_SEARCH'])
         self.assertTrue(generation['env']['GUAVAJAM_SQLITE_WASM_DIR'].endswith(
             '/.guavajam-tool/node_modules/@sqlite.org/sqlite-wasm/dist'))
 
     def test_static_web_server_supplies_wasm_and_module_mime_types(self):
-        configuration = (ROOT / 'deploy/nginx.conf').read_text()
+        configuration = (APP / 'deploy/nginx.conf').read_text()
         self.assertIn(r'location ~ \.mjs$ { default_type application/javascript;', configuration)
         self.assertIn(r'location ~ \.wasm$ { default_type application/wasm;', configuration)
+
+    def test_only_successful_content_addressed_downloads_are_immutable(self):
+        configuration = (APP / 'deploy/nginx.conf').read_text()
+        self.assertIn('map "$status:$uri" $guavajam_cache_control', configuration)
+        rule = re.search(r'"~([^"\n]+)" "public, max-age=31536000, immutable";', configuration)
+        self.assertIsNotNone(rule)
+        pattern = re.compile(rule[1])
+        hashed = 'index.' + 'a' * 64 + '.sqlite.gz'
+        work = 'sources/example/work.' + 'b' * 64 + '.sqlite.gz'
+        for status in (200, 206, 304):
+            for relative in (hashed, work):
+                self.assertIsNotNone(pattern.fullmatch(f'{status}:/{relative}'))
+        for value in ('404:/' + hashed, '503:/' + work, '200:/index.html',
+                      '200:/index.sqlite', '200:/sqlite3.wasm', '200:/index.latest.sqlite.gz'):
+            self.assertIsNone(pattern.fullmatch(value))
+        self.assertIn('default "no-cache";', configuration)
+        self.assertIn('add_header Cache-Control $guavajam_cache_control always;', configuration)
+        self.assertIn('gzip_types application/javascript text/javascript application/wasm;', configuration)
 
 
 if __name__ == '__main__':

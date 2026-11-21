@@ -1,36 +1,46 @@
-"""Enforce runtime dependency direction and a single owner for implementation files."""
-from pathlib import Path
+"""Enforce GuavaJam independence, distribution ownership and no copied implementations."""
 import ast
 import hashlib
 import re
 import tomllib
+from workspace import ROOT, PROJECTS, GENERATOR_NAME
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-def check():
-    core = ROOT / 'projects/core'
-    metadata = tomllib.loads((core / 'pyproject.toml').read_text())
+def check(projects=PROJECTS):
+    primary = projects['guavajam']
+    metadata = tomllib.loads((primary / 'pyproject.toml').read_text())
+    assert metadata['project']['name'] == 'guavajam'
+    assert metadata['project']['scripts'] == {'guavajam': 'guavajam.cli:main'}
+    assert metadata['tool']['uv']['workspace']['members'] == ['some-implementations/' + GENERATOR_NAME]
     dependencies = list(metadata['project']['dependencies'])
+    dependencies += metadata['build-system']['requires']
     for extra in metadata['project'].get('optional-dependencies', {}).values():
         dependencies.extend(extra)
     for dependency in dependencies:
-        name = re.split(r'[<>=!~;\[ @]', dependency, maxsplit=1)[0].replace('_', '-').lower()
-        assert name not in {'guavajam', 'guavajam-view'}, 'core cannot depend on view'
-    for file in (core / 'src').rglob('*.py'):
-        for node in ast.walk(ast.parse(file.read_text())):
-            modules = ([node.module] if isinstance(node, ast.ImportFrom) and node.level == 0 else
-                       [alias.name for alias in node.names] if isinstance(node, ast.Import) else [])
-            for module in modules:
-                assert module and module.split('.')[0] != 'guavajam', str(file) + ' imports view'
+        name = re.sub(r'[-_.]+', '-', re.split(r'[<>=!~;\[ @]', dependency, maxsplit=1)[0]).lower()
+        assert name != GENERATOR_NAME, 'GuavaJam cannot depend on the optional generator'
+    for file in (primary / 'src').rglob('*'):
+        if not file.is_file() or file.suffix in {'.pyc', '.wasm'}:
+            continue
+        try:
+            source = file.read_text()
+        except UnicodeDecodeError:
+            continue
+        assert GENERATOR_NAME not in source and GENERATOR_NAME.replace('-', '_') not in source, str(file) + ' binds GuavaJam to an implementation'
+        if file.suffix == '.py':
+            for node in ast.walk(ast.parse(source)):
+                modules = ([node.module] if isinstance(node, ast.ImportFrom) and node.level == 0 else
+                           [alias.name for alias in node.names] if isinstance(node, ast.Import) else [])
+                for module in modules:
+                    assert module and module.split('.')[0] != GENERATOR_NAME.replace('-', '_'), str(file)
     owners = {}
-    for project in ['core', 'view']:
-        for file in (ROOT / 'projects' / project / 'src').rglob('*'):
+    for project in projects.values():
+        for file in (project / 'src').rglob('*'):
             if file.is_file() and file.suffix in {'.py', '.js', '.mjs', '.css'} and file.stat().st_size > 100:
                 digest = hashlib.sha256(file.read_bytes()).digest()
                 assert digest not in owners, f'copied implementation: {file} and {owners.get(digest)}'
                 owners[digest] = file
-    print('Core is independent of view; implementation files have one owner.')
+    print('GuavaJam is independent; optional implementations consume it; implementation files have one owner.')
 
 
 if __name__ == '__main__':
