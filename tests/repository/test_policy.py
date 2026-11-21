@@ -15,8 +15,8 @@ MARKDOWN_DATA = {
     'tests/fixtures/chatgpt/lantern-alternate.gfm.md',
 }
 LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'projects/core/LICENSES/Apache-2.0.txt',
-                'projects/view/LICENSES/Apache-2.0.txt',
-                'projects/view/src/guavajam/assets/sqlite3-LICENSE.txt',
+                'projects/a-guavajam-static-website-generator/LICENSES/Apache-2.0.txt',
+                'projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3-LICENSE.txt',
                 'projects/core/src/guavajam_core/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
 PROSE_SUFFIXES = {'.md', '.markdown', '.mdown', '.mkd', '.rst', '.adoc', '.asciidoc', '.txt'}
 

@@ -1,0 +1,25 @@
+[project]
+name = "a-guavajam-static-website-generator"
+version = "0.1.0"
+description = "Static websites from independently verified GuavaJam works"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml"]
+requires-python = ">=3.12,<3.13"
+dependencies = ["guavajam-core==0.1.0"]
+
+[project.scripts]
+a-guavajam-static-website-generator = "a_guavajam_static_website_generator.renderer:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.setuptools.package-data]
+a_guavajam_static_website_generator = ["styles/*.css", "assets/*.js", "assets/*.mjs", "assets/*.wasm", "assets/*.txt"]
+
+[tool.uv.sources]
+guavajam-core = { workspace = true }

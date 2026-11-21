@@ -49,7 +49,7 @@ jobs:
           GUAVAJAM_SQLITE_WASM_DIR: ${{ github.workspace }}/.guavajam-tool/node_modules/@sqlite.org/sqlite-wasm/dist
           GUAVAJAM_REQUIRE_SEARCH: '1'
         run: |
-          .guavajam-tool/.venv/bin/python -m guavajam.index \
+          .guavajam-tool/.venv/bin/python -m a_guavajam_static_website_generator.index \
             --pages --index index.yaml --trust trust.yaml \
             --previous-state "$RUNNER_TEMP/guavajam-previous.json" \
             --state-output "$RUNNER_TEMP/guavajam-next.json" \

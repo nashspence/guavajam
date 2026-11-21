@@ -166,7 +166,7 @@ class ComposeLifecycleTests(unittest.TestCase):
                     ('container logs',['logs','--no-color','--tail','60','source','updater','web','assets','seaweedfs','tls']),
                     ('updater identity and health',['exec','-T','updater','python','-c',
                      'import os,pwd;from pathlib import Path;print(pwd.getpwuid(os.getuid()));print(Path("/state/health.json").read_text())']),
-                    ('independent collection qualification',['exec','-T','updater','python','-m','guavajam','index',
+                    ('independent collection qualification',['exec','-T','updater','python','-m','a_guavajam_static_website_generator','index',
                      '--index',env['GUAVAJAM_INDEX_URL'],'--trust','/trust/repositories.yaml',
                      '--output','/tmp/diagnostic-site-'+uuid.uuid4().hex])]
                 for label,args in commands:

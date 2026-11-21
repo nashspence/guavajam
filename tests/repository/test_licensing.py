@@ -17,7 +17,7 @@ class LicensingTests(unittest.TestCase):
         self.assertEqual(APACHE_SHA256, hashlib.sha256(canonical).hexdigest())
         self.assertEqual(canonical, (ROOT / 'LICENSE').read_bytes())
         self.assertEqual(canonical, (ROOT / 'projects/core/src/guavajam_core/resources/chatgpt-capture' / LICENSE).read_bytes())
-        for package in ['core', 'view']:
+        for package in ['core', 'a-guavajam-static-website-generator']:
             with self.subTest(package=package):
                 self.assertEqual(canonical, (ROOT / 'projects' / package / LICENSE).read_bytes())
 
@@ -29,12 +29,12 @@ class LicensingTests(unittest.TestCase):
         self.assertEqual([{'path': '**', 'precedence': 'closest',
                            'SPDX-FileCopyrightText': '2026 Nash Spence',
                            'SPDX-License-Identifier': 'Apache-2.0'}], data['annotations'])
-        for package in ['core', 'view']:
+        for package in ['core', 'a-guavajam-static-website-generator']:
             with self.subTest(package=package):
                 self.assertEqual(reuse, (ROOT / 'projects' / package / 'REUSE.toml').read_bytes())
 
     def test_both_distributions_declare_spdx_license_and_ship_text_and_copyright_metadata(self):
-        for package in ['core', 'view']:
+        for package in ['core', 'a-guavajam-static-website-generator']:
             with self.subTest(package=package):
                 project = ROOT / 'projects' / package
                 metadata = tomllib.loads((project / 'pyproject.toml').read_text())['project']
@@ -49,14 +49,14 @@ class LicensingTests(unittest.TestCase):
 
     def test_self_hosted_sqlite_runtime_preserves_third_party_notices(self):
         package = json.loads((ROOT / 'package.json').read_text())
-        notice = (ROOT / 'projects/view/src/guavajam/assets/sqlite3-LICENSE.txt').read_text()
+        notice = (ROOT / 'projects/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3-LICENSE.txt').read_text()
         self.assertIn('@sqlite.org/sqlite-wasm ' + package['dependencies']['@sqlite.org/sqlite-wasm'], notice)
         self.assertIn((ROOT / LICENSE).read_text(), notice)
         self.assertIn('Copyright (c) 2010-2014 Emscripten authors', notice)
         self.assertIn('Copyright © 2005-2020 Rich Felker', notice)
         self.assertIn('The author disclaims copyright to this source code.', notice)
-        data = tomllib.loads((ROOT / 'projects/view/pyproject.toml').read_text())
-        self.assertIn('assets/*.txt', data['tool']['setuptools']['package-data']['guavajam'])
+        data = tomllib.loads((ROOT / 'projects/a-guavajam-static-website-generator/pyproject.toml').read_text())
+        self.assertIn('assets/*.txt', data['tool']['setuptools']['package-data']['a_guavajam_static_website_generator'])
 
 
 if __name__ == '__main__':

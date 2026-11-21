@@ -10,7 +10,7 @@ class NamespaceTests(unittest.TestCase):
     def test_owned_runtime_format_identifiers_use_one_namespace_and_version(self):
         identifiers = set()
         pattern = re.compile(r'''['"]([a-z][a-z0-9_-]*(?:[./][a-z0-9_-]+)*[./]v[0-9]+)['"]''')
-        for project in ['core', 'view']:
+        for project in ['core', 'a-guavajam-static-website-generator']:
             for path in (ROOT / 'projects' / project / 'src').rglob('*'):
                 if path.suffix not in {'.py', '.js', '.mjs', '.json', '.md'}:
                     continue
@@ -24,6 +24,17 @@ class NamespaceTests(unittest.TestCase):
                          'guavajam.site.v1', 'guavajam.asset.v1',
                          'guavajam.asset-release.v1',
                          'guavajam.chatgpt-capture-reference.v1'} <= identifiers)
+
+    def test_runtime_distribution_and_command_ownership(self):
+        import tomllib
+        root = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+        self.assertEqual(['projects/core', 'projects/a-guavajam-static-website-generator'],
+                         root['tool']['uv']['workspace']['members'])
+        generator = tomllib.loads((ROOT / root['tool']['uv']['workspace']['members'][1] / 'pyproject.toml').read_text())['project']
+        self.assertEqual('a-guavajam-static-website-generator', generator['name'])
+        self.assertEqual({'a-guavajam-static-website-generator':
+                          'a_guavajam_static_website_generator.renderer:main'}, generator['scripts'])
+        self.assertEqual(['guavajam-core==' + generator['version']], generator['dependencies'])
 
     def test_work_starter_has_only_bibliographic_metadata(self):
         import yaml

@@ -11,7 +11,7 @@ on:
         description: Distribution to prepare; no tag, release or registry publication is created
         required: true
         type: choice
-        options: [both, core, view]
+        options: [both, core, a-guavajam-static-website-generator]
         default: both
 
 permissions:
@@ -50,13 +50,14 @@ jobs:
         run: |
           mise exec -- uv build --package guavajam-core
           if [ "$PACKAGE" != core ]; then
-            mise exec -- uv build --package guavajam-view
+            mise exec -- uv build --package a-guavajam-static-website-generator
           fi
           mise exec -- .venv/bin/python tools/check_artifacts.py --package "$PACKAGE"
           mkdir prepared
-          for package in core view; do
+          for package in core a-guavajam-static-website-generator; do
             if [ "$PACKAGE" = both ] || [ "$PACKAGE" = "$package" ]; then
-              cp dist/guavajam_${package}-* prepared/
+              if [ "$package" = core ]; then stem=guavajam_core; else stem=a_guavajam_static_website_generator; fi
+              cp dist/${stem}-* prepared/
             fi
           done
           cd prepared
