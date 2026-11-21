@@ -105,8 +105,8 @@ class WorkSearchTests(unittest.TestCase):
         self.assertIn('editions/' + self.latest + '/verify.html', Links(home).links)
         self.assertIn('editions/index.html', Links(home).links)
         history = (self.site / 'editions/index.html').read_text()
-        for revision in self.publisher.revisions[:-1]:
-            self.assertIn(revision + '/index.html', Links(history).links)
+        for revision in self.publisher.revisions:
+            self.assertIn(revision + '/verify.html', Links(history).links)
             self.assertIn(revision + '/read/index.html', Links(history).links)
         self.assertIn("script-src 'none'", home)
         self.assertNotIn('<script', home)
@@ -118,8 +118,9 @@ class WorkSearchTests(unittest.TestCase):
         supporting = (reader / 'supporting/unlinked.html').read_text()
         self.assertIn('../index.html', Links(supporting).links)
         self.assertIn('../documents.html', Links(supporting).links)
-        landing = (reader.parent / 'index.html').read_text()
-        self.assertIn('read/documents.html', Links(landing).links)
+        manuscript = (reader / 'index.html').read_text()
+        self.assertIn('documents.html', Links(manuscript).links)
+        self.assertIn('../verify.html', Links(manuscript).links)
         view = json.loads((reader / 'VIEW.json').read_text())
         for name in ('NAV.json', 'documents.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])
