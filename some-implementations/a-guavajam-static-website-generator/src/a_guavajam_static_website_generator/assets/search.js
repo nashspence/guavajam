@@ -283,19 +283,19 @@ if (form) {
         const byline = document.createElement('p');
         byline.className = 'guavajam-byline guavajam-scrollline';
         byline.tabIndex = 0;
-        byline.setAttribute('aria-label', 'Work authors and date');
-        if (row.authors) appendText(byline, row.authors);
-        const workDate = document.createElement('span');
-        workDate.className = 'guavajam-work-date';
+        byline.setAttribute('aria-label', 'Work date and authors');
+        byline.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'),
+          document.createTextNode(' '));
         if (row.latest_published) {
-          if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
           const date = document.createElement('time');
           date.dateTime = row.latest_published;
           appendText(date, row.latest_published);
-          workDate.append(date);
+          byline.append(date);
         }
-        workDate.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
-        byline.append(workDate);
+        if (row.authors) {
+          if (row.latest_published) byline.append(document.createTextNode(' · '));
+          appendText(byline, row.authors);
+        }
         article.append(byline);
         const tags = JSON.parse(row.keywords_json || '[]');
         const subjects = JSON.parse(row.subjects_json || '[]');

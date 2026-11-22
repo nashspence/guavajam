@@ -212,15 +212,14 @@ export async function searchEvidence(page) {
 export async function recordLinkAlignment(page) {
   for (const row of await page.locator('.guavajam-works:visible > li').all()) {
     assert.equal(await row.locator('h3 .guavajam-record-link').count(), 0);
-    const link = row.locator('.guavajam-byline .guavajam-work-date > .guavajam-record-link');
-    assert.equal(await link.count(), 1, 'each work retains a history control beside its date');
-    const aligned = await link.evaluate(n => {
-      const date = n.previousElementSibling;
-      if (!date) return true; // Works without publication dates still expose their history.
-      const a = date.getBoundingClientRect(), b = n.getBoundingClientRect();
-      return date.tagName === 'TIME' && Math.abs((a.top + a.bottom - b.top - b.bottom) / 2) < 1 && b.left >= a.right;
-    });
-    assert(aligned, 'the history icon stays inline immediately after the work date');
+    const link = row.locator('.guavajam-byline > .guavajam-record-link');
+    assert.equal(await link.count(), 1, 'each work retains a leading byline history control');
+    assert(await link.evaluate(n => n.parentElement.firstElementChild === n &&
+      !n.previousSibling?.textContent.trim()), 'the history icon precedes date and author text');
+    assert(await link.evaluate(n => {
+      const date=n.parentElement.querySelector(':scope > time');
+      return !date || n.nextElementSibling === date;
+    }), 'the publication date precedes author text when available');
   }
 }
 

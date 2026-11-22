@@ -36,7 +36,6 @@
   align-items: center; justify-content: center; flex: none;
 }
 .guavajam-record-link { margin-inline-start: .2rem; }
-.guavajam-work-date { display: inline-flex; align-items: center; vertical-align: middle; white-space: nowrap; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
 .guavajam-byline { margin: 0 0 .15rem; }
