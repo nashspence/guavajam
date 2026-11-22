@@ -56,6 +56,12 @@ export async function navigationCues(page) {
       return !a.contains(text) && getComputedStyle(text).color===getComputedStyle(document.body).color;
     }),'only the leading icon links; adjacent text uses normal foreground');
   }
+  for (const note of await page.locator('a.footnote-ref,a[role=doc-noteref]').all()) {
+    assert.equal(await note.locator('svg').count(),0,'footnote superscripts retain their native appearance');
+    assert.equal(await note.locator('sup').count(),1);
+  }
+  for (const back of await page.locator('a.footnote-back,a[role=doc-backlink]').all())
+    assert.equal(await back.locator('svg').count(),0,'footnote return links retain their native glyph');
   for (const facet of await page.locator('.guavajam-facet:visible').all()) {
     assert(await facet.evaluate(n=>{
       const type=n.querySelector('.guavajam-facet-type'), button=n.querySelector('button'), value=n.querySelector('.guavajam-facet-value');

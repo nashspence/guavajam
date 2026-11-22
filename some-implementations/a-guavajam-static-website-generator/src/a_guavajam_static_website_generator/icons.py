@@ -147,6 +147,8 @@ def finish_html(html, *, site_origin=None):
             start, end, attrs, nav, heading = self.anchor; self.anchor = None
             if not attrs.get('href') or 'data-guavajam-link' in attrs or 'data-guavajam-icon' in attrs: return
             if 'guavajam-skip' in attrs.get('class', '').split(): return
+            if (attrs.get('role') in {'doc-noteref', 'doc-backlink'} or
+                    set(attrs.get('class', '').split()) & {'footnote-ref', 'footnote-back'}): return
             if any('guavajam-pagination' in a.get('class', '').split() for _, a in self.stack): return
             line, column = self.getpos(); close = offsets[line - 1] + column
             inner = html[end:close]

@@ -61,6 +61,14 @@ class IconTests(unittest.TestCase):
         self.assertIn('Cole Bemis', result)
         self.assertNotIn('<script', result)
 
+    def test_footnote_superscripts_and_return_links_keep_the_native_presentation(self):
+        source = ('<p>Text<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref">'
+                  '<sup>1</sup></a></p><section role="doc-endnotes"><ol>'
+                  '<li id="fn1">A note. <a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a>'
+                  '</li></ol></section>')
+        self.assertEqual(source, finish_html(source))
+        self.assertNotIn('guavajam-icon', finish_html(source))
+
     def test_empty_code_line_anchors_remain_invisible(self):
         source = '<pre><code><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>print(1)</code></pre>'
         self.assertEqual(source, finish_html(source))
