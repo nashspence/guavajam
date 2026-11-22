@@ -19,6 +19,8 @@
 .guavajam-navigation li { display: flex; flex: none; align-items: baseline; margin: 0; }
 .guavajam-navigation li + li::before { content: '/'; color: var(--guavajam-muted); margin: 0 .55rem 0 .15rem; }
 .guavajam-navigation a, .guavajam-navigation [aria-current="page"] { padding-block: .2rem; }
+.guavajam-navigation .guavajam-icon-label { gap: .15em; }
+.guavajam-navigation .guavajam-icon-control { min-width: 1em; }
 .guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit; font-weight: 600; margin: 0; white-space: nowrap; }
 .guavajam-navigation [aria-current="page"]:not(h1) { color: var(--guavajam-ink); font-weight: 600; }
 
@@ -62,7 +64,8 @@
 }
 .guavajam-facet { flex: none; white-space: nowrap; }
 .guavajam-facet-type { font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.guavajam-facet, .guavajam-facet-type, .guavajam-facet-value { color: var(--guavajam-ink); }
+.guavajam-facet, .guavajam-facet-value { color: var(--guavajam-ink); }
+.guavajam-facet-type { color: var(--guavajam-muted); }
 button.guavajam-facet-type {
   font: inherit; font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--guavajam-link); padding: 0; border: 0;
   background: transparent; cursor: pointer;
@@ -133,7 +136,7 @@ button.guavajam-facet-type[aria-pressed="true"] { font-weight: 700; }
 /* Source permalinks keep their original targets; Cite opens a bounded directory. */
 .guavajam-passage-cite, .guavajam-passage-cite:visited {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 2.75rem; min-height: 2.75rem; margin-block: -.35rem;
+  min-width: 1.5rem; min-height: 2.75rem; margin-block: -.35rem;
   color: var(--guavajam-link); font: 600 .8rem/1 system-ui, sans-serif;
   vertical-align: middle;
 }
@@ -175,8 +178,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 #guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem .8rem; align-items: center; margin: .75rem 0 0; }
 #guavajam-search > .guavajam-query-field { min-width: 0; }
 #guavajam-search label { display: block; font: 600 .83rem/1.4 system-ui, sans-serif; margin-bottom: .25rem; }
-#guavajam-search input, #guavajam-search select, #guavajam-search button,
-#guavajam-search-prev, #guavajam-search-next {
+#guavajam-search input, #guavajam-search select, #guavajam-search button {
   font: .9rem/1.4 system-ui, sans-serif; padding: .45rem .6rem; max-width: 100%; box-sizing: border-box;
 }
 /* iOS Safari magnifies focused controls below 16 CSS px and can retain
@@ -184,13 +186,11 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 #guavajam-search :is(input, select) { font-size: max(.9rem, 16px); }
 #guavajam-search input { display: block; width: 100%; min-width: 0; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
 #guavajam-search select { width: 100%; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
-#guavajam-search button, .guavajam-index-search button,
-#guavajam-search-prev, #guavajam-search-next {
+#guavajam-search button, .guavajam-index-search button {
   color: var(--guavajam-link); background: transparent; border: 1px solid var(--guavajam-border); cursor: pointer;
 }
-#guavajam-search button:not(:disabled):hover, .guavajam-index-search button:not(:disabled):hover,
-#guavajam-search-prev:not(:disabled, [aria-disabled="true"]):hover, #guavajam-search-next:not(:disabled, [aria-disabled="true"]):hover { color: var(--guavajam-link-hover); }
-#guavajam-search button:disabled, #guavajam-search-prev:is(:disabled, [aria-disabled="true"]), #guavajam-search-next:is(:disabled, [aria-disabled="true"]) { opacity: .55; cursor: default; }
+#guavajam-search button:not(:disabled, [aria-disabled="true"]):hover, .guavajam-index-search button:not(:disabled, [aria-disabled="true"]):hover { color: var(--guavajam-link-hover); }
+#guavajam-search button:is(:disabled, [aria-disabled="true"]) { color: var(--guavajam-muted); opacity: 1; cursor: default; }
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
 .guavajam-search-filters summary { font: 600 .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-ink); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
@@ -202,11 +202,6 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 .guavajam-message-detail > summary:hover { color: var(--guavajam-link-hover); }
 .guavajam-editions .guavajam-message { font: .94rem/1.5 system-ui, sans-serif; color: var(--guavajam-ink); }
 .guavajam-editions .guavajam-meta code { font-size: .89em; }
-.guavajam-static-pages { gap: .35rem .85rem; }
-.guavajam-static-pages a, .guavajam-static-pages [aria-current="page"] {
-  display: inline-block; padding: .3rem .4rem;
-}
-.guavajam-static-pages [aria-current="page"] { color: var(--guavajam-ink); font-weight: 600; }
 
 /* Search and its directory list never need a redundant separator. */
 .guavajam-listing { border: 0; padding-top: 0; min-width: 0; width: 100%; }
@@ -215,13 +210,15 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 .guavajam-list-heading { font-size: 1.15rem; }
 .guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
 .guavajam-pagination > * { flex: none; }
-.guavajam-pagination button { padding: .3rem .7rem; }
-.guavajam-pagination :is(a[rel], button) {
+.guavajam-page-control {
   position: relative; display: inline-flex; align-items: center; justify-content: center;
-  min-width: 2.25rem; min-height: 2.25rem; vertical-align: middle;
+  min-width: 1.5rem; min-height: 1.5rem; vertical-align: middle;
+  font: .9rem/1.4 system-ui, sans-serif; color: var(--guavajam-link);
+  background: transparent; border: 0; padding: 0; cursor: pointer;
 }
-#guavajam-search-prev, #guavajam-search-next { border: 0; padding: 0; min-width: 1.5rem; min-height: 1.5rem; }
-.guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
+.guavajam-page-control:not(:disabled, [aria-disabled="true"]):hover { color: var(--guavajam-link-hover); }
+.guavajam-page-control:is(:disabled, [aria-disabled="true"]) { color: var(--guavajam-muted); opacity: 1; cursor: default; }
+.guavajam-page-label { color: var(--guavajam-muted); }
 .guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
 [hidden] { display: none !important; }
 @media print {
@@ -297,6 +294,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 }
 /* The SQLite excerpt is bounded and its marked fragments are DOM text, not HTML. */
 .guavajam-excerpt-label { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: .65rem 0 .2rem; }
+.guavajam-excerpt-label .guavajam-link-label { color: inherit; }
 .guavajam-search-excerpt .guavajam-passage-excerpt { margin: 0 0 .65rem; }
 .guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
 .guavajam-record-list mark {
@@ -309,8 +307,8 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 /* Plain, nested paragraphs: only the leading link icon is interactive. */
 .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
 .guavajam-contents-list ol ol { margin-inline-start: 1.35rem; }
-.guavajam-contents-list li { margin: 0; min-width: 0; }
-.guavajam-contents-list .guavajam-contents-entry { margin-block: -6px calc(1.1rem - 6px); }
+.guavajam-contents-list li { display: flow-root; margin: 0; min-width: 0; }
+.guavajam-contents-list .guavajam-contents-entry { margin-block: -6px; }
 .guavajam-contents-link { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 1.5em; vertical-align: -.125em; }
 .guavajam-contents-entry:has(a:focus-visible) { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
 

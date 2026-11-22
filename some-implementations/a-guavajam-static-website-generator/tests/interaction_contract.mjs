@@ -32,7 +32,21 @@ export async function iconLinkFallbacks(page) {
   return result.labels;
 }
 
+export async function textLinkCues(page) {
+  for (const wrapper of await page.locator('.guavajam-text-link:visible').all()) {
+    assert(await wrapper.evaluate(n=>{
+      const a=n.querySelector('a'),caption=n.querySelector('.guavajam-link-label'),s=getComputedStyle(n);
+      const probe=document.createElement('span');probe.style.color='var(--guavajam-muted)';n.append(probe);
+      const muted=getComputedStyle(probe).color;probe.remove();
+      return !a.contains(caption) && a.getAttribute('aria-label') && a.textContent.trim()==='Link' &&
+        getComputedStyle(caption).color===s.color && s.borderBottomStyle==='dotted' &&
+        parseFloat(s.borderBottomWidth)===1 && s.borderBottomColor===muted;
+    }),'prose links activate through an emphasized icon; a muted dotted rule groups icon and plain caption');
+  }
+}
+
 export async function navigationCues(page) {
+  await textLinkCues(page);
   const menu = page.locator('.guavajam-version-menu');
   if (await menu.count()) {
     for (const [href,name,label] of [['contents.html','list-tree','Contents'],['documents.html','files','Documents'],
@@ -66,10 +80,16 @@ export async function navigationCues(page) {
     assert(await facet.evaluate(n=>{
       const type=n.querySelector('.guavajam-facet-type'), button=n.querySelector('button'), value=n.querySelector('.guavajam-facet-value');
       const ink=getComputedStyle(document.body).color;
-      return button ? ['Tag','Subject'].includes(button.textContent.trim()) && !button.contains(value) &&
-        getComputedStyle(value).color===ink : getComputedStyle(type).color===ink;
-    }),'active facets filter through TAG/SUBJECT alone; inactive facets and values use normal foreground');
+      const probe=document.createElement('span');probe.style.color='var(--guavajam-muted)';n.append(probe);
+      const muted=getComputedStyle(probe).color;probe.remove();
+      return getComputedStyle(value).color===ink && (button ?
+        ['Tag','Subject'].includes(button.textContent.trim()) && !button.contains(value) :
+        getComputedStyle(type).color===muted);
+    }),'only active facet type words emphasize filtering; inactive TAG/SUBJECT use muted ink');
   }
+  for (const quote of await page.locator('svg.guavajam-icon-quote:visible').all())
+    assert(await quote.evaluate(n=>getComputedStyle(n).fill===getComputedStyle(n).color && getComputedStyle(n).stroke==='none'),
+      'citation controls use the filled pinned quote silhouette');
   for (const heading of await page.locator('.guavajam-edition :is(h2,h3,h4,h5,h6)[id]').all()) {
     if (await heading.locator(':scope > .guavajam-permalink').count())
       assert(await heading.evaluate(n=>{
@@ -228,6 +248,7 @@ export async function searchFeedbackGeometry(page, initial = false) {
 // A text hit is useful only when the reader can see why it matched. This is
 // shared by Works, Versions, Documents and Passages, including historical hits.
 export async function searchEvidence(page) {
+  await textLinkCues(page);
   for (const row of await page.locator('#guavajam-search-results > li').all()) {
     if (await page.locator('form[data-directory=documents]').count()) {
       assert(await row.locator('h3 mark, .guavajam-abstract mark').count() > 0,
@@ -237,12 +258,19 @@ export async function searchEvidence(page) {
     }
     const evidence = row.locator('.guavajam-search-excerpt');
     assert.equal(await evidence.count(), 1, 'each text result explains its exact winning record');
-    assert.match(await evidence.locator('.guavajam-excerpt-label').textContent(),
+    assert.match(await evidence.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(),
       /^(Title|Author|Description|Tag or subject|Publication metadata|Document text|Passage) match$/);
     assert(await evidence.locator('.guavajam-passage-excerpt mark').count() > 0,
       'even body-only, historical and provenance-only matches show highlighted evidence');
     assert((await evidence.locator('.guavajam-passage-excerpt').textContent()).length <= 322,
       'match evidence stays bounded near the matched text');
+    const destination=evidence.locator('.guavajam-excerpt-label a');
+    if (await destination.count()) {
+      assert.equal(await destination.locator('svg.guavajam-icon-link').count(),1);
+      assert.equal(await destination.getAttribute('aria-label'),
+        await evidence.locator('.guavajam-excerpt-label .guavajam-link-label').textContent());
+      assert(await destination.getAttribute('href'));
+    }
   }
 }
 
@@ -275,6 +303,11 @@ export async function listControlLayout(page) {
       button.x > input.x + input.width, 'search input and right-hand submit share one centered row');
   }
   for (const pager of await page.locator('.guavajam-pagination:visible').all()) {
+    assert(await pager.evaluate(n=>n.children.length===3 &&
+      n.firstElementChild.getAttribute('aria-label')==='Previous page' &&
+      n.lastElementChild.getAttribute('aria-label')==='Next page' &&
+      /^Page \d+ of \d+$/.test(n.children[1].textContent)),
+      'static and enhanced lists share Previous / Page N of M / Next');
     const centered = await pager.evaluate(n => {
       const bounds = n.getBoundingClientRect(), rows = new Map();
       for (const child of n.children) {
@@ -294,11 +327,23 @@ export async function listControlLayout(page) {
         getComputedStyle(n).overflowX === 'auto' && getComputedStyle(n).whiteSpace === 'nowrap';
     });
     assert(inline, 'list heading and status share one horizontal scroll lane');
+    assert(await header.evaluate(n=>{
+      const heading=n.querySelector('h2'),status=n.querySelector('p');
+      return heading.textContent===heading.dataset.staticHeading && /^\d+ total$/.test(status.textContent);
+    }),'list identity stays stable; its adjacent status reports only the current total');
+
   }
   for (const control of await page.locator('.guavajam-pagination a[rel], .guavajam-pagination button').all()) {
-    const previous=(await control.getAttribute('rel')) === 'prev' || (await control.getAttribute('id')) === 'guavajam-search-prev';
+    const previous=await control.evaluate(n=>n.parentElement.firstElementChild===n);
     assert.equal(await control.getAttribute('aria-label'), previous ? 'Previous page' : 'Next page');
     assert.equal(await control.locator('svg.guavajam-icon-'+(previous ? 'arrow-left' : 'arrow-right')+'[aria-hidden=true][focusable=false]').count(),1);
+    if (await control.evaluate(n=>n.matches(':disabled,[aria-disabled=true]'))) {
+      assert(await control.evaluate(n=>{
+        const p=document.createElement('span');p.style.color='var(--guavajam-muted)';n.parentElement.append(p);
+        const muted=getComputedStyle(p).color;p.remove();
+        return getComputedStyle(n).color===muted && getComputedStyle(n).opacity==='1';
+      }),'disabled paging uses readable muted ink rather than dimmed emphasis');
+    }
   }
   const footer=page.locator('footer');
   if (await footer.count() && (await footer.textContent()).includes('a-guavajam-static-website-generator')) {
@@ -317,7 +362,7 @@ export async function listHeadingOverflow(page) {
   const header=page.locator('.guavajam-list-header'), status=header.locator('#guavajam-search-status');
   const saved=await status.textContent();
   try {
-    await status.evaluate(n=>n.textContent='Page '+'9'.repeat(160)+' of '+'9'.repeat(160));
+    await status.evaluate(n=>n.textContent='9'.repeat(320)+' total');
     assert(await header.evaluate(n=>n.scrollWidth > n.clientWidth && getComputedStyle(n).scrollbarWidth === 'none'));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
     await header.focus();await header.press('ArrowRight');await page.waitForTimeout(100);

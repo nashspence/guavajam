@@ -52,7 +52,14 @@ class IconTests(unittest.TestCase):
         self.assertIn('Recording <span class="guavajam-link-mime">(audio/mpeg)</span>', result)
         self.assertNotIn('application/octet-stream', result)
         self.assertIn('guavajam-icon-link', result)
-        self.assertIn(('#local', ' Local'), TextClientLinks(result).links)
+        self.assertIn(('#local', 'Link'), TextClientLinks(result).links)
+        self.assertIn('class="guavajam-text-link"', result)
+        self.assertIn('aria-label="Local"', result)
+        self.assertEqual(['Paper','Email the author','Report (application/pdf)',
+                          'Recording (audio/mpeg)','Supplement','Local'],
+                         [a['aria-label'] for tag,a in tags if tag=='a'])
+        self.assertIn('</a> <span class="guavajam-link-label" aria-hidden="true">Paper</span>',result)
+        self.assertEqual(['Link']*6,[text.strip() for _,text in TextClientLinks(result).links])
         for tag, attrs in tags:
             if tag == 'svg':
                 self.assertEqual('true', attrs['aria-hidden']);self.assertEqual('false', attrs['focusable'])

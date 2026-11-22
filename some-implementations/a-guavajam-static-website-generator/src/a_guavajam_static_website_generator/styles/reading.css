@@ -68,11 +68,17 @@ div.guavajam-citation {
   stroke-linejoin: round; stroke-linecap: round;
 }
 
-/* Weight distinguishes links without an underline; hover changes only ink. */
+/* Only the icon activates a prose link; its dotted rule groups the whole label. */
 a, a:visited { color: var(--guavajam-link); font-weight: 600; text-decoration: none; }
 a:hover, a:visited:hover { color: var(--guavajam-link-hover); }
 .guavajam-icon-label { display: inline-flex; align-items: baseline; gap: .25em; color: var(--guavajam-ink); }
 .guavajam-link-label { color: var(--guavajam-ink); min-width: 0; }
+.guavajam-text-link {
+  border-block-end: 1px dotted var(--guavajam-muted); padding-block-end: .1em;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+}
+.guavajam-text-link .guavajam-link-label { color: inherit; }
+.guavajam-text-link > .guavajam-icon-control { min-width: 1em; min-height: 1em; }
 .guavajam-icon-control {
   position: relative; display: inline-flex; align-items: center; justify-content: flex-start;
   flex: none; min-width: 1.35rem; min-height: 1.5rem; vertical-align: -.125em;
@@ -165,7 +171,7 @@ a:hover mark { color: var(--guavajam-match-hover-ink); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 2.75rem;
+  min-width: 1.5rem;
   min-height: 2.75rem;
   margin: -.35rem 0 -.35rem .1rem;
   color: var(--guavajam-link);
@@ -410,6 +416,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
 @media (forced-colors: active) {
   :root {
     --guavajam-link: LinkText; --guavajam-link-hover: ActiveText;
+    --guavajam-muted: GrayText;
     --guavajam-focus: Highlight;
   }
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
@@ -496,4 +503,5 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
   vertical-align: -.125em; fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round;
 }
+.guavajam-icon.guavajam-icon-quote { fill: currentColor; stroke: none; }
 .guavajam-link-mime { font: .8em/1.4 system-ui, sans-serif; }

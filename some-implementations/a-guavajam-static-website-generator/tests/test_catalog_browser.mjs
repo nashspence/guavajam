@@ -146,7 +146,7 @@ try {
         assert.equal(await link.locator('svg.guavajam-icon-file-json[aria-hidden=true]').count(),1);
         assert.equal(await link.getAttribute('type'),'application/json');
         assert.equal(await link.getAttribute('download'),'');
-        assert.equal(await link.locator('.guavajam-link-mime').textContent(),'(application/json)');
+        assert.equal(await link.locator('..').locator('.guavajam-link-mime').textContent(),'(application/json)');
         const downloading=page.waitForEvent('download');await link.click();const saved=await downloading;
         assert.equal(saved.suggestedFilename(),filename);
         assert.deepEqual(await fs.readFile(await saved.path()),await fs.readFile(path.join(root,edition,filename)));
@@ -168,6 +168,14 @@ try {
         }));
       }
 
+      assert(await page.locator('.guavajam-contents-list').evaluate(n=>{
+        const rows=[...n.querySelectorAll('.guavajam-contents-entry')];
+        return rows.slice(1).every((row,i)=>{
+          const baseline=row.getBoundingClientRect().top-rows[i].getBoundingClientRect().top;
+          return baseline>=parseFloat(getComputedStyle(row).fontSize) &&
+            baseline<=parseFloat(getComputedStyle(row).lineHeight)*1.2;
+        });
+      }),'contents rows use compact paragraph leading, including nested sections');
       const entry = page.locator('.guavajam-contents-entry').first();
       await entry.evaluate(n => n.append(' A deliberately long contents entry for native horizontal reading.'.repeat(12)));
       assert(await entry.evaluate(n => n.scrollWidth > n.clientWidth));

@@ -65,12 +65,11 @@ try {
         if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin)
           external.push(request.url());
       });
-      const label = {editions: 'edition(s)', documents: 'document(s)', passages: 'section(s) / passage(s)'};
       const waitTotal = async (total, kind) => {
         try {
-          await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
+          await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
             document.querySelector('#guavajam-search-status').textContent === expected,
-            `${total} ${label[kind]} found`);
+            `${total} total`);
         } catch (error) {
           throw new Error(`${name}: expected ${total} ${kind}; status=${await page.locator('#guavajam-search-status').textContent()}; errors=${errors.join('; ')}`, {cause: error});
         }
@@ -93,13 +92,13 @@ try {
       assert.equal((await page.locator('a[href="browse/index.html"]').count()), 0);
       assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Archive work');
       assert.equal(await page.locator('.guavajam-editions > li').count(), 20);
-      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), `${fixture.editions} total`);
       assert.equal(runtimeLoads(), 0, 'Opening a directory never initializes SQLite');
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await page.locator('.guavajam-editions > li').count(), 3);
       await enable(fixture.editions, 'editions');
       await fixedPageHorizontalScroll(page);
-      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Versions');
       await openSearchFilters(page);
       await page.locator('select[name=sort]').selectOption('oldest');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3 .guavajam-link-label')?.textContent === 'v1');
@@ -109,10 +108,10 @@ try {
       assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'v2');
       assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
       await query('Palaeotidal', 1, 'editions');
-      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Document text match');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
       await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
-      assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'),
+      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'),
         base + fixture.historical);
 
       await page.goto(documentsURL);
@@ -162,7 +161,7 @@ try {
       await waitTotal(fixture.manuscriptPassages, 'passages');
       await page.locator('select[name=supporting]').selectOption('all');
       await page.waitForFunction(expected => {
-        const found = document.querySelector('#guavajam-search-status').textContent.match(/^(\d+) section\(s\)/);
+        const found = document.querySelector('#guavajam-search-status').textContent.match(/^(\d+) total$/);
         return found && Number(found[1]) > expected;
       }, fixture.manuscriptPassages);
       await query('Bathymetric ecology', 1, 'passages');
@@ -197,7 +196,7 @@ try {
       // A match on signed metadata must show the native FTS highlight and
       // identify that context, rather than quoting an unrelated passage body.
       await query('Café studies', fixture.versionPassages, 'passages');
-      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label').first().textContent(), 'Tag or subject match');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label .guavajam-link-label').first().textContent(), 'Tag or subject match');
       for (const row of await page.locator('#guavajam-search-results > li').all()) {
         assert(await row.locator('.guavajam-passage-excerpt mark').count() > 0);
         assert((await row.locator('.guavajam-passage-excerpt').textContent()).includes('Café'));
@@ -209,7 +208,7 @@ try {
       }
       await query('Stereophotometric', 1, 'passages');
       const longQuote = page.locator('.guavajam-passage-excerpt');
-      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Passage match');
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Passage match');
       assert((await longQuote.textContent()).startsWith('…'));
       assert([...await longQuote.textContent()].length <= 322);
       assert.equal(await longQuote.locator('mark').textContent(), 'Stereophotometric');
@@ -277,7 +276,7 @@ try {
           await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
         await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
-        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
+        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('.guavajam-listing').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
@@ -294,8 +293,8 @@ try {
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // close
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // retry on reopen
-          await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
-            `${total} section(s) / passage(s) found`, fixture.versionPassages);
+          await fallback.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
+            `${total} total`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));
           assert.equal(new Set(values).size, values.length, 'a successful retry does not duplicate selector options');
         }
