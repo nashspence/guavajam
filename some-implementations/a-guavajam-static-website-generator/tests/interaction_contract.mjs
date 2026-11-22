@@ -226,10 +226,10 @@ export async function recordLinkAlignment(page) {
 
 export async function listControlLayout(page) {
   await recordLinkAlignment(page);
-  const field = page.locator('#guavajam-query');
+  const field = page.locator('form#guavajam-search input[name=q]');
   if (await field.isVisible()) {
     const input = await field.boundingBox();
-    const button = await page.locator('#guavajam-search button[type=submit]').boundingBox();
+    const button = await page.locator('form#guavajam-search button[type=submit]').boundingBox();
     assert(Math.abs(input.y + input.height / 2 - button.y - button.height / 2) < 1 &&
       button.x > input.x + input.width, 'search input and right-hand submit share one centered row');
   }
