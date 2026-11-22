@@ -71,6 +71,13 @@ div.guavajam-citation {
 /* Weight distinguishes links without an underline; hover changes only ink. */
 a, a:visited { color: var(--guavajam-link); font-weight: 600; text-decoration: none; }
 a:hover, a:visited:hover { color: var(--guavajam-link-hover); }
+.guavajam-icon-label { display: inline-flex; align-items: baseline; gap: .25em; color: var(--guavajam-ink); }
+.guavajam-link-label { color: var(--guavajam-ink); min-width: 0; }
+.guavajam-icon-control {
+  position: relative; display: inline-flex; align-items: center; justify-content: flex-start;
+  flex: none; min-width: 1.35rem; min-height: 1.5rem; vertical-align: -.125em;
+}
+
 :is(h1, h2, h3, h4, h5, h6) a { font-weight: inherit; }
 a:hover mark { color: var(--guavajam-match-hover-ink); }
 .footnote-ref { white-space: nowrap; }

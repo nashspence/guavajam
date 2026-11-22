@@ -18,7 +18,7 @@
 }
 .guavajam-navigation li { display: flex; flex: none; align-items: baseline; margin: 0; }
 .guavajam-navigation li + li::before { content: '/'; color: var(--guavajam-muted); margin: 0 .55rem 0 .15rem; }
-.guavajam-navigation a, .guavajam-navigation [aria-current="page"] { display: inline-block; padding-block: .2rem; }
+.guavajam-navigation a, .guavajam-navigation [aria-current="page"] { padding-block: .2rem; }
 .guavajam-navigation h1 { color: var(--guavajam-ink); font: inherit; font-weight: 600; margin: 0; white-space: nowrap; }
 .guavajam-navigation [aria-current="page"]:not(h1) { color: var(--guavajam-ink); font-weight: 600; }
 
@@ -42,15 +42,13 @@
 .guavajam-byline { margin: 0 0 .15rem; }
 /* Long names and metadata scroll as single lines without a
    visible scrollbar. Native keyboard/touch scrolling remains available. */
-.guavajam-scrollline,
-.guavajam-record-list h3 > a:first-child {
+.guavajam-scrollline {
   max-width: 100%; overflow-x: auto; overflow-y: hidden;
   white-space: nowrap; scrollbar-width: none; -ms-overflow-style: none;
 }
-.guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3 > a:first-child::-webkit-scrollbar { display: none; }
-.guavajam-record-list h3 { display: flex; align-items: center; gap: .2rem; flex-wrap: nowrap; white-space: nowrap; }
-/* Long record titles retain their own native horizontal scroll viewport. */
-.guavajam-record-list h3 > a:first-child { flex: 0 1 auto; min-width: 0; }
+.guavajam-scrollline::-webkit-scrollbar { display: none; }
+.guavajam-record-list h3 { display: block; white-space: nowrap; }
+.guavajam-record-list h3:has(a:focus-visible) { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
 .guavajam-facets {
   display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
@@ -64,14 +62,13 @@
 }
 .guavajam-facet { flex: none; white-space: nowrap; }
 .guavajam-facet-type { font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.guavajam-tag .guavajam-facet-type { color: var(--guavajam-link); }
-.guavajam-subject .guavajam-facet-type { color: var(--guavajam-ink); }
-button.guavajam-facet {
-  font: inherit; font-weight: 600; color: var(--guavajam-link); padding: 0; border: 0;
+.guavajam-facet, .guavajam-facet-type, .guavajam-facet-value { color: var(--guavajam-ink); }
+button.guavajam-facet-type {
+  font: inherit; font-size: .71em; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--guavajam-link); padding: 0; border: 0;
   background: transparent; cursor: pointer;
 }
-button.guavajam-facet:hover { color: var(--guavajam-link-hover); }
-button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
+button.guavajam-facet-type:hover { color: var(--guavajam-link-hover); }
+button.guavajam-facet-type[aria-pressed="true"] { font-weight: 700; }
 .guavajam-abstract { margin: .65rem 0 1.25rem; }
 .guavajam-meta, .guavajam-administration,
 .guavajam-search-help { color: var(--guavajam-muted); font: .86rem/1.6 system-ui, sans-serif; }
@@ -109,14 +106,8 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
   margin: calc(.5rem - 6px) -6px calc(1.3rem - 6px); scrollbar-width: none;
 }
 .guavajam-version-menu::-webkit-scrollbar { display: none; }
-/* New SVG cues accompany visible labels, leaving text-only clients unchanged. */
-.guavajam-version-menu a:not([download]) > .guavajam-icon:first-child,
-.guavajam-search-summary > .guavajam-icon,
-.guavajam-search-filters > summary > .guavajam-icon {
-  margin-inline-end: .35em;
-}
 /* Keep the menu's compact label; its MIME is in the tooltip and accessible name. */
-.guavajam-version-menu a { position: relative; }
+.guavajam-version-menu .guavajam-icon-label { position: relative; flex: none; }
 .guavajam-version-menu .guavajam-link-mime {
   position: absolute; inset: 0 auto auto 0; width: 1px; height: 1px; margin: -1px; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap;
@@ -156,10 +147,16 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
   border: 0; padding: 0; margin: 1.1rem 0 1.5rem;
 }
 .guavajam-search-summary {
-  color: var(--guavajam-link); cursor: pointer; width: fit-content;
+  color: var(--guavajam-ink); width: fit-content;
   font: 600 .92rem/1.6 system-ui, sans-serif; padding: .25rem .2rem;
 }
-.guavajam-search-summary:hover { color: var(--guavajam-link-hover); }
+
+.guavajam-disclosure-summary { list-style: none; pointer-events: none; cursor: default; }
+.guavajam-disclosure-summary::-webkit-details-marker { display: none; }
+.guavajam-disclosure-arrow { display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; min-height: 1.5rem; vertical-align: -.2em; pointer-events: auto; cursor: pointer; color: var(--guavajam-link); }
+.guavajam-disclosure-arrow:hover { color: var(--guavajam-link-hover); }
+details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { transform: rotate(90deg); }
+.guavajam-disclosure-label { color: var(--guavajam-ink); }
 .guavajam-index-size { color: var(--guavajam-muted); font: normal .79rem/1.4 system-ui, sans-serif; white-space: nowrap; }
 .guavajam-search-progress {
   display: inline-block; position: relative;
@@ -195,14 +192,14 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 #guavajam-search-prev:not(:disabled, [aria-disabled="true"]):hover, #guavajam-search-next:not(:disabled, [aria-disabled="true"]):hover { color: var(--guavajam-link-hover); }
 #guavajam-search button:disabled, #guavajam-search-prev:is(:disabled, [aria-disabled="true"]), #guavajam-search-next:is(:disabled, [aria-disabled="true"]) { opacity: .55; cursor: default; }
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
-.guavajam-search-filters summary { cursor: pointer; font: 600 .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
+.guavajam-search-filters summary { font: 600 .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-ink); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
 /* A single disclosure looks and operates the same in every directory. */
 .guavajam-document-list ul { list-style: none; padding-inline-start: 1rem; }
 .guavajam-document-list ul li { list-style: none; }
 .guavajam-message-detail { margin-top: .35rem; font: .86rem/1.5 system-ui, sans-serif; }
 .guavajam-message-detail summary { cursor: pointer; font-weight: 600; color: var(--guavajam-link); width: fit-content; padding: .3rem .2rem; }
-:is(.guavajam-search-filters, .guavajam-message-detail) > summary:hover { color: var(--guavajam-link-hover); }
+.guavajam-message-detail > summary:hover { color: var(--guavajam-link-hover); }
 .guavajam-editions .guavajam-message { font: .94rem/1.5 system-ui, sans-serif; color: var(--guavajam-ink); }
 .guavajam-editions .guavajam-meta code { font-size: .89em; }
 .guavajam-static-pages { gap: .35rem .85rem; }
@@ -223,17 +220,18 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
   position: relative; display: inline-flex; align-items: center; justify-content: center;
   min-width: 2.25rem; min-height: 2.25rem; vertical-align: middle;
 }
+#guavajam-search-prev, #guavajam-search-next { border: 0; padding: 0; min-width: 1.5rem; min-height: 1.5rem; }
 .guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
 .guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
 [hidden] { display: none !important; }
 @media print {
   .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
   .guavajam-passage-cite, .guavajam-skip { display: none !important; }
-  .guavajam-scrollline, .guavajam-actions, .guavajam-record-list h3,
-  .guavajam-record-list h3 > a:first-child {
+  .guavajam-scrollline, .guavajam-actions, .guavajam-record-list h3 {
     overflow: visible; white-space: normal;
   }
   .guavajam-record-list h3 { display: block; }
+  .guavajam-record-list h3 .guavajam-icon-label { display: inline; }
   .guavajam-facets, .guavajam-actions, .guavajam-list-header { flex-wrap: wrap; }
   .guavajam-list-header > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }

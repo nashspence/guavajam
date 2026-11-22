@@ -376,8 +376,8 @@ class WorkSearchTests(unittest.TestCase):
             self.assertIn('data-static-heading="Versions"', history)
             self.assertIn('aria-label="Breadcrumb"', history)
             manuscript = work / 'editions' / self.latest / 'read/index.html'
-            self.assertIn('href="contents.html"><svg class="guavajam-icon guavajam-icon-list-tree"', manuscript.read_text())
-            self.assertIn('href="passages.html"><svg class="guavajam-icon guavajam-icon-book-open-text"', manuscript.read_text())
+            self.assertRegex(manuscript.read_text(), r'<a href="contents.html"[^>]*><svg class="guavajam-icon guavajam-icon-list-tree"')
+            self.assertRegex(manuscript.read_text(), r'<a href="passages.html"[^>]*><svg class="guavajam-icon guavajam-icon-book-open-text"')
 
 
     def test_standalone_updater_rebuilds_when_external_runtime_changes(self):

@@ -79,18 +79,18 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('aria-label="Breadcrumb"', markup)
             self.assertIn('Search versions and commit messages', markup)
             self.assertIn('id="guavajam-index-search" hidden', markup)
-            self.assertIn('guavajam-icon-search', markup)
-            self.assertIn('guavajam-icon-sliders-horizontal', markup)
+            self.assertIn('guavajam-icon-chevron-right', markup)
+            self.assertIn('guavajam-disclosure-arrow', markup)
             self.assertIn('class="guavajam-index-search guavajam-directory-enhancement"', markup)
-            self.assertIn('Search <span class="guavajam-index-size"', markup)
+            self.assertIn('Search</span> <span class="guavajam-index-size"', markup)
             self.assertNotIn('Enable search', markup)
             self.assertNotIn('data-lazy=', markup)
-            self.assertIn('<summary><svg class="guavajam-icon guavajam-icon-sliders-horizontal"', markup)
+            self.assertIn('class="guavajam-disclosure-summary ', markup)
             self.assertIn('name="edition" value="all"', markup)
             self.assertIn('data-worker="../../search-worker.js"' if number == 1
                           else 'data-worker="../../../search-worker.js"', markup)
             # Simple labels, reading-first links, metadata controls and messages.
-            rows = re.findall(r'<li><article><h3[^>]*><a [^>]*>(v\d+)</a>', markup)
+            rows = re.findall(r'<li><article><h3[^>]*>.*?<span class="guavajam-link-label" aria-hidden="true">(v\d+)</span>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
             old.extend(rows)
@@ -115,7 +115,7 @@ class DirectoryPageTests(unittest.TestCase):
         totals = []
         for number, location in enumerate(doc_pages, 1):
             html = location.read_text()
-            documents = re.findall(r'<li><article><h3[^>]*><a href="[^"]+">', re.search(
+            documents = re.findall(r'<li><article><h3[^>]*>.*?<a href="[^"]+"', re.search(
                 r'<ul class="guavajam-document-list guavajam-record-list">(.*?)</ul>', html, re.S).group(1))
             totals.append(len(documents))
             self.assertLessEqual(len(documents), PAGE_SIZE)
@@ -126,7 +126,7 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn(f'Page {number} of 3', html)
             self.assertIn('id="guavajam-search-spinner"', html)
             self.assertIn('.guavajam-record-list { list-style: none;', html)
-            self.assertIn('>v27</a>', html)
+            self.assertIn('aria-label="v27"', html)
 
             self.assertNotIn('Manuscript and supporting documents in this edition.', html)
             self.assertNotIn('listing.js', html)
@@ -157,7 +157,8 @@ class DirectoryPageTests(unittest.TestCase):
             if number == 1:
                 self.assertIn('<h1 aria-current="page">Shoreline work</h1>', html)
             else:
-                self.assertIn('href="../index.html">Shoreline work</a>', html)
+                self.assertIn('href="../index.html"', html)
+                self.assertIn('aria-label="Shoreline work"', html)
                 self.assertIn('<h1 aria-current="page">Page 2</h1>', html)
             self.assertTrue(any(link.startswith(prefix + 'editions/') and link.endswith('/read/index.html')
                                 for link in Markup(html).links))
@@ -197,7 +198,8 @@ class DirectoryPageTests(unittest.TestCase):
         self.assertIn('class="guavajam-icon guavajam-icon-link"',html)
         self.assertIn('aria-label="Go to section Opening &lt;study&gt;"',html)
         self.assertNotIn('border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0;', html)
-        self.assertIn('href="index.html">v1</a>', html)
+        self.assertIn('href="index.html"', html)
+        self.assertIn('aria-label="v1"', html)
         self.assertNotIn('<script', html)
         view = json.loads((read / 'VIEW.json').read_text())
         self.assertEqual(hashlib.sha256(html.encode()).hexdigest(), view['files']['contents.html'])

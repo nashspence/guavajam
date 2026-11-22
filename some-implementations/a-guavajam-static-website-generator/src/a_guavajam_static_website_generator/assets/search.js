@@ -57,7 +57,7 @@ if (form) {
   function unavailable() {
     const focused = document.activeElement;
     const lostFocus = document.hasFocus() && (results.contains(focused) || pagination.contains(focused) ||
-      fallback.contains(focused) && focused.matches('button.guavajam-facet'));
+      fallback.contains(focused) && focused.matches('button.guavajam-facet-type'));
     clearTimeout(timer);
     ready = false;
     loading = false;
@@ -90,24 +90,24 @@ if (form) {
   }
 
   function facetButton(kind, key, label) {
+    const facet = document.createElement('span');
+    facet.className = 'guavajam-facet guavajam-' + (kind === 'keyword' ? 'tag' : 'subject');
+    facet.dataset.facet = kind; facet.dataset.value = key;
     const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'guavajam-facet guavajam-' + (kind === 'keyword' ? 'tag' : 'subject');
-    button.dataset.facet = kind;
+    button.type = 'button'; button.className = 'guavajam-facet-type';
+    button.dataset.facet = kind; button.dataset.value = key;
     button.setAttribute('aria-pressed', 'false');
-    button.dataset.value = key;
-    const type = document.createElement('span');
-    type.className = 'guavajam-facet-type';
-    type.textContent = kind === 'keyword' ? 'Tag' : 'Subject';
-    button.append(type, document.createTextNode(' '));
-    appendText(button, label);
+    button.textContent = kind === 'keyword' ? 'Tag' : 'Subject';
     button.setAttribute('aria-label', `Filter by ${kind === 'keyword' ? 'tag' : 'subject'} ${label}`);
-    return button;
+    const value = document.createElement('span'); value.className = 'guavajam-facet-value'; appendText(value, label);
+    facet.append(button, document.createTextNode(' '), value);
+    return facet;
   }
 
   function promoteStaticFacets() {
     if (work) return;
     for (const span of fallback.querySelectorAll('span.guavajam-facet[data-facet][data-value]')) {
+      if (span.querySelector('button')) continue;
       const type = span.dataset.facet;
       if (type !== 'keyword' && type !== 'subject') continue;
       const label = span.textContent.trim().replace(/^(?:Tag|Subject)\s*/, '');
@@ -117,18 +117,14 @@ if (form) {
 
   function demoteStaticFacets() {
     if (work) return;
-    for (const button of fallback.querySelectorAll('button.guavajam-facet[data-facet]')) {
-      const span = document.createElement('span');
-      span.className = button.className;
-      span.dataset.facet = button.dataset.facet;
-      span.dataset.value = button.dataset.value;
-      span.append(...button.childNodes);
-      button.replaceWith(span);
+    for (const button of fallback.querySelectorAll('button.guavajam-facet-type[data-facet]')) {
+      const span = document.createElement('span'); span.className = 'guavajam-facet-type';
+      span.textContent = button.textContent; button.replaceWith(span);
     }
   }
 
   function facetSelection(event) {
-    const button = event.target.closest('button.guavajam-facet[data-facet][data-value]');
+    const button = event.target.closest('button.guavajam-facet-type[data-facet][data-value]');
     if (!ready || !button) return;
     const select = button.dataset.facet === 'keyword' ? keyword : subject;
     if (!select || ![...select.options].some(option => option.value === button.dataset.value)) return;
@@ -275,8 +271,14 @@ if (form) {
       const link = document.createElement('a');
       link.href = work ? workURL(row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
-      appendText(link, row.title);
-      heading.append(link);
+      link.className = 'guavajam-icon-control';
+      link.setAttribute('aria-label', row.title); link.title = row.title;
+      link.append(document.querySelector('#guavajam-icon-link').content.cloneNode(true));
+      const label = document.createElement('span'); label.className = 'guavajam-link-label';
+      label.setAttribute('aria-hidden', 'true'); appendText(label, row.title);
+      const caption = document.createElement('span'); caption.className = 'guavajam-icon-label';
+      caption.append(link, document.createTextNode(' '), label);
+      heading.className = 'guavajam-scrollline'; heading.tabIndex = 0; heading.append(caption);
 
       article.append(heading);
       if (!work) {
@@ -366,7 +368,7 @@ if (form) {
       if (row.hit_url) {
         const match = document.createElement('a');
         match.href = work ? workURL(row.hit_url) : collectionURL(row.hit_url);
-        match.textContent = 'View matching edition text';
+        match.append(document.querySelector('#guavajam-icon-link').content.querySelector('svg').cloneNode(true), document.createTextNode(' View matching edition text'));
         article.append(match);
       }
       li.append(article);
@@ -382,7 +384,7 @@ if (form) {
     pageLabel.textContent = `Page ${current} of ${pages}`;
     pagination.hidden = false;
     if (worksHeading) worksHeading.textContent = 'Search results';
-    for (const button of results.querySelectorAll('button.guavajam-facet')) {
+    for (const button of results.querySelectorAll('button.guavajam-facet-type')) {
       const selected = button.dataset.facet === 'keyword' ? keyword : subject;
       button.setAttribute('aria-pressed', String(selected?.value === button.dataset.value));
     }

@@ -95,8 +95,8 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         if relative != 'documents.html':
             # The renderer's utility directory is useful standalone but
             # redundant with the version menu in site-owned readers.
-            from .navigation import reader_navigation
-            text = text.replace(reader_navigation(source), '', 1)
+            text = re.sub(r'<nav\b[^>]*class="guavajam-document-nav"[^>]*>.*?</nav>',
+                          '', text, count=1, flags=re.S)
             if relative == 'index.html':
                 # One compact route menu, directly above the manuscript; no
                 # second edition cover, repeated abstract, or extra citation.

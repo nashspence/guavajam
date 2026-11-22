@@ -60,7 +60,7 @@ try {
       await page.goto(base);
       assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Field Notes, Revised');
       assert.equal(await page.getByRole('heading', {name: 'Versions', exact: true}).count(), 1);
-      assert.deepEqual(await page.locator('.guavajam-editions h3 a').allTextContents(), ['v2', 'v1']);
+      assert.deepEqual(await page.locator('.guavajam-editions h3 .guavajam-link-label').allTextContents(), ['v2', 'v1']);
       await page.keyboard.press('Tab');
       assert.equal(await page.locator(':focus').textContent(), 'Skip to content');
       await page.keyboard.press('Enter');
@@ -70,7 +70,7 @@ try {
       assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
       assert(await page.locator('.guavajam-version-menu').evaluate(node =>
         Boolean(node.compareDocumentPosition(document.querySelector('main .guavajam-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
-      assert.deepEqual((await page.locator('.guavajam-version-menu a').allTextContents()).map(s => s.trim()),
+      assert.deepEqual((await page.locator('.guavajam-version-menu .guavajam-link-label').allTextContents()).map(s => s.trim()),
         ['Contents', 'Documents', 'Passages', 'Metadata', 'Download (text/markdown)']);
       for (const width of [320, 360, 390, 430, 500]) {
         await page.setViewportSize({width, height: 900});
