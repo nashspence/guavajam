@@ -42,9 +42,9 @@ for(const [engine,type] of Object.entries({chromium, firefox, webkit}).filter(([
     assert(await page.locator('.guavajam-document-divider').evaluate(n=>{
       const style=getComputedStyle(n),citation=document.querySelector('.guavajam-citation');
       return style.borderTopWidth==='1px'&&style.borderTopStyle==='solid'&&
-        style.borderTopColor===getComputedStyle(citation).borderInlineStartColor&&
+        style.borderTopColor===getComputedStyle(document.querySelector('footer')).borderTopColor&&
         !n.hasAttribute('id')&&!n.hasAttribute('tabindex');
-    }),'the document divider shares the citation border and creates no fragment or tab stop');
+    }),'the document divider shares the decorative rule color and creates no fragment or tab stop');
     const titleFont=await page.locator('.guavajam-citation h1').evaluate(n=>getComputedStyle(n).font);
     assert.equal(titleFont,await page.locator('.guavajam-citation-description').evaluate(n=>getComputedStyle(n).font));
     assert.equal(shape.h1,1);assert.equal(shape.main,1);assert.equal(shape.scripts,0);assert.equal(shape.ids.length,new Set(shape.ids).size);if(shape.width>shape.viewport+1){const overflow=await page.evaluate(()=>[...document.querySelectorAll('main *')].map(n=>({tag:n.tagName,id:n.id,cls:n.className?.baseVal??n.className,left:n.getBoundingClientRect().left,right:n.getBoundingClientRect().right})).filter(n=>n.right>innerWidth+1||n.left< -1).slice(0,12));assert.fail(`${engine} ${name} ${width} enlarged=${enlarge} overflows: ${JSON.stringify(overflow)}`);}assert(shape.csp.includes("script-src 'none'"));

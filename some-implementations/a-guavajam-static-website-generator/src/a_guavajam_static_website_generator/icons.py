@@ -179,7 +179,7 @@ def finish_html(html, *, site_origin=None):
             suffix = ' <span class="guavajam-link-mime">(' + escape(mime) + ')</span>' if download and mime else ''
             wrapper = 'guavajam-icon-label' if nav or heading else 'guavajam-text-link'
             replacement = ('<span class="' + wrapper + '"><a' + attributes(attrs) + '>' + cues +
-                           '</a> <span class="guavajam-link-label" aria-hidden="true">' +
+                           '</a><span class="guavajam-link-label" aria-hidden="true">' +
                            inner.strip() + suffix + '</span></span>')
             edits.append((start, html.index('>', close) + 1, replacement))
 

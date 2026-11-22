@@ -228,18 +228,18 @@ if (form) {
     return cited;
   }
 
-  function captionLink(href, text, prose = false) {
+  function captionLink(href, text, highlight = true) {
     const wrapper = document.createElement('span');
-    wrapper.className = prose ? 'guavajam-text-link' : 'guavajam-icon-label';
+    wrapper.className = 'guavajam-icon-label';
     const link = document.createElement('a');
     link.href = href; link.className = 'guavajam-icon-control';
     link.setAttribute('aria-label', text); link.title = text;
     link.append(document.querySelector('#guavajam-icon-link').content.cloneNode(true));
     const caption = document.createElement('span'); caption.className = 'guavajam-link-label';
     caption.setAttribute('aria-hidden', 'true');
-    if (prose) caption.textContent = text;
-    else appendText(caption, text);
-    wrapper.append(link, document.createTextNode(' '), caption);
+    if (highlight) appendText(caption, text);
+    else caption.textContent = text;
+    wrapper.append(link, caption);
     return wrapper;
   }
 
@@ -263,7 +263,7 @@ if (form) {
       labels: 'Tag or subject match', git: 'Publication metadata match'};
     const reason = row.excerpt_context === 'passage' ? 'Passage match' :
       row.excerpt_context === 'document' ? 'Document text match' : labels[row.excerpt_field];
-    if (row.hit_url) label.append(captionLink(work ? workURL(row.hit_url) : collectionURL(row.hit_url), reason, true));
+    if (row.hit_url) label.append(captionLink(work ? workURL(row.hit_url) : collectionURL(row.hit_url), reason, false));
     else {
       const caption = document.createElement('span'); caption.className = 'guavajam-link-label';
       caption.textContent = reason; label.append(caption);

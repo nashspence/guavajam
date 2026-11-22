@@ -58,7 +58,7 @@ class IconTests(unittest.TestCase):
         self.assertEqual(['Paper','Email the author','Report (application/pdf)',
                           'Recording (audio/mpeg)','Supplement','Local'],
                          [a['aria-label'] for tag,a in tags if tag=='a'])
-        self.assertIn('</a> <span class="guavajam-link-label" aria-hidden="true">Paper</span>',result)
+        self.assertIn('</a><span class="guavajam-link-label" aria-hidden="true">Paper</span>',result)
         self.assertEqual(['Link']*6,[text.strip() for _,text in TextClientLinks(result).links])
         for tag, attrs in tags:
             if tag == 'svg':
@@ -92,7 +92,7 @@ class IconTests(unittest.TestCase):
         self.assertEqual(result, finish_html(result), 'wrapping a generated reader must remain idempotent')
         self.assertEqual([('edition.html','Link'),('../index.html','Link'),
                           ('contents.html','Link'),('source.gfm','Link')], TextClientLinks(result).links)
-        self.assertIn('</a> <span class="guavajam-link-label" aria-hidden="true"><em>Title &amp; evidence</em></span>', result)
+        self.assertIn('</a><span class="guavajam-link-label" aria-hidden="true"><em>Title &amp; evidence</em></span>', result)
         self.assertIn('aria-label="Title &amp; evidence"', result)
         self.assertIn('aria-label="Contents"', result)
         self.assertIn('aria-label="Download (text/markdown)"', result)
