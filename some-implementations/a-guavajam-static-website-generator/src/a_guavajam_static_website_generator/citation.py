@@ -1,6 +1,6 @@
 """Readable metadata and exact Git identities, shared by every generated surface."""
 from html import escape
-from .icons import icon
+from .icons import link_icon
 from guavajam.bibliography import ordered_authors, author_text
 
 
@@ -61,7 +61,7 @@ def citation_control(record, href, *, heading=False, **options):
             '<p class="guavajam-citation-source">' + inline(data['source']) + '</p>' +
             '<a href="' + escape(data['href'], quote=True) + '" download type="application/json" '
             'data-guavajam-icon="" aria-label="' + data['label'] + '" '
-            'title="Download citation JSON (application/json)">' + icon('file-json') + '</a></div>')
+            'title="Download citation JSON (application/json)">' + link_icon('file-json', 'Download JSON') + '</a></div>')
 
 
 def document_citation(revision, facts, *, source='content/manuscript.md', details=None, preview=False):

@@ -15,7 +15,7 @@ from pathlib import Path
 from guavajam.catalog import encoded
 
 from .navigation import document_directory
-from .icons import icon
+from .icons import link_icon
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
 from .site import page
@@ -129,7 +129,7 @@ def _history_row(edition, *, links_prefix):
     return html + '</article></li>'
 
 
-def _write_work(output, entries, title, *, collection, runtime, download):
+def _write_work(output, entries, title, *, collection, runtime, download, site_origin=None):
     chunks = _slices(reversed(entries))  # full verified history, newest first
     for number, chunk in enumerate(chunks, 1):
         first = number == 1
@@ -155,10 +155,10 @@ def _write_work(output, entries, title, *, collection, runtime, download):
         body += '</section>' + search_listing_close(interactive=download is not None)
         destination.write_text(page(title if first else f'{title} — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
-                                    breadcrumb_current=title if first else f'Page {number}'), encoding='utf-8')
+                                    breadcrumb_current=title if first else f'Page {number}', site_origin=site_origin), encoding='utf-8')
 
 
-def _write_documents(output, entries, *, collection, runtime, download):
+def _write_documents(output, entries, *, collection, runtime, download, site_origin=None):
     for position, (revision, _, date, _) in enumerate(entries, 1):
         read = output / 'editions' / revision / 'read'
         view_path = read / 'VIEW.json'
@@ -188,7 +188,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
                                   page_prefix='documents/page/' if first else '')
             body += '</section>' + search_listing_close(interactive=download is not None)
             html = page('Documents' if first else f'Documents — page {number}', body,
-                        search=download is not None, ancestors=crumbs, breadcrumb_current='Documents')
+                        search=download is not None, ancestors=crumbs, breadcrumb_current='Documents', site_origin=site_origin)
             target.write_text(html, encoding='utf-8')
             relative = target.relative_to(read).as_posix()
             view['files'][relative] = hashlib.sha256(html.encode('utf-8')).hexdigest()
@@ -196,7 +196,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
 
 
 
-def _write_contents(output, entries, *, collection):
+def _write_contents(output, entries, *, collection, site_origin=None):
     """One script-free Contents page per manuscript, from the verified NAV outline.
 
     Keeping source anchors unchanged lets every TOC link target the original
@@ -216,7 +216,7 @@ def _write_contents(output, entries, *, collection):
             return '<ol>' + ''.join(
                 '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
                 '<a class="guavajam-contents-link" href="index.html#' + escape(node['record']['anchor'], quote=True) +
-                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + icon('link') + '</a> ' +
+                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a> ' +
                 escape(node['record']['title']) + '</p>' +
                 (contents(node['children']) if node['children'] else '') + '</li>'
                 for node in nodes) + '</ol>'
@@ -227,14 +227,14 @@ def _write_contents(output, entries, *, collection):
                 '<div class="guavajam-contents-list">' + contents(roots) + '</div></nav>' if roots
                 else '<p>No individually titled sections were declared in this manuscript.</p>')
         html = page(view['facts']['title'] + ' — Contents', body,
-                    ancestors=ancestors, breadcrumb_current='Contents')
+                    ancestors=ancestors, breadcrumb_current='Contents', site_origin=site_origin)
         target = read / 'contents.html'
         target.write_text(html, encoding='utf-8')
         view['files']['contents.html'] = hashlib.sha256(html.encode('utf-8')).hexdigest()
         view_path.write_bytes(encoded(view))
 
 
-def build_directories(output, editions, *, collection, search_assets, database):
+def build_directories(output, editions, *, collection, search_assets, database, site_origin=None):
     """Generate every bounded HTML page after the verified SQLite index exists."""
     output = Path(output)
     interactive = database is not None and (bool(search_assets) or (output / 'search.js').is_file())
@@ -245,8 +245,8 @@ def build_directories(output, editions, *, collection, search_assets, database):
         title = json.loads((output / 'editions' / editions[-1][0] / 'read' / 'VIEW.json').read_text())['facts']['title']
     else:
         title = 'Unpublished work'
-    _write_work(output, editions, title, collection=collection, runtime=runtime, download=download)
-    _write_documents(output, editions, collection=collection, runtime=runtime, download=download)
-    _write_contents(output, editions, collection=collection)
+    _write_work(output, editions, title, collection=collection, runtime=runtime, download=download, site_origin=site_origin)
+    _write_documents(output, editions, collection=collection, runtime=runtime, download=download, site_origin=site_origin)
+    _write_contents(output, editions, collection=collection, site_origin=site_origin)
     from .citation_pages import build_citation_pages
-    build_citation_pages(output, editions, collection=collection, runtime=runtime, download=download)
+    build_citation_pages(output, editions, collection=collection, runtime=runtime, download=download, site_origin=site_origin)

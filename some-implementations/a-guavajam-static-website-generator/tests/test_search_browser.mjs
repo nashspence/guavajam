@@ -255,7 +255,7 @@ try {
       assert.equal(await page.evaluate(() => crossOriginIsolated), false);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
-      assert.equal(await page.locator('#guavajam-search-results h3').first().textContent(), 'Work 22');
+      assert.equal(await page.locator('#guavajam-search-results h3 > a:first-child').first().textContent(), 'Work 22');
       await page.locator('#guavajam-search-next').focus();
       await page.keyboard.press('Enter');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
@@ -269,14 +269,14 @@ try {
       await openSearchFilters(page);
       await page.locator('select[name=sort]').focus();
       await page.locator('select[name=sort]').selectOption('title');
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Work 01');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3 > a:first-child').textContent === 'Work 01');
       assert.equal(await page.locator('select[name=sort]').evaluate(n => n === document.activeElement), true,
         'changing a filter keeps focus on that filter');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
       await query('Palaeoriver', 1);
       assert.equal(await page.locator('.guavajam-match-source').textContent(), 'v2 · Old geography');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeoriver');
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
+      assert.equal(await page.locator('#guavajam-search-results h3 > a:first-child').textContent(), 'Work 01');
       assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'), fixture.historical);
       await page.getByRole('link', {name: 'View matching edition text'}).click();
       assert(page.url().endsWith(fixture.historical));
@@ -302,7 +302,7 @@ try {
         has: page.getByRole('link', {name: 'Work 01', exact: true})});
       assert.equal(await titleHit.count(), 1);
       assert.equal((await titleHit.locator('h3 mark').allTextContents()).join(' '), 'Work 01');
-      assert.equal(await titleHit.locator('h3').textContent(), 'Work 01');
+      assert.equal(await titleHit.locator('h3 > a:first-child').textContent(), 'Work 01');
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
       await query('', fixture.works);
@@ -316,12 +316,12 @@ try {
       for (const option of options) {
         await page.locator('select[name=subject]').selectOption(option.key);
         await waitTotal(1);
-        assert(['Work 01', 'Work 02'].includes(await page.locator('#guavajam-search-results h3').textContent()));
+        assert(['Work 01', 'Work 02'].includes(await page.locator('#guavajam-search-results h3 > a:first-child').textContent()));
       }
       await page.locator('select[name=subject]').selectOption('');
       await page.locator('select[name=keyword]').selectOption('Café studies');
       await waitTotal(1);
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
+      assert.equal(await page.locator('#guavajam-search-results h3 > a:first-child').textContent(), 'Work 01');
       assert.equal(await page.locator('select[name=keyword] option').filter({hasText: 'Retired topic'}).count(), 0);
       await page.locator('select[name=keyword]').selectOption('');
       await waitTotal(fixture.works);

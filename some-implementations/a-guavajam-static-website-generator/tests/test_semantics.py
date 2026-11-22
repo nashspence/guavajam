@@ -97,6 +97,7 @@ This source identity must not become a duplicate generated ID.''')
                         citations = page.classes('guavajam-citation')
                         self.assertEqual(1, len(citations))
                         self.assertIn(citations[0], heading['ancestors'])
+                        self.assertIn('guavajam-icon-fallback', (directory / relative).read_text())
                         for citation in citations:
                             self.assertEqual('div', citation['tag'])
                             self.assertEqual('group', citation['attrs'].get('role'))

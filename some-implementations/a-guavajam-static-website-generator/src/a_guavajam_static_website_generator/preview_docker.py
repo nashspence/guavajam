@@ -68,7 +68,9 @@ def safe_file(repo, file, *, owner_only=False):
     return candidate
 
 
-def run(repo, *, port=8082):
+def run(repo, *, port=8082, site_origin=None):
+    from .icons import normalize_site_origin
+    site_origin = normalize_site_origin(site_origin)
     repo = Path(repo).expanduser().resolve(strict=True)
     if not 1 <= port <= 65535:
         raise AssetError('select a valid preview port')
@@ -86,6 +88,8 @@ def run(repo, *, port=8082):
                '-e', 'GUAVAJAM_PREVIEW_REF='+ref,
                '-e', 'GUAVAJAM_PREVIEW_ORIGIN=http://127.0.0.1:'+str(port),
                '-e', 'GUAVAJAM_PREVIEW_TOKEN_FILE=/run/secrets/session.key']
+        if site_origin is not None:
+            env += ['-e', 'GUAVAJAM_SITE_ORIGIN='+site_origin]
         if private_env:
             env += ['-e', 'S3_ENV=/run/secrets/readonly.env']
         if pin and command('docker', 'image', 'inspect', selected, check=False).returncode:
@@ -111,11 +115,13 @@ def run(repo, *, port=8082):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
+    from .icons import normalize_site_origin
     parser.add_argument('--repo', default='.')
+    parser.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     parser.add_argument('--port', type=int, default=8082)
     args=parser.parse_args(argv)
     try:
-        return run(args.repo, port=args.port)
+        return run(args.repo, port=args.port, site_origin=args.site_origin)
     except (AssetError, OSError, subprocess.SubprocessError):
         print('Unable to start private preview. Check Docker and private read credentials.', file=sys.stderr)
         return 1

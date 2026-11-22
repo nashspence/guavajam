@@ -24,7 +24,9 @@ from guavajam.source_snapshot import snapshot
 from .renderer import render, git_blob
 
 
-def build_preview(repo, ref, output, *, store=None, require_retention=False):
+def build_preview(repo, ref, output, *, store=None, require_retention=False, site_origin=None):
+    from .icons import normalize_site_origin
+    site_origin = normalize_site_origin(site_origin)
     repo = Path(repo).resolve(strict=True)
     revision = resolve(repo, ref)
     output = Path(output).absolute()
@@ -37,7 +39,7 @@ def build_preview(repo, ref, output, *, store=None, require_retention=False):
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.guavajam-preview-', dir=output.parent) as directory:
         stage = Path(directory) / 'site'
-        render(repo, revision, stage, preview=True)
+        render(repo, revision, stage, preview=True, site_origin=site_origin)
         (stage / 'source.gfm').write_bytes(git_blob(repo, revision, 'content/manuscript.md'))
         files = {p.relative_to(stage).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in stage.rglob('*') if p.is_file()}
@@ -87,7 +89,9 @@ def serve(output, manifest, values, *, port=0):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    from .icons import normalize_site_origin
     parser.add_argument('--repo', type=Path, required=True)
+    parser.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     parser.add_argument('--ref', required=True, help='full commit or explicit local branch ref')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--serve', action='store_true')
@@ -97,7 +101,7 @@ def main(argv=None):
     try:
         if not 0 <= args.port <= 65535:
             raise AssetError('invalid preview port')
-        manifest = build_preview(args.repo, args.ref, args.output, require_retention=args.require_retention)
+        manifest = build_preview(args.repo, args.ref, args.output, require_retention=args.require_retention, site_origin=args.site_origin)
         if args.serve:
             values = credentials(args.repo) if manifest['assets'] else {}
             return serve(args.output.absolute(), manifest, values, port=args.port)

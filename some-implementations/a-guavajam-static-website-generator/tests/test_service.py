@@ -15,7 +15,11 @@ class ServiceTests(unittest.TestCase):
             env = {'GUAVAJAM_INDEX_URL': 'https://publisher.example/index.yaml', 'GUAVAJAM_TRUST_FILE': '/trust/publishers.yaml'}
             with patch('a_guavajam_static_website_generator.index.update_index', return_value={'status': 'updated'}) as called:
                 self.assertEqual('updated', poll(root, env)['status'])
-                called.assert_called_once_with(env['GUAVAJAM_INDEX_URL'], env['GUAVAJAM_TRUST_FILE'], root / 'site')
+                called.assert_called_once_with(env['GUAVAJAM_INDEX_URL'], env['GUAVAJAM_TRUST_FILE'], root / 'site', site_origin=None)
+            env['GUAVAJAM_SITE_ORIGIN'] = 'https://publication.example'
+            with patch('a_guavajam_static_website_generator.index.update_index', return_value={'status': 'updated'}) as called:
+                poll(root, env)
+                self.assertEqual(env['GUAVAJAM_SITE_ORIGIN'], called.call_args.kwargs['site_origin'])
             with self.assertRaises(ValueError): poll(root, {})
 
     def test_health_requires_recent_success_and_current_generation(self):

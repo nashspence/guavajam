@@ -31,11 +31,24 @@ class IndexTests(unittest.TestCase):
     def write_trust(self):
         self.trust.write_text(yaml.safe_dump(self.policies))
 
-    def update(self):
-        return update_index(self.index, self.trust, self.output)
+    def update(self, **options):
+        return update_index(self.index, self.trust, self.output, **options)
 
     def selected(self):
         return os.readlink(self.output / 'current')
+
+    def test_collection_origin_changes_regenerate_cached_work_metadata(self):
+        from test_site_origin import link_icons
+        self.update(site_origin='https://publisher.example')
+        source = next((self.output / 'current/sources').glob('*/editions/*/metadata.html'))
+        urls = link_icons(source.read_text())
+        repository = next(url for url in self.urls if url in urls)
+        self.assertFalse(urls[repository])
+        selected = self.selected()
+        self.assertTrue(self.update(site_origin='https://different.example')['changed'])
+        self.assertNotEqual(selected, self.selected())
+        self.assertTrue(link_icons(source.read_text())[repository])
+        self.assertFalse(self.update(site_origin='https://DIFFERENT.example:443/')['changed'])
 
     def test_two_repositories_keep_distinct_histories_and_noop_reverifies(self):
         self.b.source('A Different Work', 'Independent source material.')

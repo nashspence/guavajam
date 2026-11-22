@@ -41,7 +41,7 @@ def _group(name, identifier, content):
 
 
 def write_metadata(directory, *, facts, title, ancestors, revision, published, message,
-                   committer, repository):
+                   committer, repository, site_origin=None):
     """Present bibliography, provenance, rights, and locators on a single page.
 
     Retain the same edition-specific JSON records, source declarations, and
@@ -106,4 +106,4 @@ def write_metadata(directory, *, facts, title, ancestors, revision, published, m
             '<h2 id="locators-heading">Locators</h2>' + locator_body + '</section>')
     (directory / 'metadata.html').write_text(
         page(title + ' — Metadata', body, ancestors=tuple(ancestors),
-             breadcrumb_current='Metadata'), encoding='utf-8')
+             breadcrumb_current='Metadata', site_origin=site_origin), encoding='utf-8')

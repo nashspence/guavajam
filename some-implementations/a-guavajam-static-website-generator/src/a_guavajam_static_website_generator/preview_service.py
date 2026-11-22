@@ -81,7 +81,8 @@ class Preview:
         pending = self.state / ('preview-' + uuid.uuid4().hex)
         try:
             manifest = build_preview(self.repo, revision, pending,
-                                     require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1')
+                                     require_retention=self.env.get('GUAVAJAM_REQUIRE_RETENTION') == '1',
+                                     site_origin=self.env.get('GUAVAJAM_SITE_ORIGIN') or None)
             values = credentials(self.repo) if manifest['assets'] else {}
             previous = self.output
             self.close()

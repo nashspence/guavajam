@@ -18,7 +18,7 @@ from guavajam.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
 from .citation import citation_control, edition_label
-from .icons import icon, finish_html, search_icon_templates
+from .icons import link_icon, finish_html, search_icon_templates, normalize_site_origin
 from .view_cache import cached_render
 
 
@@ -26,7 +26,7 @@ def detail_link(href, label):
     """An unobtrusive, accessible route from a reading title to its record."""
     return (' <a class="guavajam-record-link" href="' + escape(href, quote=True) +
             '" aria-label="' + escape(label, quote=True) + '" title="' +
-            escape(label, quote=True) + '">' + icon('history') + '</a>')
+            escape(label, quote=True) + '">' + link_icon('history', 'Versions') + '</a>')
 
 
 
@@ -46,7 +46,7 @@ def generator_footer():
 
 def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
          citation_record=None, citation_href=None, citation_title=None, citation_authors=None,
-         citation_published=None, citation_edition=None, citation_document_title=''):
+         citation_published=None, citation_edition=None, citation_document_title='', site_origin=None):
     """Use the breadcrumb itself as the one page heading, above the citation."""
     styles = Path(__file__).parent / 'styles'
     css = (styles / 'reading.css').read_text('utf-8') + '\n' + (styles / 'catalog.css').read_text('utf-8')
@@ -71,7 +71,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
             '<title>' + escape(title) + (' — GuavaJam' if title != 'GuavaJam' else '') + '</title><style>' + css + '</style></head>'
             '<body class="guavajam-site"><a class="guavajam-skip" href="#main">Skip to content</a>'
             + crumb + '<main id="main" tabindex="-1">' + citation_html + (search_icon_templates() if search else '') + body + '</main>'
-            + generator_footer() + '</body></html>\n')
+            + generator_footer() + '</body></html>\n', site_origin=site_origin)
 
 
 def inventory(root):
@@ -100,7 +100,7 @@ def committer_identity(repo, revision):
 
 
 def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
-           repository, search_assets):
+           repository, search_assets, site_origin=None):
     from .work_search import build_work_index, publication_navigation
     output.mkdir()
     latest_title = 'Unpublished work'
@@ -115,9 +115,9 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                        online_media=False)
         if view_cache:
             cached_render(view_cache, repo, sha, reader, fingerprints=fingerprints,
-                          allowed_signers=allowed_signers)
+                          allowed_signers=allowed_signers, site_origin=site_origin)
         else:
-            render(repo, sha, reader, fingerprints=fingerprints, allowed_signers=allowed_signers)
+            render(repo, sha, reader, fingerprints=fingerprints, allowed_signers=allowed_signers, site_origin=site_origin)
         view = json.loads((reader / 'VIEW.json').read_text('utf-8'))
         latest_title = view['facts']['title']
         metadata = committer_identity(repo, sha)
@@ -135,7 +135,7 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                 view['files'][artifact.relative_to(reader).as_posix()] = hashlib.sha256(artifact.read_bytes()).hexdigest()
         publication_navigation(reader, view, sha, work_title=latest_title,
                                edition_number=position, published=edition['published'],
-                               in_collection=in_collection)
+                               in_collection=in_collection, site_origin=site_origin)
         ed_label = edition_label(position)
         # The manuscript itself is the version homepage. One metadata tree
         # presents the verified bibliography, provenance, rights and locators.
@@ -145,13 +145,13 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         write_metadata(directory, facts=view['facts'], title=latest_title,
                        ancestors=edition_crumbs, revision=sha,
                        published=edition['published'], message=edition['message'],
-                       committer=metadata, repository=repository)
+                       committer=metadata, repository=repository, site_origin=site_origin)
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
     (output / 'CATALOG.json').write_bytes(encoded(catalog))
     database = build_work_index(output, catalog, repository=repository, search_assets=search_assets)
     from .directory_pages import build_directories
     build_directories(output, edition_rows, collection=in_collection,
-                      search_assets=search_assets, database=database)
+                      search_assets=search_assets, database=database, site_origin=site_origin)
     manifest = {'schema': 'guavajam.site.v1', 'title': latest_title, 'tip': catalog['tip'],
                 'publications': [e['revision'] for e in catalog['editions']], 'files': inventory(output)}
     (output / 'SITE.json').write_bytes(encoded(manifest))
@@ -159,8 +159,9 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
 
 
 def build_site(repo, output, *, ref='refs/heads/main', fingerprints=(), allowed_signers=None,
-               previous=None, view_cache=None, repository='', search_assets=None):
+               previous=None, view_cache=None, repository='', search_assets=None, site_origin=None):
     """Discover Git directly; a catalog supplied by a website never authorizes editions."""
+    site_origin = normalize_site_origin(site_origin)
     repo = Path(repo).resolve(strict=True)
     output = Path(output).absolute()
     if output.exists() or output.is_symlink() or output.resolve() != output or output.is_relative_to(repo):
@@ -173,7 +174,7 @@ def build_site(repo, output, *, ref='refs/heads/main', fingerprints=(), allowed_
         stage = Path(temporary) / 'site'
         manifest = _build(repo, catalog, stage, fingerprints=fingerprints,
                           allowed_signers=allowed_signers, view_cache=view_cache,
-                          repository=repository, search_assets=search_assets)
+                          repository=repository, search_assets=search_assets, site_origin=site_origin)
         stage.rename(output)
     return manifest
 
@@ -183,6 +184,7 @@ def main(argv=None):
     parser.add_argument('--repo', required=True, type=Path)
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     parser.add_argument('--previous-catalog', type=Path)
     trust = parser.add_mutually_exclusive_group(required=True)
     trust.add_argument('--trusted-gpg-fingerprint', action='append', default=[])
@@ -190,7 +192,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         manifest = build_site(args.repo, args.output, ref=args.ref, previous=args.previous_catalog,
-                              fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers)
+                              fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers, site_origin=args.site_origin)
     except (ValueError, OSError) as exc:
         print('GuavaJam site failed: ' + str(exc), file=sys.stderr)
         return 1

@@ -107,9 +107,27 @@ try {
       assert(await page.locator('.guavajam-permalink').count()>0);
       for(const control of await page.locator('.guavajam-permalink').all()){
         assert.equal(await control.locator('svg.guavajam-icon-link[aria-hidden=true]').count(),1);
-        assert.equal((await control.textContent()).trim(),'');
+        assert.equal((await control.textContent()).trim(),'Permalink');
+        assert.equal(await control.locator('.guavajam-icon-fallback').count(), 1);
+        assert(await control.locator('.guavajam-icon-fallback').evaluate(n =>
+          getComputedStyle(n).position === 'absolute' && n.getBoundingClientRect().width <= 1));
         assert.match(await control.getAttribute('aria-label'),/^Permalink to /);
       }
+      const textLinks = await page.evaluate(() => {
+        const links = [...document.querySelectorAll('a > .guavajam-icon-fallback')].map(n => n.parentElement);
+        const sheets = [...document.styleSheets].map(sheet => [sheet, sheet.disabled]);
+        const targets = links.map(n => [n.getAttribute('href'), n.getAttribute('aria-label'), n.textContent.trim()]);
+        sheets.forEach(([sheet]) => {sheet.disabled = true;});
+        const readable = links.every(n => {
+          const label=n.querySelector('.guavajam-icon-fallback'), b=label.getBoundingClientRect();
+          return label.textContent.trim() && getComputedStyle(label).position==='static' && b.width>1;
+        });
+        const unchanged = JSON.stringify(targets) === JSON.stringify(links.map(n =>
+          [n.getAttribute('href'), n.getAttribute('aria-label'), n.textContent.trim()]));
+        sheets.forEach(([sheet,disabled]) => {sheet.disabled=disabled;});
+        return {readable,unchanged};
+      });
+      assert.deepEqual(textLinks,{readable:true,unchanged:true},'CSS-free readers retain meaningful link text and exact targets');
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
         'Contents has moved off the manuscript without changing the standalone renderer');
       const downloadedSource = page.waitForEvent('download');
@@ -129,7 +147,7 @@ try {
       assert.equal(await page.getByRole('heading', {name:'Table of Contents', exact:true}).count(),1);
       for (const entry of await page.locator('.guavajam-contents-entry').all()) {
         assert.equal(await entry.locator('a > svg.guavajam-icon-link').count(),1);
-        assert.equal(await entry.locator('a').textContent(),'');
+        assert.equal(await entry.locator('a').textContent(),'Go to section');
         assert(await entry.evaluate(n => {
           const css=getComputedStyle(n), link=n.querySelector('a');
           return css.whiteSpace==='nowrap' && css.overflowX==='auto' &&

@@ -19,7 +19,7 @@ from .citation_routes import (citation_fragment, citation_href, citation_page,
                               passage_json, relative_href)
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
-from .icons import icon
+from .icons import link_icon
 
 
 def add_passage_links(html, view, source, anchors, start):
@@ -61,7 +61,7 @@ def add_passage_links(html, view, source, anchors, start):
                 edits.append((end, '<a class="guavajam-passage-cite" lang="en" href="' +
                               escape(routes[anchor], quote=True) +
                               '" aria-label="Cite committed source passage ' + escape(anchor, quote=True) +
-                              '">' + icon('quote') + '</a>'))
+                              '">' + link_icon('quote', 'Cite') + '</a>'))
 
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)
@@ -80,7 +80,7 @@ def add_passage_links(html, view, source, anchors, start):
     return ''.join(parts) + html[previous:]
 
 
-def build_citation_pages(output, editions, *, collection, runtime, download):
+def build_citation_pages(output, editions, *, collection, runtime, download, site_origin=None):
     """Emit one bounded human citation listing per version, plus exact JSON records.
 
     No parallel per-document citation HTML is generated. Both static and SQLite
@@ -149,6 +149,6 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
             body += '</section>' + search_listing_close(interactive=download is not None)
             html = page(title + ' — Passages' + (f' — page {number}' if number > 1 else ''),
                         body, search=download is not None, ancestors=ancestors,
-                        breadcrumb_current='Passages')
+                        breadcrumb_current='Passages', site_origin=site_origin)
             write(filename, html.encode('utf-8'))
         view_path.write_bytes(encoded(view))
