@@ -239,6 +239,9 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
   .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .guavajam-citation-entry:target { outline: none; }
   .guavajam-site .guavajam-navigation { direction: ltr; overflow: visible; border: 0; }
+  .guavajam-site .guavajam-navigation ol { width: auto; white-space: normal; }
+  .guavajam-site .guavajam-navigation li:last-child { min-width: 0; max-width: 100%; }
+  .guavajam-site .guavajam-navigation [aria-current="page"] { white-space: normal; overflow-wrap: anywhere; }
   .guavajam-site .guavajam-navigation li:not(:last-child),
   .guavajam-site .guavajam-navigation li::before { display: none; }
   .guavajam-record-list > li { break-inside: avoid; }
