@@ -370,7 +370,7 @@ try {
         a.textContent = 'Very long work title '.repeat(35);
       });
       await page.locator('#guavajam-search-results .guavajam-byline').first().evaluate(p => {
-        p.textContent = 'An exceptionally long bibliographic byline '.repeat(25);
+        p.prepend(document.createTextNode('An exceptionally long bibliographic byline '.repeat(25)));
       });
       for (const width of [320, 390, 1280]) {
         await page.setViewportSize({width, height: 900});
