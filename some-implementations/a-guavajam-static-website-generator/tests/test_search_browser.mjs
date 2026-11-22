@@ -192,7 +192,9 @@ try {
       const query = async (term, total) => {
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
-        await waitTotal(total);
+        if (total === undefined) await page.waitForFunction(() =>
+          !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
+        else await waitTotal(total);
       };
       await page.goto(base);
       assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
@@ -269,9 +271,14 @@ try {
       assert.equal((await page.request.get(base + support)).status(), 200);
       await query('cafe collection', 1); // metadata and body share the same search record
       assert.equal(await page.locator('#guavajam-search-results .guavajam-tag mark').textContent(), 'Café');
-      await query('Work 01', 1);
-      assert.equal((await page.locator('#guavajam-search-results h3 mark').allTextContents()).join(' '), 'Work 01');
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
+      // Commit identifiers are searchable too: another random fixture hash can
+      // start with 01. Assert the intended title hit without excluding those hits.
+      await query('Work 01');
+      const titleHit = page.locator('#guavajam-search-results > li').filter({
+        has: page.getByRole('link', {name: 'Work 01', exact: true})});
+      assert.equal(await titleHit.count(), 1);
+      assert.equal((await titleHit.locator('h3 mark').allTextContents()).join(' '), 'Work 01');
+      assert.equal(await titleHit.locator('h3').textContent(), 'Work 01');
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
       await query('', fixture.works);
