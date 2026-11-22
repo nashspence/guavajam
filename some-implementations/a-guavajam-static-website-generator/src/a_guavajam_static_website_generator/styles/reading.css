@@ -377,8 +377,8 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --guavajam-paper: #181a1c;
-    --guavajam-ink: #e4e4df;
+    --guavajam-paper: #000;
+    --guavajam-ink: #f2f2f2;
     --guavajam-muted: #b5b9b9;
     --guavajam-link: #96c7ff;
     --guavajam-visited: #d5b6ed;
