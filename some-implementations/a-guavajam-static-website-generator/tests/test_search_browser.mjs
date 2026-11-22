@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry} from './interaction_contract.mjs';
+import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_search_browser.py');
@@ -189,14 +189,30 @@ try {
         await contain();
       }
       await parityContext.close();
+      if (name === 'webkit') {
+        const phone = await browser.newContext({viewport: {width: 390, height: 844},
+          isMobile: true, hasTouch: true, deviceScaleFactor: 3});
+        const mobile = await phone.newPage();
+        for (const url of [base, ...surfaces]) {
+          await mobile.goto(url);await mobile.locator('#guavajam-index-search > summary').tap();
+          await mobile.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
+            !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
+          await fixedPageHorizontalScroll(mobile, {touch: true});
+        }
+        await phone.close();
+      }
       const query = async (term, total) => {
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
         if (total === undefined) await page.waitForFunction(() =>
           !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
         else await waitTotal(total);
+        if (/[\p{L}\p{N}]/u.test(term)) await searchEvidence(page);
+        await recordLinkAlignment(page);
       };
       await page.goto(base);
+      await fixedPageHorizontalScroll(page);
+      await recordLinkAlignment(page);
       assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
@@ -256,6 +272,8 @@ try {
         'changing a filter keeps focus on that filter');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
       await query('Palaeoriver', 1);
+      assert.equal(await page.locator('.guavajam-match-source').textContent(), 'v2 · Old geography');
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeoriver');
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
       assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'), fixture.historical);
       await page.getByRole('link', {name: 'View matching edition text'}).click();
@@ -264,7 +282,11 @@ try {
       await page.goto(base);
       await page.locator('#guavajam-index-search > summary').click();
       await waitTotal(fixture.works);
+      await fixedPageHorizontalScroll(page);
       await query('Glaciolacustrine', 1);
+      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Glaciolacustrine');
+      await searchHighlightContrast(page);await linkPalette(page);
       const support = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
       assert(support.startsWith('sources/work-02/editions/'));
       assert(support.endsWith('/read/supporting/evidence.html'));

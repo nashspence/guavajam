@@ -34,11 +34,29 @@ function literalQuery(value, operator = 'AND') {
   return words.slice(0, 12).map(word => '"' + word + '"*').join(' ' + operator + ' ');
 }
 
+// Search membership, ranking and explanatory snippets share the same FTS
+// record. A displayed current title is never evidence for a historical hit.
+const MATCH_FIELDS = [['body', 4], ['authors', 1], ['title', 0], ['abstract', 2], ['labels', 3], ['git', 5]];
+function matchExcerpts(table) {
+  return MATCH_FIELDS.map(([name, column]) =>
+    `snippet(${table}, ${column}, char(57344), char(57345), '…', 24) AS ${name}_excerpt`).join(', ');
+}
+function matchEvidence(alias, content = 'document') {
+  const choose = value => 'CASE ' + MATCH_FIELDS.map(([name]) =>
+    `WHEN instr(${alias}.${name}_excerpt, char(57344)) > 0 THEN ${value(name)}`).join(' ') + ' ELSE NULL END';
+  return `${choose(name => `${alias}.${name}_excerpt`)} AS excerpt,
+    ${choose(name => `'${name === 'body' ? content : 'metadata'}'`)} AS excerpt_context,
+    ${choose(name => `'${name}'`)} AS excerpt_field`;
+}
+
 function displayHighlights(result, term) {
   const query = literalQuery(term, 'OR');
   if (!query || !result.rows.length) return {...result, highlights: []};
-  // Keep published indexes compact/contentless. At most one result page's
-  // visible fields is tokenized in a separate worker-local memory database.
+  if (result.rows.some(row => !row.excerpt?.includes('\uE000'))) {
+    throw new Error('A text result must include highlighted match evidence');
+  }
+  // At most one result page's visible fields is tokenized in a separate
+  // worker-local memory database; the downloaded index remains read-only.
   // It uses the same unicode61 rules as matching and source excerpts.
   const text = new Set();
   const add = value => { if (typeof value === 'string' && value) text.add(value); };
@@ -83,8 +101,8 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
     // Materialize before grouping: bm25 must run in the FTS MATCH context.
     // The winning record supplies BOTH score and URL, including historical hits.
     base = `WITH hits AS MATERIALIZED (
-      SELECT s.work_id, s.id, s.url,
-        bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score
+      SELECT s.work_id, s.id, s.url, s.edition_id, s.document_id,
+        bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score, ${matchExcerpts('search_fts')}
       FROM search_fts JOIN search_records s ON s.id = search_fts.rowid
       WHERE search_fts MATCH ?
     ), ranked AS (
@@ -92,9 +110,11 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
       FROM hits
     )
     SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.latest_revision, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url ${WORK_FACETS}
+      w.latest_revision, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url,
+      ${matchEvidence('m')}, e.position AS match_position, d.title AS match_document ${WORK_FACETS}
     FROM works w JOIN repositories r ON w.repository_id = r.id
-      JOIN ranked m ON m.work_id = w.id AND m.position = 1`;
+      JOIN ranked m ON m.work_id = w.id AND m.position = 1
+      LEFT JOIN editions e ON e.id=m.edition_id LEFT JOIN documents d ON d.id=m.document_id`;
     binds = [fts];
   } else {
     base = `SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
@@ -130,8 +150,8 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
   if (selected === 'editions') {
     if (fts) {
       base = `WITH hits AS MATERIALIZED (
-        SELECT s.edition_id, s.id, s.url,
-          bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score
+        SELECT s.edition_id, s.id, s.url, d.title AS document_title,
+          bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score, ${matchExcerpts('search_fts')}
         FROM search_fts JOIN search_records s ON s.id=search_fts.rowid
           JOIN documents d ON d.id=s.document_id
         WHERE search_fts MATCH ? AND (? = '' OR d.path = ?)
@@ -141,7 +161,8 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       )
       SELECT e.id, 'v' || (e.position + 1) AS title, 'editions/' || e.revision || '/read/index.html' AS url,
         e.revision, e.published, e.position, e.message, '' AS document_title, '' AS document_path,
-        '' AS anchor, '' AS scope, 0 AS node_position, m.score, m.url AS hit_url
+        '' AS anchor, '' AS scope, 0 AS node_position, m.score, m.url AS hit_url,
+        ${matchEvidence('m')}, e.position AS match_position, m.document_title AS match_document
       FROM editions e JOIN works w ON w.id=e.work_id
         JOIN ranked m ON m.edition_id=e.id AND m.rank=1`;
       bind.push(fts, String(document), String(document));
@@ -153,24 +174,21 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
     }
   } else if (selected === 'documents') {
     base = fts ? `WITH hits AS MATERIALIZED (
-      SELECT s.document_id, bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score
+      SELECT s.document_id, bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score,
+        ${matchExcerpts('search_fts')}
       FROM search_fts JOIN search_records s ON s.id=search_fts.rowid WHERE search_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
     base += `SELECT d.id, d.title, d.url, e.revision, e.published, e.position,
       d.title AS document_title, d.path AS document_path, '' AS anchor, 'document' AS scope,
       0 AS node_position, ${fts ? 'm.score' : '0'} AS score, NULL AS hit_url
+      ${fts ? `, ${matchEvidence('m')}, e.position AS match_position, d.title AS match_document` : ''}
     FROM documents d JOIN editions e ON e.id=d.edition_id JOIN works w ON w.id=e.work_id
       ${fts ? 'JOIN hits m ON m.document_id=d.id' : ''}`;
   } else {
-    // Prefer readable author/title matches over their serialized provenance
-    // copies when no source-body match is available.
     base = fts ? `WITH hits AS MATERIALIZED (
       SELECT s.id, bm25(passage_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score,
-        snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS body_excerpt,
-        snippet(passage_fts, 1, char(57344), char(57345), '…', 24) AS author_excerpt,
-        snippet(passage_fts, 0, char(57344), char(57345), '…', 24) AS title_excerpt,
-        snippet(passage_fts, -1, char(57344), char(57345), '…', 24) AS matched_excerpt
+        ${matchExcerpts('passage_fts')}
       FROM passage_fts JOIN passage_records s ON s.id=passage_fts.rowid WHERE passage_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
@@ -178,12 +196,8 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       d.title AS document_title, d.path AS document_path, d.id AS document_order,
       p.anchor, p.scope, p.citation_json, p.position AS node_position,
       ${fts ? 'm.score' : '0'} AS score,
-      ${fts ? `CASE
-        WHEN instr(m.body_excerpt, char(57344)) > 0 THEN m.body_excerpt
-        WHEN instr(m.author_excerpt, char(57344)) > 0 THEN m.author_excerpt
-        WHEN instr(m.title_excerpt, char(57344)) > 0 THEN m.title_excerpt
-        ELSE m.matched_excerpt END` : 'NULL'} AS excerpt,
-      ${fts ? "CASE WHEN instr(m.body_excerpt, char(57344)) > 0 THEN 'passage' ELSE 'metadata' END" : 'NULL'} AS excerpt_context,
+      ${fts ? matchEvidence('m', 'passage') + ',' : ''}
+      e.position AS match_position, d.title AS match_document,
       NULL AS hit_url
     FROM passages p JOIN documents d ON d.id=p.document_id
       JOIN editions e ON e.id=p.edition_id JOIN works w ON w.id=e.work_id

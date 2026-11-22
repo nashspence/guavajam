@@ -1,4 +1,4 @@
-"""Compact indexes retain the full external-content FTS search contract."""
+"""Search ranking and visible evidence use the same exact indexed text."""
 from contextlib import closing
 import hashlib
 import json
@@ -163,7 +163,7 @@ class SearchStorageTests(unittest.TestCase):
                                          [row[1] for row in db.execute('PRAGMA table_info(passage_records)')])
                         document_rows = all_rows[0]['search_fts']
                         self.assert_ranked_results(db, 'passage_fts', all_rows[0]['passage_fts'])
-                        # Text is kept only in the work's existing passage FTS:
+                        # Native passage snippets retain exact source text:
                         # its native snippet() yields a bounded highlighted quote
                         # at the actual query match, even deep in a long passage.
                         excerpt = db.execute(
@@ -177,7 +177,14 @@ class SearchStorageTests(unittest.TestCase):
                         self.assertTrue(any('\ue000' in item[0] and '\ue001' in item[0]
                                             for item in matches))
                     self.assert_ranked_results(db, 'search_fts', document_rows)
-                    self.assertEqual([(None,) * 6], db.execute('SELECT ' + FIELDS + ' FROM search_fts LIMIT 1').fetchall())
+                    self.assertEqual([row[1:] for row in document_rows],
+                                     db.execute('SELECT ' + FIELDS + ' FROM search_fts ORDER BY rowid').fetchall())
+                    # A body, title, label or historical/provenance hit must be
+                    # explainable from the very record that supplied its rank.
+                    for term in QUERIES:
+                        excerpts = db.execute("SELECT snippet(search_fts, -1, char(57344), char(57345), '…', 24) "
+                                              "FROM search_fts WHERE search_fts MATCH ?", (term,)).fetchall()
+                        self.assertTrue(all('\ue000' in text and '\ue001' in text for (text,) in excerpts))
 
 
 if __name__ == '__main__':

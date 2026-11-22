@@ -67,11 +67,20 @@ export async function hoverControls(page) {
     });
     if (selector === '.guavajam-passage-cite') {
       assert.equal(await target.locator('span').textContent(), 'Cite');
-      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'underline');
+      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'none');
+      assert(await target.evaluate(n => Number(getComputedStyle(n).fontWeight) >= 600));
     }
     const before = await paint(); await target.hover();
     const after = await paint();
-    assert.notDeepEqual(after, before, `Hover has no visible feedback: ${selector}`);
+    // Forced colors belong to the user/UA, which may map link and hover ink
+    // to the same system color. Keep its palette and test keyboard focus too.
+    if (await page.evaluate(() => matchMedia('(forced-colors: active)').matches)) {
+      assert.notEqual(await target.evaluate(n => getComputedStyle(n).getPropertyValue('forced-color-adjust')), 'none',
+        'Keep system colors under browser control, including engines without this CSS property');
+    } else {
+      assert.notEqual(after[0], before[0], `Hover brightens the foreground: ${selector}`);
+    }
+    assert.deepEqual(after.slice(1), before.slice(1), `Hover changes only the foreground: ${selector}`);
     assert(await target.evaluate(n => {
       const b = n.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
       return hit === n || n.contains(hit);
@@ -121,4 +130,145 @@ export async function searchFeedbackGeometry(page, initial = false) {
     }
     return state;
   }, initial);
+}
+
+// A text hit is useful only when the reader can see why it matched. This is
+// shared by Works, Versions, Documents and Passages, including historical hits.
+export async function searchEvidence(page) {
+  for (const row of await page.locator('#guavajam-search-results > li').all()) {
+    const evidence = row.locator('.guavajam-search-excerpt');
+    assert.equal(await evidence.count(), 1, 'each text result explains its exact winning record');
+    assert.match(await evidence.locator('.guavajam-excerpt-label').textContent(),
+      /^(Title|Author|Description|Tag or subject|Publication metadata|Document text|Passage) match$/);
+    assert(await evidence.locator('.guavajam-passage-excerpt mark').count() > 0,
+      'even body-only, historical and provenance-only matches show highlighted evidence');
+    assert((await evidence.locator('.guavajam-passage-excerpt').textContent()).length <= 322,
+      'match evidence stays bounded near the matched text');
+  }
+}
+
+export async function recordLinkAlignment(page) {
+  for (const heading of await page.locator('.guavajam-record-list:visible h3:has(.guavajam-record-link)').all()) {
+    const aligned = await heading.evaluate(n => {
+      const title = n.querySelector('a:first-child').getBoundingClientRect();
+      const icon = n.querySelector('.guavajam-record-link').getBoundingClientRect();
+      return Math.abs((title.top + title.bottom - icon.top - icon.bottom) / 2) < 1 && icon.left >= title.right;
+    });
+    assert(aligned, 'the work-page icon stays inline and vertically centered beside its title');
+  }
+}
+
+export async function fixedPageHorizontalScroll(page, {touch = false} = {}) {
+  const prior = await page.evaluateHandle(() => document.activeElement);
+  const field = page.locator('input[name=q]');
+  const positions = await page.evaluate(() => ({body: document.body.getBoundingClientRect().x,
+    main: document.querySelector('main').getBoundingClientRect().x, viewport: innerWidth,
+    scale: visualViewport?.scale || 1}));
+  const phases = await field.isVisible() ? ['opened', 'focused', 'blurred'] : ['static'];
+  for (const phase of phases) {
+    if (phase === 'focused') { if (touch) await field.tap(); else await field.click(); }
+    if (phase === 'blurred') await field.evaluate(n => n.blur());
+    // Desktop gestures target empty page margins. Touch-mode WebKit exposes
+    // taps but no wheel API; it exercises the same focus/blur viewport checks.
+    const gestures = touch ? [[0, 0]] : [2, positions.viewport - 2].flatMap(x => [[x, 240], [x, -240]]);
+    for (const [x, delta] of gestures) {
+      if (!touch) { await page.mouse.move(x, 160); await page.mouse.wheel(delta, 0); }
+      const frames = await page.evaluate(() => new Promise(resolve => {
+        const samples = [];
+        const frame = () => {
+          samples.push({scroll: scrollX, body: document.body.getBoundingClientRect().x,
+            main: document.querySelector('main').getBoundingClientRect().x, scale: visualViewport?.scale || 1});
+          if (samples.length === 6) resolve(samples); else requestAnimationFrame(frame);
+        }; requestAnimationFrame(frame);
+      }));
+      for (const sample of frames) {
+        assert.equal(sample.scroll, 0, `no horizontal viewport movement ${phase}`);
+        assert.equal(sample.scale, positions.scale, `focus and blur preserve the visual viewport scale ${phase}`);
+        assert(Math.abs(sample.body - positions.body) < .5 && Math.abs(sample.main - positions.main) < .5,
+          `empty-page horizontal wheel gestures keep the whole column fixed ${phase}`);
+      }
+    }
+  }
+  // iOS focus zoom uses the visual viewport, not document scrollWidth.
+  // Keep editable text at its non-magnifying size without disabling user zoom.
+  const editable = 'input:not([type=hidden], [type=checkbox], [type=radio]), select, textarea, [contenteditable=true]';
+  assert(await page.locator(editable).evaluateAll(nodes => nodes.every(n =>
+    parseFloat(getComputedStyle(n).fontSize) >= 16)), 'every editable control avoids Safari small-text focus zoom');
+  const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
+  assert(!/user-scalable\s*=\s*no|maximum-scale\s*=/.test(viewport), 'manual pinch zoom stays available');
+  if (prior) await prior.evaluate(n => n.focus());
+}
+
+export async function searchHighlightContrast(page) {
+  const original = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({colorScheme});
+    const ratios = await page.locator('#guavajam-search-results mark').first().evaluate(n => {
+      const luminance = rgb => {
+        const values = rgb.match(/[\d.]+/g).slice(0,3).map(Number).map(value => {
+          const c = value / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+        }); return values[0]*.2126 + values[1]*.7152 + values[2]*.0722;
+      };
+      const contrast = (a,b) => (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+      const style = getComputedStyle(n), paper = getComputedStyle(document.body).backgroundColor;
+      return {text: contrast(luminance(style.color),luminance(style.backgroundColor)),
+        cue: contrast(luminance(style.backgroundColor),luminance(paper))};
+    });
+    assert(ratios.text >= 4.5, `${colorScheme}: all marked text meets 4.5:1 text contrast`);
+    assert(ratios.cue >= 3, `${colorScheme}: the match cue is distinct from the reading paper`);
+  }
+  await page.emulateMedia({colorScheme: original});
+}
+
+export async function linkPalette(page) {
+  const original = await page.evaluate(() => ({style: document.documentElement.getAttribute('style'),
+    x: scrollX, y: scrollY, scheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}));
+  await page.evaluate(() => {
+    const link = document.createElement('a');link.href = '#link-color-contract';link.id = 'link-color-contract';
+    link.textContent = 'Readable link';document.body.append(link);
+  });
+  const probe = page.locator('#link-color-contract');
+  try {
+    const native = await page.evaluate(() => getComputedStyle(document.documentElement)
+      .getPropertyValue('--guavajam-accent-source').trim() !== '');
+    for (const colorScheme of ['light', 'dark']) {
+      await page.emulateMedia({colorScheme});
+      for (const accent of native ? [null, '#000', '#fff', '#ff0', '#0f0', '#f00', '#00f', '#f0f'] : [null]) {
+        await page.evaluate(accent => {
+          if (accent) document.documentElement.style.setProperty('--guavajam-accent-source', accent);
+          else document.documentElement.style.removeProperty('--guavajam-accent-source');
+        }, accent);
+        await page.mouse.move(0, 0);
+        const state = () => probe.evaluate(n => {
+          // Canvas resolves CSS system/relative colors to display RGB too.
+          const canvas = document.createElement('canvas');canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext('2d', {willReadFrequently: true});
+          const luminance = color => {
+            ctx.clearRect(0,0,1,1);ctx.fillStyle = color;ctx.fillRect(0,0,1,1);
+            const rgb = [...ctx.getImageData(0,0,1,1).data].slice(0,3).map(v => {
+              const c = v / 255;return c <= .04045 ? c / 12.92 : ((c+.055)/1.055)**2.4;
+            });return rgb[0]*.2126 + rgb[1]*.7152 + rgb[2]*.0722;
+          };
+          const style = getComputedStyle(n), fg = luminance(style.color), bg = luminance(getComputedStyle(document.body).backgroundColor);
+          return {color: style.color, luminance: fg, contrast: (Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05),
+            weight: Number(style.fontWeight), decoration: style.textDecorationLine,
+            background: style.backgroundColor, shadow: style.boxShadow};
+        });
+        const before = await state();await probe.hover();const after = await state();
+        assert(before.weight >= 600 && before.decoration === 'none', 'weight identifies links without underlines');
+        assert(before.contrast >= 4.5 && after.contrast >= 4.5,
+          `${colorScheme}/${accent || 'browser'}: readable emphasis before/after hover: ${JSON.stringify({before,after})}`);
+        assert(after.luminance >= before.luminance - .001, 'hover only brightens foreground ink');
+        assert.equal(after.background, before.background);assert.equal(after.shadow, before.shadow);
+      }
+    }
+  } finally {
+    await probe.evaluate(n => n.remove());
+    await page.evaluate(original => {
+      if (original.style === null) document.documentElement.removeAttribute('style');
+      else document.documentElement.setAttribute('style',original.style);
+      scrollTo(original.x,original.y);
+    }, original);
+    await page.emulateMedia({colorScheme: original.scheme});
+  }
 }
