@@ -285,7 +285,12 @@ export async function listHeadingOverflow(page) {
     assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
     await header.focus();await header.press('ArrowRight');await page.waitForTimeout(100);
     assert(await header.evaluate(n=>n.scrollLeft>0),'long list counts are keyboard-scrollable');
+    await page.emulateMedia({media:'print'});
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1),
+      'long list counts wrap within the printed column');
+    await page.emulateMedia({media:'screen'});
   } finally {
+    await page.emulateMedia({media:'screen'});
     await status.evaluate((n,text)=>n.textContent=text,saved);
     await header.evaluate(n=>n.scrollLeft=0);
   }

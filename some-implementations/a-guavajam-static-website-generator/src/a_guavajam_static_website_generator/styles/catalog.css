@@ -234,7 +234,8 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
     overflow: visible; white-space: normal;
   }
   .guavajam-record-list h3 { display: block; }
-  .guavajam-facets, .guavajam-actions { flex-wrap: wrap; }
+  .guavajam-facets, .guavajam-actions, .guavajam-list-header { flex-wrap: wrap; }
+  .guavajam-list-header > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .guavajam-facet { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .guavajam-citation-entry:target { outline: none; }
   .guavajam-site .guavajam-navigation { direction: ltr; overflow: visible; border: 0; }
