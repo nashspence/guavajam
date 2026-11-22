@@ -175,21 +175,22 @@ try {
       assert.equal(await page.locator('script').count(), 0);
 
       await page.goto(passagesURL);
-      await query('Bathyal', 3, 'passages');
+      await query('Bathyal', 2, 'passages');
       const hits = await page.locator('#guavajam-search-results h3 a').allTextContents();
-      assert.equal(hits.length, 3);
-      // Both the supporting section and its nested source passage can match.
-      assert.equal(await page.locator('#guavajam-search-results > li').count(), 3);
-      assert((await page.locator('#guavajam-search-results').textContent()).includes('unlinked-23'));
+      assert.equal(hits.length, 2);
+      // Only the manuscript section and the actual supporting passage match.
+      assert.deepEqual((await page.getByRole('link', {name: 'Read this passage'}).evaluateAll(
+        links => links.map(link => link.href))).sort(), [base + fixture.lastSection,
+        base + fixture.work + `editions/${fixture.latest}/read/supporting/unlinked-23.html#support-44`].sort());
 
       await page.locator('.guavajam-search-filters').evaluate(node => { node.open = true; });
       await page.locator('select[name=supporting]').selectOption('manuscript');
       await waitTotal(1, 'passages');
       assert(!(await page.locator('#guavajam-search-results').textContent()).includes('unlinked-23'));
       await page.locator('select[name=supporting]').selectOption('all');
-      await waitTotal(3, 'passages');
+      await waitTotal(2, 'passages');
       await page.locator('select[name=sort]').selectOption('relevance');
-      await waitTotal(3, 'passages');
+      await waitTotal(2, 'passages');
       await query('Quotientwave', 3, 'passages');
       assert((await page.locator('#guavajam-search-results').textContent()).includes('Quoted passage'));
       assert((await page.locator('#guavajam-search-results').textContent()).includes('content/supporting/correspondence.md'));
