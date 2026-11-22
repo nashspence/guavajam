@@ -165,24 +165,22 @@ def finish_html(html, *, site_origin=None):
             if not names: return
             if mime and 'type' not in attrs: attrs['type'] = mime
             if download and mime and 'title' not in attrs: attrs['title'] = 'Download (' + mime + ')'
+            if artwork:
+                inner = inner[:artwork.start()] + inner[artwork.end():]
+            label = ' '.join(''.join(Text(inner).parts).split())
+            if not label: return
+            attrs['class'] = (attrs.get('class', '') + ' guavajam-icon-control').strip()
+            attrs['data-guavajam-icon'] = ''
+            attrs.setdefault('aria-label', label + (' (' + mime + ')' if download and mime else ''))
+            attrs.setdefault('title', attrs['aria-label'])
             if nav or heading:
-                if artwork:
-                    inner = inner[:artwork.start()] + inner[artwork.end():]
-                label = ' '.join(''.join(Text(inner).parts).split())
-                if not label: return
-                attrs['class'] = (attrs.get('class', '') + ' guavajam-icon-control').strip()
-                attrs['data-guavajam-icon'] = ''
-                attrs.setdefault('aria-label', label + (' (' + mime + ')' if download and mime else ''))
-                attrs.setdefault('title', attrs['aria-label'])
-                cue = download_icon(mime) if download else artwork.group(1) if artwork else names[0]
-                suffix = ' <span class="guavajam-link-mime">(' + escape(mime) + ')</span>' if download and mime else ''
-                replacement = ('<span class="guavajam-icon-label"><a' + attributes(attrs) + '>' +
-                               link_icon(cue, 'Link') + '</a> <span class="guavajam-link-label" aria-hidden="true">' +
-                               inner.strip() + suffix + '</span></span>')
-            else:
-                attrs['data-guavajam-link'] = ''
-                suffix = ' <span class="guavajam-link-mime">(' + escape(mime) + ')</span>' if download and mime else ''
-                replacement = '<a' + attributes(attrs) + '>' + ''.join(icon(name) + ' ' for name in names) + inner + suffix + '</a>'
+                names = [download_icon(mime) if download else artwork.group(1) if artwork else names[0]]
+            cues = ''.join(icon(name) + ' ' for name in names[:-1]) + link_icon(names[-1], 'Link')
+            suffix = ' <span class="guavajam-link-mime">(' + escape(mime) + ')</span>' if download and mime else ''
+            wrapper = 'guavajam-icon-label' if nav or heading else 'guavajam-text-link'
+            replacement = ('<span class="' + wrapper + '"><a' + attributes(attrs) + '>' + cues +
+                           '</a> <span class="guavajam-link-label" aria-hidden="true">' +
+                           inner.strip() + suffix + '</span></span>')
             edits.append((start, html.index('>', close) + 1, replacement))
 
     parser = Links(); parser.feed(html); parser.close()

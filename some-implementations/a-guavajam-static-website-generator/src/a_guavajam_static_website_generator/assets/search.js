@@ -224,6 +224,21 @@ if (form) {
     return cited;
   }
 
+  function captionLink(href, text, prose = false) {
+    const wrapper = document.createElement('span');
+    wrapper.className = prose ? 'guavajam-text-link' : 'guavajam-icon-label';
+    const link = document.createElement('a');
+    link.href = href; link.className = 'guavajam-icon-control';
+    link.setAttribute('aria-label', text); link.title = text;
+    link.append(document.querySelector('#guavajam-icon-link').content.cloneNode(true));
+    const caption = document.createElement('span'); caption.className = 'guavajam-link-label';
+    caption.setAttribute('aria-hidden', 'true');
+    if (prose) caption.textContent = text;
+    else appendText(caption, text);
+    wrapper.append(link, document.createTextNode(' '), caption);
+    return wrapper;
+  }
+
   function matchedExcerpt(row) {
     // FTS5 snippet() surrounds matched source tokens with private-use markers.
     // Never insert database text as HTML; create native marked text nodes.
@@ -242,8 +257,13 @@ if (form) {
     const label = document.createElement('p'); label.className = 'guavajam-excerpt-label';
     const labels = {title: 'Title match', authors: 'Author match', abstract: 'Description match',
       labels: 'Tag or subject match', git: 'Publication metadata match'};
-    label.textContent = row.excerpt_context === 'passage' ? 'Passage match' :
+    const reason = row.excerpt_context === 'passage' ? 'Passage match' :
       row.excerpt_context === 'document' ? 'Document text match' : labels[row.excerpt_field];
+    if (row.hit_url) label.append(captionLink(work ? workURL(row.hit_url) : collectionURL(row.hit_url), reason, true));
+    else {
+      const caption = document.createElement('span'); caption.className = 'guavajam-link-label';
+      caption.textContent = reason; label.append(caption);
+    }
     const source = document.createElement('p'); source.className = 'guavajam-match-source';
     source.textContent = [Number.isSafeInteger(row.match_position) ? `v${row.match_position + 1}` : '',
       row.match_document || ''].filter(Boolean).join(' · ');
@@ -268,17 +288,10 @@ if (form) {
       const li = document.createElement('li');
       const article = document.createElement('article');
       const heading = document.createElement('h3');
-      const link = document.createElement('a');
-      link.href = work ? workURL(row.url) :
+      const href = work ? workURL(row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
-      link.className = 'guavajam-icon-control';
-      link.setAttribute('aria-label', row.title); link.title = row.title;
-      link.append(document.querySelector('#guavajam-icon-link').content.cloneNode(true));
-      const label = document.createElement('span'); label.className = 'guavajam-link-label';
-      label.setAttribute('aria-hidden', 'true'); appendText(label, row.title);
-      const caption = document.createElement('span'); caption.className = 'guavajam-icon-label';
-      caption.append(link, document.createTextNode(' '), label);
-      heading.className = 'guavajam-scrollline'; heading.tabIndex = 0; heading.append(caption);
+      heading.className = 'guavajam-scrollline'; heading.tabIndex = 0;
+      heading.append(captionLink(href, row.title));
 
       article.append(heading);
       if (!work) {
@@ -365,12 +378,6 @@ if (form) {
         action.append(document.querySelector('#guavajam-icon-quote').content.cloneNode(true));
         const actions = document.createElement('p'); actions.append(action); article.append(actions);
       }
-      if (row.hit_url) {
-        const match = document.createElement('a');
-        match.href = work ? workURL(row.hit_url) : collectionURL(row.hit_url);
-        match.append(document.querySelector('#guavajam-icon-link').content.querySelector('svg').cloneNode(true), document.createTextNode(' View matching edition text'));
-        article.append(match);
-      }
       li.append(article);
       results.append(li);
     }
@@ -379,8 +386,7 @@ if (form) {
     fallback.hidden = true;
     results.hidden = false;
     const pages = Math.max(1, Math.ceil(total / pageSize));
-    const label = work ? ({editions: 'edition(s)', documents: 'document(s)', passages: 'section(s) / passage(s)'}[resultKind]) : 'work(s)';
-    summary.textContent = `${total} ${label} found`;
+    summary.textContent = `${total} result${total === 1 ? '' : 's'}`;
     pageLabel.textContent = `Page ${current} of ${pages}`;
     pagination.hidden = false;
     if (worksHeading) worksHeading.textContent = 'Search results';

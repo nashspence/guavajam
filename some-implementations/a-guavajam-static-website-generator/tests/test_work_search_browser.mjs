@@ -65,12 +65,11 @@ try {
         if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin)
           external.push(request.url());
       });
-      const label = {editions: 'edition(s)', documents: 'document(s)', passages: 'section(s) / passage(s)'};
       const waitTotal = async (total, kind) => {
         try {
           await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
             document.querySelector('#guavajam-search-status').textContent === expected,
-            `${total} ${label[kind]} found`);
+            `${total} result${total === 1 ? '' : 's'}`);
         } catch (error) {
           throw new Error(`${name}: expected ${total} ${kind}; status=${await page.locator('#guavajam-search-status').textContent()}; errors=${errors.join('; ')}`, {cause: error});
         }
@@ -109,10 +108,10 @@ try {
       assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'v2');
       assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
       await query('Palaeotidal', 1, 'editions');
-      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Document text match');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
       await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
-      assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'),
+      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'),
         base + fixture.historical);
 
       await page.goto(documentsURL);
@@ -197,7 +196,7 @@ try {
       // A match on signed metadata must show the native FTS highlight and
       // identify that context, rather than quoting an unrelated passage body.
       await query('Café studies', fixture.versionPassages, 'passages');
-      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label').first().textContent(), 'Tag or subject match');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label .guavajam-link-label').first().textContent(), 'Tag or subject match');
       for (const row of await page.locator('#guavajam-search-results > li').all()) {
         assert(await row.locator('.guavajam-passage-excerpt mark').count() > 0);
         assert((await row.locator('.guavajam-passage-excerpt').textContent()).includes('Café'));
@@ -209,7 +208,7 @@ try {
       }
       await query('Stereophotometric', 1, 'passages');
       const longQuote = page.locator('.guavajam-passage-excerpt');
-      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Passage match');
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Passage match');
       assert((await longQuote.textContent()).startsWith('…'));
       assert([...await longQuote.textContent()].length <= 322);
       assert.equal(await longQuote.locator('mark').textContent(), 'Stereophotometric');
@@ -295,7 +294,7 @@ try {
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // close
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // retry on reopen
           await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
-            `${total} section(s) / passage(s) found`, fixture.versionPassages);
+            `${total} result${total === 1 ? '' : 's'}`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));
           assert.equal(new Set(values).size, values.length, 'a successful retry does not duplicate selector options');
         }
