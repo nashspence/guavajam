@@ -239,13 +239,13 @@ if (form) {
     return cited;
   }
 
-  function matchedExcerpt(raw, context) {
+  function matchedExcerpt(row) {
     // FTS5 snippet() surrounds matched source tokens with private-use markers.
     // Never insert database text as HTML; create native marked text nodes.
     // Long source tokens can push the first native FTS marker beyond 320
     // characters. Center the bounded window on that marker, never on a new
     // JavaScript word search. Keep Unicode code points intact.
-    const text = String(raw), first = text.indexOf('\uE000');
+    const text = String(row.excerpt), first = text.indexOf('\uE000');
     if (first < 0) return null;
     let start = Math.max(0, first - 80);
     // Slice a bounded number of UTF-16 units without splitting a surrogate pair.
@@ -255,13 +255,21 @@ if (form) {
     const excerpt = text.slice(start, end);
     const container = document.createElement('div'); container.className = 'guavajam-search-excerpt';
     const label = document.createElement('p'); label.className = 'guavajam-excerpt-label';
-    label.textContent = context === 'metadata' ? 'Metadata match' : 'Passage match';
-    const quote = document.createElement(context === 'metadata' ? 'p' : 'blockquote');
+    const labels = {title: 'Title match', authors: 'Author match', abstract: 'Description match',
+      labels: 'Tag or subject match', git: 'Publication metadata match'};
+    label.textContent = row.excerpt_context === 'passage' ? 'Passage match' :
+      row.excerpt_context === 'document' ? 'Document text match' : labels[row.excerpt_field];
+    const source = document.createElement('p'); source.className = 'guavajam-match-source';
+    source.textContent = [Number.isSafeInteger(row.match_position) ? `v${row.match_position + 1}` : '',
+      row.match_document || ''].filter(Boolean).join(' · ');
+    const quote = document.createElement(row.excerpt_context === 'metadata' ? 'p' : 'blockquote');
     if (start) quote.append(document.createTextNode('…'));
     quote.className = 'guavajam-passage-excerpt';
     appendMarked(quote, excerpt);
     if (end < text.length) quote.append(document.createTextNode('…'));
-    container.append(label, quote);
+    container.append(label);
+    if (source.textContent) container.append(source);
+    container.append(quote);
     return container;
   }
 
@@ -332,18 +340,7 @@ if (form) {
           meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' · '), metadata);
         }
         article.append(meta);
-        if (resultKind === 'passages') {
-          if (directory === 'citations') article.append(resultCitation(presentation));
-          if (row.excerpt) {
-            const excerpt = matchedExcerpt(row.excerpt, row.excerpt_context);
-            if (excerpt) article.append(excerpt);
-          }
-          const action = document.createElement('a');
-          action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
-          action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
-          if (directory !== 'citations') action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
-          const actions = document.createElement('p'); actions.append(action); article.append(actions);
-        }
+        if (resultKind === 'passages' && directory === 'citations') article.append(resultCitation(presentation));
         if (resultKind === 'editions' && row.message) {
           const [subject, ...more] = row.message.split('\n');
           const message = document.createElement('p');
@@ -363,6 +360,17 @@ if (form) {
             article.append(details);
           }
         }
+      }
+      if (row.excerpt) {
+        const excerpt = matchedExcerpt(row);
+        if (excerpt) article.append(excerpt);
+      }
+      if (work && resultKind === 'passages') {
+        const action = document.createElement('a');
+        action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
+        action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
+        if (directory !== 'citations') action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
+        const actions = document.createElement('p'); actions.append(action); article.append(actions);
       }
       if (row.hit_url) {
         const match = document.createElement('a');

@@ -9,6 +9,8 @@
   --guavajam-border: #888;
   --guavajam-tint: #f0eee9;
   --guavajam-focus: #235b9d;
+  --guavajam-match-paper: #854500;
+  --guavajam-match-ink: #fff;
   font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
 }
 
@@ -383,6 +385,8 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-border: #868b8e;
     --guavajam-tint: #25292c;
     --guavajam-focus: #a8d2ff;
+    --guavajam-match-paper: #ffdc75;
+    --guavajam-match-ink: #181a1c;
   }
 }
 

@@ -122,3 +122,91 @@ export async function searchFeedbackGeometry(page, initial = false) {
     return state;
   }, initial);
 }
+
+// A text hit is useful only when the reader can see why it matched. This is
+// shared by Works, Versions, Documents and Passages, including historical hits.
+export async function searchEvidence(page) {
+  for (const row of await page.locator('#guavajam-search-results > li').all()) {
+    const evidence = row.locator('.guavajam-search-excerpt');
+    assert.equal(await evidence.count(), 1, 'each text result explains its exact winning record');
+    assert.match(await evidence.locator('.guavajam-excerpt-label').textContent(),
+      /^(Title|Author|Description|Tag or subject|Publication metadata|Document text|Passage) match$/);
+    assert(await evidence.locator('.guavajam-passage-excerpt mark').count() > 0,
+      'even body-only, historical and provenance-only matches show highlighted evidence');
+    assert((await evidence.locator('.guavajam-passage-excerpt').textContent()).length <= 322,
+      'match evidence stays bounded near the matched text');
+  }
+}
+
+export async function recordLinkAlignment(page) {
+  for (const heading of await page.locator('.guavajam-record-list:visible h3:has(.guavajam-record-link)').all()) {
+    const aligned = await heading.evaluate(n => {
+      const title = n.querySelector('a:first-child').getBoundingClientRect();
+      const icon = n.querySelector('.guavajam-record-link').getBoundingClientRect();
+      return Math.abs((title.top + title.bottom - icon.top - icon.bottom) / 2) < 1 && icon.left >= title.right;
+    });
+    assert(aligned, 'the work-page icon stays inline and vertically centered beside its title');
+  }
+}
+
+export async function fixedPageHorizontalScroll(page, {touch = false} = {}) {
+  const prior = await page.evaluateHandle(() => document.activeElement);
+  const field = page.locator('input[name=q]');
+  const positions = await page.evaluate(() => ({body: document.body.getBoundingClientRect().x,
+    main: document.querySelector('main').getBoundingClientRect().x, viewport: innerWidth,
+    scale: visualViewport?.scale || 1}));
+  const phases = await field.isVisible() ? ['opened', 'focused', 'blurred'] : ['static'];
+  for (const phase of phases) {
+    if (phase === 'focused') { if (touch) await field.tap(); else await field.click(); }
+    if (phase === 'blurred') await field.evaluate(n => n.blur());
+    // Desktop gestures target empty page margins. Touch-mode WebKit exposes
+    // taps but no wheel API; it exercises the same focus/blur viewport checks.
+    const gestures = touch ? [[0, 0]] : [2, positions.viewport - 2].flatMap(x => [[x, 240], [x, -240]]);
+    for (const [x, delta] of gestures) {
+      if (!touch) { await page.mouse.move(x, 160); await page.mouse.wheel(delta, 0); }
+      const frames = await page.evaluate(() => new Promise(resolve => {
+        const samples = [];
+        const frame = () => {
+          samples.push({scroll: scrollX, body: document.body.getBoundingClientRect().x,
+            main: document.querySelector('main').getBoundingClientRect().x, scale: visualViewport?.scale || 1});
+          if (samples.length === 6) resolve(samples); else requestAnimationFrame(frame);
+        }; requestAnimationFrame(frame);
+      }));
+      for (const sample of frames) {
+        assert.equal(sample.scroll, 0, `no horizontal viewport movement ${phase}`);
+        assert.equal(sample.scale, positions.scale, `focus and blur preserve the visual viewport scale ${phase}`);
+        assert(Math.abs(sample.body - positions.body) < .5 && Math.abs(sample.main - positions.main) < .5,
+          `empty-page horizontal wheel gestures keep the whole column fixed ${phase}`);
+      }
+    }
+  }
+  // iOS focus zoom uses the visual viewport, not document scrollWidth.
+  // Keep editable text at its non-magnifying size without disabling user zoom.
+  const editable = 'input:not([type=hidden], [type=checkbox], [type=radio]), select, textarea, [contenteditable=true]';
+  assert(await page.locator(editable).evaluateAll(nodes => nodes.every(n =>
+    parseFloat(getComputedStyle(n).fontSize) >= 16)), 'every editable control avoids Safari small-text focus zoom');
+  const viewport = await page.locator('meta[name=viewport]').getAttribute('content');
+  assert(!/user-scalable\s*=\s*no|maximum-scale\s*=/.test(viewport), 'manual pinch zoom stays available');
+  if (prior) await prior.evaluate(n => n.focus());
+}
+
+export async function searchHighlightContrast(page) {
+  const original = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({colorScheme});
+    const ratios = await page.locator('#guavajam-search-results mark').first().evaluate(n => {
+      const luminance = rgb => {
+        const values = rgb.match(/[\d.]+/g).slice(0,3).map(Number).map(value => {
+          const c = value / 255; return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+        }); return values[0]*.2126 + values[1]*.7152 + values[2]*.0722;
+      };
+      const contrast = (a,b) => (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+      const style = getComputedStyle(n), paper = getComputedStyle(document.body).backgroundColor;
+      return {text: contrast(luminance(style.color),luminance(style.backgroundColor)),
+        cue: contrast(luminance(style.backgroundColor),luminance(paper))};
+    });
+    assert(ratios.text >= 4.5, `${colorScheme}: all marked text meets 4.5:1 text contrast`);
+    assert(ratios.cue >= 3, `${colorScheme}: the match cue is distinct from the reading paper`);
+  }
+  await page.emulateMedia({colorScheme: original});
+}

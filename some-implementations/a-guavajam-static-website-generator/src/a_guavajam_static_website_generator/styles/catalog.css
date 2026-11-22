@@ -35,7 +35,7 @@
   display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
   align-items: center; justify-content: center; flex: none;
 }
-.guavajam-record-link { margin-inline-start: .2rem; transform: translateY(.04rem); }
+.guavajam-record-link { margin-inline-start: .2rem; }
 .guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
@@ -48,7 +48,7 @@
   white-space: nowrap; scrollbar-width: none; -ms-overflow-style: none;
 }
 .guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3 > a:first-child::-webkit-scrollbar { display: none; }
-.guavajam-record-list h3 { display: flex; align-items: baseline; gap: .2rem; flex-wrap: nowrap; white-space: nowrap; }
+.guavajam-record-list h3 { display: flex; align-items: center; gap: .2rem; flex-wrap: nowrap; white-space: nowrap; }
 /* The title owns its native scroll viewport; adjacent record controls keep
    their own space and focus ring, even when the title exceeds the column. */
 .guavajam-record-list h3 > a:first-child { flex: 0 1 auto; min-width: 0; }
@@ -88,9 +88,8 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   padding: 1.2rem 0 1.4rem; break-inside: avoid;
 }
 .guavajam-record-list > li, .guavajam-record-list > li > article { min-width: 0; max-width: 100%; }
-/* Bound intrinsic widths at each record, without clipping deliberate scroll
-   lanes or focus gutters. A long result must not resize its directory. */
-.guavajam-record-list > li > article { display: flow-root; inline-size: 100%; contain: inline-size; }
+/* Contain the focus gutters' compensating margins inside each record. */
+.guavajam-record-list > li > article { display: flow-root; }
 .guavajam-record-list h3 { min-width: 0; max-width: 100%; }
 .guavajam-record-list > li:first-child { padding-top: .5rem; }
 .guavajam-record-list > li:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -176,6 +175,9 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 #guavajam-search-prev, #guavajam-search-next {
   font: .9rem/1.4 system-ui, sans-serif; padding: .45rem .6rem; max-width: 100%; box-sizing: border-box;
 }
+/* iOS Safari magnifies focused controls below 16 CSS px and can retain
+   that visual-viewport zoom after blur. Preserve user zoom; size the text. */
+#guavajam-search :is(input, select) { font-size: max(.9rem, 16px); }
 #guavajam-search input { width: 100%; min-width: 0; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
 #guavajam-search select { width: 100%; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
 #guavajam-search button, .guavajam-index-search button,
@@ -286,7 +288,13 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-excerpt-label { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: .65rem 0 .2rem; }
 .guavajam-search-excerpt .guavajam-passage-excerpt { margin: 0 0 .65rem; }
 .guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
-.guavajam-record-list mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
+.guavajam-record-list mark {
+  color: var(--guavajam-match-ink); background: var(--guavajam-match-paper); font-weight: inherit;
+}
+.guavajam-match-source { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: 0 0 .2rem; }
+@media (forced-colors: active) {
+  .guavajam-record-list mark { forced-color-adjust: none; color: HighlightText; background: Highlight; }
+}
 /* A traditional contents outline: headings, indentation, and clean line
    spacing rather than horizontal rules between manuscript sections. */
 .guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
@@ -303,4 +311,8 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   }
   .guavajam-record-list h3 { margin-block: 0 .5rem; }
   .guavajam-site .guavajam-record-list > li > article > .guavajam-scrollline { margin: .35rem 0; }
+}
+
+@media print {
+  .guavajam-record-list mark { color: inherit; background: transparent; text-decoration: underline; }
 }

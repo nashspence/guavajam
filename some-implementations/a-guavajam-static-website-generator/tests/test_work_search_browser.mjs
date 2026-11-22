@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {instrumentSearch, openSearchFilters} from './interaction_contract.mjs';
+import {instrumentSearch, openSearchFilters, searchEvidence, fixedPageHorizontalScroll, searchHighlightContrast} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_work_search_browser.py');
@@ -85,6 +85,7 @@ try {
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
         await waitTotal(total, kind);
+        if (/[\p{L}\p{N}]/u.test(term)) await searchEvidence(page);
       };
       const runtimeLoads = () => loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
       await page.goto(base + fixture.work);
@@ -97,6 +98,7 @@ try {
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await page.locator('.guavajam-editions > li').count(), 3);
       await enable(fixture.editions, 'editions');
+      await fixedPageHorizontalScroll(page);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       await openSearchFilters(page);
       await page.locator('select[name=sort]').selectOption('oldest');
@@ -107,6 +109,9 @@ try {
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'v2');
       assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
       await query('Palaeotidal', 1, 'editions');
+      assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
+      await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
       assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'),
         base + fixture.historical);
 
@@ -205,7 +210,7 @@ try {
       // A match on signed metadata must show the native FTS highlight and
       // identify that context, rather than quoting an unrelated passage body.
       await query('Café studies', fixture.versionPassages, 'passages');
-      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label').first().textContent(), 'Metadata match');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-excerpt-label').first().textContent(), 'Tag or subject match');
       for (const row of await page.locator('#guavajam-search-results > li').all()) {
         assert(await row.locator('.guavajam-passage-excerpt mark').count() > 0);
         assert((await row.locator('.guavajam-passage-excerpt').textContent()).includes('Café'));

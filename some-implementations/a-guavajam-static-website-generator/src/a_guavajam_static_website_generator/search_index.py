@@ -200,12 +200,12 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE INDEX search_by_work ON search_records(work_id);
             CREATE INDEX documents_by_edition ON documents(edition_id, path);
             CREATE VIRTUAL TABLE search_fts USING fts5(title, authors, abstract, labels, body, git,
-                content='', detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+                detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
         ''')
-        # Collection search stays contentless. The work's passage FTS stores
-        # verified text to provide query-positioned, bounded native snippets.
-        # Without FTS content a snippet() call returns NULL; a truncated static
-        # excerpt would miss matches deep in long sections.
+        # Keep each document's searchable fields in its FTS row. Every text
+        # result must carry query-positioned evidence from the exact winning
+        # record, including historical metadata and deep source-body matches.
+        # No second copy of those fields belongs in the relational mapping.
         if scope == 'work':
             conn.executescript('''
                 CREATE TABLE passages (
