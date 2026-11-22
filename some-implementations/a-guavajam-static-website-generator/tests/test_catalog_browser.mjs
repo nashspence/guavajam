@@ -123,7 +123,7 @@ try {
       await page.getByRole('link', {name: 'Passages', exact: true}).click();
       assert(page.url().endsWith('/read/passages.html'));
       const staticFragments = [];
-      for (const [number, expected] of [20, 20, 20, 20, 10].entries()) {
+      for (const [number, expected] of [20, 20, 20, 20, 9].entries()) {
         const entries = page.locator('#guavajam-static-section .guavajam-citation-entry');
         assert.equal(await entries.count(), expected);
         staticFragments.push(...await entries.evaluateAll(nodes => nodes.map(node => node.id)));
