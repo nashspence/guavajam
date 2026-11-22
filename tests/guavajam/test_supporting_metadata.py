@@ -20,7 +20,7 @@ from guavajam.validate_sources import git_sources, validate_repository
 from test_assets import SVG
 
 
-BODY = '<a name="document"></a>\n\n# Body title\n\n<a name="claim"></a>\n\nReviewed claim.\n'
+BODY = '<a name="document"></a>\n\n<a name="claim"></a>\n\nReviewed claim.\n'
 FIELDS = '''date_created: 2026-11-08
 user_account: "example-user"
 exported_identity: "Example User"
@@ -39,7 +39,7 @@ multiline: |
 
 
 def document(fields=FIELDS, *, anchor='details', body=BODY):
-    return '---\n' + fields + '---\n\n<a name="' + anchor + '"></a>\n\n' + body
+    return '---\ntitle: Body title\nmetadata:\n' + ''.join('  '+line+'\n' for line in fields.splitlines()) + '---\n\n<a name="' + anchor + '"></a>\n\n' + body
 
 
 class MetadataSourceTests(unittest.TestCase):
@@ -63,16 +63,44 @@ class MetadataSourceTests(unittest.TestCase):
                           'Do not discard this field','<script>literal()</script>','first & literal','second <literal>',
                           'yes','001','','First line.\nSecond line.\n'], values)
 
+    def test_document_identity_is_plain_metadata_separate_from_submitter_labels(self):
+        from guavajam.supporting_metadata import document_frontmatter, split_frontmatter
+        facts = {'title': 'Evidence <literal> & *text*', 'abstract': 'A literal <summary>.'}
+        fields = [('title', 'A submitter claim'), ('abstract', 'Another submitter claim')]
+        source = document_frontmatter(**facts, metadata=fields)
+        parsed, metadata, body = split_frontmatter(source + BODY)
+        self.assertEqual(facts, parsed)
+        self.assertEqual(fields, metadata)
+        self.assertEqual(BODY, body)
+        ast, anchors, *_ = self.parse(source + '<a name="details"></a>\n\n' + BODY)
+        self.assertEqual(facts['title'], ast['blocks'][0]['c'][2][0]['c'])
+        self.assertEqual({'document', 'details', 'claim'}, set(anchors))
+
+    def test_reviewed_title_and_optional_abstract_are_bounded_and_unambiguous(self):
+        from guavajam.supporting_metadata import document_frontmatter
+        for fields in ('', 'abstract: Summary\n', 'title: ""\n', 'title: true\n',
+                       'title: One\ntitle: Two\n', 'title: One\nabstract: A\nabstract: B\n',
+                       'title: One\nunknown: ignored\n', 'title: One\nmetadata: []\n',
+                       'title: "line\\nbreak"\n', 'title: One\nabstract: "line\\nbreak"\n',
+                       'title: "' + 'x' * 4097 + '"\n',
+                       'title: One\nabstract: "' + 'é' * 2049 + '"\n'):
+            with self.subTest(fields=fields[:40]), self.assertRaises(AssetError):
+                self.parse('---\n' + fields + '---\n\n' + BODY)
+        self.parse(document_frontmatter('One', abstract='é' * 2048) + BODY)
+        with self.assertRaisesRegex(AssetError, 'H2–H5'):
+            self.parse(document_frontmatter('One') + BODY + '\n<a name="repeat"></a>\n\n# Repeated title\n')
+
     def test_metadata_has_its_own_explicit_composite_anchor(self):
         for source in (document(anchor='claim'), document(anchor='document'),
-                       '---\nkey: value\n---\n\n' + BODY,
+                       '---\ntitle: Body title\nmetadata: {key: value}\n---\n\n' + BODY,
                        document().replace('<a name="details"></a>', '<a name="Bad_ID"></a>')):
             with self.subTest(source=source[:50]), self.assertRaisesRegex(AssetError, 'anchor'):
                 self.parse(source)
         self.parse(document(body=BODY + '\n<a name="return"></a>\n\n[Metadata](#details).\n'))
 
-    def test_no_fields_are_required_and_metadata_absence_preserves_the_existing_body(self):
-        for source in (BODY, '---\n{}\n---\n\n' + BODY, '---\n---\n\n' + BODY):
+    def test_free_form_metadata_is_optional_with_a_reviewed_document_title(self):
+        for source in ('---\ntitle: Body title\n---\n\n' + BODY,
+                       '---\ntitle: Body title\nmetadata: {}\n---\n\n' + BODY):
             ast, anchors, *_ = self.parse(source)
             self.assertEqual({'document','claim'}, set(anchors))
             self.assertFalse(any(n['t'] == 'DefinitionList' for n in walk(ast['blocks'])))
@@ -115,8 +143,8 @@ class MetadataSourceTests(unittest.TestCase):
         for markup in ('<span data-guavajam-metadata-key="forged">Text</span>',
                        '<div class="guavajam-document-metadata">Text</div>'):
             with self.assertRaises(AssetError):
-                self.parse(BODY + '\n<a name="forged"></a>\n\n' + markup + '\n')
-        later = BODY + '\n---\nunknown_: must remain visible or fail\n---\n'
+                self.parse(document(body=BODY + '\n<a name="forged"></a>\n\n' + markup + '\n'))
+        later = document(body=BODY) + '\n---\nunknown_: must remain visible or fail\n---\n'
         with self.assertRaises(AssetError): self.parse(later)
 
     def test_metadata_is_optional_local_import_input_and_never_changes_default_output(self):

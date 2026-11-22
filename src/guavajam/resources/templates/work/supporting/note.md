@@ -1,13 +1,13 @@
 ---
-# Optional: replace or remove these fields and the following metadata anchor.
-Description: "Reviewed supporting-document details."
+title: Reviewed supporting note
+abstract: A reviewed note with independently citable supporting claims.
+metadata:
+  Description: "Reviewed supporting-document details."
 ---
 
 <a name="document-metadata"></a>
 
 <a name="document-note"></a>
-
-# Reviewed supporting note
 
 <a name="scope"></a>
 

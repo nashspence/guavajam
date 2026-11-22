@@ -43,8 +43,8 @@ def passage_context(source, anchor, scope):
             (' · Quoted passage' if scope.startswith('quotation:') else ''))
 
 
-def citation_control(record, href, *, heading=False, **options):
-    """Readable Git citation, optionally carrying the manuscript's real title."""
+def citation_control(record, href, *, heading=False, heading_anchor=None, **options):
+    """Readable Git citation, optionally carrying the document's real title."""
     if record is None:
         return ''
     data = citation_presentation(record, href, **options)
@@ -54,7 +54,11 @@ def citation_control(record, href, *, heading=False, **options):
         for kind, value in parts:
             item = escape(value) if kind == 'text' else '<' + kind + '>' + escape(value) + '</' + kind + '>'
             if title_heading and kind == 'cite':
-                item = '<h1 class="guavajam-citation-title">' + item + '</h1>'
+                identity = ' id="' + escape(heading_anchor, quote=True) + '"' if heading_anchor else ''
+                permalink = (' <a class="guavajam-permalink" lang="en" aria-label="Permalink to passage ' +
+                             escape(heading_anchor, quote=True) + '" href="#' + escape(heading_anchor, quote=True) + '">¶</a>'
+                             if heading_anchor else '')
+                item = '<h1 class="guavajam-citation-title"' + identity + '>' + item + permalink + '</h1>'
                 title_heading = False
             rendered.append(item)
         return ''.join(rendered)
@@ -71,9 +75,16 @@ def citation_control(record, href, *, heading=False, **options):
             '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg></a></div>')
 
 
-def manuscript_citation(revision, facts, *, preview=False):
+def document_citation(revision, facts, *, source='content/manuscript.md', details=None, preview=False):
     record = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
               'revision': revision, 'manuscript': 'content/manuscript.md'}
-    return citation_control(record, 'source.citation.json', heading=True, title=facts['title'],
+    supporting = source != record['manuscript']
+    details = details or {}
+    if supporting:
+        record['document'] = source
+    href = source.rsplit('/', 1)[-1][:-3] + '.citation.json' if supporting else 'source.citation.json'
+    return citation_control(record, href, heading=True, title=facts['title'],
+                            document_title=details.get('title', '') if supporting else '',
+                            heading_anchor=details.get('title_anchor'),
                             authors=author_text(ordered_authors(facts), identifiers=False),
                             provisional=preview)

@@ -156,7 +156,7 @@ def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
 
 
 def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=True, source=None):
-    from guavajam.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk,plain_text
+    from guavajam.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk
     from guavajam.table_captions import normalize_table_captions
     from .presentation import abstract_html, prepare_presentation_ast
     from .navigation import extract
@@ -167,7 +167,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
             errors.extend(validate_work_fields(Path(path),front))
             errors.extend(validate_pandoc_front_matter(Path(path),front,ast))
         if errors:raise RenderError('; '.join(errors[:8]))
-        anchors=info['anchors'];source_title=front['title']
+        anchors=info['anchors']
         raw=[n['c'][1] for n in walk(ast['blocks']) if n['t'] in {'RawInline','RawBlock'} and n['c'][0]=='html']
         expected=[part for anchor in anchors for part in ('<a id="'+anchor+'">','</a>')]
         if sorted(raw)!=sorted(expected):raise RenderError('unreviewed raw HTML in manuscript')
@@ -188,18 +188,23 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         from .supporting import present
         from guavajam.asset_policy import AssetPolicy
         ast,positions=parse_gfm_record(source,policy=AssetPolicy(origin) if origin else None);anchors=set(positions);items=[]
-        source_title=plain_text(ast['blocks'][0]['c'][2])
+        from guavajam.supporting_metadata import split_frontmatter
+        front, _, _ = split_frontmatter(source)
         navigation=extract(ast,positions)
+        if front.get('abstract'):
+            navigation['text'] = front['abstract'] + ' ' + navigation['text']
         ast=present(ast,positions,navigation)
+        if front.get('abstract'):
+            ast['blocks'].insert(0, {'t': 'RawBlock', 'c': ['html', abstract_html(front['abstract'])]})
     for node in walk(ast['blocks']):
         if node['t'] in ('Link','Image'):
             url=node['c'][2][0]
             if url.startswith('#') and unquote(url[1:]) not in anchors :raise RenderError('unresolved explicit source fragment')
             node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads)
-    return ast,items,anchors,source_title,navigation
+    return ast,items,anchors,front,navigation
 
 
-def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, navigation=''):
+def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, details=None, navigation=''):
     if not re.fullmatch(r'[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*', language):
         language = 'en'
     if preview:
@@ -221,18 +226,18 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
         for author in ordered_authors(facts):
             head.append('<meta name="author" content="'+escape(author['name'],quote=True)+'">')
             head.append('<meta name="citation_author" content="'+escape(author['name'],quote=True)+'">')
-        if facts.get('abstract'):head.append('<meta name="description" content="'+escape(facts['abstract'],quote=True)+'">')
+        if (details or facts).get('abstract'):head.append('<meta name="description" content="'+escape((details or facts)['abstract'],quote=True)+'">')
     if preview:
         head.append('<meta name="guavajam:preview" content="unsigned">')
     main_id='guavajam-main';number=1
     from .identities import element_ids
-    used=set(element_ids(body))
+    used=set(element_ids(body)) | ({details['title_anchor']} if details and details.get('title_anchor') else set())
     while main_id in used:number+=1;main_id='guavajam-main-'+str(number)
-    semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if facts.get('schema_type') else ''
+    semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if path == 'content/manuscript.md' and facts.get('schema_type') else ''
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
     canonical = ('Git SHA-1 ' + revision_sha + (' · ' + path if path else ''))
-    from .citation import manuscript_citation
-    citation_html = manuscript_citation(revision_sha, facts, preview=preview) if facts else ''
+    from .citation import document_citation
+    citation_html = document_citation(revision_sha, facts, source=path, details=details, preview=preview) if facts else ''
     status = ('' if preview else '<header class="guavajam-status"><span>Verified signed source</span></header>\n')
     accessible = ('<span class="guavajam-preview-accessible">Unsigned proposed edition, not issued.</span>'
                   if preview else '')
@@ -305,13 +310,12 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     documents = {}
     navigation_documents = {}
     manuscript_facts = {}
+    citations = {}
     css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
     for path in [manuscript, *supporting_paths]:
         source = git_blob(repo, sha, path)
-        ast = json.loads(pandoc(source))
-        from guavajam.validate_sources import validate_front_matter
-        meta = validate_front_matter(Path(path),source.decode('utf-8'))[0] if path == manuscript else {}
-        ast,items,anchors,source_title,navigation = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
+        ast = json.loads(pandoc(source)) if path == manuscript else None
+        ast,items,anchors,meta,navigation = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
                                       supporting=supporting,downloads=downloads,media=(path==manuscript),source=source.decode('utf-8'))
         from .identities import writer_prefix,restore_source_ids
         prefix=writer_prefix(anchors)
@@ -323,14 +327,24 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
             manuscript_facts = meta
             title = meta['title']; language = meta.get('language','en'); dest = 'index.html'
         else:
-            title=source_title;language='en';dest='supporting/'+Path(path).stem+'.html'
+            title=meta['title'];language=manuscript_facts.get('language','en');dest='supporting/'+Path(path).stem+'.html'
         documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
-                           'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest()}
+                           'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest(),
+                           **({'abstract': meta['abstract']} if meta.get('abstract') else {}),
+                           **({'title_anchor': navigation['anchors'][0]['anchor']} if path != manuscript else {})}
         navigation_documents[path] = {**documents[path], **navigation}
         from .navigation import reader_navigation
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,
-                                path=path, body=body, css=css, origin=origin, preview=preview, facts=meta if path==manuscript else None,
+                                path=path, body=body, css=css, origin=origin, preview=preview, facts=manuscript_facts, details=documents[path],
                                 navigation=reader_navigation(path))
+        from .citation_routes import source_download
+        from guavajam.catalog import encoded
+        from guavajam.publication_commit import citation
+        record = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
+                  'revision': sha, 'manuscript': manuscript, 'documents': supporting}
+        download = source_download(dest)
+        citations[download] = source
+        citations[str(PurePosixPath(download).with_suffix('.citation.json'))] = encoded(citation(record, document=path))
     canonical = {'hash_algorithm':'sha1','revision':sha,'manuscript':manuscript}
     navigation = {'schema':'guavajam.navigation.v1','canonical':canonical,
                   'preview':preview,'documents':navigation_documents}
@@ -348,8 +362,8 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     for name, raw in downloads.items():
         (output / 'downloads').mkdir(exist_ok=True)
         (output / 'downloads' / name).write_bytes(raw)
-    citation_bytes = encoded({'schema': 'guavajam.source-citation.v1', **canonical})
-    (output/'source.citation.json').write_bytes(citation_bytes)
+    for name, raw in citations.items():
+        (output / name).write_bytes(raw)
     (output/'NAV.json').write_bytes(navigation_bytes)
     (output/'VIEW.json').write_text(json.dumps({
        'schema':'guavajam.view.v1','canonical':canonical, 'renderer':'a-guavajam-static-website-generator', 'preview':preview,
@@ -358,7 +372,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
                  for name,html in sorted(all_files.items())},
                  **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())},
                  'NAV.json':hashlib.sha256(navigation_bytes).hexdigest(),
-                 'source.citation.json':hashlib.sha256(citation_bytes).hexdigest()}},indent=2,sort_keys=True)+'\n')
+                 **{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(citations.items())}}},indent=2,sort_keys=True)+'\n')
     return len(documents)
 
 

@@ -199,7 +199,7 @@ def load_gfm_record(path: Path, *, root=None):
 
 def parse_gfm_record(source, *, policy=None):
     from .validate_sources import FORMAT, parse_pandoc, valid_source_link
-    fields, body = split_frontmatter(source)
+    facts, fields, body = split_frontmatter(source)
     ast = parse_pandoc(body, reader=FORMAT.replace('+yaml_metadata_block', '-yaml_metadata_block'))
     metadata_anchor = None
     if fields:
@@ -208,7 +208,15 @@ def parse_gfm_record(source, *, policy=None):
             raise AssetError('supporting metadata requires its own unannotated explicit anchor after the front matter')
         metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
+    title_details = anchor_details(ast['blocks'][0]) if ast['blocks'] else None
+    if not title_details or title_details[1] is not None:
+        raise AssetError('supporting title requires its own unannotated explicit anchor after the front matter')
+    # This is the document identity, derived from reviewed metadata. The source
+    # body begins below it at H2; consumers can present the title in a citation.
+    title_block = {'t': 'Header', 'c': [1, ['', [], []], [{'t': 'Str', 'c': facts['title']}]]}
+    ast['blocks'].insert(1, title_block)
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
+    title_block = ast['blocks'][1]
     # Only an outermost responder quotation followed by an unquoted credit
     # is an attributed turn. Each child is flattened to retain its own citable
     # anchor; publisher-only sentinels preserve the figure's exact boundaries.
@@ -278,8 +286,8 @@ def parse_gfm_record(source, *, policy=None):
             raise AssetError('supporting GFM permits only standalone anchors, exact semantic times and title-only spans as HTML; footnotes are unsupported')
         nested = [n for n in walk(block) if n.get('t') == 'Header']
         if nested:
-            if block.get('t') != 'Header' or len(nested) != 1 or not pending or block['c'][0] > 5:
-                raise AssetError('supporting headings require top-level explicit anchors and levels H1–H5')
+            if block.get('t') != 'Header' or len(nested) != 1 or not pending or (block is not title_block and not 2 <= block['c'][0] <= 5):
+                raise AssetError('supporting body headings require top-level explicit anchors and levels H2–H5')
             level = block['c'][0]
             previous = quotation_level if quotation is not None else document_level
             if previous and level > previous + 1:
@@ -297,9 +305,9 @@ def parse_gfm_record(source, *, policy=None):
         pending = None
         blocks.append(block)
     if pending or not blocks or blocks[0].get('t') != 'Header' or blocks[0]['c'][0] != 1:
-        raise AssetError('supporting GFM requires an explicitly anchored H1 title and no dangling anchor')
+        raise AssetError('supporting GFM requires an explicitly anchored metadata title and no dangling anchor')
     if sum(h['c'][0] == 1 for h in headers) != 1 or 0 not in anchors.values():
-        raise AssetError('supporting GFM requires exactly one explicitly anchored H1 title')
+        raise AssetError('supporting GFM requires exactly one explicitly anchored metadata title')
     if fields:
         if metadata_anchor in anchors:
             raise AssetError('duplicate supporting metadata anchor')

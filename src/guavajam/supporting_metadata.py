@@ -1,4 +1,4 @@
-"""Bounded, literal, document-owned supporting metadata; no field vocabulary."""
+"""Reviewed supporting titles/abstracts and separately scoped literal metadata."""
 import re
 from pathlib import Path
 
@@ -12,7 +12,7 @@ MAX_METADATA_FIELDS = 64
 CONTROL = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ud800-\udfff]')
 
 
-def parse_metadata(source):
+def _mapping(source):
     if len(source.encode('utf-8')) > MAX_METADATA_BYTES:
         raise AssetError('supporting metadata exceeds 64 KiB')
     try:
@@ -21,6 +21,10 @@ def parse_metadata(source):
         root = yaml.compose(source, Loader=yaml.SafeLoader)
     except (yaml.YAMLError, RecursionError):
         raise AssetError('invalid supporting metadata YAML') from None
+    return root
+
+
+def _fields(root):
     if root is None:
         return []
     if not isinstance(root, MappingNode) or len(root.value) > MAX_METADATA_FIELDS:
@@ -40,13 +44,55 @@ def parse_metadata(source):
     return fields
 
 
+def parse_metadata(source):
+    """Read optional importer input without assigning semantics to its labels."""
+    return _fields(_mapping(source))
+
+
 def split_frontmatter(source):
+    """The v1 supporting source has a title, optional abstract and metadata map."""
+    from .bibliography import plain_string, check_optional_bibliography
     if not source.startswith('---\n'):
-        return [], source
+        raise AssetError('supporting GFM requires title front matter')
     end = source.find('\n---\n', 3)
     if end == -1:
         raise AssetError('supporting metadata requires a closing --- delimiter')
-    return parse_metadata(source[4:end + 1]), source[end + 5:].lstrip('\n')
+    root = _mapping(source[4:end + 1])
+    if not isinstance(root, MappingNode):
+        raise AssetError('supporting front matter requires a mapping')
+    facts, fields, seen = {}, [], set()
+    for key_node, node in root.value:
+        if not isinstance(key_node, ScalarNode) or key_node.value not in {'title', 'abstract', 'metadata'}:
+            raise AssetError('supporting front matter permits title, abstract and metadata only')
+        key = key_node.value
+        if key in seen:
+            raise AssetError('supporting front matter requires unique fields')
+        seen.add(key)
+        if key == 'metadata':
+            if not isinstance(node, MappingNode):
+                raise AssetError('supporting metadata requires a mapping')
+            fields = _fields(node)
+        else:
+            if not isinstance(node, ScalarNode) or node.tag != 'tag:yaml.org,2002:str':
+                raise AssetError('supporting title and abstract require plain-text strings')
+            facts[key] = node.value
+    if not plain_string(facts.get('title')) or len(facts['title'].encode('utf-8')) > 4096:
+        raise AssetError('supporting title must be one nonempty plain-text line of at most 4 KiB')
+    check_optional_bibliography(facts)
+    return facts, fields, source[end + 5:].lstrip('\n')
+
+
+def document_frontmatter(title, *, abstract=None, metadata=()):
+    facts = {'title': title}
+    if abstract is not None:
+        facts['abstract'] = abstract
+    if metadata:
+        facts['metadata'] = dict(metadata)
+    source = '---\n' + yaml.safe_dump(facts, allow_unicode=True, sort_keys=False, width=1000) + '---\n\n'
+    parsed, fields, _ = split_frontmatter(source)
+    if parsed != {key: value for key, value in facts.items() if key != 'metadata'} or fields != list(metadata):
+        raise AssetError('supporting metadata cannot be serialized without loss')
+    return source
 
 
 def read_metadata(path: Path):
@@ -58,15 +104,6 @@ def read_metadata(path: Path):
         return parse_metadata(raw.decode('utf-8'))
     except UnicodeError:
         raise AssetError('supporting metadata requires UTF-8') from None
-
-
-def metadata_frontmatter(fields):
-    if not fields:
-        return ''
-    source = yaml.safe_dump(dict(fields), allow_unicode=True, sort_keys=False, width=1000)
-    if parse_metadata(source) != fields:
-        raise AssetError('supporting metadata cannot be serialized without loss')
-    return '---\n' + source + '---\n\n'
 
 
 def metadata_block(fields):

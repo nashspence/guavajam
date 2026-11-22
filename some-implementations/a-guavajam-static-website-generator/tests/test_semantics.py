@@ -1,5 +1,6 @@
 """Document titles and source quotations retain native reading semantics."""
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -64,7 +65,7 @@ This source anchor must remain addressable.
 This source identity must not become a duplicate generated ID.''')
             supporting = publisher.repo / 'content/supporting/note.md'
             supporting.parent.mkdir()
-            supporting.write_text('<a name="document"></a>\n\n# Supporting evidence\n\n'
+            supporting.write_text('---\ntitle: Supporting evidence\nabstract: A literal <supporting> summary.\n---\n\n<a name="guavajam-main"></a>\n\n'
                                   '<a name="claim"></a>\n\nA source claim.\n')
             manuscript_source = (publisher.repo / 'content/manuscript.md').read_bytes()
             supporting_source = supporting.read_bytes()
@@ -94,7 +95,8 @@ This source identity must not become a duplicate generated ID.''')
                         skip = page.classes('guavajam-skip')[0]
                         self.assertEqual('#' + page.tags('main')[0]['attrs']['id'], skip['attrs']['href'])
                         citations = page.classes('guavajam-citation')
-                        self.assertEqual(1 if relative == 'index.html' or mode == 'site' else 0, len(citations))
+                        self.assertEqual(1, len(citations))
+                        self.assertIn(citations[0], heading['ancestors'])
                         for citation in citations:
                             self.assertEqual('div', citation['tag'])
                             self.assertEqual('group', citation['attrs'].get('role'))
@@ -109,9 +111,15 @@ This source identity must not become a duplicate generated ID.''')
                             self.assertEqual(1, len(page.tags('blockquote')))
                             self.assertNotIn(citations[0], page.tags('blockquote')[0]['ancestors'])
                         else:
-                            self.assertEqual('document', heading['attrs']['id'])
+                            self.assertEqual('guavajam-main', heading['attrs']['id'])
                             self.assertIn('claim', identifiers)
-                            self.assertFalse(page.classes('guavajam-citation-title'))
+                            self.assertEqual(1, len(page.classes('guavajam-citation-title')))
+                            self.assertEqual(1, len(page.classes('guavajam-abstract')))
+                            self.assertIn('A literal &lt;supporting&gt; summary.', (directory / relative).read_text())
+                            self.assertEqual('Supporting evidence', next(node['attrs']['content'] for node in page.tags('meta') if node['attrs'].get('name') == 'citation_title'))
+                            cited = json.loads((directory / 'supporting/note.citation.json').read_text())
+                            self.assertEqual('content/supporting/note.md', cited['document'])
+                            self.assertEqual(supporting_source, (directory / 'supporting/note.gfm').read_bytes())
 
             self.assertEqual(manuscript_source, (published / 'source.gfm').read_bytes())
             self.assertEqual(supporting_source, (published / 'supporting/note.gfm').read_bytes())

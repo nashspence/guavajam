@@ -157,6 +157,10 @@ try {
         assert.equal(page.url(), base + edition + 'read/index.html#' + anchor);
       }
       await page.goto(base + edition + 'read/supporting/note.html');
+      assert.equal(await page.locator('h1').count(), 1);
+      assert.equal(await page.locator('.guavajam-citation h1#document').count(), 1);
+      assert.equal(await page.getByRole('group', {name: 'Abstract', exact: true}).locator('p').last().textContent(), 'Independently reviewed evidence for the manuscript.');
+      assert.equal(await page.locator('.guavajam-citation h1 cite').textContent(), 'Supporting note');
       assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Supporting note');
       assert.equal(await page.getByRole('link', {name: 'Cite this document'}).count(), 0);
       await page.getByRole('link', {name: 'Cite committed source passage supporting-tail'}).click();

@@ -77,9 +77,11 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             # directory with bounded static pages after creating the SQLite
             # search artifact. Standalone renders remain unchanged.
             text = text.replace('<h1>Documents in this edition</h1>', '', 1)
+        if relative != 'documents.html':
+            from .citation import document_citation
+            text = text.replace(document_citation(revision, view['facts'], source=source,
+                                details=view['documents'][source]), '', 1)
         if relative == 'index.html':
-            from .citation import manuscript_citation
-            text = text.replace(manuscript_citation(revision, view['facts']), '', 1)
             # The native TOC moves to Contents on the site-owned reader only.
             # The standalone renderer and its immutable cache keep their own TOC.
             text = re.sub(r'<nav\b[^>]*class="guavajam-contents"[^>]*>.*?</nav>',
@@ -87,15 +89,14 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title,
-            heading=relative == 'index.html')
+            heading=relative != 'documents.html',
+            heading_anchor=view['documents'][source].get('title_anchor') if relative != 'documents.html' else None)
         menu = ''
         if relative != 'documents.html':
             # The renderer's utility directory is useful standalone but
             # redundant with the version menu in site-owned readers.
             from .navigation import reader_navigation
             text = text.replace(reader_navigation(source), '', 1)
-            text = add_passage_links(text, relative, source,
-                                     source_navigation['documents'][source]['anchors'], starts[source])
             if relative == 'index.html':
                 # One compact route menu, directly above the manuscript; no
                 # second edition cover, repeated abstract, or extra citation.
@@ -107,10 +108,13 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                         '<a href="../metadata.html">Metadata</a>'
                         '<a href="source.gfm" download>Download</a></nav>')
         # Keep the document's title/citation within its article, with the route
-        # menu still immediately above it. Supporting sources already own H1.
+        # menu still immediately above it.
         text, replaced = re.subn(r'<article class="guavajam-edition"[^>]*>',
                                 lambda match: menu + match.group(0) + citation_html,
                                 text, count=1)
+        if relative != 'documents.html':
+            text = add_passage_links(text, relative, source,
+                                     source_navigation['documents'][source]['anchors'], starts[source])
         if replaced != 1:
             raise CatalogError('work navigation: expected one generated document article')
         text = text.replace('<div class="guavajam-source-identity">',
