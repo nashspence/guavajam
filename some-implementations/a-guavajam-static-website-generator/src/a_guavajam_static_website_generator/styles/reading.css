@@ -34,6 +34,12 @@ h3 { font-size: 1.23rem; margin: 1.9rem 0 .7rem; }
 h4, h5, h6 { font-size: 1.07rem; margin: 1.5rem 0 .6rem; }
 p { margin: 0 0 1.1em; }
 
+.guavajam-document-divider {
+  border: 0;
+  border-block-start: 1px solid var(--guavajam-border);
+  margin: 1.65rem 0;
+}
+
 /* The bibliography keeps its compact presentation, including a native title. */
 div.guavajam-citation {
   position: relative; margin: .1rem 0 1.65rem; padding: .35rem 2rem .35rem 1rem;

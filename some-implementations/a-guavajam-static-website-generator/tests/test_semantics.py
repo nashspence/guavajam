@@ -105,6 +105,15 @@ This source identity must not become a duplicate generated ID.''')
                             links = [node for node in page.tags('a') if citation in node['ancestors']]
                             self.assertEqual(1, len(links))
                             self.assertIn('download', links[0]['attrs'])
+                        divider, = page.classes('guavajam-document-divider')
+                        self.assertEqual('hr', divider['tag'])
+                        self.assertIn(article, divider['ancestors'])
+                        self.assertNotIn('id', divider['attrs'])
+                        self.assertLess(page.nodes.index(citations[0]), page.nodes.index(divider))
+                        for abstract in page.classes('guavajam-abstract'):
+                            self.assertLess(page.nodes.index(abstract), page.nodes.index(divider))
+                        source_claim = next(node for node in page.nodes if node['attrs'].get('id') == 'guavajam-main')
+                        self.assertLess(page.nodes.index(divider), page.nodes.index(source_claim))
                         if relative == 'index.html':
                             self.assertEqual(title, heading['text'])
                             self.assertNotIn('id', heading['attrs'])
