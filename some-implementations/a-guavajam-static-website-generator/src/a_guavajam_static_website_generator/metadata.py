@@ -69,7 +69,7 @@ def write_metadata(directory, *, facts, title, ancestors, revision, published, m
                   '<dd><time datetime="' + escape(published, quote=True) + '">' +
                   escape(published) + '</time></dd></div>' +
                   _field('Commit message', message, css='guavajam-message') +
-                  _linked_field('Verification record', 'SOURCE.json', 'SOURCE.json') +
+                  _linked_field('Verification record', 'SOURCE.json', 'SOURCE.json', download=True) +
                   _linked_field('Canonical citation', 'CITATION.json', 'CITATION.json', download=True))
     if committer['name']:
         identity = escape(committer['name'])

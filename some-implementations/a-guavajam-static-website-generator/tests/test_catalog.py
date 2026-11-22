@@ -77,7 +77,7 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('2025-01-01', edition)
         self.assertNotIn('class="guavajam-byline"', edition)
         self.assertNotIn('<section class="guavajam-directory"', edition)
-        self.assertIn('href="SOURCE.json">SOURCE.json</a>', edition)
+        self.assertIn('href="SOURCE.json" download>', edition)
         self.assertIn('href="CITATION.json" download', edition)
         self.assertNotIn('href="read/documents.html">Documents</a>', edition)
         reader = (self.output / 'editions' / second / 'read/index.html').read_text()

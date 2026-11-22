@@ -111,7 +111,7 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 }
 .guavajam-version-menu::-webkit-scrollbar { display: none; }
 /* New SVG cues accompany visible labels, leaving text-only clients unchanged. */
-.guavajam-version-menu a > .guavajam-icon:first-child,
+.guavajam-version-menu a:not([download]) > .guavajam-icon:first-child,
 .guavajam-search-summary > .guavajam-icon,
 .guavajam-search-filters > summary > .guavajam-icon {
   margin-inline-end: .35em;

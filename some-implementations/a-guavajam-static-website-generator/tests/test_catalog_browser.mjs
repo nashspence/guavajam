@@ -140,6 +140,19 @@ try {
       for (const branch of ['Publication', 'Provenance', 'Rights', 'Locators']) {
         assert.equal(await page.getByRole('heading', {name: branch, exact: true}).count(), 1);
       }
+      const metadataURL = page.url();
+      for (const filename of ['SOURCE.json', 'CITATION.json']) {
+        const link = page.locator('#provenance a[href="' + filename + '"]');
+        assert.equal(await link.locator('svg.guavajam-icon-file-json[aria-hidden=true]').count(),1);
+        assert.equal(await link.getAttribute('type'),'application/json');
+        assert.equal(await link.getAttribute('download'),'');
+        assert.equal(await link.locator('.guavajam-link-mime').textContent(),'(application/json)');
+        const downloading=page.waitForEvent('download');await link.click();const saved=await downloading;
+        assert.equal(saved.suggestedFilename(),filename);
+        assert.deepEqual(await fs.readFile(await saved.path()),await fs.readFile(path.join(root,edition,filename)));
+        assert.equal(page.url(),metadataURL,'Metadata stays in place when downloading verification/citation JSON');
+      }
+
       await page.getByRole('link', {name: 'v2', exact: true}).click();
       await page.getByRole('link', {name: 'Contents', exact: true}).click();
       assert(page.url().endsWith('/read/contents.html'));
