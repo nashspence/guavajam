@@ -1,8 +1,8 @@
 /* GuavaJam reading surface: system fonts and static, embedded presentation. */
 :root {
   color-scheme: light dark;
-  --guavajam-paper: #faf9f6;
-  --guavajam-ink: #222;
+  --guavajam-paper: #fff;
+  --guavajam-ink: #111;
   --guavajam-muted: #555d63;
   --guavajam-link: #235b9d;
   --guavajam-visited: #654d84;
