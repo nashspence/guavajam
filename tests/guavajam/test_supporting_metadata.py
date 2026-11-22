@@ -20,7 +20,7 @@ from guavajam.validate_sources import git_sources, validate_repository
 from test_assets import SVG
 
 
-BODY = '<a name="document"></a>\n\n<a name="claim"></a>\n\nReviewed claim.\n'
+BODY = '<a name="claim"></a>\n\nReviewed claim.\n'
 FIELDS = '''date_created: 2026-11-08
 user_account: "example-user"
 exported_identity: "Example User"
@@ -51,8 +51,8 @@ class MetadataSourceTests(unittest.TestCase):
     def test_free_form_labels_order_scalar_spellings_and_lists_survive_without_pandoc_semantics(self):
         ast, anchors, *_ = self.parse(document())
         self.assertEqual({}, ast['meta'])
-        self.assertEqual({'document', 'details', 'claim'}, set(anchors))
-        self.assertEqual(0, anchors['document']); self.assertEqual(1, anchors['details'])
+        self.assertEqual({'details', 'claim'}, set(anchors))
+        self.assertEqual(1, anchors['details']); self.assertEqual(2, anchors['claim'])
         keys = [dict(n['c'][0][2])['data-guavajam-metadata-key'] for n in walk(ast['blocks'])
                 if n['t'] == 'Span' and 'data-guavajam-metadata-key' in dict(n['c'][0][2])]
         self.assertEqual(['date_created','user_account','exported_identity','title','schema','unknown_',
@@ -74,7 +74,7 @@ class MetadataSourceTests(unittest.TestCase):
         self.assertEqual(BODY, body)
         ast, anchors, *_ = self.parse(source + '<a name="details"></a>\n\n' + BODY)
         self.assertEqual(facts['title'], ast['blocks'][0]['c'][2][0]['c'])
-        self.assertEqual({'document', 'details', 'claim'}, set(anchors))
+        self.assertEqual({'details', 'claim'}, set(anchors))
 
     def test_reviewed_title_and_optional_abstract_are_bounded_and_unambiguous(self):
         from guavajam.supporting_metadata import document_frontmatter
@@ -91,7 +91,7 @@ class MetadataSourceTests(unittest.TestCase):
             self.parse(document_frontmatter('One') + BODY + '\n<a name="repeat"></a>\n\n# Repeated title\n')
 
     def test_metadata_has_its_own_explicit_composite_anchor(self):
-        for source in (document(anchor='claim'), document(anchor='document'),
+        for source in (document(anchor='claim'),
                        '---\ntitle: Body title\nmetadata: {key: value}\n---\n\n' + BODY,
                        document().replace('<a name="details"></a>', '<a name="Bad_ID"></a>')):
             with self.subTest(source=source[:50]), self.assertRaisesRegex(AssetError, 'anchor'):
@@ -102,7 +102,7 @@ class MetadataSourceTests(unittest.TestCase):
         for source in ('---\ntitle: Body title\n---\n\n' + BODY,
                        '---\ntitle: Body title\nmetadata: {}\n---\n\n' + BODY):
             ast, anchors, *_ = self.parse(source)
-            self.assertEqual({'document','claim'}, set(anchors))
+            self.assertEqual({'claim'}, set(anchors))
             self.assertFalse(any(n['t'] == 'DefinitionList' for n in walk(ast['blocks'])))
 
     def test_metadata_keeps_source_anchor_and_literal_author_assertions(self):
@@ -120,7 +120,7 @@ class MetadataSourceTests(unittest.TestCase):
         keys = [dict(node['c'][0][2])['data-guavajam-metadata-key'] for node in walk(ast['blocks'])
                 if node['t'] == 'Span' and 'data-guavajam-metadata-key' in dict(node['c'][0][2])]
         self.assertEqual([f'field-{n:02d}' for n in range(64)], keys)
-        self.assertEqual({'document', 'details', 'claim'}, set(anchors))
+        self.assertEqual({'details', 'claim'}, set(anchors))
 
     def test_unsafe_ambiguous_or_complex_yaml_is_rejected_without_dumping_values(self):
         invalid = ('a: first\na: second\n', 'a: &value private-sentinel\nb: *value\n',

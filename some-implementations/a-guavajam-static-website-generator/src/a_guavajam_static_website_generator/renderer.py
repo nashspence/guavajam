@@ -231,7 +231,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
         head.append('<meta name="guavajam:preview" content="unsigned">')
     main_id='guavajam-main';number=1
     from .identities import element_ids
-    used=set(element_ids(body)) | ({details['title_anchor']} if details and details.get('title_anchor') else set())
+    used=set(element_ids(body))
     while main_id in used:number+=1;main_id='guavajam-main-'+str(number)
     semantic=' itemscope itemtype="https://schema.org/'+facts['schema_type']+'"' if path == 'content/manuscript.md' and facts.get('schema_type') else ''
     rights='<p class="guavajam-rights">Rights: '+escape(facts['rights'])+'</p>' if facts.get('rights') else ''
@@ -330,8 +330,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
             title=meta['title'];language=manuscript_facts.get('language','en');dest='supporting/'+Path(path).stem+'.html'
         documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
                            'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest(),
-                           **({'abstract': meta['abstract']} if meta.get('abstract') else {}),
-                           **({'title_anchor': navigation['anchors'][0]['anchor']} if path != manuscript else {})}
+                           **({'abstract': meta['abstract']} if meta.get('abstract') else {})}
         navigation_documents[path] = {**documents[path], **navigation}
         from .navigation import reader_navigation
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,

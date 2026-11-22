@@ -61,7 +61,7 @@ class WorkSearchTests(unittest.TestCase):
         supporting = cls.publisher.repo / 'content/supporting'
         supporting.mkdir()
         (supporting / 'unlinked.md').write_text(
-            '---\ntitle: Unlinked evidence\n---\n\n<a name="document"></a>\n\n'
+            '---\ntitle: Unlinked evidence\n---\n\n'
             '<a name="42"></a>\n\nGlaciolacustrine evidence survives without a manuscript link.\n')
         review, _ = review_gfm({'title': 'Reviewed correspondence', 'scope': 'Test fixture', 'passages': [
             {'id': 'author', 'label': 'Author', 'speaker': 'author',

@@ -36,6 +36,10 @@ for(const [engine,type] of Object.entries({chromium, firefox, webkit}).filter(([
     const page=await open(context,name,width,scheme,enlarge);
     const shape=await page.evaluate(()=>({h1:document.querySelectorAll('h1').length,ids:[...document.querySelectorAll('[id]')].map(n=>n.id),width:document.documentElement.scrollWidth,viewport:innerWidth,scripts:document.scripts.length,main:document.querySelectorAll('main').length,csp:document.querySelector('meta[http-equiv="Content-Security-Policy"]').content}));
     assert.equal(await page.locator('.guavajam-citation h1').count(),1);
+    assert.equal(await page.locator('.guavajam-citation a').count(),1);
+    assert.equal(await page.locator('.guavajam-citation a[download]').count(),1);
+    const titleFont=await page.locator('.guavajam-citation h1').evaluate(n=>getComputedStyle(n).font);
+    assert.equal(titleFont,await page.locator('.guavajam-citation-description').evaluate(n=>getComputedStyle(n).font));
     assert.equal(shape.h1,1);assert.equal(shape.main,1);assert.equal(shape.scripts,0);assert.equal(shape.ids.length,new Set(shape.ids).size);if(shape.width>shape.viewport+1){const overflow=await page.evaluate(()=>[...document.querySelectorAll('main *')].map(n=>({tag:n.tagName,id:n.id,cls:n.className?.baseVal??n.className,left:n.getBoundingClientRect().left,right:n.getBoundingClientRect().right})).filter(n=>n.right>innerWidth+1||n.left< -1).slice(0,12));assert.fail(`${engine} ${name} ${width} enlarged=${enlarge} overflows: ${JSON.stringify(overflow)}`);}assert(shape.csp.includes("script-src 'none'"));
     await page.evaluate(axe.source);const audit=await page.evaluate(()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']}}));
     assert.deepEqual(audit.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)})),[],`${engine} accessibility ${name}`);

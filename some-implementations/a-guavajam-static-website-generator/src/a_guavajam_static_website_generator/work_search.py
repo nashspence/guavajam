@@ -89,8 +89,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         citation_html = citation_control(
             cited, cited_href, title=work_title, authors=authors, published=published,
             edition_number=edition_number, document_title=document_title,
-            heading=relative != 'documents.html',
-            heading_anchor=view['documents'][source].get('title_anchor') if relative != 'documents.html' else None)
+            heading=relative != 'documents.html')
         menu = ''
         if relative != 'documents.html':
             # The renderer's utility directory is useful standalone but

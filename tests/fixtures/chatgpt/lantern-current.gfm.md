@@ -3,8 +3,6 @@ title: Lantern experiment qualification (synthetic timestamps)
 ---
 
 
-<a name="doc-54c855337c6ab1bca879f0c80bc52bd45296002bf631bd2416ce62758303801d"></a>
-
 <a name="scope-doc-54c855337c6ab1bca879f0c80bc52bd45296002bf631bd2416ce62758303801d"></a>
 
 Selected user and assistant text from one branch of a ChatGPT capture/export; this document does not establish conversation completeness. Other branches, hidden messages, internal reasoning, tool traffic and attachments are omitted. Unsupported content in included messages is marked inline.

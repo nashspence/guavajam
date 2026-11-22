@@ -33,7 +33,7 @@ class PreviewTests(unittest.TestCase):
     def test_parentless_snapshot_marks_all_documents_and_retains_exact_inventories(self):
         notes = self.draft.repo / 'content/supporting'
         notes.mkdir()
-        (notes / 'note.md').write_text('---\ntitle: An unlinked note\n---\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nA source passage.\n')
+        (notes / 'note.md').write_text('---\ntitle: An unlinked note\n---\n\n<a name="claim"></a>\n\nA source passage.\n')
         self.draft.git('checkout', '--orphan', 'first-draft')
         self.draft.git('add', 'content')
         self.draft.git('commit', '-qm', 'First draft snapshot')
