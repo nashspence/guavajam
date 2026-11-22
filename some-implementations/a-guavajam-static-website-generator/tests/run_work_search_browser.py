@@ -38,7 +38,7 @@ def prepare(directory):
                               'rights: CC-BY-4.0\nkeywords:\n  - Café studies\n'))
         if number == 1:
             (support / 'archived.md').write_text(
-                '---\ntitle: Archived note\n---\n\n<a name="archived-document"></a>\n\n'
+                '---\ntitle: Archived note\n---\n\n'
                 '<a name="archived-evidence"></a>\n\nOlder documentary evidence.\n')
         elif number == 2:
             (support / 'archived.md').unlink()
@@ -83,7 +83,7 @@ def prepare(directory):
                repository='https://example.org/unpublished.git', search_assets='../../', **publisher.trust)
     description = {'root': str(site), 'work': relative + '/', 'latest': revision, 'older': older,
                    'editions': 23, 'documents': 25, 'manuscriptPassages': 45, 'unpublished': unpublished,
-                   'supportingPassages': 46,
+                   'supportingPassages': 45,
                    'versionPassages': sum(len(doc['anchors']) for doc in json.loads(
                        (site / relative / 'editions' / revision / 'read/NAV.json').read_text())['documents'].values()),
                    'historical': relative + '/editions/' + older + '/read/index.html',
