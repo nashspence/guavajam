@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from a_guavajam_static_website_generator.icons import icon
+from a_guavajam_static_website_generator.icons import link_icon
 from a_guavajam_static_website_generator.citation_pages import add_passage_links, build_citation_pages
 from a_guavajam_static_website_generator.citation_routes import (citation_fragment, citation_href, citation_page,
                                       passage_json, relative_href)
@@ -165,7 +165,7 @@ class CitationPageTests(unittest.TestCase):
                                    'content/supporting/note.md', [{'anchor': 'main', 'position': 1}], 42)
         expected = ('<a class="guavajam-passage-cite" lang="en" href="' +
                     relative_href('supporting/note.html', target) + '" '
-                    'aria-label="Cite committed source passage main">' + icon('quote') + '</a>')
+                    'aria-label="Cite committed source passage main">' + link_icon('quote', 'Cite') + '</a>')
         self.assertEqual(html, result.replace(expected, ''))
         self.assertEqual(1, result.count('class="guavajam-passage-cite"'))
         with self.assertRaisesRegex(CatalogError, 'lost a declared source permalink'):

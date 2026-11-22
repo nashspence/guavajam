@@ -15,7 +15,7 @@ from pathlib import Path
 from guavajam.catalog import encoded
 
 from .navigation import document_directory
-from .icons import icon
+from .icons import link_icon
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
 from .site import page
@@ -216,7 +216,7 @@ def _write_contents(output, entries, *, collection):
             return '<ol>' + ''.join(
                 '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
                 '<a class="guavajam-contents-link" href="index.html#' + escape(node['record']['anchor'], quote=True) +
-                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + icon('link') + '</a> ' +
+                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a> ' +
                 escape(node['record']['title']) + '</p>' +
                 (contents(node['children']) if node['children'] else '') + '</li>'
                 for node in nodes) + '</ol>'

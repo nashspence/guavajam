@@ -58,6 +58,7 @@ class ChromeTests(unittest.TestCase):
         self.assertIn('content/supporting/note.md</code>', html)
         self.assertIn('<div class="guavajam-citation"', html)
         self.assertIn('href="note.citation.json" download', html)
+        self.assertIn('class="guavajam-icon-fallback">Download JSON</span>', html)
 
     def test_shared_list_chrome_scrolls_without_visible_scrollbars(self):
         styles = (Path(__file__).resolve().parents[1] / 'src/a_guavajam_static_website_generator/styles/catalog.css').read_text()

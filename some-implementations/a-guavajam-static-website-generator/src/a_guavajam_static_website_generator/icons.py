@@ -19,14 +19,23 @@ def icon(name):
             'stroke-linejoin="round" aria-hidden="true" focusable="false">' + re.sub(r'>\s+<', '><', _artwork()[name]) + '</svg>')
 
 
-def inline_icon(name):
-    """The same trusted SVG as a Pandoc presentation inline, after extraction."""
-    return {'t': 'RawInline', 'c': ['html', icon(name)]}
+def link_icon(name, fallback):
+    """Static SVG with legible text for CSS-free and SVG-free text clients.
+
+    Graphical clients hide the fallback with CSS; no JavaScript is required.
+    The surrounding link retains its own descriptive accessible name.
+    """
+    return icon(name) + '<span class="guavajam-icon-fallback">' + escape(fallback) + '</span>'
+
+
+def inline_icon(name, fallback):
+    """The trusted SVG and fallback as one Pandoc presentation-only inline."""
+    return {'t': 'RawInline', 'c': ['html', link_icon(name, fallback)]}
 
 
 def search_icon_templates():
-    return ''.join('<template id="guavajam-icon-' + name + '">' + icon(name) + '</template>'
-                   for name in ['history', 'quote'])
+    return ''.join('<template id="guavajam-icon-' + name + '">' + link_icon(name, label) + '</template>'
+                   for name, label in [('history', 'Versions'), ('quote', 'Cite')])
 
 
 MIME_TYPES = {'.json': 'application/json', '.pdf': 'application/pdf', '.gfm': 'text/markdown',
@@ -52,13 +61,31 @@ def download_icon(mime):
     return 'file-down'
 
 
-def finish_html(html):
+def finish_html(html, *, site_origin=None):
     """Decorate complete HTML by inserting at parsed offsets, preserving source bytes.
 
-    Relative links stay local. Absolute HTTP(S) targets and mailto links carry
-    their destination affordance. Declared download types take precedence over
-    known suffixes; opaque unknown downloads never acquire an invented MIME.
+    Relative links stay local. When the site origin is supplied, same-origin
+    absolute HTTP(S) links also stay local; without that information absolute
+    HTTP(S) links retain their existing external marker. Declared download
+    types take precedence over known suffixes.
     """
+    origin = urlsplit(site_origin) if site_origin is not None else None
+    if site_origin is not None and (origin.scheme not in {'http', 'https'} or not origin.hostname):
+        raise ValueError('site origin must be an absolute HTTP(S) URL')
+
+    def external_http(target):
+        if target.scheme not in {'http', 'https'} and not target.netloc:
+            return False
+        if origin is None:
+            return True  # Build output alone cannot determine its deployed hostname.
+        scheme = target.scheme or origin.scheme
+        try:
+            port = target.port or (443 if scheme == 'https' else 80)
+            origin_port = origin.port or (443 if origin.scheme == 'https' else 80)
+        except ValueError:
+            return True
+        return (scheme, target.hostname, port) != (origin.scheme, origin.hostname, origin_port)
+
     offsets = [0, *(i + 1 for i, char in enumerate(html) if char == '\n')]
     edits = []
 
@@ -75,7 +102,7 @@ def finish_html(html):
             start, end, attrs = self.anchor; self.anchor = None
             if 'data-guavajam-link' in attrs or 'data-guavajam-icon' in attrs: return
             href = attrs.get('href', ''); parsed = urlsplit(href)
-            names = ['external-link'] if parsed.scheme in {'http', 'https'} or parsed.netloc else []
+            names = ['external-link'] if external_http(parsed) else []
             if parsed.scheme == 'mailto': names.append('mail')
             download = 'download' in attrs
             mime = attrs.get('type') or (link_mime(href) if download else '')

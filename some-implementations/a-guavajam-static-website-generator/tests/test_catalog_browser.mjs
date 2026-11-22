@@ -107,7 +107,10 @@ try {
       assert(await page.locator('.guavajam-permalink').count()>0);
       for(const control of await page.locator('.guavajam-permalink').all()){
         assert.equal(await control.locator('svg.guavajam-icon-link[aria-hidden=true]').count(),1);
-        assert.equal((await control.textContent()).trim(),'');
+        assert.equal((await control.textContent()).trim(),'Permalink');
+        assert.equal(await control.locator('.guavajam-icon-fallback').count(), 1);
+        assert(await control.locator('.guavajam-icon-fallback').evaluate(n =>
+          getComputedStyle(n).position === 'absolute' && n.getBoundingClientRect().width <= 1));
         assert.match(await control.getAttribute('aria-label'),/^Permalink to /);
       }
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
@@ -129,7 +132,7 @@ try {
       assert.equal(await page.getByRole('heading', {name:'Table of Contents', exact:true}).count(),1);
       for (const entry of await page.locator('.guavajam-contents-entry').all()) {
         assert.equal(await entry.locator('a > svg.guavajam-icon-link').count(),1);
-        assert.equal(await entry.locator('a').textContent(),'');
+        assert.equal(await entry.locator('a').textContent(),'Go to section');
         assert(await entry.evaluate(n => {
           const css=getComputedStyle(n), link=n.querySelector('a');
           return css.whiteSpace==='nowrap' && css.overflowX==='auto' &&

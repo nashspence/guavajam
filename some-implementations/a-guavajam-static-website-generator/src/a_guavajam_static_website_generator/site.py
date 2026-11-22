@@ -18,7 +18,7 @@ from guavajam.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
 from .citation import citation_control, edition_label
-from .icons import icon, finish_html, search_icon_templates
+from .icons import link_icon, finish_html, search_icon_templates
 from .view_cache import cached_render
 
 
@@ -26,7 +26,7 @@ def detail_link(href, label):
     """An unobtrusive, accessible route from a reading title to its record."""
     return (' <a class="guavajam-record-link" href="' + escape(href, quote=True) +
             '" aria-label="' + escape(label, quote=True) + '" title="' +
-            escape(label, quote=True) + '">' + icon('history') + '</a>')
+            escape(label, quote=True) + '">' + link_icon('history', 'Versions') + '</a>')
 
 
 
@@ -46,7 +46,7 @@ def generator_footer():
 
 def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
          citation_record=None, citation_href=None, citation_title=None, citation_authors=None,
-         citation_published=None, citation_edition=None, citation_document_title=''):
+         citation_published=None, citation_edition=None, citation_document_title='', site_origin=None):
     """Use the breadcrumb itself as the one page heading, above the citation."""
     styles = Path(__file__).parent / 'styles'
     css = (styles / 'reading.css').read_text('utf-8') + '\n' + (styles / 'catalog.css').read_text('utf-8')
@@ -71,7 +71,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
             '<title>' + escape(title) + (' — GuavaJam' if title != 'GuavaJam' else '') + '</title><style>' + css + '</style></head>'
             '<body class="guavajam-site"><a class="guavajam-skip" href="#main">Skip to content</a>'
             + crumb + '<main id="main" tabindex="-1">' + citation_html + (search_icon_templates() if search else '') + body + '</main>'
-            + generator_footer() + '</body></html>\n')
+            + generator_footer() + '</body></html>\n', site_origin=site_origin)
 
 
 def inventory(root):

@@ -4,7 +4,7 @@ from importlib.resources import files
 import json
 import unittest
 
-from a_guavajam_static_website_generator.icons import finish_html, icon
+from a_guavajam_static_website_generator.icons import finish_html, icon, link_icon, search_icon_templates
 from a_guavajam_static_website_generator.site import detail_link, page
 from a_guavajam_static_website_generator.citation import citation_control
 
@@ -13,6 +13,24 @@ class Tags(HTMLParser):
     def __init__(self, html):
         super().__init__(); self.tags = []; self.feed(html)
     def handle_starttag(self, tag, attrs): self.tags.append((tag, dict(attrs)))
+
+
+class TextClientLinks(HTMLParser):
+    """Approximate a text-only client: ignore SVG and CSS, retain link text."""
+    def __init__(self, html):
+        super().__init__(); self.links = []; self.link = None; self.in_svg = False; self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a': self.link = [dict(attrs).get('href'), '']
+        if tag == 'svg': self.in_svg = True
+
+    def handle_endtag(self, tag):
+        if tag == 'svg': self.in_svg = False
+        if tag == 'a' and self.link is not None:
+            self.links.append(tuple(self.link)); self.link = None
+
+    def handle_data(self, value):
+        if self.link is not None and not self.in_svg: self.link[1] += value
 
 
 class IconTests(unittest.TestCase):
@@ -42,11 +60,47 @@ class IconTests(unittest.TestCase):
         self.assertIn('Cole Bemis', result)
         self.assertNotIn('<script', result)
 
+    def test_icon_only_links_keep_text_fallbacks_without_scripts(self):
+        html = ('<a href="/history" aria-label="All versions">' + link_icon('history', 'Versions') + '</a>' +
+                '<a href="/cite" aria-label="Cite passage">' + link_icon('quote', 'Cite') + '</a>' +
+                '<a href="/json" aria-label="Download citation JSON">' + link_icon('file-json', 'Download JSON') + '</a>' +
+                '<a href="#heading" aria-label="Permalink to heading">' + link_icon('link', 'Permalink') + '</a>')
+        self.assertEqual([('/history', 'Versions'), ('/cite', 'Cite'),
+                          ('/json', 'Download JSON'), ('#heading', 'Permalink')],
+                         TextClientLinks(html).links)
+        self.assertEqual(4, html.count('class="guavajam-icon-fallback"'))
+        self.assertEqual(4, html.count('aria-hidden="true"'))
+        self.assertIn('text &amp; more', link_icon('link', 'text & more'))
+        templates = search_icon_templates()
+        self.assertIn('guavajam-icon-fallback">Versions</span>', templates)
+        self.assertIn('guavajam-icon-fallback">Cite</span>', templates)
+        self.assertNotIn('<script', html + templates)
+
+    def test_external_icon_depends_on_site_origin_when_available(self):
+        links = ('<a href="https://site.test/page">Same</a>'
+                 '<a href="https://SITE.test:443/a">Same port</a>'
+                 '<a href="//site.test/b">Scheme-relative</a>'
+                 '<a href="http://site.test/c">Other scheme</a>'
+                 '<a href="https://different.test/d">Other host</a>'
+                 '<a href="../local">Relative</a>')
+        original = '<html><body>' + links + '</body></html>'
+        rendered = finish_html(original, site_origin='https://site.test')
+        self.assertEqual(2, rendered.count('guavajam-icon-external-link'))
+        self.assertEqual(5, finish_html(original).count('guavajam-icon-external-link'))
+        self.assertEqual(rendered, finish_html(rendered, site_origin='https://site.test'))
+        self.assertEqual(1, page('Site', '<a href="https://site.test/other">Local absolute</a>' +
+                                 '<a href="https://other.test/other">Remote absolute</a>',
+                                 site_origin='https://site.test').count('guavajam-icon-external-link'))
+        with self.assertRaises(ValueError):
+            finish_html(original, site_origin='not-an-origin')
+
     def test_history_and_citation_share_the_pinned_artwork_without_changing_download_identity(self):
         citation = citation_control({'revision':'a'*40}, 'source.citation.json')
         rendered = page('Example', citation + detail_link('index.html', 'Work versions'))
         self.assertIn('guavajam-icon-history', rendered)
+        self.assertIn(('index.html', 'Versions'), TextClientLinks(rendered).links)
         self.assertIn('guavajam-icon-file-json', rendered)
+        self.assertIn(('source.citation.json', 'Download JSON'), TextClientLinks(rendered).links)
         self.assertIn(citation, rendered, 'site-owned citation replacement uses the same complete component')
         self.assertEqual(1, rendered.count('guavajam-icon-file-json'))
         self.assertIn('type="application/json"', rendered)

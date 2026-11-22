@@ -19,7 +19,7 @@ from .citation_routes import (citation_fragment, citation_href, citation_page,
                               passage_json, relative_href)
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
-from .icons import icon
+from .icons import link_icon
 
 
 def add_passage_links(html, view, source, anchors, start):
@@ -61,7 +61,7 @@ def add_passage_links(html, view, source, anchors, start):
                 edits.append((end, '<a class="guavajam-passage-cite" lang="en" href="' +
                               escape(routes[anchor], quote=True) +
                               '" aria-label="Cite committed source passage ' + escape(anchor, quote=True) +
-                              '">' + icon('quote') + '</a>'))
+                              '">' + link_icon('quote', 'Cite') + '</a>'))
 
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)
