@@ -84,7 +84,7 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('data-facet="keyword" data-value="fieldwork"', page)
         self.assertIn('class="guavajam-search-spinner"', page)
         self.assertIn('class="guavajam-index-size"', page)
-        self.assertIn('Showing static page 1 of 1.', page)
+        self.assertIn('Page 1 of 1', page)
         self.assertNotIn('Browse independently verified works', page)
         self.assertIn('Search <span class="guavajam-index-size"', page)
         self.assertIn('>Works</h2>', page)

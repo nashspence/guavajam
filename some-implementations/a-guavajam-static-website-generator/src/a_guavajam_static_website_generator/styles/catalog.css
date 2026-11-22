@@ -36,6 +36,7 @@
   align-items: center; justify-content: center; flex: none;
 }
 .guavajam-record-link { margin-inline-start: .2rem; }
+.guavajam-byline > .guavajam-record-link { margin-inline-start: 0; justify-content: flex-start; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
 .guavajam-byline { margin: 0 0 .15rem; }
@@ -212,10 +213,16 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 
 /* Search and its directory list never need a redundant separator. */
 .guavajam-listing { border: 0; padding-top: 0; min-width: 0; width: 100%; }
-.guavajam-list-heading { margin: .65rem 0 .45rem; font-size: 1.15rem; }
+.guavajam-list-header { display: flex; align-items: baseline; gap: .75rem; margin-block: .65rem .45rem; }
+.guavajam-list-header > * { flex: none; margin: 0; }
+.guavajam-list-heading { font-size: 1.15rem; }
 .guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
 .guavajam-pagination > * { flex: none; }
 .guavajam-pagination button { padding: .3rem .7rem; }
+.guavajam-pagination :is(a[rel], button) {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.25rem; min-height: 2.25rem; vertical-align: middle;
+}
 .guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
 .guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
 [hidden] { display: none !important; }

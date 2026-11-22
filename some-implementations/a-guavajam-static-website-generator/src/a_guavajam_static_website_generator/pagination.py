@@ -1,6 +1,8 @@
 """Shared bounds and ordinary links for static publication directories."""
 from html import escape
 
+from .icons import link_icon
+
 PAGE_SIZE = 20
 
 
@@ -17,7 +19,10 @@ def _static_pager(number, count, *, first_href, page_prefix):
     def link(page_number, label, *, relation=''):
         href = first_href if page_number == 1 else page_prefix + str(page_number) + '.html'
         return ('<a href="' + escape(href, quote=True) + '"' +
-                (' rel="' + relation + '"' if relation else '') + '>' + escape(str(label)) + '</a>')
+                (' rel="' + relation + '" aria-label="' + escape(label + ' page', quote=True) +
+                 '" title="' + escape(label + ' page', quote=True) + '"' if relation else '') + '>' +
+                (link_icon('arrow-left' if relation == 'prev' else 'arrow-right', label)
+                 if relation else escape(str(label))) + '</a>')
 
     links = []
     if number > 1:

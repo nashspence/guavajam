@@ -143,7 +143,7 @@ class CitationPageTests(unittest.TestCase):
         self.assertIn('Search <span class="guavajam-index-size"', html)
         self.assertNotIn('Enable search', html)
         self.assertIn('data-static-heading="Passages">Passages</h2>', html)
-        self.assertIn('Showing static page 3 of 3.', html)
+        self.assertIn('Page 3 of 3', html)
         self.assertEqual(5, html.split('id="guavajam-static-section"', 1)[-1].count('<div class="guavajam-citation"'))
         self.assertIn('data-root="../../../../../"', html)
         self.assertIn('data-worker="../../../../../../../search-worker.js"', html)

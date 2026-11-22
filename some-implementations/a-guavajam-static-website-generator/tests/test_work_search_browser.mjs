@@ -93,7 +93,7 @@ try {
       assert.equal((await page.locator('a[href="browse/index.html"]').count()), 0);
       assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Archive work');
       assert.equal(await page.locator('.guavajam-editions > li').count(), 20);
-      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
       assert.equal(runtimeLoads(), 0, 'Opening a directory never initializes SQLite');
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await page.locator('.guavajam-editions > li').count(), 3);

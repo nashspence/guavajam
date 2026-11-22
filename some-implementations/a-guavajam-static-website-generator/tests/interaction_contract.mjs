@@ -220,6 +220,11 @@ export async function recordLinkAlignment(page) {
       const date=n.parentElement.querySelector(':scope > time');
       return !date || n.nextElementSibling === date;
     }), 'the publication date precedes author text when available');
+    assert(await link.evaluate(n => {
+      const title=n.closest('article').querySelector('h3 > a').getBoundingClientRect();
+      const artwork=n.querySelector('svg').getBoundingClientRect();
+      return Math.abs(artwork.left + n.parentElement.scrollLeft - title.left) < 1;
+    }), 'the leading history artwork aligns with the title edge');
   }
 }
 
@@ -245,10 +250,44 @@ export async function listControlLayout(page) {
     });
     assert(centered, 'static and searched paging controls are horizontally centered');
   }
+  for (const header of await page.locator('.guavajam-list-header:visible').all()) {
+    const inline=await header.evaluate(n => {
+      const a=n.querySelector('h2').getBoundingClientRect(), b=n.querySelector('p').getBoundingClientRect();
+      return b.left >= a.right && b.top < a.bottom && a.top < b.bottom &&
+        getComputedStyle(n).overflowX === 'auto' && getComputedStyle(n).whiteSpace === 'nowrap';
+    });
+    assert(inline, 'list heading and status share one horizontal scroll lane');
+  }
+  for (const control of await page.locator('.guavajam-pagination a[rel], .guavajam-pagination button').all()) {
+    const previous=(await control.getAttribute('rel')) === 'prev' || (await control.getAttribute('id')) === 'guavajam-search-prev';
+    assert.equal(await control.getAttribute('aria-label'), previous ? 'Previous page' : 'Next page');
+    assert.equal(await control.locator('svg.guavajam-icon-'+(previous ? 'arrow-left' : 'arrow-right')+'[aria-hidden=true][focusable=false]').count(),1);
+  }
+  const footer=page.locator('footer');
+  if (await footer.count() && (await footer.textContent()).includes('a-guavajam-static-website-generator')) {
+    const link=footer.getByRole('link',{name:'a-guavajam-static-website-generator',exact:true});
+    assert.equal(await link.getAttribute('href'),'https://github.com/nashspence/guavajam');
+    assert.equal(await link.locator('svg.guavajam-icon-external-link[aria-hidden=true]').count(),1);
+  }
   for (const link of await page.locator('.guavajam-editions:visible a[href*="/metadata.html#provenance"]').all()) {
     assert.match(await link.getAttribute('aria-label'), /^Metadata for v[0-9]+$/);
     assert.equal(await link.locator('svg.guavajam-icon-info[aria-hidden=true][focusable=false]').count(), 1);
     assert.equal(await link.locator('.guavajam-icon-fallback').textContent(), 'Metadata');
+  }
+}
+
+export async function listHeadingOverflow(page) {
+  const header=page.locator('.guavajam-list-header'), status=header.locator('#guavajam-search-status');
+  const saved=await status.textContent();
+  try {
+    await status.evaluate(n=>n.textContent='Page '+'9'.repeat(160)+' of '+'9'.repeat(160));
+    assert(await header.evaluate(n=>n.scrollWidth > n.clientWidth && getComputedStyle(n).scrollbarWidth === 'none'));
+    assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
+    await header.focus();await header.press('ArrowRight');await page.waitForTimeout(100);
+    assert(await header.evaluate(n=>n.scrollLeft>0),'long list counts are keyboard-scrollable');
+  } finally {
+    await status.evaluate((n,text)=>n.textContent=text,saved);
+    await header.evaluate(n=>n.scrollLeft=0);
   }
 }
 
