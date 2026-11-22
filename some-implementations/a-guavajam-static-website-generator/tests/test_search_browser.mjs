@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {keyboardControls, hoverControls} from './interaction_contract.mjs';
+import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_search_browser.py');
@@ -43,6 +43,7 @@ try {
     try {
       const context = await browser.newContext({viewport: {width: 360, height: 900}});
       const page = await context.newPage();
+      await instrumentSearch(page);
       page.setDefaultTimeout(15000);
       const errors = [], external = [], loaded = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -245,7 +246,7 @@ try {
       await page.keyboard.press('Tab');
       assert.equal(await page.locator('#guavajam-search-results h3 a').first().evaluate(n => n === document.activeElement), true,
         'Tab continues into the new page of results');
-      await page.locator('.guavajam-search-filters summary').click();
+      await openSearchFilters(page);
       await page.locator('select[name=sort]').focus();
       await page.locator('select[name=sort]').selectOption('title');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3').textContent === 'Work 01');
@@ -267,6 +268,9 @@ try {
       assert(support.endsWith('/read/supporting/evidence.html'));
       assert.equal((await page.request.get(base + support)).status(), 200);
       await query('cafe collection', 1); // metadata and body share the same search record
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-tag mark').textContent(), 'Café');
+      await query('Work 01', 1);
+      assert.equal((await page.locator('#guavajam-search-results h3 mark').allTextContents()).join(' '), 'Work 01');
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'Work 01');
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
@@ -411,11 +415,15 @@ try {
       const waiting = await delayed.newPage();
       try {
         await waiting.goto(base);
+        const beforeDownload = await searchFeedbackGeometry(waiting, true);
         await waiting.locator('#guavajam-index-search > summary').click();
         await Promise.race([signalled, new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
-        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Loading local search…');
+        assert.deepEqual(await searchFeedbackGeometry(waiting, true), beforeDownload,
+          'the download spinner occupies a stable slot to the right of the label');
+        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+        assert.equal(await waiting.locator('#guavajam-search-progress-status').textContent(), 'Loading local search…');
         await waiting.locator('#guavajam-static-list h3 a').first().focus();
       } finally {
         releaseDatabase();
@@ -427,11 +435,18 @@ try {
         'hiding the static list hands its focused link to the new results');
       await waiting.evaluate(() => { window.guavajamSearchTest.hold = true; });
       await waiting.locator('#guavajam-search-next').focus();
+      const beforeQuery = await searchFeedbackGeometry(waiting);
+      const beforeRows = await waiting.locator('#guavajam-search-results').innerHTML();
       await waiting.keyboard.press('Enter');
       await waiting.waitForFunction(() => window.guavajamSearchTest.replies.length === 1);
       assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-search-next',
         'a pending page change keeps its initiating button focused');
       assert.equal(await waiting.locator('#guavajam-search-next').getAttribute('aria-disabled'), 'true');
+      assert.equal(await waiting.locator('#guavajam-search-query-spinner').isVisible(), true);
+      assert.deepEqual(await searchFeedbackGeometry(waiting), beforeQuery,
+        'the query spinner occupies a stable slot to the right of Search');
+      assert.equal(await waiting.locator('#guavajam-search-results').innerHTML(), beforeRows,
+        'pending work retains the visible result rows');
       const pendingRequests = await waiting.evaluate(() => window.guavajamSearchTest.requests);
       await waiting.keyboard.press('Enter');
       assert.equal(await waiting.evaluate(() => window.guavajamSearchTest.requests), pendingRequests,

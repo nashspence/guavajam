@@ -67,7 +67,7 @@ def source(root, name, number):
             search_title = title if index == 0 else title + ' — Supporting evidence'
             # This fixture's explicit expected fields are supplied to the old
             # external-content layout independently of the production writer.
-            provenance = ' '.join((repository, revision, 'f' * 40, published, message, path,
+            provenance = ' '.join((repository, revision, 'f' * 40, published, message, path, 'v' + str(edition + 1),
                                    'CC-BY-4.0', '', '{}', '[{"name": "Example 李 Author"}]'))
             url = 'editions/' + revision + '/read/' + html
             expected['search_fts'].append((url, search_title, author, abstract, labels, body, provenance))

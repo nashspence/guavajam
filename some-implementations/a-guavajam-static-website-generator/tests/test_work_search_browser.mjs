@@ -5,6 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
+import {instrumentSearch, openSearchFilters} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_work_search_browser.py');
@@ -55,6 +56,7 @@ try {
     try {
       const context = await browser.newContext({viewport: {width: 390, height: 900}});
       const page = await context.newPage();
+      await instrumentSearch(page);
       page.setDefaultTimeout(15000);
       const errors = [], external = [], loaded = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -96,11 +98,14 @@ try {
       assert.equal(await page.locator('.guavajam-editions > li').count(), 3);
       await enable(fixture.editions, 'editions');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
-      await page.locator('.guavajam-search-filters summary').click();
+      await openSearchFilters(page);
       await page.locator('select[name=sort]').selectOption('oldest');
       await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3')?.textContent === 'v1');
+      await query('v23', 1, 'editions');
+      assert.equal(await page.locator('#guavajam-search-results h3 mark').textContent(), 'v23');
       await query('Shorelinechronicle', 1, 'editions');
       assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'v2');
+      assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
       await query('Palaeotidal', 1, 'editions');
       assert.equal(await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href'),
         base + fixture.historical);
@@ -113,6 +118,8 @@ try {
       await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
+      await query('Appendix 23', 1, 'documents');
+      assert.equal((await page.locator('#guavajam-search-results h3 mark').allTextContents()).join(' '), 'Appendix 23');
       await query('Abyssalappendixselector', 1, 'documents');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 

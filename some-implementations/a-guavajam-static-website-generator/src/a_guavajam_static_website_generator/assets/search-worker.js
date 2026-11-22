@@ -2,7 +2,7 @@
 import sqlite3InitModule from './sqlite3.mjs';
 import {loadDatabase} from './search-download.js';
 
-let db, scope;
+let db, displayDB, sqlite3, scope;
 let subjectNames = new Map();
 const PAGE_SIZE = 20;
 const ORDER = Object.freeze({
@@ -28,10 +28,44 @@ const PASSAGE_ORDER = Object.freeze({
   title: 'title COLLATE NOCASE, document_order, node_position, id'
 });
 
-function literalQuery(value) {
+function literalQuery(value, operator = 'AND') {
   // Plain words with prefix matching, never user-supplied SQL or FTS operators.
   const words = String(value).slice(0, 256).match(/[\p{L}\p{N}]+/gu) || [];
-  return words.slice(0, 12).map(word => '"' + word + '"*').join(' AND ');
+  return words.slice(0, 12).map(word => '"' + word + '"*').join(' ' + operator + ' ');
+}
+
+function displayHighlights(result, term) {
+  const query = literalQuery(term, 'OR');
+  if (!query || !result.rows.length) return {...result, highlights: []};
+  // Keep published indexes compact/contentless. At most one result page's
+  // visible fields is tokenized in a separate worker-local memory database.
+  // It uses the same unicode61 rules as matching and source excerpts.
+  const text = new Set();
+  const add = value => { if (typeof value === 'string' && value) text.add(value); };
+  for (const row of result.rows) {
+    for (const field of ['title', 'authors', 'abstract', 'published', 'latest_published', 'document_path']) add(row[field]);
+    add(row.revision?.slice(0, 12));
+    if (row.message) {
+      const [subject, ...body] = row.message.split('\n'); add(subject); add(body.join('\n'));
+    }
+    for (const tag of JSON.parse(row.keywords_json || '[]')) add(tag);
+    for (const subject of JSON.parse(row.subjects_json || '[]')) add(subject.label);
+    if (row.citation_json) {
+      const citation = JSON.parse(row.citation_json); add(citation.context);
+      for (const [, value] of [...citation.description, ...citation.source]) add(value);
+    }
+  }
+  if (!displayDB) {
+    displayDB = new sqlite3.oo1.DB();
+    displayDB.exec("CREATE VIRTUAL TABLE display_fts USING fts5(value, tokenize='unicode61 remove_diacritics 2')");
+  }
+  displayDB.transaction(() => {
+    displayDB.exec('DELETE FROM display_fts');
+    for (const value of text) displayDB.exec({sql: 'INSERT INTO display_fts(value) VALUES (?)', bind: [value]});
+  });
+  const highlights = displayDB.selectObjects(`SELECT value, highlight(display_fts, 0, char(57344), char(57345)) AS marked
+    FROM display_fts WHERE display_fts MATCH ?`, [query]);
+  return {...result, highlights: highlights.map(row => [row.value, row.marked])};
 }
 
 const WORK_FACETS = `,
@@ -197,7 +231,7 @@ self.onmessage = async event => {
       globalThis.sqlite3ApiConfig = {disable: {vfs: {
         opfs: true, 'opfs-vfs': true, 'opfs-wl': true, 'opfs-sahpool': true, kvvfs: true
       }}};
-      const sqlite3 = await sqlite3InitModule({
+      sqlite3 = await sqlite3InitModule({
         locateFile: name => new URL(name, import.meta.url).href
       });
       db = (await loadDatabase(sqlite3, {database: database.href,
@@ -209,6 +243,7 @@ self.onmessage = async event => {
       }
       if (scope === 'work') {
         if (db.selectValue('SELECT COUNT(*) FROM works') !== 1) throw new Error('Invalid work search database');
+        if (!event.data.facets) { self.postMessage({id, ok: true, ready: true, editions: [], documents: []}); return; }
         const editions = db.selectObjects(`SELECT revision AS key, 'v' || (position + 1) AS name, published, 1 AS total
           FROM editions ORDER BY position DESC`);
         const documents = db.selectObjects(`WITH ranked AS (
@@ -233,7 +268,8 @@ self.onmessage = async event => {
       const subjects = rawSubjects.map(item => ({...item, name: subjectNames.get(item.key) || item.name}));
       self.postMessage({id, ok: true, ready: true, keywords, subjects});
     } else if (action === 'search' && db) {
-      self.postMessage({id, ok: true, ...(scope === 'work' ? searchWork(event.data) : search(event.data))});
+      self.postMessage({id, ok: true, ...displayHighlights(
+        scope === 'work' ? searchWork(event.data) : search(event.data), event.data.term)});
     } else {
       throw new Error('Search database is not initialized');
     }
