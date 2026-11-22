@@ -334,7 +334,7 @@ export async function listControlLayout(page) {
 
   }
   for (const control of await page.locator('.guavajam-pagination a[rel], .guavajam-pagination button').all()) {
-    const previous=(await control.getAttribute('rel')) === 'prev' || (await control.getAttribute('id')) === 'guavajam-search-prev';
+    const previous=await control.evaluate(n=>n.parentElement.firstElementChild===n);
     assert.equal(await control.getAttribute('aria-label'), previous ? 'Previous page' : 'Next page');
     assert.equal(await control.locator('svg.guavajam-icon-'+(previous ? 'arrow-left' : 'arrow-right')+'[aria-hidden=true][focusable=false]').count(),1);
     if (await control.evaluate(n=>n.matches(':disabled,[aria-disabled=true]'))) {
