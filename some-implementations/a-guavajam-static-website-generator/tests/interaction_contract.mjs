@@ -66,7 +66,11 @@ export async function navigationCues(page) {
   }
   for (const heading of await page.locator('.guavajam-edition :is(h2,h3,h4,h5,h6)[id]').all()) {
     if (await heading.locator(':scope > .guavajam-permalink').count())
-      assert(await heading.evaluate(n=>n.firstElementChild.matches('.guavajam-permalink')),'heading permalinks precede their plain text');
+      assert(await heading.evaluate(n=>{
+        const link=n.querySelector(':scope > .guavajam-permalink'),range=document.createRange();
+        range.setStart(n,0);range.setEndBefore(link);
+        return range.toString().trim().length>0 && n.lastElementChild.matches('.guavajam-permalink,.guavajam-passage-cite');
+      }),'source heading text precedes its permalink and citation controls');
   }
   for (const control of await page.locator('#guavajam-search-prev:visible,#guavajam-search-next:visible').all()) {
     assert(await control.evaluate(n=>getComputedStyle(n).borderWidth==='0px'&&parseFloat(getComputedStyle(n).padding)===0),
@@ -123,7 +127,13 @@ export async function keyboardControls(page) {
     const clipped = state.clipped.filter(c => !(c.axis === 'x' && c.pannable &&
       state.boxWidth + 12 > c.bounds[2] - c.bounds[0]));
     assert.deepEqual(clipped, [], `Clipped focus ring: ${JSON.stringify(state)}`);
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Keyboard focus must keep the page horizontally contained');
+    const overflow=await page.evaluate(()=>({
+      width:document.documentElement.scrollWidth,viewport:innerWidth,
+      focus:{tag:document.activeElement.tagName,classes:document.activeElement.className,id:document.activeElement.id},
+      outside:[...document.querySelectorAll('body *')].filter(n=>n.getClientRects().length).map(n=>({n,b:n.getBoundingClientRect()}))
+        .filter(({b})=>b.right>innerWidth+1).slice(0,8).map(({n,b})=>({tag:n.tagName,classes:n.className?.baseVal??n.className,right:b.right}))
+    }));
+    assert(overflow.width <= overflow.viewport + 1, 'Keyboard focus must keep the page horizontally contained: '+JSON.stringify(overflow));
     seen.add(state.index);
   }
   assert.equal(seen.size, count);
@@ -244,7 +254,7 @@ export async function recordLinkAlignment(page) {
     assert(await link.evaluate(n => {
       const title=n.closest('article').querySelector('h3 .guavajam-icon-control svg').getBoundingClientRect();
       const artwork=n.querySelector('svg').getBoundingClientRect();
-      return Math.abs(artwork.left + n.parentElement.scrollLeft - title.left) < 1;
+      return Math.abs(artwork.left + n.parentElement.scrollLeft - title.left - n.closest('article').querySelector('h3').scrollLeft) < 1;
     }), 'the leading history artwork aligns with the title edge');
   }
 }

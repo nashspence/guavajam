@@ -81,7 +81,7 @@ def normalize_site_origin(value):
 
 
 def finish_html(html, *, site_origin=None):
-    """Decorate complete HTML by inserting at parsed offsets, preserving source bytes.
+    """Decorate links while preserving targets and separating navigation captions.
 
     Relative links stay local. When the site origin is supplied, same-origin
     absolute HTTP(S) links also stay local; without that information absolute
@@ -150,6 +150,7 @@ def finish_html(html, *, site_origin=None):
             if any('guavajam-pagination' in a.get('class', '').split() for _, a in self.stack): return
             line, column = self.getpos(); close = offsets[line - 1] + column
             inner = html[end:close]
+            if not inner.strip() or attrs.get('aria-hidden') == 'true': return
             artwork = re.search(r'<svg class="guavajam-icon guavajam-icon-([a-z-]+)".*?</svg>', inner, re.S)
             if artwork and not nav: return
             href = attrs['href']; parsed = urlsplit(href)

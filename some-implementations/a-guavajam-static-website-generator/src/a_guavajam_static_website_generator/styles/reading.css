@@ -167,7 +167,7 @@ a:hover mark { color: var(--guavajam-match-hover-ink); }
   justify-content: center;
   min-width: 2.75rem;
   min-height: 2.75rem;
-  margin: -.35rem .1rem -.35rem 0;
+  margin: -.35rem 0 -.35rem .1rem;
   color: var(--guavajam-link);
   font: 600 .85rem/1 system-ui, sans-serif;
   text-decoration: none;

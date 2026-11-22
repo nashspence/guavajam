@@ -22,7 +22,7 @@ def present(ast, positions, navigation=None):
         if anchor:
             link={'t':'Link','c':[['',['guavajam-permalink'],[['aria-label','Permalink to passage '+anchor],['lang','en']]],[inline_icon('link', 'Permalink')],['#'+anchor,'']]}
             if block['t']=='Header':
-                block['c'][1][0]=anchor;block['c'][2][:0]=[link,{'t':'Space'}]
+                block['c'][1][0]=anchor;block['c'][2].extend([{'t':'Space'},link])
             else:
                 metadata=block['t']=='Para' and len(block['c'])==1 and block['c'][0]['t']=='Emph' and (
                     any(n.get('t')=='Span' and 'data-guavajam-datetime' in dict(n['c'][0][2]) for n in walk(block))

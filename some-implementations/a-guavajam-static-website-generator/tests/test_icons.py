@@ -61,6 +61,11 @@ class IconTests(unittest.TestCase):
         self.assertIn('Cole Bemis', result)
         self.assertNotIn('<script', result)
 
+    def test_empty_code_line_anchors_remain_invisible(self):
+        source = '<pre><code><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>print(1)</code></pre>'
+        self.assertEqual(source, finish_html(source))
+        self.assertNotIn('guavajam-icon', finish_html(source))
+
     def test_linked_headings_and_navigation_leave_labels_outside_the_click_zone(self):
         original = ('<html><body><ol class="guavajam-record-list"><li><article>'
                     '<h3><a href="edition.html"><em>Title &amp; evidence</em></a></h3>'

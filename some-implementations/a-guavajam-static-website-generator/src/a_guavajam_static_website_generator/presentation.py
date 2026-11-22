@@ -74,9 +74,9 @@ def prepare_presentation_ast(ast: dict, navigation=None) -> dict:
                     link_attr = ["", ["guavajam-permalink"], [
                         ["lang", "en"], ["aria-label", "Permalink to section " + anchored],
                     ]]
-                    title[:0] = [{"t": "Link", "c": [
+                    title.extend([{"t": "Space"}, {"t": "Link", "c": [
                         link_attr, [inline_icon("link", "Permalink")], ["#" + anchored, ""],
-                    ]}, {"t": "Space"}]
+                    ]}])
         new.append(block)
         i += 1
 

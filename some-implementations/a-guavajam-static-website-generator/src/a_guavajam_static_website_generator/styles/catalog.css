@@ -48,6 +48,7 @@
 }
 .guavajam-scrollline::-webkit-scrollbar { display: none; }
 .guavajam-record-list h3 { display: block; white-space: nowrap; }
+.guavajam-record-list h3:has(a:focus-visible) { overflow-x: auto; overflow-y: hidden; white-space: nowrap; }
 .guavajam-facets {
   display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
