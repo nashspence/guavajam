@@ -51,7 +51,8 @@ class IconTests(unittest.TestCase):
         self.assertIn('Report <span class="guavajam-link-mime">(application/pdf)</span>', result)
         self.assertIn('Recording <span class="guavajam-link-mime">(audio/mpeg)</span>', result)
         self.assertNotIn('application/octet-stream', result)
-        self.assertIn('<a href="#local">Local</a>', result)
+        self.assertIn('guavajam-icon-link', result)
+        self.assertIn(('#local', ' Local'), TextClientLinks(result).links)
         for tag, attrs in tags:
             if tag == 'svg':
                 self.assertEqual('true', attrs['aria-hidden']);self.assertEqual('false', attrs['focusable'])
@@ -59,6 +60,25 @@ class IconTests(unittest.TestCase):
         self.assertIn('Permission to use, copy, modify', result)
         self.assertIn('Cole Bemis', result)
         self.assertNotIn('<script', result)
+
+    def test_linked_headings_and_navigation_leave_labels_outside_the_click_zone(self):
+        original = ('<html><body><ol class="guavajam-record-list"><li><article>'
+                    '<h3><a href="edition.html"><em>Title &amp; evidence</em></a></h3>'
+                    '</article></li></ol><nav class="guavajam-navigation"><ol><li>'
+                    '<a href="../index.html">Work</a></li></ol></nav>'
+                    '<nav class="guavajam-version-menu"><a href="contents.html">' + icon('list-tree') +
+                    'Contents</a><a href="source.gfm" download>Download</a></nav></body></html>')
+        result = finish_html(original)
+        self.assertEqual(result, finish_html(result), 'wrapping a generated reader must remain idempotent')
+        self.assertEqual([('edition.html','Link'),('../index.html','Link'),
+                          ('contents.html','Link'),('source.gfm','Link')], TextClientLinks(result).links)
+        self.assertIn('</a> <span class="guavajam-link-label" aria-hidden="true"><em>Title &amp; evidence</em></span>', result)
+        self.assertIn('aria-label="Title &amp; evidence"', result)
+        self.assertIn('aria-label="Contents"', result)
+        self.assertIn('aria-label="Download (text/markdown)"', result)
+        self.assertEqual(1, result.count('guavajam-icon-list-tree'))
+        self.assertEqual(1, result.count('guavajam-icon-file-text'))
+        self.assertIn('<h3 class="guavajam-scrollline" tabindex="0">', result)
 
     def test_icon_only_links_keep_text_fallbacks_without_scripts(self):
         html = ('<a href="/history" aria-label="All versions">' + link_icon('history', 'Versions') + '</a>' +
@@ -122,7 +142,7 @@ class IconTests(unittest.TestCase):
         data = json.loads(files('a_guavajam_static_website_generator').joinpath('assets/lucide.json').read_text())
         self.assertEqual('0.577.0',data['version'])
         self.assertEqual('0ea8780434e2b4527dc860b18ff94883d080b59c',data['revision'])
-        for name in ['list-tree', 'files', 'book-open-text', 'info', 'search', 'sliders-horizontal']:
+        for name in ['list-tree', 'files', 'book-open-text', 'info', 'chevron-right']:
             self.assertIn(name, data['icons'])
             self.assertEqual(name, data['sources'][name])
             self.assertIn('<', data['icons'][name])

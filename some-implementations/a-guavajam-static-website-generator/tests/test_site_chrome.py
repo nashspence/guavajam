@@ -1,6 +1,7 @@
 """Generated website chrome needs no signed fixtures, network, or JavaScript."""
 from html.parser import HTMLParser
 import json
+import re
 from pathlib import Path
 from unittest.mock import patch
 import tempfile
@@ -155,7 +156,7 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('aria-label="Version links"', manuscript)
             for name, destination in [('list-tree', 'contents.html'), ('files', 'documents.html'),
                                       ('book-open-text', 'passages.html'), ('info', '../metadata.html')]:
-                self.assertIn('href="' + destination + '"><svg class="guavajam-icon guavajam-icon-' + name + '"', manuscript)
+                self.assertRegex(manuscript, r'<a href="' + re.escape(destination) + r'"[^>]*><svg class="guavajam-icon guavajam-icon-' + name + '"')
             for old in ('../verify.html', '../license.html', '../locators.html'):
                 self.assertNotIn(old, manuscript)
             self.assertLess(manuscript.index('aria-label="Version links"'),
@@ -239,13 +240,14 @@ class ChromeTests(unittest.TestCase):
             directory = (output / 'editions' / sha2 / 'read/documents.html').read_text()
             self.assertIn('<h1 aria-current="page">Shoreline research</h1>', work)
             self.assertIn('data-static-heading="Versions"', work)
-            self.assertIn('href="../../index.html">GuavaJam</a>', work)
+            self.assertIn('href="../../index.html"', work)
+            self.assertIn('aria-label="GuavaJam"', work)
             self.assertNotIn('Publication provenance', work)
             self.assertNotIn('>Documents</a>', work)
             self.assertNotIn('>Search</a>', work)
             self.assertEqual(2, work.split('<main', 1)[-1].split('</main>')[0].count('class="guavajam-record-link"'))
-            self.assertIn('>v1</a>', history)
-            self.assertIn('>v2</a>', history)
+            self.assertIn('aria-label="v1"', history)
+            self.assertIn('aria-label="v2"', history)
             self.assertIn('href="editions/' + sha1 + '/read/index.html"', history)
             self.assertIn('href="editions/' + sha2 + '/metadata.html#provenance" aria-label="Metadata for v2"', history)
             self.assertIn('>Initial</p>', history)
@@ -258,16 +260,17 @@ class ChromeTests(unittest.TestCase):
             self.assertIn('href="SOURCE.json"', metadata)
             self.assertIn('href="CITATION.json" download', metadata)
             self.assertIn('Git commit</dt><dd>' + sha2, metadata)
-            self.assertIn('href="read/index.html">v2</a>', metadata)
+            self.assertIn('href="read/index.html"', metadata)
+            self.assertIn('aria-label="v2"', metadata)
             for old in ('verify.html', 'license.html', 'locators.html'):
                 self.assertFalse((output / 'editions' / sha2 / old).exists())
             self.assertFalse((output / 'editions' / sha2 / 'index.html').exists())
             manuscript = (output / 'editions' / sha2 / 'read/index.html').read_text()
             self.assertIn('aria-label="Version links"', manuscript)
-            self.assertIn('href="../metadata.html"><svg class="guavajam-icon guavajam-icon-info"', manuscript)
-            self.assertIn('href="passages.html"><svg class="guavajam-icon guavajam-icon-book-open-text"', manuscript)
-            self.assertIn('href="contents.html"><svg class="guavajam-icon guavajam-icon-list-tree"', manuscript)
-            self.assertIn('href="documents.html"><svg class="guavajam-icon guavajam-icon-files"', manuscript)
+            self.assertRegex(manuscript, r'<a href="\.\./metadata\.html"[^>]*><svg class="guavajam-icon guavajam-icon-info"')
+            self.assertRegex(manuscript, r'<a href="passages\.html"[^>]*><svg class="guavajam-icon guavajam-icon-book-open-text"')
+            self.assertRegex(manuscript, r'<a href="contents\.html"[^>]*><svg class="guavajam-icon guavajam-icon-list-tree"')
+            self.assertRegex(manuscript, r'<a href="documents\.html"[^>]*><svg class="guavajam-icon guavajam-icon-files"')
             self.assertTrue((output / 'editions' / sha2 / 'metadata.html').exists())
             self.assertLess(manuscript.index('href="contents.html"'), manuscript.index('Download <span class="guavajam-link-mime">(text/markdown)</span>'))
             self.assertIn('No rights statement declared', metadata)

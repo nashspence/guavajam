@@ -76,12 +76,12 @@ try {
         }
       };
       const enable = async (total, kind) => {
-        await page.locator('#guavajam-index-search > summary').click();
+        await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
         await waitTotal(total, kind);
       };
       const query = async (term, total, kind) => {
         if (!await page.locator('#guavajam-index-search').evaluate(node => node.open))
-          await page.locator('#guavajam-index-search > summary').click();
+          await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
         await waitTotal(total, kind);
@@ -102,11 +102,11 @@ try {
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
       await openSearchFilters(page);
       await page.locator('select[name=sort]').selectOption('oldest');
-      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3')?.textContent === 'v1');
+      await page.waitForFunction(() => document.querySelector('#guavajam-search-results h3 .guavajam-link-label')?.textContent === 'v1');
       await query('v23', 1, 'editions');
       assert.equal(await page.locator('#guavajam-search-results h3 mark').textContent(), 'v23');
       await query('Shorelinechronicle', 1, 'editions');
-      assert.equal(await page.locator('#guavajam-search-results h3').textContent(), 'v2');
+      assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'v2');
       assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
       await query('Palaeotidal', 1, 'editions');
       assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
@@ -120,7 +120,7 @@ try {
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 4);
       await enable(fixture.documents, 'documents');
-      await page.locator('.guavajam-search-filters summary').click();
+      await page.locator('.guavajam-search-filters summary .guavajam-disclosure-arrow').click();
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
       await query('Appendix 23', 1, 'documents');
@@ -130,7 +130,7 @@ try {
       await query('unlinked 23', 0, 'documents');
       await query('Abyssalabstractselector', 1, 'documents');
       assert.equal(await page.locator('#guavajam-search-results .guavajam-abstract mark').textContent(), 'Abyssalabstractselector');
-      assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
+      assert((await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent()).includes('Appendix 23'));
 
       await page.goto(passagesURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
@@ -176,7 +176,7 @@ try {
 
       await page.goto(passagesURL);
       await query('Bathyal', 2, 'passages');
-      const hits = await page.locator('#guavajam-search-results h3 a').allTextContents();
+      const hits = await page.locator('#guavajam-search-results h3 .guavajam-link-label').allTextContents();
       assert.equal(hits.length, 2);
       // Only the manuscript section and the actual supporting passage match.
       assert.deepEqual((await page.locator('#guavajam-search-results h3 a').evaluateAll(
@@ -276,7 +276,7 @@ try {
         } else if (broken === 'wrong-size') {
           await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
-        await fallback.locator('#guavajam-index-search > summary').click();
+        await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('.guavajam-listing').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
@@ -292,8 +292,8 @@ try {
         if (broken === 'database' || broken === 'redirect') {
           if (broken === 'database') await failure.unroute(databaseRoute);
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
-          await fallback.locator('#guavajam-index-search > summary').click(); // close
-          await fallback.locator('#guavajam-index-search > summary').click(); // retry on reopen
+          await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // close
+          await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // retry on reopen
           await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
             `${total} section(s) / passage(s) found`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));

@@ -469,9 +469,8 @@ def homepage(site, *, interactive, site_origin=None):
     the same collection SQLite worker and only loads on interaction.
     """
     from .directory_pages import (PAGE_SIZE, _static_pager, search_summary, search_submit,
-                                  search_listing_open, search_listing_close)
+                                  search_listing_open, search_listing_close, disclosure_summary)
     from .site import detail_link, page
-    from .icons import icon
 
     site = Path(site)
     first_html = None
@@ -528,7 +527,7 @@ def homepage(site, *, interactive, site_origin=None):
                     '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">Search works</label>'
                     '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
                     + search_submit() +
-                    '<details class="guavajam-search-filters"><summary>' + icon('sliders-horizontal') + 'Filters and sort</summary>'
+                    '<details class="guavajam-search-filters">' + disclosure_summary('Filters and sort') +
                     '<div class="guavajam-filter-fields">'
                     '<div><label for="guavajam-keyword">Keyword</label>'
                     '<select id="guavajam-keyword" name="keyword"><option value="">All keywords</option></select></div>'
