@@ -489,7 +489,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     # CommonMark can treat standalone '=' or '-' in $$ as Setext syntax in
     # authorial text as well as quotations. Protect only those mathematical
     # lines in a writer copy; the strict math/code round-trip remains decisive.
-    writer_blocks = copy.deepcopy(blocks)
+    writer_blocks = copy.deepcopy([block for index, block in enumerate(blocks) if index != 1])
     for node in walk(writer_blocks):
         if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
             node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])
@@ -500,10 +500,11 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
     rendered = _normalize_gfm_pipe_tables(_restore_math_gfm(_normalize_quote_blank_markers(result.stdout.rstrip()), math_tokens)) + '\n'
+    from .supporting_metadata import document_frontmatter
     if metadata:
-        from .supporting_metadata import metadata_frontmatter
-        rendered = metadata_frontmatter(metadata) + '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered
+        rendered = '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered
         diagnostics['document-metadata-fields-added'] = len(metadata)
+    rendered = document_frontmatter(title, metadata=metadata or ()) + rendered
     data = rendered.encode()
     from .supporting_gfm import parse_gfm_record
     from .validate_sources import read_text

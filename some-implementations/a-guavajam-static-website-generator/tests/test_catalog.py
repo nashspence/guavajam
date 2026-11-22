@@ -112,7 +112,7 @@ class CatalogBuildTests(unittest.TestCase):
 
     def test_downloads_and_citations_are_exact_and_supporting_links_work(self):
         supporting = self.publisher.repo / 'content/supporting'; supporting.mkdir()
-        (supporting / 'note.md').write_text('<a name="document"></a>\n\n# Note\n\n<a name="claim"></a>\n\nA source claim.\n')
+        (supporting / 'note.md').write_text('---\ntitle: Note\n---\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nA source claim.\n')
         self.publisher.source('Field Notes', 'See [the claim](supporting/%6eote.md#cl%61im) and [the opening](manuscript.md#opening).')
         sha = self.publisher.publish('Add supporting evidence')
         self.build()

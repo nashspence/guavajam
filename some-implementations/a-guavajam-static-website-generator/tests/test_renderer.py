@@ -49,14 +49,7 @@ See [the recording](#demonstration), [the source](supporting/note.md#claim), and
 
 The speaker says hello, and the background wind increases.
 '''
-SUPPORT = '''<a name="document"></a>
-
-# Supporting note
-
-<a name="claim"></a>
-
-Independent claim with a stable source anchor.
-'''
+SUPPORT = '---\ntitle: Supporting note\n---\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nIndependent claim with a stable source anchor.\n'
 ORIGIN = 'https://media.example.org'
 
 

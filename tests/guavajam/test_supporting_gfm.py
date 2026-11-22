@@ -62,7 +62,6 @@ class GFMSourceTests(unittest.TestCase):
                 NOTE.replace('<a name="claim"></a>','<div id="claim"></div>'),
                 NOTE.replace('#claim','#reviewed-supporting-note'),
                 NOTE.replace('<a name="claim"></a>','Inline <a name="claim"></a> text.'),
-                NOTE.replace('name="document-note"','name="reviewed-supporting-note"'),
             ]:
                 with self.subTest(bad=bad[-100:]):
                     path.write_text(bad)

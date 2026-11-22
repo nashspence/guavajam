@@ -12,14 +12,14 @@ from guavajam_test_support.discovery_fixture import Draft
 
 
 SUPPORT = '''---
-Source: "<script>literal metadata</script>"
+title: Unlinked supporting evidence
+metadata:
+  Source: "<script>literal metadata</script>"
 ---
 
 <a name="metadata"></a>
 
 <a name="document"></a>
-
-# Unlinked supporting evidence
 
 <a name="author-outline"></a>
 
@@ -175,7 +175,8 @@ class NavigationTests(unittest.TestCase):
         self.assertIn('href="documents.html"', (self.output / 'index.html').read_text())
         for name, digest in self.view['files'].items():
             self.assertEqual(digest, hashlib.sha256((self.output / name).read_bytes()).hexdigest())
-        self.assertEqual({'index.html', 'supporting/unlinked.html', 'documents.html', 'NAV.json', 'source.citation.json'},
+        self.assertEqual({'index.html', 'supporting/unlinked.html', 'documents.html', 'NAV.json', 'source.citation.json', 'source.gfm',
+                              'supporting/unlinked.gfm', 'supporting/unlinked.citation.json'},
                          set(self.view['files']))
         for name in ('index.html', 'supporting/unlinked.html', 'documents.html'):
             html = (self.output / name).read_text()

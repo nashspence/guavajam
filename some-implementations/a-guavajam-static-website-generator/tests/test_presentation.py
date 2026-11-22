@@ -69,14 +69,14 @@ class PresentationTests(unittest.TestCase):
                 import shutil;shutil.rmtree(self.out)
     def test_submitter_metadata_is_document_scoped_literal_and_citable(self):
         fields='title: "A submitter title"\nSource: "<script>literal</script>"\nuser_account: "example-user"\ndate_created: 2026-11-08\n'
-        note=self.work/'supporting/note.md';note.write_text('---\n'+fields+'---\n\n<a name="details"></a>\n\n<a name="document"></a>\n\n# Supporting note\n\n<a name="claim"></a>\n\nA claim.\n\n<a name="code"></a>\n\nLiteral source.\n')
+        note=self.work/'supporting/note.md';note.write_text('---\ntitle: Supporting note\nmetadata:\n'+''.join('  '+line+'\n' for line in fields.splitlines())+'---\n\n<a name="details"></a>\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nA claim.\n\n<a name="code"></a>\n\nLiteral source.\n')
         html,_=self.build();text=(self.out/'supporting/note.html').read_text();page=Page(text)
         self.assertIn('details',page.ids);self.assertIn('example-user',text);self.assertIn('&lt;script&gt;literal&lt;/script&gt;',text)
         self.assertNotIn('example-user',html);self.assertNotIn('<script>',text)
         self.assertIn('Supporting note',text)
     def test_derived_output_digests_bind_every_emitted_html_page(self):
         self.build();manifest=json.loads((self.out/'VIEW.json').read_text());import hashlib
-        self.assertEqual({'index.html','supporting/note.html','documents.html','NAV.json','source.citation.json'},set(manifest['files']))
+        self.assertEqual({'index.html','supporting/note.html','documents.html','NAV.json','source.citation.json','source.gfm','supporting/note.citation.json','supporting/note.gfm'},set(manifest['files']))
         for name,digest in manifest['files'].items():self.assertEqual(digest,hashlib.sha256((self.out/name).read_bytes()).hexdigest())
 
     def test_semantic_time_and_tooltip_preserve_literal_source_values(self):

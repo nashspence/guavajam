@@ -21,7 +21,7 @@ from guavajam.manage_assets import upload
 
 
 def document(body):
-    return '<a name="document"></a>\n\n# Evidence\n\n' + body.rstrip() + '\n'
+    return '---\ntitle: Evidence\n---\n\n<a name="document"></a>\n\n' + body.rstrip() + '\n'
 
 
 class SourceContractTests(unittest.TestCase):

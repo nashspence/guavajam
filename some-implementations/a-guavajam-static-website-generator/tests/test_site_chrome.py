@@ -113,7 +113,7 @@ class ChromeTests(unittest.TestCase):
                                 '<header class="guavajam-status"><span>Verified signed source</span></header>'
                                 '<main id="guavajam-main"><article class="guavajam-edition">'
                                 '<div class="guavajam-source-identity">Old source label</div>' +
-                                ('' if path.name == 'index.html' else '<h1>' + title + '</h1>') +
+                                ('<h1>' + title + '</h1>' if path.name == 'documents.html' else '') +
                                 ('<div class="guavajam-abstract" role="group" aria-label="Abstract">'
                                  '<p><strong>Abstract</strong></p><p>Authored methods.</p></div>'
                                  if path.name == 'index.html' else '') +
@@ -142,7 +142,7 @@ class ChromeTests(unittest.TestCase):
             self.assertNotIn('<h1>Documents in this edition</h1>', (read / 'documents.html').read_text())
             self.assertIn('<h1 aria-current="page">Documents</h1>', (read / 'documents.html').read_text())
             supporting = (read / 'supporting/note.html').read_text()
-            self.assertIn('Note &lt;untrusted&gt; &amp; evidence</cite>. In <cite>Work</cite>', supporting)
+            self.assertIn('Note &lt;untrusted&gt; &amp; evidence</cite></h1>. In <cite>Work</cite>', supporting)
             self.assertIn('content/supporting/note.md</code>', supporting)
             self.assertIn('href="note.citation.json"', supporting)
             manuscript = (read / 'index.html').read_text()

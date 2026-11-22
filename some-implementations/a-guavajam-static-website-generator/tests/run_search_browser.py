@@ -43,7 +43,7 @@ def prepare(directory):
             supporting = publisher.repo / 'content/supporting'
             supporting.mkdir()
             (supporting / 'evidence.md').write_text(
-                '<a name="document"></a>\n\n# Evidence\n\n'
+                '---\ntitle: Evidence\n---\n\n<a name="document"></a>\n\n'
                 '<a name="claim"></a>\n\nGlaciolacustrine supporting evidence.\n')
         body = 'A collection observation.'
         if number == 2:

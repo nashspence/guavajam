@@ -9,6 +9,8 @@ def present(ast, positions, navigation=None):
     indexed={position:key for key,position in positions.items()}
     result=[];turn=None
     for index,block in enumerate(ast['blocks']):
+        if index == 0:
+            continue  # The citation presents the metadata title and its source anchor.
         anchor=indexed.get(index)
         if block['t']=='Div' and 'guavajam-reviewed-turn-start' in block['c'][0][1]:
             turn=dict(block['c'][0][2]);turn['anchor']=anchor
@@ -37,7 +39,7 @@ def present(ast, positions, navigation=None):
     contents = contents_blocks(navigation['anchors'], positions)
     if contents:
         # Keep the literal document metadata beside its title, ahead of the TOC.
-        insertion = 2 if len(result) > 1 and result[1].get('t') == 'Div' and 'guavajam-document-metadata' in result[1]['c'][0][1] else 1
+        insertion = 1 if result and result[0].get('t') == 'Div' and 'guavajam-document-metadata' in result[0]['c'][0][1] else 0
         result[insertion:insertion] = contents
     ast['blocks']=result
     for node in walk(ast['blocks']):

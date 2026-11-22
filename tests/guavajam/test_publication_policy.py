@@ -45,7 +45,7 @@ class SourceProofTests(PublicationCommitTests):
         cmd(self.repo,'git','config','gpg.ssh.program',str(program));cmd(self.repo,'git','config','gpg.program',str(program))
         self.assertEqual(self.signed,self._verify()['revision']);self.assertFalse(marker.exists())
     def test_supporting_citation_uses_actual_document_path_and_explicit_source_anchor(self):
-        doc=self.repo/'content/supporting/note.md';doc.parent.mkdir();doc.write_text('<a name="document"></a>\n\n# Reviewed note\n\n<a name="claim"></a>\n\nA reviewed claim.\n')
+        doc=self.repo/'content/supporting/note.md';doc.parent.mkdir();doc.write_text('---\ntitle: Reviewed note\n---\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nA reviewed claim.\n')
         self.commit_source();record=self._verify();result=citation(record,'claim','content/supporting/note.md')
         self.assertEqual('content/supporting/note.md',result['document'])
         with self.assertRaises(PublicationError):citation(record,'missing',result['document'])
