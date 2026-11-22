@@ -19,8 +19,6 @@ metadata:
 
 <a name="metadata"></a>
 
-<a name="document"></a>
-
 <a name="author-outline"></a>
 
 ## Source author outline

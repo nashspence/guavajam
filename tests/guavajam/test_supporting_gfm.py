@@ -53,7 +53,7 @@ class GFMSourceTests(unittest.TestCase):
             path=Path(tmp)/'note.md'
             path.write_text(NOTE)
             _,anchors,_,_=load_gfm_record(path)
-            self.assertEqual({'document-note','document-metadata','scope','claim','calculation','code','return'},set(anchors))
+            self.assertEqual({'document-metadata','scope','claim','calculation','code','return'},set(anchors))
             for bad in [
                 NOTE+'\n<script>alert(1)</script>\n', NOTE.replace('#claim','#missing'),
                 NOTE.replace('#claim','../manuscript.md'), NOTE.replace('#claim','javascript:alert(1)'),

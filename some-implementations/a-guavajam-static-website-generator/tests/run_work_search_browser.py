@@ -38,7 +38,7 @@ def prepare(directory):
                               'rights: CC-BY-4.0\nkeywords:\n  - Café studies\n'))
         if number == 1:
             (support / 'archived.md').write_text(
-                '---\ntitle: Archived note\n---\n\n<a name="archived-document"></a>\n\n'
+                '---\ntitle: Archived note\n---\n\n'
                 '<a name="archived-evidence"></a>\n\nOlder documentary evidence.\n')
         elif number == 2:
             (support / 'archived.md').unlink()
@@ -53,7 +53,7 @@ def prepare(directory):
                     stream.write(f'\n<a id="section-{section}"></a>\n## Section {section:02d}\n\n{phrase}\n')
             for appendix in range(1, 24):
                 (support / f'unlinked-{appendix:02d}.md').write_text(
-                    f'---\ntitle: Appendix {appendix:02d}\n---\n\n<a name="document"></a>\n\n' +
+                    f'---\ntitle: Appendix {appendix:02d}\n---\n\n' +
                     '<a name="evidence"></a>\n\n' + f'Unlinked supporting evidence {appendix}.' +
                     (' Abyssalappendixselector.' if appendix == 23 else '') + '\n')
             with (support / 'unlinked-23.md').open('a') as stream:
@@ -83,7 +83,7 @@ def prepare(directory):
                repository='https://example.org/unpublished.git', search_assets='../../', **publisher.trust)
     description = {'root': str(site), 'work': relative + '/', 'latest': revision, 'older': older,
                    'editions': 23, 'documents': 25, 'manuscriptPassages': 45, 'unpublished': unpublished,
-                   'supportingPassages': 46,
+                   'supportingPassages': 45,
                    'versionPassages': sum(len(doc['anchors']) for doc in json.loads(
                        (site / relative / 'editions' / revision / 'read/NAV.json').read_text())['documents'].values()),
                    'historical': relative + '/editions/' + older + '/read/index.html',

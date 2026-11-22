@@ -418,11 +418,9 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     def anchor(identifier, speaker=None):
         annotation = ' data-guavajam-speaker="' + speaker + '"' if speaker else ''
         return {'t':'RawBlock','c':['html',f'\n<a name="{identifier}"{annotation}></a>\n']}
-    def header(level,text):
-        return {'t':'Header','c':[level,['',[],[]],[{'t':'Str','c':text}]]}
     title = record['title']
     doc_id = 'doc-'+hashlib.sha256(identity.encode()).hexdigest()
-    blocks = [anchor(doc_id),header(1,title),anchor('scope-'+doc_id),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
+    blocks = [anchor('scope-'+doc_id),{'t':'Para','c':[{'t':'Str','c':record['scope']}]}]
     api = None
     author_headings = []
     for passage in record['passages']:
@@ -489,7 +487,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     # CommonMark can treat standalone '=' or '-' in $$ as Setext syntax in
     # authorial text as well as quotations. Protect only those mathematical
     # lines in a writer copy; the strict math/code round-trip remains decisive.
-    writer_blocks = copy.deepcopy([block for index, block in enumerate(blocks) if index != 1])
+    writer_blocks = copy.deepcopy(blocks)
     for node in walk(writer_blocks):
         if node.get('t') == 'Math' and node['c'][0] == {'t': 'DisplayMath'}:
             node['c'][1] = re.sub(r'(?m)^([=-]+)[ \t]*$', r'    \1', node['c'][1])

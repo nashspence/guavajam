@@ -10,7 +10,7 @@ def present(ast, positions, navigation=None):
     result=[];turn=None
     for index,block in enumerate(ast['blocks']):
         if index == 0:
-            continue  # The citation presents the metadata title and its source anchor.
+            continue  # The citation presents the metadata title.
         anchor=indexed.get(index)
         if block['t']=='Div' and 'guavajam-reviewed-turn-start' in block['c'][0][1]:
             turn=dict(block['c'][0][2]);turn['anchor']=anchor

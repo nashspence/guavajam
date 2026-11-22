@@ -18,6 +18,7 @@ class PrivateAssetNetworkTests(unittest.TestCase):
         os.chdir(self.source); self.addCleanup(os.chdir, previous)
         self.policy = self.root / 'network.json'
         self.policy.write_text(json.dumps({'origin': 'https://assets.publisher.test', 'networks': ['192.168.50.10/32']}))
+        self.policy.chmod(0o600)
         self.env = patch.dict(os.environ, {'GUAVAJAM_ASSET_NETWORK_POLICY': str(self.policy)})
         self.env.start(); self.addCleanup(self.env.stop)
 

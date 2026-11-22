@@ -69,7 +69,7 @@ class PresentationTests(unittest.TestCase):
                 import shutil;shutil.rmtree(self.out)
     def test_submitter_metadata_is_document_scoped_literal_and_citable(self):
         fields='title: "A submitter title"\nSource: "<script>literal</script>"\nuser_account: "example-user"\ndate_created: 2026-11-08\n'
-        note=self.work/'supporting/note.md';note.write_text('---\ntitle: Supporting note\nmetadata:\n'+''.join('  '+line+'\n' for line in fields.splitlines())+'---\n\n<a name="details"></a>\n\n<a name="document"></a>\n\n<a name="claim"></a>\n\nA claim.\n\n<a name="code"></a>\n\nLiteral source.\n')
+        note=self.work/'supporting/note.md';note.write_text('---\ntitle: Supporting note\nmetadata:\n'+''.join('  '+line+'\n' for line in fields.splitlines())+'---\n\n<a name="details"></a>\n\n<a name="claim"></a>\n\nA claim.\n\n<a name="code"></a>\n\nLiteral source.\n')
         html,_=self.build();text=(self.out/'supporting/note.html').read_text();page=Page(text)
         self.assertIn('details',page.ids);self.assertIn('example-user',text);self.assertIn('&lt;script&gt;literal&lt;/script&gt;',text)
         self.assertNotIn('example-user',html);self.assertNotIn('<script>',text)

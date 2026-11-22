@@ -123,14 +123,14 @@ try {
       await page.getByRole('link', {name: 'Passages', exact: true}).click();
       assert(page.url().endsWith('/read/passages.html'));
       const staticFragments = [];
-      for (const [number, expected] of [20, 20, 20, 20, 10].entries()) {
+      for (const [number, expected] of [20, 20, 20, 20, 9].entries()) {
         const entries = page.locator('#guavajam-static-section .guavajam-citation-entry');
         assert.equal(await entries.count(), expected);
         staticFragments.push(...await entries.evaluateAll(nodes => nodes.map(node => node.id)));
         if (number < 4) await page.locator('.guavajam-static-pages a[rel=next]').first().click();
       }
-      assert.equal(staticFragments.length, 90, 'manuscript and supporting passages share one bounded index');
-      assert.equal(new Set(staticFragments).size, 90);
+      assert.equal(staticFragments.length, 89, 'manuscript and supporting passages share one bounded index');
+      assert.equal(new Set(staticFragments).size, 89);
       assert.deepEqual(staticFragments.slice(0, fixture.passages),
         fixture.citationAnchors.map(anchor => fragment('content/manuscript.md', anchor)));
       assert.equal(await page.locator('.guavajam-static-pages a[rel=next]').count(), 0);
@@ -158,7 +158,9 @@ try {
       }
       await page.goto(base + edition + 'read/supporting/note.html');
       assert.equal(await page.locator('h1').count(), 1);
-      assert.equal(await page.locator('.guavajam-citation h1#document').count(), 1);
+      assert.equal(await page.locator('.guavajam-citation h1:not([id])').count(), 1);
+      assert.equal(await page.locator('.guavajam-citation a').count(), 1);
+      assert.equal(await page.locator('.guavajam-citation a[download]').count(), 1);
       assert.equal(await page.getByRole('group', {name: 'Abstract', exact: true}).locator('p').last().textContent(), 'Independently reviewed evidence for the manuscript.');
       assert.equal(await page.locator('.guavajam-citation h1 cite').textContent(), 'Supporting note');
       assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Supporting note');

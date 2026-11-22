@@ -208,15 +208,11 @@ def parse_gfm_record(source, *, policy=None):
             raise AssetError('supporting metadata requires its own unannotated explicit anchor after the front matter')
         metadata_anchor = metadata_details[0]
         ast['blocks'] = ast['blocks'][1:]
-    title_details = anchor_details(ast['blocks'][0]) if ast['blocks'] else None
-    if not title_details or title_details[1] is not None:
-        raise AssetError('supporting title requires its own unannotated explicit anchor after the front matter')
-    # This is the document identity, derived from reviewed metadata. The source
-    # body begins below it at H2; consumers can present the title in a citation.
+    # Metadata identifies the whole document; only body passages own fragments.
     title_block = {'t': 'Header', 'c': [1, ['', [], []], [{'t': 'Str', 'c': facts['title']}]]}
-    ast['blocks'].insert(1, title_block)
+    ast['blocks'].insert(0, title_block)
     ast['blocks'] = _semantic_times(_tooltip_spans(ast['blocks']))
-    title_block = ast['blocks'][1]
+    title_block = ast['blocks'][0]
     # Only an outermost responder quotation followed by an unquoted credit
     # is an attributed turn. Each child is flattened to retain its own citable
     # anchor; publisher-only sentinels preserve the figure's exact boundaries.
@@ -254,8 +250,11 @@ def parse_gfm_record(source, *, policy=None):
         raise AssetError('unexpected supporting parser metadata')
     blocks, anchors, pending = [], {}, None
     headers = []
-    document_level, quotation_level, quotation = 0, 1, None
+    document_level, quotation_level, quotation = 1, 1, None
     for block in ast['blocks']:
+        if block is title_block:
+            blocks.append(block)
+            continue
         if block.get('t') == 'Div' and 'guavajam-reviewed-turn-start' in block['c'][0][1]:
             identifier = block['c'][0][0]
             if pending or identifier in anchors:
@@ -286,7 +285,7 @@ def parse_gfm_record(source, *, policy=None):
             raise AssetError('supporting GFM permits only standalone anchors, exact semantic times and title-only spans as HTML; footnotes are unsupported')
         nested = [n for n in walk(block) if n.get('t') == 'Header']
         if nested:
-            if block.get('t') != 'Header' or len(nested) != 1 or not pending or (block is not title_block and not 2 <= block['c'][0] <= 5):
+            if block.get('t') != 'Header' or len(nested) != 1 or not pending or not 2 <= block['c'][0] <= 5:
                 raise AssetError('supporting body headings require top-level explicit anchors and levels H2–H5')
             level = block['c'][0]
             previous = quotation_level if quotation is not None else document_level
@@ -304,16 +303,12 @@ def parse_gfm_record(source, *, policy=None):
         anchors[pending] = len(blocks)
         pending = None
         blocks.append(block)
-    if pending or not blocks or blocks[0].get('t') != 'Header' or blocks[0]['c'][0] != 1:
-        raise AssetError('supporting GFM requires an explicitly anchored metadata title and no dangling anchor')
-    if sum(h['c'][0] == 1 for h in headers) != 1 or 0 not in anchors.values():
-        raise AssetError('supporting GFM requires exactly one explicitly anchored metadata title')
+    if pending:
+        raise AssetError('supporting GFM prohibits dangling anchors')
     if fields:
         if metadata_anchor in anchors:
             raise AssetError('duplicate supporting metadata anchor')
-        shifted = {key: position + (position > 0) for key, position in anchors.items()}
-        first = next(iter(shifted))
-        anchors = {first: 0, metadata_anchor: 1, **{key: pos for key, pos in shifted.items() if key != first}}
+        anchors = {metadata_anchor: 1, **{key: position + 1 for key, position in anchors.items()}}
         blocks.insert(1, metadata_block(fields))
     if set(anchors) & {h['c'][1][0] for h in headers}:
         raise AssetError('explicit supporting anchors collide with automatic heading IDs')

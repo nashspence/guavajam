@@ -21,7 +21,7 @@ from guavajam.manage_assets import upload
 
 
 def document(body):
-    return '---\ntitle: Evidence\n---\n\n<a name="document"></a>\n\n' + body.rstrip() + '\n'
+    return '---\ntitle: Evidence\n---\n\n' + body.rstrip() + '\n'
 
 
 class SourceContractTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class SourceContractTests(unittest.TestCase):
         source = document('<a name="sequence"></a>\n\n- First\n  - Nested\n\n'
                           '<a name="quotation"></a>\n\n> A quotation.\n>\n>     literal code\n')
         ast, anchors, *_ = self.parse(source)
-        self.assertEqual({'document', 'sequence', 'quotation'}, set(anchors))
+        self.assertEqual({'sequence', 'quotation'}, set(anchors))
         self.assertEqual('BulletList', ast['blocks'][anchors['sequence']]['t'])
         self.assertEqual('BlockQuote', ast['blocks'][anchors['quotation']]['t'])
         with self.assertRaises(AssetError):
@@ -57,7 +57,7 @@ class SourceContractTests(unittest.TestCase):
                           '<a name="next"></a>\n\n## Next section\n')
         ast, anchors, *_ = self.parse(source)
         self.assertEqual([1, 2, 3, 2], [b['c'][0] for b in ast['blocks'] if b['t'] == 'Header'])
-        self.assertEqual({'document', 'section-anchor', 'detail-anchor', 'next'}, set(anchors))
+        self.assertEqual({'section-anchor', 'detail-anchor', 'next'}, set(anchors))
 
     def test_quotation_heading_scopes_reset_without_changing_the_author_outline(self):
         def quote(headings):
@@ -93,7 +93,7 @@ class SourceContractTests(unittest.TestCase):
             '> <a name="response-body"></a>\n>\n> A quoted response.\n\n'
             '— Correspondent\n')
         ast, anchors, *_ = self.parse(source)
-        self.assertEqual({'document', 'author-entry', 'author-section', 'response', 'response-body'},set(anchors))
+        self.assertEqual({'author-entry', 'author-section', 'response', 'response-body'},set(anchors))
         self.assertEqual('Para', ast['blocks'][anchors['author-entry']]['t'])
         self.assertEqual('Header', ast['blocks'][anchors['author-section']]['t'])
         self.assertFalse(any('data-guavajam-speaker' in dict(node['c'][1][2]) for node in walk(ast['blocks'])
@@ -124,7 +124,7 @@ class SourceContractTests(unittest.TestCase):
             '> <a name="code"></a>\n>\n> ```python\n> print(1)\n> ```\n\n'
             '— Correspondent\n')
         ast, anchors, *_ = self.parse(source)
-        self.assertEqual({'document','response','paragraph','inner-quote','code'},set(anchors))
+        self.assertEqual({'response','paragraph','inner-quote','code'},set(anchors))
         self.assertEqual('Div',ast['blocks'][anchors['response']]['t'])
         self.assertEqual('BlockQuote',ast['blocks'][anchors['inner-quote']]['t'])
         self.assertEqual('CodeBlock',ast['blocks'][anchors['code']]['t'])

@@ -7,8 +7,6 @@ metadata:
 
 <a name="document-metadata"></a>
 
-<a name="document-note"></a>
-
 <a name="scope"></a>
 
 Replace this note with reviewed material and describe its scope here.

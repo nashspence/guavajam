@@ -65,8 +65,8 @@ This source anchor must remain addressable.
 This source identity must not become a duplicate generated ID.''')
             supporting = publisher.repo / 'content/supporting/note.md'
             supporting.parent.mkdir()
-            supporting.write_text('---\ntitle: Supporting evidence\nabstract: A literal <supporting> summary.\n---\n\n<a name="guavajam-main"></a>\n\n'
-                                  '<a name="claim"></a>\n\nA source claim.\n')
+            supporting.write_text('---\ntitle: Supporting evidence\nabstract: A literal <supporting> summary.\n---\n\n'
+                                  '<a name="guavajam-main"></a>\n\nA source claim.\n')
             manuscript_source = (publisher.repo / 'content/manuscript.md').read_bytes()
             supporting_source = supporting.read_bytes()
             revision = publisher.publish('Review document semantics')
@@ -88,7 +88,7 @@ This source identity must not become a duplicate generated ID.''')
                         article = page.classes('guavajam-edition')[0]
                         self.assertIn(article, heading['ancestors'])
                         self.assertIn(page.tags('main')[0], heading['ancestors'])
-                        self.assertTrue(heading['text'].startswith(title))
+                        self.assertEqual(title, heading['text'])
                         self.assertFalse(any(node['tag'] == 'p' for node in heading['ancestors']))
                         identifiers = [node['attrs']['id'] for node in page.nodes if node['attrs'].get('id')]
                         self.assertEqual(len(identifiers), len(set(identifiers)))
@@ -102,6 +102,9 @@ This source identity must not become a duplicate generated ID.''')
                             self.assertEqual('group', citation['attrs'].get('role'))
                             self.assertEqual('Git source citation', citation['attrs'].get('aria-label'))
                             self.assertIn(article, citation['ancestors'])
+                            links = [node for node in page.tags('a') if citation in node['ancestors']]
+                            self.assertEqual(1, len(links))
+                            self.assertIn('download', links[0]['attrs'])
                         if relative == 'index.html':
                             self.assertEqual(title, heading['text'])
                             self.assertNotIn('id', heading['attrs'])
@@ -111,8 +114,8 @@ This source identity must not become a duplicate generated ID.''')
                             self.assertEqual(1, len(page.tags('blockquote')))
                             self.assertNotIn(citations[0], page.tags('blockquote')[0]['ancestors'])
                         else:
-                            self.assertEqual('guavajam-main', heading['attrs']['id'])
-                            self.assertIn('claim', identifiers)
+                            self.assertNotIn('id', heading['attrs'])
+                            self.assertIn('guavajam-main', identifiers)
                             self.assertEqual(1, len(page.classes('guavajam-citation-title')))
                             self.assertEqual(1, len(page.classes('guavajam-abstract')))
                             self.assertIn('A literal &lt;supporting&gt; summary.', (directory / relative).read_text())
