@@ -19,6 +19,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
     reading pages remain fully script-free.
     """
     from .site import citation_control, edition_label
+    from .icons import icon
     from .citation_pages import add_passage_links
     from .citation_routes import relative_href, source_offsets
     from guavajam.bibliography import ordered_authors, author_text
@@ -101,10 +102,10 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
                 # second edition cover, repeated abstract, or extra citation.
                 menu = ('<nav class="guavajam-actions guavajam-version-menu" '
                         'aria-label="Version links" tabindex="0">'
-                        '<a href="contents.html">Contents</a>'
-                        '<a href="documents.html">Documents</a>'
-                        '<a href="passages.html">Passages</a>'
-                        '<a href="../metadata.html">Metadata</a>'
+                        '<a href="contents.html">' + icon('list-tree') + 'Contents</a>'
+                        '<a href="documents.html">' + icon('files') + 'Documents</a>'
+                        '<a href="passages.html">' + icon('book-open-text') + 'Passages</a>'
+                        '<a href="../metadata.html">' + icon('info') + 'Metadata</a>'
                         '<a href="source.gfm" download>Download</a></nav>')
         # Keep the document's title/citation within its article, with the route
         # menu still immediately above it.

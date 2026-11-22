@@ -111,6 +111,11 @@ class IconTests(unittest.TestCase):
         self.assertIn('aria-label="Download official citation JSON"', rendered)
         data = json.loads(files('a_guavajam_static_website_generator').joinpath('assets/lucide.json').read_text())
         self.assertEqual('0.577.0',data['version'])
+        self.assertEqual('0ea8780434e2b4527dc860b18ff94883d080b59c',data['revision'])
+        for name in ['list-tree', 'files', 'book-open-text', 'info', 'search', 'sliders-horizontal']:
+            self.assertIn(name, data['icons'])
+            self.assertEqual(name, data['sources'][name])
+            self.assertIn('<', data['icons'][name])
         self.assertEqual(set(data['icons']),set(data['sha256']))
         self.assertEqual(set(data['icons']),set(data['sources']))
 

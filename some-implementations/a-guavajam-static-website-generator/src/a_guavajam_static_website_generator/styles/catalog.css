@@ -110,6 +110,12 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
   margin: calc(.5rem - 6px) -6px calc(1.3rem - 6px); scrollbar-width: none;
 }
 .guavajam-version-menu::-webkit-scrollbar { display: none; }
+/* New SVG cues accompany visible labels, leaving text-only clients unchanged. */
+.guavajam-version-menu a > .guavajam-icon:first-child,
+.guavajam-search-summary > .guavajam-icon,
+.guavajam-search-filters > summary > .guavajam-icon {
+  margin-inline-end: .35em;
+}
 /* Keep the menu's compact label; its MIME is in the tooltip and accessible name. */
 .guavajam-version-menu a { position: relative; }
 .guavajam-version-menu .guavajam-link-mime {
