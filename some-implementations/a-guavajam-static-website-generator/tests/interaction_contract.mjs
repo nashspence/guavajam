@@ -32,8 +32,30 @@ export async function iconLinkFallbacks(page) {
   return result.labels;
 }
 
+export async function navigationCues(page) {
+  const menu = page.locator('.guavajam-version-menu');
+  if (await menu.count()) {
+    for (const [href,name,label] of [['contents.html','list-tree','Contents'],['documents.html','files','Documents'],
+                                  ['passages.html','book-open-text','Passages'],['../metadata.html','info','Metadata']]) {
+      const link=menu.locator('a[href="'+href+'"]');
+      assert.equal(await link.locator('svg.guavajam-icon-'+name+'[aria-hidden=true][focusable=false]').count(),1);
+      assert.equal(await link.textContent(),label);
+    }
+    assert.equal(await menu.locator('a[download] > svg').evaluate(n=>getComputedStyle(n).marginInlineEnd),'0px',
+      'File downloads retain their existing icon spacing');
+  }
+  for (const [selector,name,label] of [['.guavajam-search-summary','search','Indexed Search'],
+      ['.guavajam-search-filters > summary','sliders-horizontal','Filters and sort']]) {
+    for (const summary of await page.locator(selector).all()) {
+      assert.equal(await summary.locator(':scope > svg.guavajam-icon-'+name+'[aria-hidden=true][focusable=false]').count(),1);
+      assert((await summary.textContent()).trim().startsWith(label),'Decorative icons retain native disclosure labels');
+    }
+  }
+}
+
 export async function keyboardControls(page) {
   await iconLinkFallbacks(page);
+  await navigationCues(page);
   const count = await page.evaluate(() => {
     const visible = [...document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')]
       .filter(n => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden')

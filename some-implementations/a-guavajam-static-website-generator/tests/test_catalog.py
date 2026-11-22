@@ -77,15 +77,15 @@ class CatalogBuildTests(unittest.TestCase):
         self.assertIn('2025-01-01', edition)
         self.assertNotIn('class="guavajam-byline"', edition)
         self.assertNotIn('<section class="guavajam-directory"', edition)
-        self.assertIn('href="SOURCE.json">SOURCE.json</a>', edition)
+        self.assertIn('href="SOURCE.json" download>', edition)
         self.assertIn('href="CITATION.json" download', edition)
         self.assertNotIn('href="read/documents.html">Documents</a>', edition)
         reader = (self.output / 'editions' / second / 'read/index.html').read_text()
-        self.assertIn('href="documents.html">Documents</a>', reader)
-        self.assertIn('href="../metadata.html">Metadata</a>', reader)
+        self.assertIn('href="documents.html"><svg class="guavajam-icon guavajam-icon-files"', reader)
+        self.assertIn('href="../metadata.html"><svg class="guavajam-icon guavajam-icon-info"', reader)
         self.assertNotIn('href="../verify.html"', reader)
         self.assertNotIn('href="../license.html"', reader)
-        self.assertIn('href="passages.html">Passages</a>', reader)
+        self.assertIn('href="passages.html"><svg class="guavajam-icon guavajam-icon-book-open-text"', reader)
 
 
     def test_manuscript_body_does_not_repeat_the_top_citation(self):

@@ -15,7 +15,7 @@ from pathlib import Path
 from guavajam.catalog import encoded
 
 from .navigation import document_directory
-from .icons import link_icon
+from .icons import icon, link_icon
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
 from .site import page
@@ -30,7 +30,7 @@ def search_progress(identifier):
 def search_summary(download):
     """Native disclosure is the sole entry point to the optional SQLite index."""
     kib = (download['transfer_size'] + 1023) // 1024
-    return ('<summary class="guavajam-search-summary">'
+    return ('<summary class="guavajam-search-summary">' + icon('search') +
             'Indexed Search <span class="guavajam-index-size" '
             'aria-label="Index download size: ' + str(kib) + ' KiB">(' + str(kib) +
             ' KiB)</span>' + search_progress('guavajam-search-spinner') + '</summary>')
@@ -98,7 +98,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
             '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">' + escape(label) + '</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
             + search_submit() +
-            '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
+            '<details class="guavajam-search-filters"><summary>' + icon('sliders-horizontal') + 'Filters and sort</summary>'
             '<div class="guavajam-filter-fields"><div class="guavajam-query-sort">'
             '<label for="guavajam-sort">Sort</label>'
             '<select id="guavajam-sort" name="sort">' + sorts + '</select></div>' +

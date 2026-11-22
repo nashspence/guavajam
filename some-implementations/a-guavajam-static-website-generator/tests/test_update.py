@@ -149,6 +149,28 @@ class PeriodicUpdateTests(unittest.TestCase):
         self.assertEqual(selected, self.selected())
         self.assertEqual([], list(self.output.glob('.staging-*')))
 
+    def test_renderer_identity_tracks_packaged_artwork_not_python_bytecode(self):
+        from a_guavajam_static_website_generator.update import renderer_identity
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); view = root / 'view'; core = root / 'core'
+            view.mkdir(); core.mkdir()
+            for path in [view / '__init__.py', core / '__init__.py']:
+                path.write_text('# fixture module\n')
+            with (patch('a_guavajam_static_website_generator.update.__file__', str(view / 'update.py')),
+                  patch('guavajam.__file__', str(core / '__init__.py')),
+                  patch('a_guavajam_static_website_generator.update.subprocess.run', return_value=SimpleNamespace(stdout=b'pandoc 3.12.1'))):
+                previous = renderer_identity()
+                for name in ['assets/lucide.json','assets/lucide-LICENSE.txt','templates/media.yml']:
+                    path = view / name; path.parent.mkdir(exist_ok=True)
+                    path.write_text('packaged rendering resource')
+                    current = renderer_identity(); self.assertNotEqual(previous,current)
+                    previous = current; path.write_text('updated rendering resource')
+                    current = renderer_identity(); self.assertNotEqual(previous,current)
+                    previous = current
+                cache = view / '__pycache__'; cache.mkdir(); (cache / 'update.cpython-312.pyc').write_bytes(b'cache')
+                self.assertEqual(previous,renderer_identity())
+
     def test_changed_renderer_and_explicit_rebuild_invalidate_cache(self):
         self.update()
         with patch('a_guavajam_static_website_generator.update.renderer_identity', return_value='new-renderer'), patch('a_guavajam_static_website_generator.view_cache.render', wraps=render) as called:
