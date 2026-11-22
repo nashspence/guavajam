@@ -108,10 +108,11 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   margin: calc(.5rem - 6px) -6px calc(1.3rem - 6px); scrollbar-width: none;
 }
 .guavajam-version-menu::-webkit-scrollbar { display: none; }
-/* Native focus may leave a partly visible link clipped; snap the focused
-   target fully into the lane while retaining touch and arrow-key scrolling. */
-.guavajam-version-menu:has(a:focus-visible) { scroll-snap-type: x mandatory; }
-.guavajam-version-menu a:focus-visible { scroll-snap-align: start; }
+/* Match the other scrolling navigation: keyboard focus exposes complete
+   controls and their outlines. The unfocused lane remains a single row. */
+.guavajam-version-menu:has(a:focus-visible) {
+  overflow: visible; flex-wrap: wrap; white-space: normal;
+}
 
 
 /* Scrolling clips descendant outlines. Reserve a six-pixel focus gutter

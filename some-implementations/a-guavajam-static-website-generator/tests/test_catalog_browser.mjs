@@ -72,24 +72,34 @@ try {
         Boolean(node.compareDocumentPosition(document.querySelector('main .guavajam-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
       assert.deepEqual(await page.locator('.guavajam-version-menu a').allTextContents(),
         ['Contents', 'Documents', 'Passages', 'Metadata', 'Download']);
-      const menu = page.getByRole('navigation', {name: 'Version links', exact: true});
-      assert(await menu.evaluate(n => n.scrollWidth > n.clientWidth), 'mobile version links should overflow within their own lane');
-      const rows = await menu.locator('a').evaluateAll(ns => ns.map(n => n.getBoundingClientRect().top));
-      assert(rows.every(top => Math.abs(top - rows[0]) < 1), 'version links remain on one row');
-      await menu.focus();
-      const beforePan = await menu.evaluate(n => n.scrollLeft);
-      await page.keyboard.press('ArrowRight');
-      await page.waitForTimeout(250); // Native scroll animation; this context has scripts disabled.
-      assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan the version menu');
-      for (const link of await menu.locator('a').all()) {
-        await page.keyboard.press('Tab');
-        await page.waitForTimeout(250);
-        assert(await link.evaluate(n => n === document.activeElement), 'Tab visits every version link in order');
-        assert(await link.evaluate(n => {
-          const box=n.getBoundingClientRect(), lane=n.closest('nav').getBoundingClientRect();
-          return box.left >= lane.left + 5 && box.right <= lane.right - 5;
-        }), 'keyboard focus exposes the complete link and its focus gutter');
+      for (const width of [320, 360, 390, 430, 500]) {
+        await page.setViewportSize({width, height: 900});
+        await page.goto(base + edition + 'read/index.html');
+        const menu = page.getByRole('navigation', {name: 'Version links', exact: true});
+        assert(await menu.evaluate(n => n.scrollWidth > n.clientWidth), 'mobile version links should overflow within their own lane');
+        const rows = await menu.locator('a').evaluateAll(ns => ns.map(n => n.getBoundingClientRect().top));
+        assert(rows.every(top => Math.abs(top - rows[0]) < 1), 'version links remain on one row');
+        await menu.focus();
+        const beforePan = await menu.evaluate(n => n.scrollLeft);
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(250); // Native scroll animation; this context has scripts disabled.
+        assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan the version menu');
+        for (const link of await menu.locator('a').all()) {
+          await page.keyboard.press('Tab');
+          await page.waitForTimeout(250);
+          assert(await link.evaluate(n => n === document.activeElement), 'Tab visits every version link in order');
+          assert(await link.evaluate(n => {
+            const box=n.getBoundingClientRect(), lane=n.closest('nav').getBoundingClientRect();
+            return box.left >= lane.left + 5 && box.right <= lane.right - 5;
+          }), 'keyboard focus exposes the complete link and its focus gutter');
+        }
+        // Switching from the final keyboard-focused control to an earlier
+        // pointer target must not trap scrolling at the focused item.
+        await page.getByRole('link', {name: 'Contents', exact: true}).click();
+        assert(page.url().endsWith('/read/contents.html'));
       }
+      await page.setViewportSize({width: 360, height: 900});
+      await page.goto(base + edition + 'read/index.html');
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
         'Contents has moved off the manuscript without changing the standalone renderer');
       const downloadedSource = page.waitForEvent('download');
