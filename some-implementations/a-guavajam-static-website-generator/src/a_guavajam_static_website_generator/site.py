@@ -100,7 +100,7 @@ def committer_identity(repo, revision):
 
 
 def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
-           repository, search_assets, site_origin):
+           repository, search_assets, site_origin=None):
     from .work_search import build_work_index, publication_navigation
     output.mkdir()
     latest_title = 'Unpublished work'
