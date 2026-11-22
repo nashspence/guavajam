@@ -66,8 +66,9 @@ export async function hoverControls(page) {
       return [s.color, s.backgroundColor, s.boxShadow, label.textDecorationLine, label.textDecorationThickness, s.outlineStyle, s.outlineWidth];
     });
     if (selector === '.guavajam-passage-cite') {
-      assert.equal(await target.locator('span').textContent(), 'Cite');
-      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'none');
+      assert.equal(await target.locator('svg.guavajam-icon-quote[aria-hidden=true]').count(), 1);
+      assert.match(await target.getAttribute('aria-label'), /^Cite committed source passage /);
+      assert.equal(await target.textContent(), '');
       assert(await target.evaluate(n => Number(getComputedStyle(n).fontWeight) >= 600));
     }
     const before = await paint(); await target.hover();
@@ -136,6 +137,12 @@ export async function searchFeedbackGeometry(page, initial = false) {
 // shared by Works, Versions, Documents and Passages, including historical hits.
 export async function searchEvidence(page) {
   for (const row of await page.locator('#guavajam-search-results > li').all()) {
+    if (await page.locator('form[data-directory=documents]').count()) {
+      assert(await row.locator('h3 mark, .guavajam-abstract mark').count() > 0,
+        'document text hits explain themselves in their visible title or abstract');
+      assert.equal(await row.locator('.guavajam-search-excerpt, .guavajam-meta').count(), 0);
+      continue;
+    }
     const evidence = row.locator('.guavajam-search-excerpt');
     assert.equal(await evidence.count(), 1, 'each text result explains its exact winning record');
     assert.match(await evidence.locator('.guavajam-excerpt-label').textContent(),

@@ -61,7 +61,7 @@ class WorkSearchTests(unittest.TestCase):
         supporting = cls.publisher.repo / 'content/supporting'
         supporting.mkdir()
         (supporting / 'unlinked.md').write_text(
-            '---\ntitle: Unlinked evidence\n---\n\n'
+            '---\ntitle: Unlinked evidence\nabstract: Lacustrine methods and supplemental observations.\n---\n\n'
             '<a name="42"></a>\n\nGlaciolacustrine evidence survives without a manuscript link.\n')
         review, _ = review_gfm({'title': 'Reviewed correspondence', 'scope': 'Test fixture', 'passages': [
             {'id': 'author', 'label': 'Author', 'speaker': 'author',
@@ -109,7 +109,6 @@ class WorkSearchTests(unittest.TestCase):
                 self.assertIn(['code', revision], presented['source'])
                 self.assertIn(['code', source], presented['source'])
                 self.assertIn(['code', '#' + anchor], presented['source'])
-                self.assertIn('#' + anchor, presented['context'])
                 cited = json.loads((self.site / unquote(presented['href'])).read_text())
                 self.assertEqual(revision, cited['revision'])
                 self.assertEqual(anchor, cited['anchor'])
@@ -207,6 +206,21 @@ class WorkSearchTests(unittest.TestCase):
                 "ON s.id=search_fts.rowid WHERE search_fts MATCH 'Palaeoriver'").fetchall()
             self.assertEqual(['editions/' + self.older + '/read/index.html'], [row[0] for row in historical])
 
+    def test_document_discovery_indexes_only_supporting_titles_and_their_own_abstracts(self):
+        with sqlite3.connect(self.site / 'work.sqlite') as db:
+            self.assertTrue(db.execute("SELECT rowid FROM document_fts WHERE document_fts MATCH 'Lacustrine'").fetchall())
+            for term in ['Glaciolacustrine', 'Palaeoriver', 'Pelagicendpointselector', 'content', 'manuscript']:
+                self.assertEqual([], db.execute('SELECT rowid FROM document_fts WHERE document_fts MATCH ?', (term,)).fetchall())
+            rows = db.execute("SELECT d.path,d.abstract FROM document_fts JOIN documents d ON d.id=document_fts.rowid "
+                              "WHERE document_fts MATCH 'Lacustrine'").fetchall()
+            self.assertTrue(all(path == 'content/supporting/unlinked.md' and abstract.startswith('Lacustrine')
+                                for path,abstract in rows))
+        html = (self.reader(self.latest) / 'documents.html').read_text()
+        self.assertIn('Lacustrine methods and supplemental observations.',html)
+        self.assertNotIn('Document source',html)
+        self.assertNotIn('Supporting document ·',html)
+        self.assertNotIn('content/supporting/unlinked.md</code>',html)
+
     def test_collection_and_work_use_the_same_navigation_records(self):
         collection = self.root / 'collection'
         database = create_index(collection, [{'repository': 'https://example.org/field-notes.git',
@@ -271,7 +285,7 @@ class WorkSearchTests(unittest.TestCase):
                              [row['citation_url'] for row in found])
 
     def test_corrupt_navigation_cannot_create_a_partial_database(self):
-        for name in ('hash', 'schema', 'revision', 'preview', 'documents', 'anchors', 'missing'):
+        for name in ('hash', 'schema', 'revision', 'preview', 'documents', 'abstract', 'anchors', 'missing'):
             with self.subTest(name=name):
                 site = self.copy_site('corrupt-' + name)
                 reader = site / 'editions' / self.latest / 'read'
@@ -285,6 +299,8 @@ class WorkSearchTests(unittest.TestCase):
                     data['preview'] = True
                 elif name == 'documents':
                     data['documents'].pop('content/supporting/unlinked.md')
+                elif name == 'abstract':
+                    data['documents']['content/supporting/unlinked.md']['abstract'] = 'Unverified replacement'
                 elif name == 'anchors':
                     data['documents']['content/manuscript.md']['anchors'][0]['anchor'] = 'missing-target'
                 else:

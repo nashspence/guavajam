@@ -124,6 +124,8 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         text, replaced = re.subn(r'<footer>.*?</footer>', generator_footer(), text, count=1, flags=re.S)
         if replaced != 1:
             raise CatalogError('work navigation: expected one renderer footer')
+        from .icons import finish_html
+        text = finish_html(text)
         path.write_text(text, encoding='utf-8')
         view['files'][relative] = hashlib.sha256(text.encode('utf-8')).hexdigest()
     (reader / 'VIEW.json').write_bytes(encoded(view))

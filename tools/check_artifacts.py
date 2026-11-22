@@ -9,11 +9,20 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+import tomllib
 from version import check
 
 ROOT = Path(__file__).resolve().parents[1]
 DISTRIBUTIONS = {'guavajam': 'guavajam', 'a-guavajam-static-website-generator': 'a_guavajam_static_website_generator'}
-LICENSE_FILES = ['LICENSES/Apache-2.0.txt', 'REUSE.toml']
+
+def license_files(package):
+    project = ROOT if package == 'guavajam' else ROOT / 'some-implementations/a-guavajam-static-website-generator'
+    return tomllib.loads((project / 'pyproject.toml').read_text())['project']['license-files']
+
+
+def legal_source(package, name):
+    project = ROOT if package == 'guavajam' else ROOT / 'some-implementations/a-guavajam-static-website-generator'
+    return project / name
 
 
 def run(*args, cwd=None, env=None):
@@ -41,9 +50,9 @@ def main():
                     info = f'{DISTRIBUTIONS[package]}-{version}.dist-info/'
                     metadata = BytesParser().parsebytes(archive.read(info + 'METADATA'))
                     assert metadata['License-Expression'] == 'Apache-2.0', 'wheel license expression differs'
-                    assert set(metadata.get_all('License-File', [])) == set(LICENSE_FILES)
-                    for name in LICENSE_FILES:
-                        assert archive.read(info + 'licenses/' + name) == (ROOT / name).read_bytes(), 'wheel lost legal artifact: ' + name
+                    assert set(metadata.get_all('License-File', [])) == set(license_files(package))
+                    for name in license_files(package):
+                        assert archive.read(info + 'licenses/' + name) == legal_source(package, name).read_bytes(), 'wheel lost legal artifact: ' + name
                     assert all(name.startswith((DISTRIBUTIONS[package] + '/', info)) for name in names), 'wheel crossed a package boundary'
                     if package == 'guavajam':
                         assert not any(name.startswith('a_guavajam_static_website_generator/') for name in names)
@@ -55,9 +64,9 @@ def main():
             sdist = ROOT / f'dist/{DISTRIBUTIONS[package]}-{version}.tar.gz'
             with tarfile.open(sdist) as archive:
                 assert not any('/some-implementations/' in name or '/tests/' in name for name in archive.getnames()), 'sdist bundled another project or test support'
-                for name in LICENSE_FILES:
+                for name in license_files(package):
                     legal = archive.extractfile(f'{DISTRIBUTIONS[package]}-{version}/' + name)
-                    assert legal is not None and legal.read() == (ROOT / name).read_bytes(), 'sdist lost legal artifact: ' + name
+                    assert legal is not None and legal.read() == legal_source(package, name).read_bytes(), 'sdist lost legal artifact: ' + name
                 archive.extractall(scratch / 'sources', filter='data')
             source = scratch / 'sources' / f'{DISTRIBUTIONS[package]}-{version}'
             run('uv', 'build', '--no-sources', '--wheel', str(source), '--out-dir', str(scratch / 'rebuilt'), env=env)

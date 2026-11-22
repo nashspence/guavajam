@@ -6,6 +6,7 @@ import re
 from guavajam.asset_policy import AssetError
 from guavajam.source_ast import walk,plain_text
 from .navigation import manuscript_anchor as _anchor_from_block, contents_blocks, extract
+from .icons import inline_icon
 
 FORMAL_LABEL = re.compile(
     r"^(Definition|Theorem|Proposition|Lemma|Corollary|Proof|Axiom|Remark|Example)"
@@ -74,7 +75,7 @@ def prepare_presentation_ast(ast: dict, navigation=None) -> dict:
                         ["lang", "en"], ["aria-label", "Permalink to section " + anchored],
                     ]]
                     title.extend([{"t": "Space"}, {"t": "Link", "c": [
-                        link_attr, [{"t": "Str", "c": "¶"}], ["#" + anchored, ""],
+                        link_attr, [inline_icon("link")], ["#" + anchored, ""],
                     ]}])
         new.append(block)
         i += 1

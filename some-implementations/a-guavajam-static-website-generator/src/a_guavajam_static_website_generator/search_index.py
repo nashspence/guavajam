@@ -22,7 +22,7 @@ from guavajam.catalog import CatalogError, encoded, MAX_BYTES as MAX_CATALOG_BYT
 from guavajam.identifiers import SLUG
 
 from .citation_routes import citation_href, passage_json, source_offsets
-from .citation import citation_presentation, passage_context
+from .citation import citation_presentation
 from .search_artifact import download_attributes, emit_download
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
@@ -71,7 +71,7 @@ def _navigation(read, view):
     for source, document in navigation['documents'].items():
         details = view['documents'][source]
         if any(document.get(key) != details.get(key)
-               for key in ('title', 'language', 'view', 'source_sha256')):
+               for key in ('title', 'language', 'view', 'source_sha256', 'abstract')):
             raise CatalogError('search: navigation document identity mismatch')
         if (not isinstance(document.get('text'), str)
                 or len(document['text'].encode('utf-8')) > MAX_DOCUMENT_BYTES):
@@ -173,7 +173,8 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
             CREATE TABLE documents (
                 id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
                 work_id INTEGER NOT NULL REFERENCES works(id), title TEXT NOT NULL,
-                path TEXT NOT NULL, url TEXT NOT NULL, language TEXT NOT NULL, source_sha256 TEXT NOT NULL
+                path TEXT NOT NULL, url TEXT NOT NULL, language TEXT NOT NULL, source_sha256 TEXT NOT NULL,
+                abstract TEXT NOT NULL
             );
             CREATE TABLE keywords (work_id INTEGER NOT NULL REFERENCES works(id), name TEXT NOT NULL,
                 PRIMARY KEY(work_id, name));
@@ -208,6 +209,9 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
         # No second copy of those fields belongs in the relational mapping.
         if scope == 'work':
             conn.executescript('''
+                CREATE VIRTUAL TABLE document_fts USING fts5(title, abstract,
+                    content=documents, content_rowid=id, detail=full, columnsize=1,
+                    tokenize='unicode61 remove_diacritics 2');
                 CREATE TABLE passages (
                     id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
                     document_id INTEGER NOT NULL REFERENCES documents(id),
@@ -300,11 +304,14 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                         prefix = entry['path'] + '/' if entry['path'] else ''
                         url = quote(prefix + 'editions/' + sha + '/read/' + view_path, safe='/')
                         cursor = conn.execute('INSERT INTO documents '
-                                              '(edition_id,work_id,title,path,url,language,source_sha256) '
-                                              'VALUES (?,?,?,?,?,?,?)',
+                                              '(edition_id,work_id,title,path,url,language,source_sha256,abstract) '
+                                              'VALUES (?,?,?,?,?,?,?,?)',
                                               (edition_id, number, detail['title'], source_path, url,
-                                               detail['language'], detail['source_sha256']))
+                                               detail['language'], detail['source_sha256'], detail.get('abstract', '')))
                         document_id = cursor.lastrowid
+                        if scope == 'work' and source_path != 'content/manuscript.md':
+                            conn.execute('INSERT INTO document_fts(rowid,title,abstract) VALUES (?,?,?)',
+                                         (document_id, detail['title'], detail.get('abstract', '')))
                         title = facts['title']
                         if detail['title'] != title:
                             title += ' — ' + detail['title']
@@ -337,7 +344,6 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                 title=facts['title'], authors=author_text(ordered_authors(facts)), published=edition['published'],
                                 edition_number=position + 1,
                                 document_title=detail['title'] if source_path != 'content/manuscript.md' else '')
-                            presentation['context'] = passage_context(source_path, anchor['anchor'], anchor['scope'])
                             cursor = conn.execute('INSERT INTO passages '
                                 '(edition_id,document_id,work_id,anchor,title,kind,level,position,parent,scope,url,citation_url,citation_json) '
                                 'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',

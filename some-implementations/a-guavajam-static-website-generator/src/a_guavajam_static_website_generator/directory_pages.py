@@ -15,6 +15,7 @@ from pathlib import Path
 from guavajam.catalog import encoded
 
 from .navigation import document_directory
+from .icons import icon
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
 from .site import page
@@ -78,7 +79,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
     history = kind == 'editions'
     citations = kind == 'citations'
     label = ('Search versions and commit messages' if history else
-             'Search passages in this version' if citations else 'Search documents and contents')
+             'Search passages in this version' if citations else 'Search supporting-document titles and abstracts')
     sorts = (('<option value="publication">Publication order (newest)</option>'
               '<option value="oldest">Publication order (oldest)</option>'
               '<option value="date-newest">Commit date (newest)</option>'
@@ -163,7 +164,8 @@ def _write_documents(output, entries, *, collection, runtime, download):
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
-        chunks = _slices(navigation['documents'].items())
+        chunks = _slices((path, doc) for path, doc in navigation['documents'].items()
+                         if path != 'content/manuscript.md')
         title = view['facts']['title']
         for number, chunk in enumerate(chunks, 1):
             first = number == 1
@@ -180,7 +182,7 @@ def _write_documents(output, entries, *, collection, runtime, download):
             body += search_listing_open('Documents', number, len(chunks), interactive=download is not None)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
                      document_directory({'documents': dict(chunk)}, prefix=read_root,
-                                        include_sections=False, headings=True))
+                                        headings=True))
             body += _static_pager(number, len(chunks),
                                   first_href='documents.html' if first else '../../documents.html',
                                   page_prefix='documents/page/' if first else '')
@@ -212,14 +214,16 @@ def _write_contents(output, entries, *, collection):
 
         def contents(nodes):
             return '<ol>' + ''.join(
-                '<li><a href="index.html#' + escape(node['record']['anchor'], quote=True) + '">' +
-                escape(node['record']['title']) + '</a>' +
+                '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
+                '<a class="guavajam-contents-link" href="index.html#' + escape(node['record']['anchor'], quote=True) +
+                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + icon('link') + '</a> ' +
+                escape(node['record']['title']) + '</p>' +
                 (contents(node['children']) if node['children'] else '') + '</li>'
                 for node in nodes) + '</ol>'
 
         ancestors = ((( '../../../../../index.html', 'GuavaJam'),) if collection else ()) + (
             ('../../../index.html', view['facts']['title']), ('index.html', 'v' + str(position)))
-        body = ('<nav class="guavajam-contents-directory" aria-label="Manuscript outline">'
+        body = '<h2>Table of Contents</h2>' + ('<nav class="guavajam-contents-directory" aria-label="Manuscript outline">'
                 '<div class="guavajam-contents-list">' + contents(roots) + '</div></nav>' if roots
                 else '<p>No individually titled sections were declared in this manuscript.</p>')
         html = page(view['facts']['title'] + ' — Contents', body,

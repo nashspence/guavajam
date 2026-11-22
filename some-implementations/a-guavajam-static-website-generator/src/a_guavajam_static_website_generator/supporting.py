@@ -1,5 +1,6 @@
 from guavajam.source_ast import walk, plain_text
 from guavajam.supporting_gfm import timestamp_label
+from .icons import icon, inline_icon
 
 def present(ast, positions, navigation=None):
     """Put source anchors on their own semantic elements, preserving quoted turns."""
@@ -17,9 +18,9 @@ def present(ast, positions, navigation=None):
             result.extend([{'t':'RawBlock','c':['html','<figure class="guavajam-turn" id="'+escape(anchor)+'" data-guavajam-speaker="'+turn['data-guavajam-speaker']+'">']},
                            {'t':'RawBlock','c':['html','<blockquote class="guavajam-turn-quotation">']}]);continue
         if block['t']=='Div' and 'guavajam-reviewed-turn-end' in block['c'][0][1]:
-            result.append({'t':'RawBlock','c':['html','</blockquote><figcaption class="guavajam-turn-attribution">'+escape('— '+turn['data-guavajam-attribution'])+' <a class="guavajam-permalink" aria-label="Permalink to attributed turn" href="#'+escape(turn['anchor'])+'">¶</a></figcaption></figure>']});turn=None;continue
+            result.append({'t':'RawBlock','c':['html','</blockquote><figcaption class="guavajam-turn-attribution">'+escape('— '+turn['data-guavajam-attribution'])+' <a class="guavajam-permalink" aria-label="Permalink to attributed turn" href="#'+escape(turn['anchor'])+'">'+icon('link')+'</a></figcaption></figure>']});turn=None;continue
         if anchor:
-            link={'t':'Link','c':[['',['guavajam-permalink'],[['aria-label','Permalink to passage '+anchor],['lang','en']]],[{'t':'Str','c':'¶'}],['#'+anchor,'']]}
+            link={'t':'Link','c':[['',['guavajam-permalink'],[['aria-label','Permalink to passage '+anchor],['lang','en']]],[inline_icon('link')],['#'+anchor,'']]}
             if block['t']=='Header':
                 block['c'][1][0]=anchor;block['c'][2].extend([{'t':'Space'},link])
             else:

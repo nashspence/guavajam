@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from a_guavajam_static_website_generator.icons import icon
 from a_guavajam_static_website_generator.citation_pages import add_passage_links, build_citation_pages
 from a_guavajam_static_website_generator.citation_routes import (citation_fragment, citation_href, citation_page,
                                       passage_json, relative_href)
@@ -129,7 +130,7 @@ class CitationPageTests(unittest.TestCase):
         self.build()
         html = (self.read / 'passages/page/3.html').read_text()
         self.assertIn('Evidence &amp; records</cite>. In <cite>Coastal &lt;notes&gt;</cite>', html)
-        self.assertIn('Quoted passage', html)
+        self.assertNotIn('aria-label="Passage source"', html)
         self.assertIn('href="../../supporting/note.html#42"', html)
         self.assertIn(citation_fragment('content/supporting/note.md', '42'), html)
         self.assertNotIn('Unanchored note', html)
@@ -143,7 +144,7 @@ class CitationPageTests(unittest.TestCase):
         self.assertNotIn('Enable search', html)
         self.assertIn('data-static-heading="Passages">Passages</h2>', html)
         self.assertIn('Showing static page 3 of 3.', html)
-        self.assertEqual(5, html.split('</template>', 1)[-1].count('<div class="guavajam-citation"'))
+        self.assertEqual(5, html.split('id="guavajam-static-section"', 1)[-1].count('<div class="guavajam-citation"'))
         self.assertIn('data-root="../../../../../"', html)
         self.assertIn('data-worker="../../../../../../../search-worker.js"', html)
         self.assertIn('name="edition" value="' + self.sha + '"', html)
@@ -164,7 +165,7 @@ class CitationPageTests(unittest.TestCase):
                                    'content/supporting/note.md', [{'anchor': 'main', 'position': 1}], 42)
         expected = ('<a class="guavajam-passage-cite" lang="en" href="' +
                     relative_href('supporting/note.html', target) + '" '
-                    'aria-label="Cite committed source passage main"><span>Cite</span></a>')
+                    'aria-label="Cite committed source passage main">' + icon('quote') + '</a>')
         self.assertEqual(html, result.replace(expected, ''))
         self.assertEqual(1, result.count('class="guavajam-passage-cite"'))
         with self.assertRaisesRegex(CatalogError, 'lost a declared source permalink'):

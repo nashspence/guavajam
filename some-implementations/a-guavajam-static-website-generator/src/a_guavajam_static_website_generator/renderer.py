@@ -18,6 +18,7 @@ from urllib.parse import unquote, urlsplit
 
 from guavajam.media import asset, declarations, MediaError, SLUG
 from guavajam.source_ast import walk
+from .icons import finish_html, link_mime
 
 READER = 'gfm+raw_html+tex_math_dollars+yaml_metadata_block'
 REV = re.compile(r'[0-9a-f]{40}\Z')
@@ -97,7 +98,7 @@ def _make_media(item):
         out.append('<img class="guavajam-media-poster" src="' + escape(item['poster'], quote=True) + '" alt="">')
     out += [f'<figcaption>{escape(item["title"])} '
             f'<a href="{escape(item["transcript"], quote=True)}">Transcript</a> '
-            f'<a href="{source}">Download {kind}</a></figcaption>', '</figure>']
+            f'<a href="{source}" download type="{mime}">Download {kind}</a></figcaption>', '</figure>']
     return '\n'.join(out)
 
 
@@ -201,6 +202,9 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
             url=node['c'][2][0]
             if url.startswith('#') and unquote(url[1:]) not in anchors :raise RenderError('unresolved explicit source fragment')
             node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads)
+            if node['t'] == 'Link' and '/downloads/' in '/' + node['c'][2][0]:
+                node['c'][0][2].append(['download', ''])
+                if mime := link_mime(url): node['c'][0][2].append(['type', mime])
     return ast,items,anchors,front,navigation
 
 
@@ -242,7 +246,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
     accessible = ('<span class="guavajam-preview-accessible">Unsigned proposed edition, not issued.</span>'
                   if preview else '')
     root = '<html class="guavajam-preview-new-page"' if preview else '<html'
-    return ('<!doctype html>\n' + root + ' lang="' + escape(language, quote=True) + '"><head>\n'
+    return finish_html('<!doctype html>\n' + root + ' lang="' + escape(language, quote=True) + '"><head>\n'
             '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">\n'
             '<meta http-equiv="Content-Security-Policy" content="' + escape(csp, quote=True) + '">\n'
             '<meta name="generator" content="a-guavajam-static-website-generator">\n'
@@ -351,7 +355,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     from .navigation import document_directory
     navigation_bytes = encoded(navigation)
     all_files['documents.html'] = _html(title='Documents in this edition',language='en',revision_sha=sha,
-        path='',body='<h1>Documents in this edition</h1>' + document_directory(navigation,include_sections=True),
+        path='',body='<h1>Documents in this edition</h1>' + document_directory(navigation),
         css=css,origin=origin,preview=preview,
         navigation='<nav class="guavajam-document-nav" aria-label="Edition documents"><a href="index.html">Manuscript</a></nav>')
     output.mkdir(parents=True, exist_ok=True)

@@ -18,6 +18,7 @@ from guavajam.publication_commit import citation, verify
 from .citation_routes import source_download
 from .renderer import git_blob, render
 from .citation import citation_control, edition_label
+from .icons import icon, finish_html, search_icon_templates
 from .view_cache import cached_render
 
 
@@ -25,9 +26,7 @@ def detail_link(href, label):
     """An unobtrusive, accessible route from a reading title to its record."""
     return (' <a class="guavajam-record-link" href="' + escape(href, quote=True) +
             '" aria-label="' + escape(label, quote=True) + '" title="' +
-            escape(label, quote=True) + '"><svg viewBox="0 0 24 24" '
-            'aria-hidden="true" focusable="false"><path d="M6 3.5h9l3 3V20.5H6z"/>'
-            '<path d="M15 3.5v4h4M9 12h6M9 15h6"/></svg></a>')
+            escape(label, quote=True) + '">' + icon('history') + '</a>')
 
 
 
@@ -63,7 +62,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
                                      authors=citation_authors or '', published=citation_published or '',
                                      edition_number=citation_edition,
                                      document_title=citation_document_title) if citation_href else '')
-    return ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+    return finish_html('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
             '<meta name="robots" content="noindex, follow">'
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
@@ -71,7 +70,7 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
             'base-uri \'none\'; object-src \'none\'; ' + form_action + '">'
             '<title>' + escape(title) + (' — GuavaJam' if title != 'GuavaJam' else '') + '</title><style>' + css + '</style></head>'
             '<body class="guavajam-site"><a class="guavajam-skip" href="#main">Skip to content</a>'
-            + crumb + '<main id="main" tabindex="-1">' + citation_html + body + '</main>'
+            + crumb + '<main id="main" tabindex="-1">' + citation_html + (search_icon_templates() if search else '') + body + '</main>'
             + generator_footer() + '</body></html>\n')
 
 

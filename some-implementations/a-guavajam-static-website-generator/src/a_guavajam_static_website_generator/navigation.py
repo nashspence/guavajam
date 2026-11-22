@@ -213,20 +213,15 @@ def reader_navigation(path):
             '<a href="' + prefix + 'documents.html">All documents in this edition</a></nav>')
 
 
-def document_directory(navigation, *, prefix='', include_sections=False, headings=False):
-    """Every rendered source document is reachable, including unlinked notes."""
+def document_directory(navigation, *, prefix='', headings=False):
+    """Supporting-document titles and optional abstracts, in source order."""
     rows = []
     for path, document in navigation['documents'].items():
+        if path == 'content/manuscript.md': continue
         url = prefix + document['view']
-        kind = 'Manuscript' if path == 'content/manuscript.md' else 'Supporting document'
         link = '<a href="' + escape(url, quote=True) + '">' + escape(document['title']) + '</a>'
-        row = ('<li>' + ('<article><h3>' + link + '</h3>' if headings else link) +
-               '<p class="' + ('guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Document source' if headings else 'guavajam-document-path') + '">' + kind + ' · <code>' + escape(path) + '</code></p>')
-        if include_sections:
-            sections = [record for record in document['anchors'] if record['kind'] == 'section'
-                        and record['level'] > 1 and record['scope'] == 'document']
-            if sections:
-                row += '<ul>' + ''.join('<li><a href="' + escape(url + '#' + record['anchor'], quote=True) +
-                                        '">' + escape(record['title']) + '</a></li>' for record in sections) + '</ul>'
+        row = '<li>' + ('<article><h3>' + link + '</h3>' if headings else link)
+        if document.get('abstract'):
+            row += '<p class="guavajam-abstract">' + escape(document['abstract']) + '</p>'
         rows.append(row + ('</article>' if headings else '') + '</li>')
     return '<ul class="guavajam-document-list' + (' guavajam-record-list' if headings else '') + '">' + ''.join(rows) + '</ul>'

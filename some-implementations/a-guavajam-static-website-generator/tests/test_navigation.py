@@ -131,7 +131,7 @@ class NavigationTests(unittest.TestCase):
         self.assertNotIn('Nested evidence', first)
         self.assertIn('Nested evidence', document['anchors'][1]['text'])
         self.assertNotIn('Deepest observation', document['anchors'][1]['text'])
-        for generated in ('Contents', '¶', 'UNSIGNED PREVIEW', 'Canonical source', 'Example Author'):
+        for generated in ('Contents', 'guavajam-icon-link', 'UNSIGNED PREVIEW', 'Canonical source', 'Example Author'):
             self.assertNotIn(generated, document['text'])
 
     def test_quotation_outline_never_changes_author_outline(self):
@@ -165,7 +165,7 @@ class NavigationTests(unittest.TestCase):
                              document['source_sha256'])
         directory = (self.output / 'documents.html').read_text()
         self.assertIn('href="supporting/unlinked.html"', directory)
-        self.assertIn('href="supporting/unlinked.html#author-continuation"', directory)
+        self.assertNotIn('href="supporting/unlinked.html#author-continuation"', directory)
         self.assertNotIn('href="supporting/unlinked.html#quoted-outline"', directory)
         note = (self.output / 'supporting/unlinked.html').read_text()
         self.assertIn('href="../index.html"', note)

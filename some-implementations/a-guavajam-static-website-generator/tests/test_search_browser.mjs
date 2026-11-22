@@ -113,12 +113,12 @@ try {
       const rowStyle = async row => row.evaluate(node => {
         const box = node.getBoundingClientRect(), article = node.querySelector('article').getBoundingClientRect();
         const title = node.querySelector('h3'), metaNode = node.querySelector('.guavajam-byline, .guavajam-meta');
-        const heading = getComputedStyle(title), text = getComputedStyle(title.querySelector('a')), meta = getComputedStyle(metaNode);
+        const heading = getComputedStyle(title), text = getComputedStyle(title.querySelector('a')), meta = metaNode ? getComputedStyle(metaNode) : null;
         const border = parseFloat(getComputedStyle(node).borderBottomWidth);
-        return {meta: Object.fromEntries(['fontSize','fontFamily','lineHeight','color','whiteSpace','overflowX'].map(k => [k, meta[k]])),
+        return {meta: meta ? {...Object.fromEntries(['fontSize','fontFamily','lineHeight','color','whiteSpace','overflowX'].map(k => [k, meta[k]])),
+            gap: metaNode.getBoundingClientRect().top-title.getBoundingClientRect().bottom} : null,
           row: {paddingTop: article.top-box.top, paddingBottom: box.bottom-article.bottom-border, borderBottomWidth:border},
           title: {...Object.fromEntries(['fontFamily','fontSize','fontWeight','lineHeight'].map(k => [k, text[k]])),
-            gap: metaNode.getBoundingClientRect().top-title.getBoundingClientRect().bottom,
             whiteSpace:heading.whiteSpace, overflowX:heading.overflowX}};
       });
       const assertRowStyle = (actual, expected, message) => {
@@ -126,6 +126,7 @@ try {
         // precision. Numeric geometry must agree within half a CSS pixel;
         // typography and overflow contracts still match exactly.
         for (const [group, values] of Object.entries(expected)) for (const [property, value] of Object.entries(values)) {
+          if (actual[group] === null) continue; // Documents and Passages intentionally omit redundant metadata rows.
           if (typeof value === 'number') assert(Math.abs(actual[group][property]-value)<.5,
             `${message}: ${group}.${property}: ${actual[group][property]} versus ${value}`);
           else assert.equal(actual[group][property],value,`${message}: ${group}.${property}`);
@@ -136,7 +137,8 @@ try {
         assert(await rows.count() > 0);
         const heading = rows.first().locator('h3').first();
         await heading.locator('a').first().evaluate(a => { a.textContent = 'Extremelylongunbrokentitle'.repeat(35); });
-        await rows.first().locator('.guavajam-byline, .guavajam-meta').first().evaluate(n => {
+        const source = rows.first().locator('.guavajam-byline, .guavajam-meta').first();
+        if (await source.count()) await source.evaluate(n => {
           n.append(document.createTextNode(' Verylongsourcepath'.repeat(60)));
         });
         const citation = rows.first().locator('.guavajam-citation-description').first();
