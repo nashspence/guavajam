@@ -75,7 +75,8 @@ export async function hoverControls(page) {
     // Forced colors belong to the user/UA, which may map link and hover ink
     // to the same system color. Keep its palette and test keyboard focus too.
     if (await page.evaluate(() => matchMedia('(forced-colors: active)').matches)) {
-      assert.equal(await target.evaluate(n => getComputedStyle(n).forcedColorAdjust), 'auto');
+      assert.notEqual(await target.evaluate(n => getComputedStyle(n).getPropertyValue('forced-color-adjust')), 'none',
+        'Keep system colors under browser control, including engines without this CSS property');
     } else {
       assert.notEqual(after[0], before[0], `Hover brightens the foreground: ${selector}`);
     }
