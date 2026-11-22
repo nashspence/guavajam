@@ -20,15 +20,27 @@ from .search_artifact import download_attributes, emit_download
 from .site import page
 
 
+def search_progress(identifier):
+    """A reserved inline slot keeps loading feedback from moving its label."""
+    return ('<span class="guavajam-search-progress" aria-hidden="true">'
+            '<span class="guavajam-search-spinner" id="' + identifier + '" hidden></span></span>')
+
+
 def search_summary(download):
     """Native disclosure is the sole entry point to the optional SQLite index."""
     kib = (download['transfer_size'] + 1023) // 1024
     return ('<summary class="guavajam-search-summary">'
-            '<span class="guavajam-search-spinner" id="guavajam-search-spinner" '
-            'aria-hidden="true" hidden></span>'
             'Indexed Search <span class="guavajam-index-size" '
             'aria-label="Index download size: ' + str(kib) + ' KiB">(' + str(kib) +
-            ' KiB)</span></summary>')
+            ' KiB)</span>' + search_progress('guavajam-search-spinner') + '</summary>')
+
+
+def search_submit():
+    """The same stable submit/progress row serves every search directory."""
+    return ('<div class="guavajam-search-submit"><button type="submit">Search</button>' +
+            search_progress('guavajam-search-query-spinner') +
+            '<span id="guavajam-search-progress-status" class="guavajam-visually-hidden" '
+            'role="status" aria-live="polite"></span></div>')
 
 
 def search_listing_open(title, number, pages, *, interactive, result_class='guavajam-editions'):
@@ -84,7 +96,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
             ' data-worker="' + escape(root + runtime + 'search-worker.js', quote=True) + '">'
             '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">' + escape(label) + '</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
-            '<button type="submit">Search</button>'
+            + search_submit() +
             '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
             '<div class="guavajam-filter-fields"><div class="guavajam-query-sort">'
             '<label for="guavajam-sort">Sort</label>'

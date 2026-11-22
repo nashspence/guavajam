@@ -16,6 +16,9 @@ if (form) {
   const disclosure = document.querySelector('#guavajam-index-search');
   const disclosureSummary = disclosure.querySelector('.guavajam-search-summary');
   const spinner = document.querySelector('#guavajam-search-spinner');
+  const querySpinner = document.querySelector('#guavajam-search-query-spinner');
+  const progressStatus = document.querySelector('#guavajam-search-progress-status');
+  let highlights = new Map();
   const listing = document.querySelector('#guavajam-search-listing');
   const directory = form.dataset.directory || '';
   // A non-JS page never exposes an unusable search form. JavaScript reveals
@@ -45,6 +48,12 @@ if (form) {
     if (initial.has('q')) input.value = initial.get('q').slice(0, 256);
   }
 
+  function settled() {
+    spinner.hidden = querySpinner.hidden = true;
+    progressStatus.textContent = '';
+    form.removeAttribute('aria-busy');
+  }
+
   function unavailable() {
     const focused = document.activeElement;
     const lostFocus = document.hasFocus() && (results.contains(focused) || pagination.contains(focused) ||
@@ -52,7 +61,7 @@ if (form) {
     clearTimeout(timer);
     ready = false;
     loading = false;
-    if (spinner) spinner.hidden = true;
+    settled();
     worker?.terminate();
     demoteStaticFacets();
     if (listing) listing.hidden = false;
@@ -90,7 +99,8 @@ if (form) {
     const type = document.createElement('span');
     type.className = 'guavajam-facet-type';
     type.textContent = kind === 'keyword' ? 'Tag' : 'Subject';
-    button.append(type, document.createTextNode(' ' + label));
+    button.append(type, document.createTextNode(' '));
+    appendText(button, label);
     button.setAttribute('aria-label', `Filter by ${kind === 'keyword' ? 'tag' : 'subject'} ${label}`);
     return button;
   }
@@ -157,6 +167,7 @@ if (form) {
     if (!entry || !fallback.contains(entry)) return;
     sequence++;
     clearTimeout(timer);
+    settled();
     fallback.hidden = false;
     results.hidden = true;
     results.removeAttribute('aria-busy');
@@ -183,11 +194,34 @@ if (form) {
     if (fallback.hidden) showStaticCitation(location.hash)?.scrollIntoView();
   });
 
+  function appendMarked(target, marked) {
+    let buffer = '', matching = false;
+    const flush = () => {
+      if (!buffer) return;
+      if (matching) { const mark = document.createElement('mark'); mark.textContent = buffer; target.append(mark); }
+      else target.append(document.createTextNode(buffer));
+      buffer = '';
+    };
+    for (const char of marked) {
+      if (char === '\uE000') { flush(); matching = true; }
+      else if (char === '\uE001') { flush(); matching = false; }
+      else buffer += char;
+    }
+    flush();
+  }
+
+  function appendText(target, value) {
+    const text = String(value), marked = highlights.get(text);
+    // Literal marker characters in source text must remain literal too.
+    if (marked && marked.replace(/[\uE000\uE001]/g, '') === text) appendMarked(target, marked);
+    else target.append(document.createTextNode(text));
+  }
+
   function inlineParts(target, parts) {
     for (const [kind, value] of parts) {
       if (kind === 'cite' || kind === 'code') {
-        const node = document.createElement(kind); node.textContent = value; target.append(node);
-      } else target.append(document.createTextNode(value));
+        const node = document.createElement(kind); appendText(node, value); target.append(node);
+      } else appendText(target, value);
     }
   }
 
@@ -225,28 +259,14 @@ if (form) {
     const quote = document.createElement(context === 'metadata' ? 'p' : 'blockquote');
     if (start) quote.append(document.createTextNode('…'));
     quote.className = 'guavajam-passage-excerpt';
-    let buffer = '', marked = false;
-    function flush() {
-      if (!buffer) return;
-      if (marked) {
-        const match = document.createElement('mark');
-        match.textContent = buffer;
-        quote.append(match);
-      } else quote.append(document.createTextNode(buffer));
-      buffer = '';
-    }
-    for (const char of excerpt) {
-      if (char === '\uE000') { flush(); marked = true; }
-      else if (char === '\uE001') { flush(); marked = false; }
-      else buffer += char;
-    }
-    flush();
+    appendMarked(quote, excerpt);
     if (end < text.length) quote.append(document.createTextNode('…'));
     container.append(label, quote);
     return container;
   }
 
-  function renderRows({rows, total, page: current, pageSize, kind: resultKind}) {
+  function renderRows({rows, total, page: current, pageSize, kind: resultKind, highlights: matched = []}) {
+    highlights = new Map(matched);
     const focused = document.activeElement;
     const lostFocus = document.hasFocus() &&
       (results.contains(focused) || fallback.contains(focused) || pagination.contains(focused));
@@ -258,7 +278,7 @@ if (form) {
       const link = document.createElement('a');
       link.href = work ? workURL(directory === 'citations' ? row.citation_url : row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
-      link.textContent = row.title;
+      appendText(link, row.title);
       if (directory === 'citations') link.addEventListener('click', openStaticCitation);
       heading.append(link);
       if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
@@ -269,12 +289,12 @@ if (form) {
         byline.className = 'guavajam-byline guavajam-scrollline';
         byline.tabIndex = 0;
         byline.setAttribute('aria-label', 'Work authors and date');
-        if (row.authors) byline.append(document.createTextNode(row.authors));
+        if (row.authors) appendText(byline, row.authors);
         if (row.latest_published) {
           if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
           const date = document.createElement('time');
           date.dateTime = row.latest_published;
-          date.textContent = row.latest_published;
+          appendText(date, row.latest_published);
           byline.append(date);
         }
         if (byline.childNodes.length) article.append(byline);
@@ -292,7 +312,7 @@ if (form) {
         if (row.abstract) {
           const abstract = document.createElement('p');
           abstract.className = 'guavajam-abstract';
-          abstract.textContent = row.abstract;
+          appendText(abstract, row.abstract);
           article.append(abstract);
         }
       } else {
@@ -300,13 +320,13 @@ if (form) {
         const meta = document.createElement('p');
         meta.className = 'guavajam-meta guavajam-scrollline'; meta.tabIndex = 0;
         meta.setAttribute('aria-label', resultKind === 'passages' ? 'Passage source' : resultKind === 'documents' ? 'Document source' : 'Version date and source');
-        if (resultKind === 'passages') meta.textContent = presentation.context;
+        if (resultKind === 'passages') appendText(meta, presentation.context);
         else if (resultKind === 'documents') {
           meta.append(document.createTextNode((row.document_path === 'content/manuscript.md' ? 'Manuscript' : 'Supporting document') + ' · '));
-          const path = document.createElement('code'); path.textContent = row.document_path; meta.append(path);
+          const path = document.createElement('code'); appendText(path, row.document_path); meta.append(path);
         } else {
-          const date = document.createElement('time'); date.dateTime = row.published; date.textContent = row.published;
-          const revision = document.createElement('code'); revision.title = row.revision; revision.textContent = row.revision.slice(0, 12);
+          const date = document.createElement('time'); date.dateTime = row.published; appendText(date, row.published);
+          const revision = document.createElement('code'); revision.title = row.revision; appendText(revision, row.revision.slice(0, 12));
           const metadata = document.createElement('a');
           metadata.href = workURL('editions/' + row.revision + '/metadata.html#provenance'); metadata.textContent = 'Metadata';
           meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' · '), metadata);
@@ -328,16 +348,17 @@ if (form) {
           const [subject, ...more] = row.message.split('\n');
           const message = document.createElement('p');
           message.className = 'guavajam-message';
-          message.textContent = subject;
+          appendText(message, subject);
           article.append(message);
           if (more.join('\n').trim()) {
             const details = document.createElement('details');
             details.className = 'guavajam-message-detail';
+            details.open = highlights.has(more.join('\n'));
             const toggle = document.createElement('summary');
             toggle.textContent = 'Full commit message';
             const rest = document.createElement('p');
             rest.className = 'guavajam-message';
-            rest.textContent = more.join('\n');
+            appendText(rest, more.join('\n'));
             details.append(toggle, rest);
             article.append(details);
           }
@@ -375,9 +396,13 @@ if (form) {
     back.removeAttribute('aria-disabled');
     next.removeAttribute('aria-disabled');
     results.removeAttribute('aria-busy');
+    settled();
   }
 
   function pending() {
+    querySpinner.hidden = false;
+    progressStatus.textContent = 'Searching…';
+    form.setAttribute('aria-busy', 'true');
     results.setAttribute('aria-busy', 'true');
     // Native disabled would blur the button that initiated a page change.
     // Keep it focused during the request; event handlers enforce this state.
@@ -429,11 +454,12 @@ if (form) {
     if (ready || loading) return;
     loading = true;
     reload.hidden = true;
-    if (spinner) spinner.hidden = false;
+    spinner.hidden = false;
+    form.setAttribute('aria-busy', 'true');
     if (listing) listing.hidden = false;
     // The summary remains keyboard-focusable while loading; the spinner is an
     // in-place cue without replacing or disabling the native disclosure.
-    summary.textContent = 'Loading local search…';
+    progressStatus.textContent = 'Loading local search…';
     try {
       worker = new Worker(new URL(form.dataset.worker || './search-worker.js', document.baseURI), {type: 'module'});
       worker.onmessage = ({data}) => {
@@ -466,7 +492,6 @@ if (form) {
           }
           ready = initialized = true;
           loading = false;
-          if (spinner) spinner.hidden = true;
           promoteStaticFacets();
           request();
         } else {
@@ -475,6 +500,7 @@ if (form) {
       };
       worker.onerror = unavailable;
       worker.postMessage({action: 'init', id: 0, scope: work ? 'work' : 'collection',
+        facets: edition?.tagName === 'SELECT' || documentFilter?.tagName === 'SELECT',
         database: new URL(form.dataset.database || './index.sqlite', document.baseURI).href,
         databaseSize: form.dataset.databaseSize === undefined ? undefined : Number(form.dataset.databaseSize),
         transferSize: form.dataset.databaseTransferSize === undefined ? undefined : Number(form.dataset.databaseTransferSize),
@@ -483,7 +509,8 @@ if (form) {
       unavailable();
     }
   }
-  disclosure.addEventListener('toggle', () => {
+  disclosure.addEventListener('toggle', event => {
+    if (event.target !== disclosure) return;
     if (disclosure.open && !ready && !loading) initialize();
   });
   // Browsers can restore an opened disclosure through session history.

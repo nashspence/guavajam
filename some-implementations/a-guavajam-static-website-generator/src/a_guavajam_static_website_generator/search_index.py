@@ -312,6 +312,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                         # make identifiers and signed provenance searchable too.
                         provenance = ' '.join([entry['repository'], sha, edition['tree'],
                                                edition['published'], edition['message'], source_path,
+                                               'v' + str(position + 1),
                                                facts.get('rights', ''), facts.get('schema_type', ''),
                                                json.dumps(facts.get('identifiers', {}), ensure_ascii=False),
                                                json.dumps(ordered_authors(facts), ensure_ascii=False)])
@@ -461,7 +462,7 @@ def homepage(site, *, interactive):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import PAGE_SIZE, _static_pager, search_summary
+    from .directory_pages import PAGE_SIZE, _static_pager, search_summary, search_submit
     from .site import detail_link, page
 
     site = Path(site)
@@ -517,7 +518,7 @@ def homepage(site, *, interactive):
                     download_attributes(download, prefix=base) + '>'
                     '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">Search works</label>'
                     '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
-                    '<button type="submit">Search</button>'
+                    + search_submit() +
                     '<details class="guavajam-search-filters"><summary>Filters and sort</summary>'
                     '<div class="guavajam-filter-fields">'
                     '<div><label for="guavajam-keyword">Keyword</label>'

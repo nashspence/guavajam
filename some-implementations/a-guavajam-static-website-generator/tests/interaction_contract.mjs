@@ -78,3 +78,47 @@ export async function hoverControls(page) {
     }), `Overlapping hit target: ${selector}`);
   }
 }
+
+export async function instrumentSearch(page) {
+  await page.addInitScript(() => {
+    window.guavajamSearchRequests = 0;
+    const NativeWorker = window.Worker;
+    window.Worker = class extends NativeWorker {
+      postMessage(data, ...args) {
+        if (data.action === 'search') window.guavajamSearchRequests++;
+        return super.postMessage(data, ...args);
+      }
+    };
+  });
+}
+
+export async function openSearchFilters(page) {
+  const requests = await page.evaluate(() => window.guavajamSearchRequests);
+  const toggle = page.locator('.guavajam-search-filters > summary');
+  await toggle.focus(); await toggle.press('Enter');
+  assert(await page.locator('.guavajam-search-filters').evaluate(n => n.open));
+  assert(await toggle.evaluate(n => n === document.activeElement));
+  assert.equal(await page.evaluate(() => window.guavajamSearchRequests), requests,
+    'opening filters is a native disclosure, never a database query');
+  assert(await page.locator('select[name=sort]').isVisible());
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+}
+
+export async function searchFeedbackGeometry(page, initial = false) {
+  return page.evaluate(initial => {
+    const bounds = n => {
+      const r = n.getBoundingClientRect();
+      return Object.fromEntries(['x', 'y', 'width', 'height'].map(k => [k, Math.round(r[k] * 10) / 10]));
+    };
+    const summary = document.querySelector('.guavajam-search-summary');
+    const range = document.createRange(); range.selectNodeContents(summary.firstChild);
+    const rect = range.getBoundingClientRect();
+    const state = {summary: bounds(summary), label: [rect.x, rect.y, rect.width, rect.height],
+      downloadSlot: bounds(document.querySelector('#guavajam-search-spinner').parentElement)};
+    if (!initial) {
+      state.button = bounds(document.querySelector('#guavajam-search button[type=submit]'));
+      state.querySlot = bounds(document.querySelector('#guavajam-search-query-spinner').parentElement);
+    }
+    return state;
+  }, initial);
+}

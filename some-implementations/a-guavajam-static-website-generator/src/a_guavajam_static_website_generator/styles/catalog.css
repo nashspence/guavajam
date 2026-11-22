@@ -88,8 +88,10 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   padding: 1.2rem 0 1.4rem; break-inside: avoid;
 }
 .guavajam-record-list > li, .guavajam-record-list > li > article { min-width: 0; max-width: 100%; }
-/* Contain the focus gutters' compensating margins inside each record. */
-.guavajam-record-list > li > article { display: flow-root; }
+/* Bound intrinsic widths at each record, without clipping deliberate scroll
+   lanes or focus gutters. A long result must not resize its directory. */
+.guavajam-record-list > li > article { display: flow-root; inline-size: 100%; contain: inline-size; }
+.guavajam-record-list h3 { min-width: 0; max-width: 100%; }
 .guavajam-record-list > li:first-child { padding-top: .5rem; }
 .guavajam-record-list > li:last-child { border-bottom: 0; padding-bottom: 0; }
 .guavajam-record-list h3 { font-size: 1.25rem; margin: 0 0 .5rem; }
@@ -153,9 +155,13 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 }
 .guavajam-search-summary:hover { text-decoration: underline; text-underline-offset: .16em; }
 .guavajam-index-size { color: var(--guavajam-muted); font: normal .79rem/1.4 system-ui, sans-serif; white-space: nowrap; }
+.guavajam-search-progress {
+  display: inline-block; position: relative;
+  inline-size: 1.35rem; block-size: 1rem; flex: none; vertical-align: -.12rem;
+}
+.guavajam-search-submit { display: flex; align-items: center; gap: .2rem; width: fit-content; }
 .guavajam-search-spinner {
-  display: inline-block; width: .85rem; height: .85rem; margin: 0 .4rem 0 .15rem;
-  vertical-align: -.12rem;
+  position: absolute; inset: 0; margin: auto; width: .85rem; height: .85rem;
   border: 2px solid var(--guavajam-border); border-top-color: var(--guavajam-link);
   border-radius: 50%; animation: guavajam-spin .7s linear infinite;
 }
@@ -197,7 +203,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-static-pages [aria-current="page"] { color: var(--guavajam-ink); font-weight: 600; }
 
 /* Search and its directory list never need a redundant separator. */
-.guavajam-listing { border: 0; padding-top: 0; }
+.guavajam-listing { border: 0; padding-top: 0; min-width: 0; width: 100%; }
 .guavajam-list-heading { margin: .65rem 0 .45rem; font-size: 1.15rem; }
 .guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
 .guavajam-pagination > * { flex: none; }
@@ -280,7 +286,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-excerpt-label { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: .65rem 0 .2rem; }
 .guavajam-search-excerpt .guavajam-passage-excerpt { margin: 0 0 .65rem; }
 .guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
-.guavajam-passage-excerpt mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
+.guavajam-record-list mark { color: inherit; background: var(--guavajam-tint); font-weight: 600; }
 /* A traditional contents outline: headings, indentation, and clean line
    spacing rather than horizontal rules between manuscript sections. */
 .guavajam-contents-list, .guavajam-contents-list ol { list-style: none; margin: 0; padding: 0; }
