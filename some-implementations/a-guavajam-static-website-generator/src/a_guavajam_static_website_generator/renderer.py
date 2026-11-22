@@ -181,8 +181,6 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
                 item=decode(block['c'][1],origin)
                 block.clear();block.update(t='RawBlock',c=['html',_make_media(item)])
         ast=prepare_presentation_ast(ast,navigation)
-        if front.get('abstract'):
-            ast['blocks'].insert(0, {'t': 'RawBlock', 'c': ['html', abstract_html(front['abstract'])]})
     else:
         from guavajam.supporting_gfm import parse_gfm_record
         from .supporting import present
@@ -194,8 +192,10 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         if front.get('abstract'):
             navigation['text'] = front['abstract'] + ' ' + navigation['text']
         ast=present(ast,positions,navigation)
-        if front.get('abstract'):
-            ast['blocks'].insert(0, {'t': 'RawBlock', 'c': ['html', abstract_html(front['abstract'])]})
+    # Separate the metadata introduction from the body without adding source
+    # passages or changing the navigation extracted above.
+    ast['blocks'].insert(0, {'t': 'RawBlock', 'c': ['html',
+        abstract_html(front.get('abstract')) + '<hr class="guavajam-document-divider">']})
     for node in walk(ast['blocks']):
         if node['t'] in ('Link','Image'):
             url=node['c'][2][0]

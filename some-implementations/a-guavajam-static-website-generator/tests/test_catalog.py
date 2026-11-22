@@ -41,6 +41,9 @@ class CatalogBuildTests(unittest.TestCase):
             markup = page.read_text()
             blocks = re.findall(pattern, markup, re.S)
             self.assertEqual([abstract_html(facts['abstract'])], blocks)
+            self.assertEqual(1, markup.count('<hr class="guavajam-document-divider">'))
+            self.assertLess(markup.index(blocks[0]), markup.index('<hr class="guavajam-document-divider">'))
+            self.assertLess(markup.index('<hr class="guavajam-document-divider">'), markup.index('id="opening"'))
             self.assertNotIn('<claim>', markup)
             if page != draft / 'index.html':
                 label = 'Version links'
