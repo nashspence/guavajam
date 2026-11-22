@@ -88,6 +88,7 @@ try {
           await page.keyboard.press('Tab');
           await page.waitForTimeout(250);
           assert(await link.evaluate(n => n === document.activeElement), 'Tab visits every version link in order');
+          assert(await menu.locator('a').evaluateAll(ns => ns.every(n => Math.abs(n.getBoundingClientRect().top - ns[0].getBoundingClientRect().top) < 1)), 'focused links stay in one row');
           assert(await link.evaluate(n => {
             const box=n.getBoundingClientRect(), lane=n.closest('nav').getBoundingClientRect();
             return box.left >= lane.left + 5 && box.right <= lane.right - 5;
@@ -96,6 +97,7 @@ try {
         // Switching from the final keyboard-focused control to an earlier
         // pointer target must not trap scrolling at the focused item.
         await page.getByRole('link', {name: 'Contents', exact: true}).click();
+        await page.waitForURL('**/read/contents.html');
         assert(page.url().endsWith('/read/contents.html'));
       }
       await page.setViewportSize({width: 360, height: 900});
