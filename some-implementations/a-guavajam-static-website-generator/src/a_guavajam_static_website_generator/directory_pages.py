@@ -47,12 +47,13 @@ def search_submit():
 def search_listing_open(title, number, pages, *, interactive, result_class='guavajam-editions'):
     """Every static directory starts with the same handoff state as Works."""
     body = ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
+            '<div class="guavajam-list-header guavajam-scrollline" tabindex="0" aria-label="List heading and status">'
             '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
-            'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>')
+            'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>'
+            '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
+            'Page ' + str(number) + ' of ' + str(pages) + '</p></div>')
     if interactive:
-        body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-                 'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
-                 '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>')
+        body += '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>'
     if interactive and title == 'Passages':
         from .citation import citation_control
         body += ('<template id="guavajam-citation-template">' +
@@ -64,9 +65,11 @@ def search_listing_close(*, interactive):
     body = ''
     if interactive:
         body += ('<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
-                 '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
+                 '<button type="button" id="guavajam-search-prev" aria-label="Previous page" title="Previous page" disabled>' +
+                 link_icon('arrow-left', 'Previous') + '</button>'
                  '<span id="guavajam-search-page"></span>'
-                 '<button type="button" id="guavajam-search-next" disabled>Next</button></nav>')
+                 '<button type="button" id="guavajam-search-next" aria-label="Next page" title="Next page" disabled>' +
+                 link_icon('arrow-right', 'Next') + '</button></nav>')
     return body + '</section>'
 
 

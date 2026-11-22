@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, listControlLayout, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
+import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, listControlLayout, listHeadingOverflow, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_search_browser.py');
@@ -182,6 +182,7 @@ try {
         await parityPage.goto(url);
         const staticRow = parityPage.locator('.guavajam-record-list:visible > li').first();
         assertRowStyle(await rowStyle(staticRow), await expectedRow(staticRow), `${name}: static Works row parity at ${url}`);
+        await listHeadingOverflow(parityPage);
         await contain();
         await parityPage.locator('#guavajam-index-search > summary').click();
         await parityPage.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
@@ -191,6 +192,7 @@ try {
         for (const width of [320,390,760,1280]) {
           await parityPage.setViewportSize({width, height:900});
           await listControlLayout(parityPage);
+          if (width===390) await listHeadingOverflow(parityPage);
         }
         await parityPage.setViewportSize({width:390,height:900});
         await contain();
@@ -222,7 +224,7 @@ try {
       await recordLinkAlignment(page);
       assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
-      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
       assert.equal(await page.locator('.guavajam-index-size').count(), 1);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
@@ -458,7 +460,7 @@ try {
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
         assert.deepEqual(await searchFeedbackGeometry(waiting, true), beforeDownload,
           'the download spinner occupies a stable slot to the right of the label');
-        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
+        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
         assert.equal(await waiting.locator('#guavajam-search-progress-status').textContent(), 'Loading local search…');
         await waiting.locator('#guavajam-static-list h3 a').first().focus();
       } finally {

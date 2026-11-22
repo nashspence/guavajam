@@ -79,6 +79,12 @@ class IconTests(unittest.TestCase):
         self.assertEqual([('/version/metadata.html#provenance', 'Metadata')], TextClientLinks(metadata).links)
         self.assertIn('aria-label="Metadata for v1"', metadata)
         self.assertNotIn('<script', html + templates)
+        from a_guavajam_static_website_generator.pagination import _static_pager
+        pager = _static_pager(2, 3, first_href='index.html', page_prefix='page/')
+        self.assertIn(('index.html', 'Previous'), TextClientLinks(pager).links)
+        self.assertIn(('page/3.html', 'Next'), TextClientLinks(pager).links)
+        self.assertIn('guavajam-icon-arrow-left', pager)
+        self.assertIn('guavajam-icon-arrow-right', pager)
 
     def test_external_icon_depends_on_site_origin_when_available(self):
         links = ('<a href="https://site.test/page">Same</a>'
@@ -92,7 +98,7 @@ class IconTests(unittest.TestCase):
         self.assertEqual(2, rendered.count('guavajam-icon-external-link'))
         self.assertEqual(5, finish_html(original).count('guavajam-icon-external-link'))
         self.assertEqual(rendered, finish_html(rendered, site_origin='https://site.test'))
-        self.assertEqual(1, page('Site', '<a href="https://site.test/other">Local absolute</a>' +
+        self.assertEqual(2, page('Site', '<a href="https://site.test/other">Local absolute</a>' +
                                  '<a href="https://other.test/other">Remote absolute</a>',
                                  site_origin='https://site.test').count('guavajam-icon-external-link'))
         self.assertEqual(1, finish_html('<a href="https://site.test:0/path">Other port</a>',

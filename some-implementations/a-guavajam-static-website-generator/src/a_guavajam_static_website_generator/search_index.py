@@ -468,7 +468,8 @@ def homepage(site, *, interactive, site_origin=None):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import PAGE_SIZE, _static_pager, search_summary, search_submit
+    from .directory_pages import (PAGE_SIZE, _static_pager, search_summary, search_submit,
+                                  search_listing_open, search_listing_close)
     from .site import detail_link, page
     from .icons import icon
 
@@ -538,27 +539,13 @@ def homepage(site, *, interactive, site_origin=None):
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
                     '</form></details>')
-            body += '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
-            body += '<h2 class="guavajam-list-heading" id="guavajam-works-heading" data-static-heading="Works">Works</h2>'
-            if interactive:
-                body += (
-                    '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-                    'Showing static page ' + str(number) + ' of ' + str(pages) + '.</p>'
-                    '<ol id="guavajam-search-results" class="guavajam-works guavajam-record-list" hidden></ol>')
+            body += search_listing_open('Works', number, pages, interactive=interactive, result_class='guavajam-works')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,
                                   first_href='index.html' if number == 1 else '../index.html',
                                   page_prefix='page/' if number == 1 else '')
-            body += '</div>'
-            if interactive:
-                body += (
-                    '<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
-                    '<button type="button" id="guavajam-search-prev" disabled>Previous</button>'
-                    '<span id="guavajam-search-page"></span>'
-                    '<button type="button" id="guavajam-search-next" disabled>Next</button>'
-                    '</nav>')
-            body += '</section>'
+            body += '</div>' + search_listing_close(interactive=interactive)
             if interactive:
                 body += '<script src="' + escape(base + 'search.js', quote=True) + '" defer></script>'
             # A collection spans Git repositories and cannot have one canonical
