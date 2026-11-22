@@ -113,6 +113,21 @@ try {
           getComputedStyle(n).position === 'absolute' && n.getBoundingClientRect().width <= 1));
         assert.match(await control.getAttribute('aria-label'),/^Permalink to /);
       }
+      const textLinks = await page.evaluate(() => {
+        const links = [...document.querySelectorAll('a > .guavajam-icon-fallback')].map(n => n.parentElement);
+        const sheets = [...document.styleSheets].map(sheet => [sheet, sheet.disabled]);
+        const targets = links.map(n => [n.getAttribute('href'), n.getAttribute('aria-label'), n.textContent.trim()]);
+        sheets.forEach(([sheet]) => {sheet.disabled = true;});
+        const readable = links.every(n => {
+          const label=n.querySelector('.guavajam-icon-fallback'), b=label.getBoundingClientRect();
+          return label.textContent.trim() && getComputedStyle(label).position==='static' && b.width>1;
+        });
+        const unchanged = JSON.stringify(targets) === JSON.stringify(links.map(n =>
+          [n.getAttribute('href'), n.getAttribute('aria-label'), n.textContent.trim()]));
+        sheets.forEach(([sheet,disabled]) => {sheet.disabled=disabled;});
+        return {readable,unchanged};
+      });
+      assert.deepEqual(textLinks,{readable:true,unchanged:true},'CSS-free readers retain meaningful link text and exact targets');
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
         'Contents has moved off the manuscript without changing the standalone renderer');
       const downloadedSource = page.waitForEvent('download');

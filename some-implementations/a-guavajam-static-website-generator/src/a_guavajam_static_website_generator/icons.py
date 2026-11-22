@@ -80,8 +80,8 @@ def finish_html(html, *, site_origin=None):
             return True  # Build output alone cannot determine its deployed hostname.
         scheme = target.scheme or origin.scheme
         try:
-            port = target.port or (443 if scheme == 'https' else 80)
-            origin_port = origin.port or (443 if origin.scheme == 'https' else 80)
+            port = target.port if target.port is not None else (443 if scheme == 'https' else 80)
+            origin_port = origin.port if origin.port is not None else (443 if origin.scheme == 'https' else 80)
         except ValueError:
             return True
         return (scheme, target.hostname, port) != (origin.scheme, origin.hostname, origin_port)

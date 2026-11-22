@@ -91,6 +91,10 @@ class IconTests(unittest.TestCase):
         self.assertEqual(1, page('Site', '<a href="https://site.test/other">Local absolute</a>' +
                                  '<a href="https://other.test/other">Remote absolute</a>',
                                  site_origin='https://site.test').count('guavajam-icon-external-link'))
+        self.assertEqual(1, finish_html('<a href="https://site.test:0/path">Other port</a>',
+                                       site_origin='https://site.test').count('guavajam-icon-external-link'))
+        self.assertEqual(1, finish_html('<a href="https://site.test/path">Other port</a>',
+                                       site_origin='https://site.test:0').count('guavajam-icon-external-link'))
         with self.assertRaises(ValueError):
             finish_html(original, site_origin='not-an-origin')
 

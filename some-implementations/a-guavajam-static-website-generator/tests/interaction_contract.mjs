@@ -1,7 +1,39 @@
 // Exercise actual Tab order and hit targets, rather than CSS selector presence.
 import assert from 'node:assert/strict';
 
+export async function iconLinkFallbacks(page) {
+  const result = await page.evaluate(() => {
+    const labels = [...document.querySelectorAll('a > .guavajam-icon-fallback')]
+      .filter(n => n.parentElement.getClientRects().length);
+    const geometry = () => labels.map(n => n.parentElement)
+      .map(n => { const b = n.getBoundingClientRect(); return [b.x,b.y,b.width,b.height]; });
+    const before = geometry();
+    const pageWidth = document.documentElement.scrollWidth;
+    const failures = [];
+    for (const label of labels) {
+      const css = getComputedStyle(label), b = label.getBoundingClientRect();
+      if (!label.textContent.trim() || css.position !== 'absolute' ||
+          css.clipPath === 'none' || b.width > 1 || b.height > 1)
+        failures.push(label.textContent);
+    }
+    const parents = labels.map(label => [label, label.parentElement, label.nextSibling]);
+    labels.forEach(n => n.remove());
+    // Keep stable references: removing labels intentionally changes the selector.
+    const without = parents.map(([,parent]) => {const b=parent.getBoundingClientRect();return [b.x,b.y,b.width,b.height];});
+    const withoutWidth = document.documentElement.scrollWidth;
+    parents.forEach(([label,parent,next]) => parent.insertBefore(label,next));
+    return {failures, before, without,
+      pageWidth, withoutWidth, restoredWidth: document.documentElement.scrollWidth, labels: labels.length};
+  });
+  assert.deepEqual(result.failures, [], 'Every icon-only link has a clipped, meaningful HTML fallback');
+  assert.deepEqual(result.without, result.before, 'Fallbacks preserve link position and hit-target dimensions');
+  assert.equal(result.withoutWidth, result.pageWidth, 'Fallbacks preserve page containment');
+  assert.equal(result.restoredWidth, result.pageWidth, 'Restoring fallback text preserves page containment');
+  return result.labels;
+}
+
 export async function keyboardControls(page) {
+  await iconLinkFallbacks(page);
   const count = await page.evaluate(() => {
     const visible = [...document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')]
       .filter(n => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden')
@@ -68,7 +100,7 @@ export async function hoverControls(page) {
     if (selector === '.guavajam-passage-cite') {
       assert.equal(await target.locator('svg.guavajam-icon-quote[aria-hidden=true]').count(), 1);
       assert.match(await target.getAttribute('aria-label'), /^Cite committed source passage /);
-      assert.equal(await target.textContent(), '');
+      assert.equal(await target.textContent(), 'Cite');
       assert(await target.evaluate(n => Number(getComputedStyle(n).fontWeight) >= 600));
     }
     const before = await paint(); await target.hover();
