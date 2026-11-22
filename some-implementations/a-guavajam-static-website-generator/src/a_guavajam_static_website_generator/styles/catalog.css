@@ -100,7 +100,15 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 .guavajam-directory { margin: .75rem 0 0; }
 .guavajam-directory > :last-child { margin-bottom: 0; }
-.guavajam-version-menu { margin: .5rem 0 1.3rem; }
+/* Keep the manuscript's utility links in one native horizontal scroll lane.
+   Gutters protect outlines; central scroll padding makes focus pan before a
+   link becomes partly clipped, without moving other pointer targets. */
+.guavajam-version-menu {
+  flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; white-space: nowrap;
+  max-width: calc(100% + 12px); padding: 6px; scroll-padding-inline: 45%;
+  margin: calc(.5rem - 6px) -6px calc(1.3rem - 6px); scrollbar-width: none;
+}
+.guavajam-version-menu::-webkit-scrollbar { display: none; }
 
 
 /* Scrolling clips descendant outlines. Reserve a six-pixel focus gutter
@@ -233,7 +241,6 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   width: 100%; min-width: 0;
 }
 .guavajam-site #guavajam-search .guavajam-filter-fields > div { min-width: 0; }
-.guavajam-work-citation { margin-bottom: 1.2rem; }
 /* Bibliographic metadata is one readable outline: titled branches with
    narrower indented leaves, not three competing record pages or UI cards. */
 .guavajam-metadata-branch { margin: 1.65rem 0; scroll-margin-top: 1rem; }

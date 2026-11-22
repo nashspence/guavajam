@@ -12,7 +12,6 @@ from html import escape
 import json
 from pathlib import Path
 
-from guavajam.bibliography import author_text, ordered_authors
 from guavajam.catalog import encoded
 
 from .navigation import document_directory
@@ -117,15 +116,16 @@ def _history_row(edition, *, links_prefix):
     return html + '</article></li>'
 
 
-def _write_history(output, entries, title, *, collection, runtime, download):
+def _write_work(output, entries, title, *, collection, runtime, download):
     chunks = _slices(reversed(entries))  # full verified history, newest first
-    directory = output / 'editions'
     for number, chunk in enumerate(chunks, 1):
         first = number == 1
-        root = '../' if first else '../../'
-        destination = directory / 'index.html' if first else directory / 'page' / f'{number}.html'
+        root = '' if first else '../'
+        destination = output / 'index.html' if first else output / 'page' / f'{number}.html'
         destination.parent.mkdir(parents=True, exist_ok=True)
-        crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + ((root + 'index.html', title),)
+        crumbs = ((root + '../../index.html', 'GuavaJam'),) if collection else ()
+        if not first:
+            crumbs += ((root + 'index.html', title),)
         body = ''
         if download is not None:
             body += _sqlite_controls(kind='editions', edition='all', root=root,
@@ -133,16 +133,16 @@ def _write_history(output, entries, title, *, collection, runtime, download):
         body += search_listing_open('Versions', number, len(chunks), interactive=download is not None)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions guavajam-record-list">' +
-                 ''.join(_history_row(item, links_prefix='' if first else '../') for item in chunk) +
+                 ''.join(_history_row(item, links_prefix=root + 'editions/') for item in chunk) +
                  '</ol>')
         if not entries:
             body += '<p>No published versions.</p>'
         body += _static_pager(number, len(chunks), first_href='index.html' if first else '../index.html',
                               page_prefix='page/' if first else '')
         body += '</section>' + search_listing_close(interactive=download is not None)
-        destination.write_text(page('Versions' if first else f'Versions — page {number}',
+        destination.write_text(page(title if first else f'{title} — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
-                                    breadcrumb_current='Versions'), encoding='utf-8')
+                                    breadcrumb_current=title if first else f'Page {number}'), encoding='utf-8')
 
 
 def _write_documents(output, entries, *, collection, runtime, download):
@@ -229,7 +229,7 @@ def build_directories(output, editions, *, collection, search_assets, database):
         title = json.loads((output / 'editions' / editions[-1][0] / 'read' / 'VIEW.json').read_text())['facts']['title']
     else:
         title = 'Unpublished work'
-    _write_history(output, editions, title, collection=collection, runtime=runtime, download=download)
+    _write_work(output, editions, title, collection=collection, runtime=runtime, download=download)
     _write_documents(output, editions, collection=collection, runtime=runtime, download=download)
     _write_contents(output, editions, collection=collection)
     from .citation_pages import build_citation_pages

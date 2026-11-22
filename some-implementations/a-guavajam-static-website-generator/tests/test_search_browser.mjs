@@ -69,8 +69,8 @@ try {
           parityDownloads.push(request.url());
       });
       await parityPage.goto(base + 'sources/work-02/index.html');
-      const latest = new URL(await parityPage.getByRole('link', {name: 'Latest', exact: true}).getAttribute('href'), parityPage.url()).href;
-      const surfaces = [base + 'sources/work-02/editions/index.html',
+      const latest = new URL(await parityPage.locator('#guavajam-static-section .guavajam-editions h3 a').first().getAttribute('href'), parityPage.url()).href;
+      const surfaces = [base + 'sources/work-02/index.html',
         latest.replace('index.html', 'documents.html'), latest.replace('index.html', 'passages.html')];
       const controls = async () => {
         await parityPage.evaluate(async () => {

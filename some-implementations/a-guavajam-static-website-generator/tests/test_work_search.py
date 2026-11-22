@@ -122,11 +122,11 @@ class WorkSearchTests(unittest.TestCase):
         self.assertNotIn('browse/index.html', Links(home).links)
         self.assertIn('editions/' + self.latest + '/read/index.html', Links(home).links)
         self.assertNotIn('editions/' + self.latest + '/metadata.html', Links(home).links)
-        self.assertIn('editions/index.html', Links(home).links)
-        history = (self.site / 'editions/index.html').read_text()
+        self.assertIn('data-static-heading="Versions"', home)
+        history = (self.site / 'index.html').read_text()
         for revision in self.publisher.revisions:
-            self.assertIn(revision + '/metadata.html#provenance', Links(history).links)
-            self.assertIn(revision + '/read/index.html', Links(history).links)
+            self.assertIn('editions/' + revision + '/metadata.html#provenance', Links(history).links)
+            self.assertIn('editions/' + revision + '/read/index.html', Links(history).links)
         self.assertIn("script-src 'none'", home)
         self.assertNotIn('<script', home)
         reader = self.reader(self.latest)
@@ -146,7 +146,7 @@ class WorkSearchTests(unittest.TestCase):
         for name in ('NAV.json', 'documents.html', 'contents.html', 'passages.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])
         site = json.loads((self.site / 'SITE.json').read_text())
-        for name in ('work.sqlite', 'editions/index.html'):
+        for name in ('work.sqlite', 'index.html'):
             self.assertEqual(hashlib.sha256((self.site / name).read_bytes()).hexdigest(), site['files'][name])
 
     def test_work_records_keep_source_order_text_hashes_and_exact_fragment_targets(self):
@@ -321,9 +321,9 @@ class WorkSearchTests(unittest.TestCase):
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM documents').fetchone()[0])
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM passages').fetchone()[0])
             self.assertEqual('index.html', db.execute('SELECT url FROM search_records').fetchone()[0])
-        self.assertIn('No signed editions', (site / 'index.html').read_text())
+        self.assertIn('No published versions.', (site / 'index.html').read_text())
         self.assertFalse((site / 'browse/index.html').exists())
-        self.assertTrue((site / 'editions/index.html').is_file())
+        self.assertTrue((site / 'index.html').is_file())
 
     def test_aggregate_build_shares_one_runtime_across_work_search_pages(self):
         directory = self.root / 'shared-runtime'
@@ -351,10 +351,10 @@ class WorkSearchTests(unittest.TestCase):
             work = output / entry['path']
             with closing(sqlite3.connect(work / 'work.sqlite')) as db:
                 self.assertEqual(entry['repository'], db.execute('SELECT url FROM repositories').fetchone()[0])
-            history = (work / 'editions/index.html').read_text()
-            self.assertIn('data-worker="../../../search-worker.js"', history)
-            self.assertIn('src="../../../search.js"', history)
-            self.assertRegex(history, r'data-database="\.\./work\.[a-f0-9]{64}\.sqlite\.gz"')
+            history = (work / 'index.html').read_text()
+            self.assertIn('data-worker="../../search-worker.js"', history)
+            self.assertIn('src="../../search.js"', history)
+            self.assertRegex(history, r'data-database="work\.[a-f0-9]{64}\.sqlite\.gz"')
             self.assertTrue((work / 'work.sqlite').is_file())
             self.assertFalse((work / 'browse/index.html').exists())
             self.assertIn('data-static-heading="Versions"', history)

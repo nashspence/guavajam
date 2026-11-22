@@ -42,7 +42,6 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = `http://127.0.0.1:${server.address().port}/collection/`;
-const versionsURL = base + fixture.work + 'editions/index.html';
 const documentsURL = base + fixture.work + `editions/${fixture.latest}/read/documents.html`;
 const passagesURL = base + fixture.work + `editions/${fixture.latest}/read/passages.html`;
 const engines = {chromium, firefox, webkit};
@@ -87,10 +86,9 @@ try {
       };
       const runtimeLoads = () => loaded.filter(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)).length;
       await page.goto(base + fixture.work);
-      assert.equal(await page.locator('script').count(), 0);
+      assert.equal(await page.locator('#guavajam-index-search').count(), 1);
       assert.equal((await page.locator('a[href="browse/index.html"]').count()), 0);
-      assert.equal((await page.locator('a[href="editions/index.html"]').count()), 1);
-      await page.goto(versionsURL);
+      assert.equal(await page.locator('.guavajam-navigation h1').textContent(), 'Archive work');
       assert.equal(await page.locator('.guavajam-editions > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Showing static page 1 of 2.');
       assert.equal(runtimeLoads(), 0, 'Opening a directory never initializes SQLite');
