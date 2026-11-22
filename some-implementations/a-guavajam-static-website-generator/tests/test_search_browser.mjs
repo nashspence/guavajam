@@ -203,7 +203,7 @@ try {
           isMobile: true, hasTouch: true, deviceScaleFactor: 3});
         const mobile = await phone.newPage();
         for (const url of [base, ...surfaces]) {
-          await mobile.goto(url);await mobile.locator('#guavajam-index-search > summary').tap();
+          await mobile.goto(url);await mobile.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').tap();
           await mobile.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
             !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
           await fixedPageHorizontalScroll(mobile, {touch: true});
