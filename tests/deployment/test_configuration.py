@@ -38,6 +38,10 @@ class DeploymentConfigurationTests(unittest.TestCase):
         self.assertFalse(preview.get('depends_on'))
         self.assertIn('COPY --from=node /usr/local/bin/node /usr/local/bin/node', self.stages['preview'])
 
+    def test_generation_origin_is_optional_for_public_and_private_views(self):
+        for name in ['updater', 'private-preview']:
+            self.assertEqual('${GUAVAJAM_SITE_ORIGIN:-}', self.services[name]['environment']['GUAVAJAM_SITE_ORIGIN'])
+
     def test_default_view_and_optional_local_storage_have_separate_images(self):
         self.assertEqual({'updater', 'web'}, {
             name for name, service in self.services.items() if not service.get('profiles')

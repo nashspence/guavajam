@@ -20,7 +20,7 @@ class PreviewServiceTests(unittest.TestCase):
                 sock.bind(('127.0.0.1', 0)); port = sock.getsockname()[1]
             env = {'GUAVAJAM_PREVIEW_ORIGIN': 'https://preview.publisher.test', 'GUAVAJAM_PREVIEW_PORT': str(port),
                    'GUAVAJAM_PREVIEW_REPO': str(draft.repo), 'GUAVAJAM_PREVIEW_REF': 'refs/heads/draft',
-                   'GUAVAJAM_PREVIEW_TOKEN_FILE': str(token)}
+                   'GUAVAJAM_PREVIEW_TOKEN_FILE': str(token), 'GUAVAJAM_SITE_ORIGIN': 'https://publication.example'}
             preview = Preview(state, env)
             def request(authenticated=True):
                 headers = {'Host': 'preview.publisher.test'}
@@ -35,9 +35,11 @@ class PreviewServiceTests(unittest.TestCase):
                     self.assertIn(b'Unsigned proposed edition, not issued.', response.read())
                     self.assertEqual('private, no-store', response.getheader('Cache-Control'))
                 with self.assertRaises(urllib.error.HTTPError): urllib.request.urlopen(request(False))
-                draft.source('Field Notes', 'Revised private observation.')
+                draft.source('Field Notes', 'Revised private observation. [Local](https://publication.example/note).')
                 draft.git('add', 'content'); draft.git('commit', '-qm', 'Revise private draft')
                 self.assertEqual('updated', preview.refresh()); self.assertNotEqual(first, preview.revision)
+                from test_site_origin import link_icons
+                self.assertFalse(link_icons((preview.output / 'index.html').read_text())['https://publication.example/note'])
                 self.assertFalse(old_output.exists())
                 (draft.repo / 'content/manuscript.md').write_text('Invalid manuscript')
                 draft.git('add', 'content'); draft.git('commit', '-qm', 'Invalid candidate')

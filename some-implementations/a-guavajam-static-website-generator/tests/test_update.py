@@ -43,6 +43,25 @@ class PeriodicUpdateTests(unittest.TestCase):
         self.assertTrue((self.output / 'current/editions' / self.revision / 'read/source.gfm').is_file())
         self.assertTrue((self.output / 'current/editions' / sha / 'read/source.gfm').is_file())
 
+    def test_origin_change_rebuilds_cached_views_and_equivalent_origin_is_a_noop(self):
+        from test_site_origin import link_icons
+        revision = self.revise('[Local](https://publication.example/work).')
+        self.update(site_origin='https://publication.example')
+        read = self.output / 'current/editions' / revision / 'read'
+        source = (read / 'source.gfm').read_bytes()
+        citation = (read / 'source.citation.json').read_bytes()
+        self.assertFalse(link_icons((read / 'index.html').read_text())['https://publication.example/work'])
+        selected = self.selected()
+        self.assertTrue(self.update(site_origin='https://other.example')['changed'])
+        self.assertNotEqual(selected, self.selected())
+        self.assertTrue(link_icons((read / 'index.html').read_text())['https://publication.example/work'])
+        self.assertFalse(self.update(site_origin='https://OTHER.example:443/')['changed'])
+        self.assertEqual(source, (read / 'source.gfm').read_bytes())
+        self.assertEqual(citation, (read / 'source.citation.json').read_bytes())
+        selected = self.selected()
+        with self.assertRaises(ValueError): self.update(site_origin='https://user@other.example')
+        self.assertEqual(selected, self.selected())
+
     def test_housekeeping_advances_checkpoint_without_new_edition_or_render(self):
         self.update()
         (self.p.repo / 'README.md').write_text('Changed tooling notes.\n')

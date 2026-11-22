@@ -18,7 +18,7 @@ from urllib.parse import unquote, urlsplit
 
 from guavajam.media import asset, declarations, MediaError, SLUG
 from guavajam.source_ast import walk
-from .icons import finish_html, link_mime
+from .icons import finish_html, link_mime, normalize_site_origin
 
 READER = 'gfm+raw_html+tex_math_dollars+yaml_metadata_block'
 REV = re.compile(r'[0-9a-f]{40}\Z')
@@ -208,7 +208,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
     return ast,items,anchors,front,navigation
 
 
-def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, details=None, navigation=''):
+def _html(*, title, language, revision_sha, path, body, css, origin, preview, facts=None, details=None, navigation='', site_origin=None):
     if not re.fullmatch(r'[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*', language):
         language = 'en'
     if preview:
@@ -259,7 +259,7 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             '\n</article></main><footer>'+rights+'<p>' +
             ('The committed Git revision identifies the draft source. ' if preview
              else 'The Git revision is the edition identity. ') +
-            'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n')
+            'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n', site_origin=site_origin)
 
 
 def _raw_git_list(repo, sha, prefix):
@@ -269,7 +269,8 @@ def _raw_git_list(repo, sha, prefix):
     return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
 
 
-def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False):
+def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False, site_origin=None):
+    site_origin = normalize_site_origin(site_origin)
     if not process(['pandoc','--version']).startswith(b'pandoc 3.12.1\n'):raise RenderError('Pandoc 3.12.1 is required')
     repo = Path(repo).resolve(); revision(repo, sha)
     manuscript = 'content/manuscript.md'
@@ -339,7 +340,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
         from .navigation import reader_navigation
         all_files[dest] = _html(title=title, language=language, revision_sha=sha,
                                 path=path, body=body, css=css, origin=origin, preview=preview, facts=manuscript_facts, details=documents[path],
-                                navigation=reader_navigation(path))
+                                navigation=reader_navigation(path), site_origin=site_origin)
         from .citation_routes import source_download
         from guavajam.catalog import encoded
         from guavajam.publication_commit import citation
@@ -356,7 +357,7 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
     navigation_bytes = encoded(navigation)
     all_files['documents.html'] = _html(title='Documents in this edition',language='en',revision_sha=sha,
         path='',body='<h1>Documents in this edition</h1>' + document_directory(navigation),
-        css=css,origin=origin,preview=preview,
+        css=css,origin=origin,preview=preview,site_origin=site_origin,
         navigation='<nav class="guavajam-document-nav" aria-label="Edition documents"><a href="index.html">Manuscript</a></nav>')
     output.mkdir(parents=True, exist_ok=True)
     for name, html in all_files.items():
@@ -405,6 +406,7 @@ def main(argv=None):
     p.add_argument('--repo',required=True, type=Path)
     p.add_argument('--revision',required=True)
     p.add_argument('--output',required=True,type=Path)
+    p.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     trust=p.add_mutually_exclusive_group(required=True)
     trust.add_argument('--trusted-gpg-fingerprint',action='append',default=[])
     trust.add_argument('--ssh-allowed-signers',type=Path)
@@ -413,7 +415,7 @@ def main(argv=None):
     try:
         number=render(args.repo,args.revision,args.output,
                       fingerprints=args.trusted_gpg_fingerprint,allowed_signers=args.ssh_allowed_signers,
-                      preview=args.unsigned_preview)
+                      preview=args.unsigned_preview, site_origin=args.site_origin)
     except (RenderError,MediaError,OSError,UnicodeError,ValueError) as exc:
         print('GuavaJam rendering failed: '+str(exc),file=sys.stderr);return 1
     print(f'Wrote {number} source document view(s) and their navigation; Git revision remains the canonical edition.')

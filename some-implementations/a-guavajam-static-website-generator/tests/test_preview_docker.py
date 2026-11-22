@@ -25,13 +25,14 @@ class DockerPreviewTests(unittest.TestCase):
                  patch('a_guavajam_static_website_generator.preview_docker.image',return_value=('preview@sha256:'+'a'*64,None)),\
                  patch('a_guavajam_static_website_generator.preview_docker.source_ref',return_value='refs/heads/work/notes'),\
                  patch('a_guavajam_static_website_generator.preview_docker.subprocess.run', side_effect=invoked):
-                self.assertEqual(0,run(repo,port=8082))
+                self.assertEqual(0,run(repo,port=8082,site_origin='https://publication.example'))
             args=' '.join(snapshot)
             self.assertIn('127.0.0.1:8082:8080',args)
             self.assertIn('refs/heads/work/notes',args)
             self.assertNotIn('GUAVAJAM_PREVIEW_WORK=',args)
             self.assertNotIn('GUAVAJAM_PREVIEW_PUBLISHED=',args)
             self.assertIn('GUAVAJAM_PREVIEW_ORIGIN=http://127.0.0.1:8082',args)
+            self.assertIn('GUAVAJAM_SITE_ORIGIN=https://publication.example',args)
             self.assertIn('src='+str(repo)+',dst=/source,readonly',args)
             self.assertIn('src='+str(reader)+',dst=/run/secrets/readonly.env,readonly',args)
             self.assertNotIn('/trust/allowed_signers',args)

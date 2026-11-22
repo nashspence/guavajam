@@ -35,7 +35,8 @@ class ServiceError(ValueError):
 def poll(state, environ):
     from .index import update_index
     try:
-        return update_index(environ['GUAVAJAM_INDEX_URL'], environ['GUAVAJAM_TRUST_FILE'], state / 'site')
+        return update_index(environ['GUAVAJAM_INDEX_URL'], environ['GUAVAJAM_TRUST_FILE'], state / 'site',
+                            site_origin=environ.get('GUAVAJAM_SITE_ORIGIN') or None)
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         raise ServiceError('collection') from None
 

@@ -22,6 +22,7 @@ import uuid
 from guavajam.catalog import CatalogError, encoded, read_catalog
 from guavajam.publication_protocol import ancestor, discover, resolve, run
 from .site import build_site
+from .icons import normalize_site_origin
 from .search_index import runtime_identity
 
 MARKER = 'guavajam.periodic-root.v1\n'
@@ -183,7 +184,8 @@ def verify_public_delivery(repo, catalog, *, previous=None, fingerprints=(), all
 
 
 def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='origin',
-           no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False):
+           no_fetch=False, fingerprints=(), allowed_signers=None, rebuild=False, site_origin=None):
+    site_origin = normalize_site_origin(site_origin)
     repo = Path(repo).expanduser().resolve(strict=True)
     with locked_root(output, repo) as root:
         if root is None:
@@ -205,7 +207,7 @@ def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='o
         trusted = trust_identity(fingerprints, allowed_signers)
         catalog_hash = digest(encoded(catalog))
         identity = digest(encoded({'catalog': catalog_hash, 'renderer': renderer, 'trust': trusted,
-                                   'search': runtime_identity()}))
+                                   'search': runtime_identity(), 'site_origin': site_origin}))
         last_record = {'source_tip': tip, 'identity': identity}
         if receipt and receipt.get('identity') == identity and not rebuild:
             atomic(last, encoded(last_record))
@@ -227,11 +229,11 @@ def update(repo, output=Path('.build/site'), *, ref='refs/heads/main', remote='o
             temporary = Path(temporary)
             staged = temporary / 'generation'; staged.mkdir()
             build_site(repo, staged / 'site', ref=tip, fingerprints=fingerprints,
-                       allowed_signers=allowed_signers, previous=previous, view_cache=cache)
+                       allowed_signers=allowed_signers, previous=previous, view_cache=cache, site_origin=site_origin)
             state = {'schema': 'guavajam.update.v1', 'public_delivery_verified': True, 'source_tip': tip, 'identity': identity,
                      'catalog_sha256': catalog_hash, 'renderer': renderer, 'trust_sha256': trusted,
                      'publications': evidence['publications'],
-                     'cache_namespace': namespace}
+                     'cache_namespace': namespace, 'site_origin': site_origin}
             (staged / 'STATE.json').write_bytes(encoded(state))
             # Flush completed files before the sole public switch point.
             for saved in staged.rglob('*'):
@@ -259,6 +261,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, required=True)
     parser.add_argument('--output', type=Path, default=Path('.build/site'))
+    parser.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     parser.add_argument('--ref', default='refs/heads/main')
     parser.add_argument('--remote', default='origin')
     parser.add_argument('--no-fetch', action='store_true', help='read the selected local branch, e.g. an independently refreshed mirror')
@@ -277,7 +280,7 @@ def main(argv=None):
     try:
         result = update(args.repo, args.output, ref=args.ref, remote=args.remote, no_fetch=args.no_fetch,
                         fingerprints=args.trusted_gpg_fingerprint, allowed_signers=args.ssh_allowed_signers,
-                        rebuild=args.rebuild)
+                        rebuild=args.rebuild, site_origin=args.site_origin)
     except (OSError, ValueError, KeyError) as exc:
         print('GuavaJam update failed; no partial generation is selected. Inspect current before retrying: ' + str(exc), file=sys.stderr)
         return 1

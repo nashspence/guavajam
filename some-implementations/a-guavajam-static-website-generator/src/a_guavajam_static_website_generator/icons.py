@@ -61,6 +61,25 @@ def download_icon(mime):
     return 'file-down'
 
 
+def normalize_site_origin(value):
+    """Accept an operator-selected HTTP(S) origin, never infer one from source."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 for c in value) or '\\' in value:
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+    parsed = urlsplit(value)
+    if (parsed.scheme not in {'http', 'https'} or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path not in {'', '/'} or parsed.query or parsed.fragment):
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+    host = parsed.hostname.encode('idna').decode('ascii')
+    host = '[' + host + ']' if ':' in host else host
+    port = parsed.port
+    if port is not None and port != (443 if parsed.scheme == 'https' else 80):
+        host += ':' + str(port)
+    return parsed.scheme + '://' + host
+
+
 def finish_html(html, *, site_origin=None):
     """Decorate complete HTML by inserting at parsed offsets, preserving source bytes.
 
@@ -69,9 +88,8 @@ def finish_html(html, *, site_origin=None):
     HTTP(S) links retain their existing external marker. Declared download
     types take precedence over known suffixes.
     """
+    site_origin = normalize_site_origin(site_origin)
     origin = urlsplit(site_origin) if site_origin is not None else None
-    if site_origin is not None and (origin.scheme not in {'http', 'https'} or not origin.hostname):
-        raise ValueError('site origin must be an absolute HTTP(S) URL')
 
     def external_http(target):
         if target.scheme not in {'http', 'https'} and not target.netloc:
@@ -84,7 +102,8 @@ def finish_html(html, *, site_origin=None):
             origin_port = origin.port if origin.port is not None else (443 if origin.scheme == 'https' else 80)
         except ValueError:
             return True
-        return (scheme, target.hostname, port) != (origin.scheme, origin.hostname, origin_port)
+        host = target.hostname.encode('idna').decode('ascii') if target.hostname else None
+        return (scheme, host, port) != (origin.scheme, origin.hostname, origin_port)
 
     offsets = [0, *(i + 1 for i, char in enumerate(html) if char == '\n')]
     edits = []

@@ -9,6 +9,7 @@ import tempfile
 
 from guavajam.catalog import CatalogError, encoded
 from .renderer import render
+from .icons import normalize_site_origin
 
 
 def inventory(directory):
@@ -21,20 +22,21 @@ def inventory(directory):
     return files
 
 
-def cached_render(cache, repo, sha, output, *, fingerprints=(), allowed_signers=None):
+def cached_render(cache, repo, sha, output, *, fingerprints=(), allowed_signers=None, site_origin=None):
     # Caller verifies signatures EVERY run and namespaces this cache by renderer,
     # toolchain and external trust. Never deserialize Python objects from it.
+    site_origin = normalize_site_origin(site_origin)
     cache = Path(cache)
     if cache.resolve() != cache.absolute():
         raise CatalogError('cache namespace must not traverse a symlink')
     cache.mkdir(parents=True, exist_ok=True, mode=0o700)
-    target = cache / sha
+    target = cache / hashlib.sha256(encoded({'revision': sha, 'site_origin': site_origin})).hexdigest()
     if target.is_symlink():
         raise CatalogError('view cache entry must not be a symlink')
     if not target.exists():
         with tempfile.TemporaryDirectory(prefix='.view-', dir=cache) as temporary:
             view = Path(temporary) / 'view'
-            render(repo, sha, view, fingerprints=fingerprints, allowed_signers=allowed_signers)
+            render(repo, sha, view, fingerprints=fingerprints, allowed_signers=allowed_signers, site_origin=site_origin)
             (view / 'CACHE.json').write_bytes(encoded(inventory(view)))
             view.rename(target)
     try:

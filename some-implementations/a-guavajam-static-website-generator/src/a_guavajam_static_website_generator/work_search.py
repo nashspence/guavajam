@@ -12,7 +12,7 @@ from .search_index import create_index, emit_browser_assets
 
 
 def publication_navigation(reader, view, revision, *, work_title, edition_number,
-                           published="", in_collection=False):
+                           published="", in_collection=False, site_origin=None):
     """Site-owned readers get an unobtrusive breadcrumb and exact Git citation.
 
     No source content or reusable render-cache copy is changed. Generated
@@ -125,7 +125,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
         if replaced != 1:
             raise CatalogError('work navigation: expected one renderer footer')
         from .icons import finish_html
-        text = finish_html(text)
+        text = finish_html(text, site_origin=site_origin)
         path.write_text(text, encoding='utf-8')
         view['files'][relative] = hashlib.sha256(text.encode('utf-8')).hexdigest()
     (reader / 'VIEW.json').write_bytes(encoded(view))

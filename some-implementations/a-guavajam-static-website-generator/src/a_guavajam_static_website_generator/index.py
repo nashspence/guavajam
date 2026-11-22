@@ -182,12 +182,14 @@ def retained(root):
     return receipt
 
 
-def update_index(index, trust_file, output):
+def update_index(index, trust_file, output, *, site_origin=None):
     """Switch the whole collection only after every selected source verifies.
 
     Baselines survive removal from the public directory, so adding a repository
     again cannot erase its previously observed publication history.
     """
+    from .icons import normalize_site_origin
+    site_origin = normalize_site_origin(site_origin)
     urls = read_index(index)
     policies = read_trust(trust_file)
     if any(url not in policies for url in urls):
@@ -207,7 +209,7 @@ def update_index(index, trust_file, output):
                 trusted = trust_identity(policy.get('fingerprints', ()), policy.get('allowed_signers'))
                 sources.append((url, repo, catalog, trusted))
         identity = digest(encoded({'index': urls, 'search': runtime_identity(), 'catalogs': {u: c for u, _, c, _ in sources},
-                                   'renderer': renderer, 'trust': {u: t for u, _, _, t in sources}}))
+                                   'renderer': renderer, 'trust': {u: t for u, _, _, t in sources}, 'site_origin': site_origin}))
         if old and old['identity'] == identity:
             return {'status': 'unchanged', 'changed': False, 'repositories': len(urls)}
         generation = uuid.uuid4().hex
@@ -222,12 +224,12 @@ def update_index(index, trust_file, output):
                     verify_public_delivery(repo, catalog, previous=catalogs.get(url), **policy)
                     manifest = build_site(repo, site / 'sources' / identifier, ref=catalog['tip'],
                                           previous=catalogs.get(url), **policy,
-                                          repository=url, search_assets='../../' if interactive else '',
+                                          repository=url, search_assets='../../' if interactive else '', site_origin=site_origin,
                                           view_cache=root / '.cache' / digest((renderer + trusted + identifier).encode()))
                 catalogs[url] = catalog
                 entries.append({'repository': url, 'path': 'sources/' + identifier, 'tip': catalog['tip']})
             create_index(site, entries)
-            (site / 'index.html').write_text(homepage(site, interactive=interactive), encoding='utf-8')
+            (site / 'index.html').write_text(homepage(site, interactive=interactive, site_origin=site_origin), encoding='utf-8')
             public = {'schema': 'guavajam.index-view.v1', 'repositories': entries}
             (site / 'INDEX.json').write_bytes(encoded(public))
             receipt = {'schema': 'guavajam.index-state.v1', 'identity': identity, 'catalogs': catalogs,
@@ -257,12 +259,14 @@ def update_index(index, trust_file, output):
         return {'status': 'updated', 'changed': True, 'repositories': len(urls), 'site': str(root / 'current')}
 
 
-def build_pages(index, trust_file, output, previous_state, state_output):
+def build_pages(index, trust_file, output, previous_state, state_output, *, site_origin=None):
     """Produce static Pages files plus a separately retained history checkpoint.
 
     No publisher code, Makefile, hooks, source program or working tree is run.
     The output directory must be new and the checkpoint must be outside it.
     """
+    from .icons import normalize_site_origin
+    site_origin = normalize_site_origin(site_origin)
     urls = read_index(index)
     policies = read_trust(trust_file)
     if any(url not in policies for url in urls):
@@ -299,11 +303,11 @@ def build_pages(index, trust_file, output, previous_state, state_output):
                 verify_public_delivery(repo, catalog, previous=prior, **policy)
                 path = 'sources/' + digest(url.encode())
                 manifest = build_site(repo, staging / path, ref=catalog['tip'], previous=prior, **policy,
-                                      repository=url, search_assets='../../' if interactive else '')
+                                      repository=url, search_assets='../../' if interactive else '', site_origin=site_origin)
             next_catalogs[url] = catalog
             entries.append({'repository': url, 'path': path, 'tip': catalog['tip']})
         create_index(staging, entries)
-        (staging / 'index.html').write_text(homepage(staging, interactive=interactive), encoding='utf-8')
+        (staging / 'index.html').write_text(homepage(staging, interactive=interactive, site_origin=site_origin), encoding='utf-8')
         (staging / 'INDEX.json').write_bytes(encoded({'schema': 'guavajam.index-view.v1', 'repositories': entries}))
         next_state = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': next_catalogs}
         state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -316,7 +320,9 @@ def build_pages(index, trust_file, output, previous_state, state_output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    from .icons import normalize_site_origin
     parser.add_argument('--index', required=True)
+    parser.add_argument('--site-origin', type=normalize_site_origin, help='Optional deployed HTTP(S) origin for link classification')
     parser.add_argument('--trust', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--pages', action='store_true', help='Build a static GitHub Pages artifact')
@@ -328,8 +334,8 @@ def main(argv=None):
     if not args.pages and (args.previous_state or args.state_output):
         parser.error('checkpoint arguments require --pages')
     try:
-        result = (build_pages(args.index, args.trust, args.output, args.previous_state, args.state_output)
-                  if args.pages else update_index(args.index, args.trust, args.output))
+        result = (build_pages(args.index, args.trust, args.output, args.previous_state, args.state_output, site_origin=args.site_origin)
+                  if args.pages else update_index(args.index, args.trust, args.output, site_origin=args.site_origin))
         print(json.dumps(result, sort_keys=True))
     except (ValueError, OSError, subprocess.SubprocessError) as exc:
         print('Collection update failed: ' + str(exc), file=sys.stderr)

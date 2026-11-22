@@ -460,7 +460,7 @@ def _facets(keywords, subjects):
             ''.join(chips) + '</p>')
 
 
-def homepage(site, *, interactive):
+def homepage(site, *, interactive, site_origin=None):
     """Emit a bounded static works directory, enhanced by the existing SQLite UI.
 
     Each index page contains at most PAGE_SIZE works. The other pages are real
@@ -562,7 +562,7 @@ def homepage(site, *, interactive):
             # A collection spans Git repositories and cannot have one canonical
             # publication-commit citation.
             html = page('GuavaJam' if number == 1 else f'GuavaJam — page {number}',
-                        body, search=interactive, breadcrumb_current='GuavaJam')
+                        body, search=interactive, breadcrumb_current='GuavaJam', site_origin=site_origin)
             if number == 1:
                 first_html = html
             else:

@@ -302,7 +302,7 @@ try {
         has: page.getByRole('link', {name: 'Work 01', exact: true})});
       assert.equal(await titleHit.count(), 1);
       assert.equal((await titleHit.locator('h3 mark').allTextContents()).join(' '), 'Work 01');
-      assert.equal(await titleHit.locator('h3').textContent(), 'Work 01');
+      assert.equal(await titleHit.locator('h3 > a:first-child').textContent(), 'Work 01');
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
       await query('', fixture.works);
