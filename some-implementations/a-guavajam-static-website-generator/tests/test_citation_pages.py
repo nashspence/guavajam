@@ -140,7 +140,7 @@ class CitationPageTests(unittest.TestCase):
         html = (self.read / 'passages/page/3.html').read_text()
         self.assertIn('data-directory="citations"', html)
         self.assertIn('id="guavajam-index-search" hidden', html)
-        self.assertIn('Indexed Search <span class="guavajam-index-size"', html)
+        self.assertIn('Search <span class="guavajam-index-size"', html)
         self.assertNotIn('Enable search', html)
         self.assertIn('data-static-heading="Passages">Passages</h2>', html)
         self.assertIn('Showing static page 3 of 3.', html)

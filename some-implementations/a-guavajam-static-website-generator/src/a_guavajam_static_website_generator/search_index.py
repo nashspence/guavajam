@@ -505,10 +505,11 @@ def homepage(site, *, interactive, site_origin=None):
                 work = base + path + '/'
                 target = (work + 'editions/' + revision + '/read/index.html') if revision else work + 'index.html'
                 byline = escape(authors) if authors else ''
-                if day:
-                    byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
+                date = ('<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>') if day else ''
+                byline += (' · ' if byline and date else '') + '<span class="guavajam-work-date">' + date + \
+                    detail_link(work + 'index.html', title + ' work page') + '</span>'
                 entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
-                               escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
+                               escape(title) + '</a>' +
                                '</h3>' +
                                ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work authors and date">' + byline + '</p>' if byline else '') +
                                _facets(tags[work_id], subjects[work_id]) +

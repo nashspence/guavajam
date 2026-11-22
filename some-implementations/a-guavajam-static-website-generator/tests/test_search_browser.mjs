@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
+import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, listControlLayout, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_search_browser.py');
@@ -188,6 +188,11 @@ try {
           !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
         assertRowStyle(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
           `${name}: SQLite Works row parity at ${url}`);
+        for (const width of [320,390,760,1280]) {
+          await parityPage.setViewportSize({width, height:900});
+          await listControlLayout(parityPage);
+        }
+        await parityPage.setViewportSize({width:390,height:900});
         await contain();
       }
       await parityContext.close();

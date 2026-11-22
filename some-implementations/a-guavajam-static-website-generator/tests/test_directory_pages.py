@@ -82,14 +82,14 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('guavajam-icon-search', markup)
             self.assertIn('guavajam-icon-sliders-horizontal', markup)
             self.assertIn('class="guavajam-index-search guavajam-directory-enhancement"', markup)
-            self.assertIn('Indexed Search <span class="guavajam-index-size"', markup)
+            self.assertIn('Search <span class="guavajam-index-size"', markup)
             self.assertNotIn('Enable search', markup)
             self.assertNotIn('data-lazy=', markup)
             self.assertIn('<summary><svg class="guavajam-icon guavajam-icon-sliders-horizontal"', markup)
             self.assertIn('name="edition" value="all"', markup)
             self.assertIn('data-worker="../../search-worker.js"' if number == 1
                           else 'data-worker="../../../search-worker.js"', markup)
-            # Simple labels, reading-first links, textual verification and messages.
+            # Simple labels, reading-first links, metadata controls and messages.
             rows = re.findall(r'<li><article><h3[^>]*><a [^>]*>(v\d+)</a>', markup)
             self.assertEqual(20 if number == 1 else 7, len(rows))
             self.assertLessEqual(len(rows), PAGE_SIZE)
@@ -101,8 +101,8 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn(f'Showing static page {number} of 2.', markup)
             self.assertIn('id="guavajam-search-spinner"', markup)
             self.assertNotIn('Verified versions, newest first', markup)
-            self.assertIn('>Metadata</a>', markup)
-            self.assertNotIn('<a class="guavajam-record-link"', markup)
+            self.assertEqual(len(rows), markup.count('class="guavajam-record-link"'))
+            self.assertEqual(len(rows), ''.join(re.findall(r'<li><article>.*?</article></li>', markup, re.S)).count('guavajam-icon-fallback">Metadata</span>'))
 
             self.assertNotIn('listing.js', markup)
         self.assertEqual([f'v{n}' for n in range(27, 0, -1)], old)

@@ -18,7 +18,7 @@ from .navigation import document_directory
 from .icons import icon, link_icon
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .search_artifact import download_attributes, emit_download
-from .site import page
+from .site import detail_link, page
 
 
 def search_progress(identifier):
@@ -31,7 +31,7 @@ def search_summary(download):
     """Native disclosure is the sole entry point to the optional SQLite index."""
     kib = (download['transfer_size'] + 1023) // 1024
     return ('<summary class="guavajam-search-summary">' + icon('search') +
-            'Indexed Search <span class="guavajam-index-size" '
+            'Search <span class="guavajam-index-size" '
             'aria-label="Index download size: ' + str(kib) + ' KiB">(' + str(kib) +
             ' KiB)</span>' + search_progress('guavajam-search-spinner') + '</summary>')
 
@@ -119,9 +119,9 @@ def _history_row(edition, *, links_prefix):
             '">' + escape(label) + '</a>' +
             '</h3><p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Version date and source"><time datetime="' + escape(date, quote=True) +
             '">' + escape(date) + '</time> · <code title="' + escape(revision, quote=True) +
-            '">' + escape(revision[:12]) + '</code> · <a href="' +
-            escape(links_prefix + revision + '/metadata.html#provenance', quote=True) +
-            '">Metadata</a></p>' +
+            '">' + escape(revision[:12]) + '</code>' +
+            detail_link(links_prefix + revision + '/metadata.html#provenance', 'Metadata for ' + label,
+                        icon_name='info', fallback='Metadata') + '</p>' +
             '<p class="guavajam-message">' + escape(subject) + '</p>')
     if details.strip():
         html += ('<details class="guavajam-message-detail"><summary>Full commit message</summary>'
