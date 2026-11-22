@@ -56,6 +56,18 @@ export async function navigationCues(page) {
       return !a.contains(text) && getComputedStyle(text).color===getComputedStyle(document.body).color;
     }),'only the leading icon links; adjacent text uses normal foreground');
   }
+  for (const facet of await page.locator('.guavajam-facet:visible').all()) {
+    assert(await facet.evaluate(n=>{
+      const type=n.querySelector('.guavajam-facet-type'), button=n.querySelector('button'), value=n.querySelector('.guavajam-facet-value');
+      const ink=getComputedStyle(document.body).color;
+      return button ? ['Tag','Subject'].includes(button.textContent.trim()) && !button.contains(value) &&
+        getComputedStyle(value).color===ink : getComputedStyle(type).color===ink;
+    }),'active facets filter through TAG/SUBJECT alone; inactive facets and values use normal foreground');
+  }
+  for (const heading of await page.locator('.guavajam-edition :is(h2,h3,h4,h5,h6)[id]').all()) {
+    if (await heading.locator(':scope > .guavajam-permalink').count())
+      assert(await heading.evaluate(n=>n.firstElementChild.matches('.guavajam-permalink')),'heading permalinks precede their plain text');
+  }
   for (const control of await page.locator('#guavajam-search-prev:visible,#guavajam-search-next:visible').all()) {
     assert(await control.evaluate(n=>getComputedStyle(n).borderWidth==='0px'&&parseFloat(getComputedStyle(n).padding)===0),
       'search paging arrows have no button border or text-sized padding');

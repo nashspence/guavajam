@@ -131,7 +131,7 @@ def finish_html(html, *, site_origin=None):
                 edits.append((start, start + len(self.get_starttag_text()), '<h3' + attributes(attrs) + '>'))
             if tag == 'a':
                 nav = any(t == 'nav' and set(a.get('class', '').split()) &
-                          {'guavajam-navigation', 'guavajam-version-menu'} for t, a in self.stack)
+                          {'guavajam-navigation', 'guavajam-version-menu', 'guavajam-contents'} for t, a in self.stack)
                 heading = any(t in {'h1','h2','h3','h4','h5','h6'} for t, _ in self.stack)
                 self.anchor = (start, start + len(self.get_starttag_text()), attrs, nav, heading)
             if tag not in void: self.stack.append((tag, attrs))
