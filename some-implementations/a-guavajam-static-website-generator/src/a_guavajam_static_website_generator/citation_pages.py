@@ -123,12 +123,12 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
             if download is not None:
                 body += _sqlite_controls(kind='citations', edition=revision,
                                          root=root, runtime=runtime, download=download)
-            body += search_listing_open('Passages', number, len(chunks), interactive=download is not None, result_class='guavajam-citation-list')
+            body += search_listing_open('Passages', len(records), interactive=download is not None, result_class='guavajam-citation-list')
             body += '<section id="guavajam-static-section" class="guavajam-directory">'
             pager = _static_pager(number, len(chunks), first_href=relative(citation_page()),
                                   page_prefix=relative('passages/page') + '/')
             if chunk:
-                body += pager + '<ol class="guavajam-citation-list guavajam-record-list">'
+                body += '<ol class="guavajam-citation-list guavajam-record-list">'
                 for source, document, record in chunk:
                     anchor = record['anchor']
                     reader = document['view']
@@ -143,10 +143,10 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
                              citation_control(cited, relative(json_file), title=title, authors=authors,
                                               published=published, edition_number=position,
                                               document_title=document_title) + '</article></li>')
-                body += '</ol>' + pager
+                body += '</ol>'
             else:
                 body += '<p>No individually citable passages were declared.</p>'
-            body += '</section>' + search_listing_close(interactive=download is not None)
+            body += pager + '</section>' + search_listing_close(interactive=download is not None)
             html = page(title + ' — Passages' + (f' — page {number}' if number > 1 else ''),
                         body, search=download is not None, ancestors=ancestors,
                         breadcrumb_current='Passages', site_origin=site_origin)

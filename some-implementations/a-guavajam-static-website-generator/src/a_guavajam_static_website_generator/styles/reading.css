@@ -416,6 +416,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
 @media (forced-colors: active) {
   :root {
     --guavajam-link: LinkText; --guavajam-link-hover: ActiveText;
+    --guavajam-muted: GrayText;
     --guavajam-focus: Highlight;
   }
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {

@@ -16,7 +16,7 @@ from guavajam.catalog import encoded
 
 from .navigation import document_directory
 from .icons import icon, link_icon
-from .pagination import PAGE_SIZE, _slices, _static_pager
+from .pagination import PAGE_SIZE, _slices, _static_pager, page_control
 from .search_artifact import download_attributes, emit_download
 from .site import detail_link, page
 
@@ -50,14 +50,14 @@ def search_submit():
             'role="status" aria-live="polite"></span></div>')
 
 
-def search_listing_open(title, number, pages, *, interactive, result_class='guavajam-editions'):
+def search_listing_open(title, total, *, interactive, result_class='guavajam-editions'):
     """Every static directory starts with the same handoff state as Works."""
     body = ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
             '<div class="guavajam-list-header guavajam-scrollline" tabindex="0" aria-label="List heading and status">'
             '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
             'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>'
             '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-            'Page ' + str(number) + ' of ' + str(pages) + '</p></div>')
+            + str(total) + ' total</p></div>')
     if interactive:
         body += '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>'
     if interactive and title == 'Passages':
@@ -70,12 +70,10 @@ def search_listing_open(title, number, pages, *, interactive, result_class='guav
 def search_listing_close(*, interactive):
     body = ''
     if interactive:
-        body += ('<nav class="guavajam-pagination" aria-label="Search result pages" hidden>'
-                 '<button type="button" id="guavajam-search-prev" aria-label="Previous page" title="Previous page" disabled>' +
-                 link_icon('arrow-left', 'Previous') + '</button>'
-                 '<span id="guavajam-search-page"></span>'
-                 '<button type="button" id="guavajam-search-next" aria-label="Next page" title="Next page" disabled>' +
-                 link_icon('arrow-right', 'Next') + '</button></nav>')
+        body += ('<nav class="guavajam-pagination" aria-label="List pages" hidden>' +
+                 page_control('prev', identifier='guavajam-search-prev') +
+                 '<span class="guavajam-page-label" id="guavajam-search-page"></span>' +
+                 page_control('next', identifier='guavajam-search-next') + '</nav>')
     return body + '</section>'
 
 
@@ -152,7 +150,7 @@ def _write_work(output, entries, title, *, collection, runtime, download, site_o
         if download is not None:
             body += _sqlite_controls(kind='editions', edition='all', root=root,
                                      runtime=runtime, download=download)
-        body += search_listing_open('Versions', number, len(chunks), interactive=download is not None)
+        body += search_listing_open('Versions', len(entries), interactive=download is not None)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions guavajam-record-list">' +
                  ''.join(_history_row(item, links_prefix=root + 'editions/') for item in chunk) +
@@ -173,8 +171,9 @@ def _write_documents(output, entries, *, collection, runtime, download, site_ori
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
-        chunks = _slices((path, doc) for path, doc in navigation['documents'].items()
-                         if path != 'content/manuscript.md')
+        documents = [(path, doc) for path, doc in navigation['documents'].items()
+                     if path != 'content/manuscript.md']
+        chunks = _slices(documents)
         title = view['facts']['title']
         for number, chunk in enumerate(chunks, 1):
             first = number == 1
@@ -188,7 +187,7 @@ def _write_documents(output, entries, *, collection, runtime, download, site_ori
             if download is not None:
                 body += _sqlite_controls(kind='documents', edition=revision, root=root,
                                          runtime=runtime, download=download)
-            body += search_listing_open('Documents', number, len(chunks), interactive=download is not None)
+            body += search_listing_open('Documents', len(documents), interactive=download is not None)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
                      document_directory({'documents': dict(chunk)}, prefix=read_root,
                                         headings=True))

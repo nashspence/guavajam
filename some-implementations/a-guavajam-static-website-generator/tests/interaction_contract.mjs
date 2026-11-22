@@ -303,6 +303,11 @@ export async function listControlLayout(page) {
       button.x > input.x + input.width, 'search input and right-hand submit share one centered row');
   }
   for (const pager of await page.locator('.guavajam-pagination:visible').all()) {
+    assert(await pager.evaluate(n=>n.children.length===3 &&
+      n.firstElementChild.getAttribute('aria-label')==='Previous page' &&
+      n.lastElementChild.getAttribute('aria-label')==='Next page' &&
+      /^Page \d+ of \d+$/.test(n.children[1].textContent)),
+      'static and enhanced lists share Previous / Page N of M / Next');
     const centered = await pager.evaluate(n => {
       const bounds = n.getBoundingClientRect(), rows = new Map();
       for (const child of n.children) {
@@ -322,6 +327,11 @@ export async function listControlLayout(page) {
         getComputedStyle(n).overflowX === 'auto' && getComputedStyle(n).whiteSpace === 'nowrap';
     });
     assert(inline, 'list heading and status share one horizontal scroll lane');
+    assert(await header.evaluate(n=>{
+      const heading=n.querySelector('h2'),status=n.querySelector('p');
+      return heading.textContent===heading.dataset.staticHeading && /^\d+ total$/.test(status.textContent);
+    }),'list identity stays stable; its adjacent status reports only the current total');
+
   }
   for (const control of await page.locator('.guavajam-pagination a[rel], .guavajam-pagination button').all()) {
     const previous=(await control.getAttribute('rel')) === 'prev' || (await control.getAttribute('id')) === 'guavajam-search-prev';
@@ -352,7 +362,7 @@ export async function listHeadingOverflow(page) {
   const header=page.locator('.guavajam-list-header'), status=header.locator('#guavajam-search-status');
   const saved=await status.textContent();
   try {
-    await status.evaluate(n=>n.textContent='Page '+'9'.repeat(160)+' of '+'9'.repeat(160));
+    await status.evaluate(n=>n.textContent='9'.repeat(320)+' total');
     assert(await header.evaluate(n=>n.scrollWidth > n.clientWidth && getComputedStyle(n).scrollbarWidth === 'none'));
     assert(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
     await header.focus();await header.press('ArrowRight');await page.waitForTimeout(100);

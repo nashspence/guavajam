@@ -452,7 +452,7 @@ def _facets(keywords, subjects):
         return ('<span class="guavajam-facet guavajam-' + ('tag' if kind == 'keyword' else 'subject') +
                 '" data-facet="' + kind + '" data-value="' + escape(key, quote=True) +
                 '"><span class="guavajam-facet-type">' + name + '</span> ' +
-                escape(label) + '</span>')
+                '<span class="guavajam-facet-value">' + escape(label) + '</span></span>')
 
     chips = ([facet('keyword', item, item) for item in keywords] +
              [facet('subject', key, label) for key, label in subjects])
@@ -538,7 +538,7 @@ def homepage(site, *, interactive, site_origin=None):
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
                     '</form></details>')
-            body += search_listing_open('Works', number, pages, interactive=interactive, result_class='guavajam-works')
+            body += search_listing_open('Works', count, interactive=interactive, result_class='guavajam-works')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,

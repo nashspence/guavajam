@@ -40,6 +40,9 @@ if (form) {
   // away, without adding another stop to normal sequential navigation.
   if (worksHeading) worksHeading.tabIndex = -1;
   const staticStatus = summary.textContent;
+  const failure = document.createElement('p');
+  failure.id = 'guavajam-search-message'; failure.className = 'guavajam-search-help';
+  failure.setAttribute('role', 'status'); failure.hidden = true; disclosure.append(failure);
   let worker, ready = false, loading = false, initialized = false, page = 1, sequence = 0, attempts = 0, timer;
   const initial = new URL(document.URL).searchParams;
   if (work) {
@@ -51,6 +54,7 @@ if (form) {
   function settled() {
     spinner.hidden = querySpinner.hidden = true;
     progressStatus.textContent = '';
+    failure.hidden = true;
     form.removeAttribute('aria-busy');
   }
 
@@ -65,7 +69,9 @@ if (form) {
     worker?.terminate();
     demoteStaticFacets();
     if (listing) listing.hidden = false;
-    summary.textContent = directory || !work ?
+    summary.textContent = staticStatus;
+    failure.hidden = false;
+    failure.textContent = directory || !work ?
       'Search is unavailable. The static pages remain accessible; close and reopen Search to retry, or reload.' :
       'Search is unavailable. Retry or reload this page.';
     reload.hidden = false;
@@ -75,7 +81,6 @@ if (form) {
     back.disabled = next.disabled = true;
     pageLabel.textContent = '';
     pagination.hidden = true;
-    if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Works';
     if (lostFocus) disclosureSummary.focus();
     // Closing and reopening the disclosure retries the same worker, with no
     // competing Enable/Retry search buttons or separate query implementation.
@@ -169,7 +174,6 @@ if (form) {
     pagination.hidden = true;
     back.disabled = next.disabled = true;
     summary.textContent = staticStatus;
-    if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Passages';
     entry.focus({preventScroll: true});
     return entry;
   }
@@ -386,10 +390,9 @@ if (form) {
     fallback.hidden = true;
     results.hidden = false;
     const pages = Math.max(1, Math.ceil(total / pageSize));
-    summary.textContent = `${total} result${total === 1 ? '' : 's'}`;
+    summary.textContent = `${total} total`;
     pageLabel.textContent = `Page ${current} of ${pages}`;
     pagination.hidden = false;
-    if (worksHeading) worksHeading.textContent = 'Search results';
     for (const button of results.querySelectorAll('button.guavajam-facet-type')) {
       const selected = button.dataset.facet === 'keyword' ? keyword : subject;
       button.setAttribute('aria-pressed', String(selected?.value === button.dataset.value));
@@ -460,6 +463,7 @@ if (form) {
   function initialize() {
     if (ready || loading) return;
     loading = true;
+    failure.hidden = true;
     reload.hidden = true;
     spinner.hidden = false;
     form.setAttribute('aria-busy', 'true');

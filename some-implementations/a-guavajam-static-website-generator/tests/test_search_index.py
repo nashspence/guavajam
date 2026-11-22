@@ -85,6 +85,7 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('class="guavajam-search-spinner"', page)
         self.assertIn('class="guavajam-index-size"', page)
         self.assertIn('Page 1 of 1', page)
+        self.assertIn('1 total</p>', page)
         self.assertNotIn('Browse independently verified works', page)
         self.assertIn('Search</span> <span class="guavajam-index-size"', page)
         self.assertIn('>Works</h2>', page)

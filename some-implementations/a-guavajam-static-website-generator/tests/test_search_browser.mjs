@@ -54,7 +54,7 @@ try {
       const waitTotal = async total => {
         try {
           await page.waitForFunction(total => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
-            document.querySelector('#guavajam-search-status').textContent === `${total} result${total === 1 ? '' : 's'}`, total);
+            document.querySelector('#guavajam-search-status').textContent === `${total} total`, total);
         } catch (error) {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
         }
@@ -224,7 +224,7 @@ try {
       await recordLinkAlignment(page);
       assert.equal(await page.locator('#guavajam-static-list > li').count(), 20);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
-      assert.equal(await page.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
+      assert.equal(await page.locator('#guavajam-search-status').textContent(), `${fixture.works} total`);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
       assert.equal(await page.locator('.guavajam-index-size').count(), 1);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
@@ -245,7 +245,7 @@ try {
       await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
       await waitTotal(fixture.works);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
-      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Search results');
+      assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
       assert.equal(await page.locator('#guavajam-search-results .guavajam-facet').count() > 0, true);
       const pagedResult = await page.locator('#guavajam-search-results h3 a').first().getAttribute('href');
       assert(pagedResult.startsWith('../sources/'));
@@ -464,14 +464,14 @@ try {
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
         assert.deepEqual(await searchFeedbackGeometry(waiting, true), beforeDownload,
           'the download spinner occupies a stable slot to the right of the label');
-        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), 'Page 1 of 2');
+        assert.equal(await waiting.locator('#guavajam-search-status').textContent(), `${fixture.works} total`);
         assert.equal(await waiting.locator('#guavajam-search-progress-status').textContent(), 'Loading local search…');
         await waiting.locator('#guavajam-static-list h3 a').first().focus();
       } finally {
         releaseDatabase();
       }
       await waiting.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
-        `${total} result${total === 1 ? '' : 's'}`, fixture.works);
+        `${total} total`, fixture.works);
       assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
         'hiding the static list hands its focused link to the new results');
@@ -505,7 +505,7 @@ try {
       assert.equal(await waiting.evaluate(() => document.activeElement === window.guavajamSearchTest.focus), true,
         'a delayed reply never steals focus after the reader tabs back into the query');
       await waiting.locator('input[name=q]').fill('Glaciolacustrine');
-      await waiting.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent === '1 result');
+      await waiting.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent === '1 total');
       assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true,
         'live search does not move focus while the reader is typing');
       await delayed.close();
@@ -544,7 +544,7 @@ try {
         const fallback = await failure.newPage();
         await fallback.goto(base);
         await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
-        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
+        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-list > li').count(), 20);
         await failure.close();
@@ -559,13 +559,13 @@ try {
         form.dataset.database = './index.' + '0'.repeat(64) + '.sqlite.gz';
       });
       await stale.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
-      await stale.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent.includes('unavailable'));
+      await stale.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
       assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
       await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
       if (!await stale.locator('#guavajam-index-search').evaluate(n => n.open))
         await stale.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
-      await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} result${total === 1 ? '' : 's'}`, fixture.works);
+      await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} total`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();
       report.push({engine: name, version: browser.version(), executablePath: executablePath ?? 'Playwright pinned',

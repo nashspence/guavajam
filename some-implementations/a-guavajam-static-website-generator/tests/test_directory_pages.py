@@ -204,9 +204,22 @@ class DirectoryPageTests(unittest.TestCase):
         view = json.loads((read / 'VIEW.json').read_text())
         self.assertEqual(hashlib.sha256(html.encode()).hexdigest(), view['files']['contents.html'])
 
+    def test_static_paging_keeps_both_arrows_and_one_page_label_at_every_boundary(self):
+        from test_icons import Tags
+        for number,count,hrefs,disabled in [
+                (1,1,[],2), (1,3,['page/2.html'],1),
+                (2,3,['index.html','page/3.html'],0), (3,3,['page/2.html'],1)]:
+            with self.subTest(number=number,count=count):
+                html=_static_pager(number,count,first_href='index.html',page_prefix='page/')
+                tags=Tags(html).tags
+                self.assertEqual(hrefs,[attrs['href'] for tag,attrs in tags if tag=='a'])
+                self.assertEqual(disabled,sum(tag=='button' and 'disabled' in attrs for tag,attrs in tags))
+                self.assertIn(f'Page {number} of {count}</span>',html)
+                self.assertEqual(2,sum('guavajam-page-control' in attrs.get('class','') for _,attrs in tags))
+
     def test_pager_never_emits_unbounded_page_link_lists(self):
         nav = _static_pager(2500, 5000, first_href='../index.html', page_prefix='')
-        self.assertLess(nav.count('href='), 10)
+        self.assertEqual(nav.count('href='), 2)
         self.assertIn('Page 2500 of 5000', nav)
         self.assertIn('rel="prev"', nav)
         self.assertIn('rel="next"', nav)
