@@ -67,11 +67,13 @@ export async function hoverControls(page) {
     });
     if (selector === '.guavajam-passage-cite') {
       assert.equal(await target.locator('span').textContent(), 'Cite');
-      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'underline');
+      assert.equal(await target.locator('span').evaluate(n => getComputedStyle(n).textDecorationLine), 'none');
+      assert(await target.evaluate(n => Number(getComputedStyle(n).fontWeight) >= 600));
     }
     const before = await paint(); await target.hover();
     const after = await paint();
-    assert.notDeepEqual(after, before, `Hover has no visible feedback: ${selector}`);
+    assert.notEqual(after[0], before[0], `Hover brightens the foreground: ${selector}`);
+    assert.deepEqual(after.slice(1), before.slice(1), `Hover changes only the foreground: ${selector}`);
     assert(await target.evaluate(n => {
       const b = n.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
       return hit === n || n.contains(hit);
@@ -209,4 +211,57 @@ export async function searchHighlightContrast(page) {
     assert(ratios.cue >= 3, `${colorScheme}: the match cue is distinct from the reading paper`);
   }
   await page.emulateMedia({colorScheme: original});
+}
+
+export async function linkPalette(page) {
+  const original = await page.evaluate(() => ({style: document.documentElement.getAttribute('style'),
+    x: scrollX, y: scrollY, scheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}));
+  await page.evaluate(() => {
+    const link = document.createElement('a');link.href = '#link-color-contract';link.id = 'link-color-contract';
+    link.textContent = 'Readable link';document.body.append(link);
+  });
+  const probe = page.locator('#link-color-contract');
+  try {
+    const native = await page.evaluate(() => getComputedStyle(document.documentElement)
+      .getPropertyValue('--guavajam-accent-source').trim() !== '');
+    for (const colorScheme of ['light', 'dark']) {
+      await page.emulateMedia({colorScheme});
+      for (const accent of native ? [null, '#000', '#fff', '#ff0', '#0f0', '#f00', '#00f', '#f0f'] : [null]) {
+        await page.evaluate(accent => {
+          if (accent) document.documentElement.style.setProperty('--guavajam-accent-source', accent);
+          else document.documentElement.style.removeProperty('--guavajam-accent-source');
+        }, accent);
+        await page.mouse.move(0, 0);
+        const state = () => probe.evaluate(n => {
+          // Canvas resolves CSS system/relative colors to display RGB too.
+          const canvas = document.createElement('canvas');canvas.width = canvas.height = 1;
+          const ctx = canvas.getContext('2d', {willReadFrequently: true});
+          const luminance = color => {
+            ctx.clearRect(0,0,1,1);ctx.fillStyle = color;ctx.fillRect(0,0,1,1);
+            const rgb = [...ctx.getImageData(0,0,1,1).data].slice(0,3).map(v => {
+              const c = v / 255;return c <= .04045 ? c / 12.92 : ((c+.055)/1.055)**2.4;
+            });return rgb[0]*.2126 + rgb[1]*.7152 + rgb[2]*.0722;
+          };
+          const style = getComputedStyle(n), fg = luminance(style.color), bg = luminance(getComputedStyle(document.body).backgroundColor);
+          return {color: style.color, luminance: fg, contrast: (Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05),
+            weight: Number(style.fontWeight), decoration: style.textDecorationLine,
+            background: style.backgroundColor, shadow: style.boxShadow};
+        });
+        const before = await state();await probe.hover();const after = await state();
+        assert(before.weight >= 600 && before.decoration === 'none', 'weight identifies links without underlines');
+        assert(before.contrast >= 4.5 && after.contrast >= 4.5,
+          `${colorScheme}/${accent || 'browser'}: readable emphasis before/after hover: ${JSON.stringify({before,after})}`);
+        assert(after.luminance >= before.luminance - .001, 'hover only brightens foreground ink');
+        assert.equal(after.background, before.background);assert.equal(after.shadow, before.shadow);
+      }
+    }
+  } finally {
+    await probe.evaluate(n => n.remove());
+    await page.evaluate(original => {
+      if (original.style === null) document.documentElement.removeAttribute('style');
+      else document.documentElement.setAttribute('style',original.style);
+      scrollTo(original.x,original.y);
+    }, original);
+    await page.emulateMedia({colorScheme: original.scheme});
+  }
 }

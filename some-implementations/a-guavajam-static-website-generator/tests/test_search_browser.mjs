@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {chromium, firefox, webkit} from 'playwright';
 import axe from 'axe-core';
-import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, fixedPageHorizontalScroll, searchHighlightContrast} from './interaction_contract.mjs';
+import {keyboardControls, hoverControls, instrumentSearch, openSearchFilters, searchFeedbackGeometry, searchEvidence, recordLinkAlignment, fixedPageHorizontalScroll, searchHighlightContrast, linkPalette} from './interaction_contract.mjs';
 
 const [fixturePath, output] = process.argv.slice(2);
 assert(fixturePath && output, 'Use some-implementations/a-guavajam-static-website-generator/tests/run_search_browser.py');
@@ -286,7 +286,7 @@ try {
       await query('Glaciolacustrine', 1);
       assert.equal(await page.locator('.guavajam-excerpt-label').textContent(), 'Document text match');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Glaciolacustrine');
-      await searchHighlightContrast(page);
+      await searchHighlightContrast(page);await linkPalette(page);
       const support = await page.getByRole('link', {name: 'View matching edition text'}).getAttribute('href');
       assert(support.startsWith('sources/work-02/editions/'));
       assert(support.endsWith('/read/supporting/evidence.html'));

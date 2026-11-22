@@ -4,13 +4,14 @@
   --guavajam-paper: #fff;
   --guavajam-ink: #111;
   --guavajam-muted: #555d63;
-  --guavajam-link: #235b9d;
-  --guavajam-visited: #654d84;
+  --guavajam-link: #0866b9;
+  --guavajam-link-hover: #1174c4;
   --guavajam-border: #888;
   --guavajam-tint: #f0eee9;
-  --guavajam-focus: #235b9d;
+  --guavajam-focus: var(--guavajam-link);
   --guavajam-match-paper: #854500;
-  --guavajam-match-ink: #fff;
+  --guavajam-match-ink: #f2f2f2;
+  --guavajam-match-hover-ink: #fff;
   font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
 }
 
@@ -67,24 +68,12 @@ div.guavajam-citation {
   stroke-linejoin: round; stroke-linecap: round;
 }
 
-/* Preserve link affordances even when color or a color scheme is unavailable. */
-a { color: var(--guavajam-link); text-underline-offset: .12em; }
-a:visited { color: var(--guavajam-visited); }
-a:hover { text-decoration-thickness: .13em; }
-/* Icon links need a visible hover cue even though they contain no underlined text. */
-:is(.guavajam-citation > a, .guavajam-record-link, .guavajam-feed-link):is(:hover, :focus-visible) {
-  background: var(--guavajam-tint); color: var(--guavajam-link);
-  box-shadow: inset 0 0 0 1px currentColor;
-}
-/* Pandoc puts the numeral in <sup> inside an <a class="footnote-ref">.
-   Underlining the outer link draws a detached stroke at the prose baseline. */
-.footnote-ref { text-decoration: none; white-space: nowrap; }
-.footnote-ref > sup {
-  text-decoration-line: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: .08em;
-}
-.footnote-ref:hover > sup { text-decoration-thickness: .12em; }
+/* Weight distinguishes links without an underline; hover changes only ink. */
+a, a:visited { color: var(--guavajam-link); font-weight: 600; text-decoration: none; }
+a:hover, a:visited:hover { color: var(--guavajam-link-hover); }
+:is(h1, h2, h3, h4, h5, h6) a { font-weight: inherit; }
+a:hover mark { color: var(--guavajam-match-hover-ink); }
+.footnote-ref { white-space: nowrap; }
 :where(a[href], button, input, select, textarea, summary, [tabindex], audio, video):focus-visible {
   outline: 3px solid var(--guavajam-focus);
   outline-offset: 3px;
@@ -125,7 +114,7 @@ a:hover { text-decoration-thickness: .13em; }
   padding: .5rem .8rem;
   background: var(--guavajam-paper);
   border: 1px solid var(--guavajam-border);
-  font: .9rem/1.4 system-ui, sans-serif;
+  font: 600 .9rem/1.4 system-ui, sans-serif;
 }
 .guavajam-skip:focus-visible { position: fixed; transform: none; top: .35rem; }
 
@@ -172,14 +161,14 @@ a:hover { text-decoration-thickness: .13em; }
   min-width: 2.75rem;
   min-height: 2.75rem;
   margin: -.35rem 0 -.35rem .1rem;
-  color: var(--guavajam-muted);
-  font: normal .85rem/1 system-ui, sans-serif;
+  color: var(--guavajam-link);
+  font: 600 .85rem/1 system-ui, sans-serif;
   text-decoration: none;
   vertical-align: middle;
 }
 /* The targeted heading/paragraph owns the tint. Painting an independent
    2.75rem rectangle behind ¶ obscures the continuous passage highlight. */
-.guavajam-permalink:is(:hover, :focus-visible) { color: var(--guavajam-link); text-decoration: underline; }
+.guavajam-permalink:hover { color: var(--guavajam-link-hover); }
 .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target .guavajam-permalink {
   background: transparent;
   color: var(--guavajam-link);
@@ -258,10 +247,10 @@ figcaption { margin-top: .45rem; color: var(--guavajam-muted); font-size: .88em;
 }
 .footnotes hr { display: none; }
 .footnotes li { padding-left: .15rem; }
-.footnote-back { margin-left: .3em; text-decoration: underline; }
+.footnote-back { margin-left: .3em; }
 li { margin: .25em 0; }
 li > p { margin-bottom: .5em; }
-input[type='checkbox'] { accent-color: var(--guavajam-link); }
+input[type='checkbox'] { accent-color: auto; }
 footer {
   margin-top: 3rem;
   padding-top: 1rem;
@@ -380,19 +369,42 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-paper: #000;
     --guavajam-ink: #f2f2f2;
     --guavajam-muted: #b5b9b9;
-    --guavajam-link: #96c7ff;
-    --guavajam-visited: #d5b6ed;
+    --guavajam-link: #4ca3f4;
+    --guavajam-link-hover: #70b6ff;
     --guavajam-border: #868b8e;
     --guavajam-tint: #25292c;
-    --guavajam-focus: #a8d2ff;
+    --guavajam-focus: var(--guavajam-link);
     --guavajam-match-paper: #ffdc75;
     --guavajam-match-ink: #181a1c;
+    --guavajam-match-hover-ink: #303437;
   }
 }
 
-/* Forced colors suppress box shadows: retain a discernible fragment target and
-   hover/focus cues using system colors, not hard-coded palette overrides. */
+/* Use the browser's exposed accent without script or platform detection.
+   XYZ Y is relative luminance: cap light-mode ink at .13/.17 and lift
+   dark-mode ink to .20/.28. Even extreme accent hues retain text contrast.
+   Browsers may deliberately substitute a fixed system accent for privacy. */
+@supports (color: AccentColor) and (color: color(from red xyz-d65 calc(x * .13 / max(.13, y)) min(y, .13) calc(z * .13 / max(.13, y)))) {
+  :root {
+    --guavajam-accent-source: AccentColor;
+    --guavajam-accent-hover-source: color-mix(in srgb-linear, var(--guavajam-accent-source) 92%, white);
+    --guavajam-link: color(from var(--guavajam-accent-source) xyz-d65 calc(x * .13 / max(.13, y)) min(y, .13) calc(z * .13 / max(.13, y)));
+    --guavajam-link-hover: color(from var(--guavajam-accent-hover-source) xyz-d65 calc(x * .17 / max(.17, y)) min(y, .17) calc(z * .17 / max(.17, y)));
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --guavajam-link: color(from var(--guavajam-accent-source) xyz-d65 calc(x + (.9505 - x) * max(0, (.20 - y) / max(.001, 1 - y))) max(y, .20) calc(z + (1.089 - z) * max(0, (.20 - y) / max(.001, 1 - y))));
+      --guavajam-link-hover: color(from var(--guavajam-accent-hover-source) xyz-d65 calc(x + (.9505 - x) * max(0, (.28 - y) / max(.001, 1 - y))) max(y, .28) calc(z + (1.089 - z) * max(0, (.28 - y) / max(.001, 1 - y))));
+    }
+  }
+}
+
+/* System colors own forced-color rendering and keyboard focus. */
 @media (forced-colors: active) {
+  :root {
+    --guavajam-link: LinkText; --guavajam-link-hover: ActiveText;
+    --guavajam-focus: Highlight;
+  }
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
     background: Canvas;
     outline: 2px solid Highlight;
@@ -400,7 +412,6 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
   }
   /* Use the native system-color outline, never an extra margin stripe. */
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
-  :is(.guavajam-citation > a, .guavajam-record-link, .guavajam-feed-link, .guavajam-permalink):hover:not(:focus-visible) { outline: 1px solid Highlight; outline-offset: 1px; }
   .guavajam-permalink:focus-visible { outline: 3px solid Highlight; }
   /* In forced colors the native quote rail and system target outline remain. */
   .guavajam-edition blockquote.guavajam-turn-quotation :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
@@ -418,7 +429,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-ink: #000;
     --guavajam-muted: #333;
     --guavajam-link: #164a7c;
-    --guavajam-visited: #164a7c;
+    --guavajam-link-hover: #164a7c;
     --guavajam-border: #666;
     --guavajam-tint: #f5f5f5;
   }

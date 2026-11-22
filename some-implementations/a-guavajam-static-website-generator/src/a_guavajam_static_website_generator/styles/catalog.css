@@ -68,11 +68,11 @@
 .guavajam-tag .guavajam-facet-type { color: var(--guavajam-link); }
 .guavajam-subject .guavajam-facet-type { color: var(--guavajam-ink); }
 button.guavajam-facet {
-  font: inherit; color: inherit; padding: 0; border: 0; border-bottom: 1px dotted currentColor;
+  font: inherit; font-weight: 600; color: var(--guavajam-link); padding: 0; border: 0;
   background: transparent; cursor: pointer;
 }
-button.guavajam-facet:hover { color: var(--guavajam-link); border-bottom-style: solid; }
-button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border-bottom-style: solid; }
+button.guavajam-facet:hover { color: var(--guavajam-link-hover); }
+button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 .guavajam-abstract { margin: .65rem 0 1.25rem; }
 .guavajam-meta, .guavajam-administration,
 .guavajam-search-help { color: var(--guavajam-muted); font: .86rem/1.6 system-ui, sans-serif; }
@@ -131,15 +131,10 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 .guavajam-passage-cite, .guavajam-passage-cite:visited {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 2.75rem; min-height: 2.75rem; margin-block: -.35rem;
-  color: var(--guavajam-muted); font: normal .8rem/1 system-ui, sans-serif;
+  color: var(--guavajam-link); font: 600 .8rem/1 system-ui, sans-serif;
   vertical-align: middle;
 }
-/* Keep the underline on the label rather than the bottom of a tall flex box.
-   Hover/focus never paints over the source fragment's continuous target tint. */
-.guavajam-passage-cite { text-decoration: none; }
-.guavajam-passage-cite > span { text-decoration: underline; text-underline-offset: .12em; }
-.guavajam-passage-cite:is(:hover, :focus-visible) { color: var(--guavajam-link); }
-.guavajam-passage-cite:is(:hover, :focus-visible) > span { text-decoration-thickness: .13em; }
+.guavajam-passage-cite:hover { color: var(--guavajam-link-hover); }
 .guavajam-citation-entry { scroll-margin-top: 1rem; }
 .guavajam-citation-entry:target { outline: 2px solid var(--guavajam-focus); outline-offset: 6px; }
 
@@ -152,7 +147,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   color: var(--guavajam-link); cursor: pointer; width: fit-content;
   font: 600 .92rem/1.6 system-ui, sans-serif; padding: .25rem .2rem;
 }
-.guavajam-search-summary:hover { text-decoration: underline; text-underline-offset: .16em; }
+.guavajam-search-summary:hover { color: var(--guavajam-link-hover); }
 .guavajam-index-size { color: var(--guavajam-muted); font: normal .79rem/1.4 system-ui, sans-serif; white-space: nowrap; }
 .guavajam-search-progress {
   display: inline-block; position: relative;
@@ -185,17 +180,17 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
   color: var(--guavajam-link); background: transparent; border: 1px solid var(--guavajam-border); cursor: pointer;
 }
 #guavajam-search button:not(:disabled):hover, .guavajam-index-search button:not(:disabled):hover,
-#guavajam-search-prev:not(:disabled, [aria-disabled="true"]):hover, #guavajam-search-next:not(:disabled, [aria-disabled="true"]):hover { border-color: var(--guavajam-link); background: var(--guavajam-tint); }
+#guavajam-search-prev:not(:disabled, [aria-disabled="true"]):hover, #guavajam-search-next:not(:disabled, [aria-disabled="true"]):hover { color: var(--guavajam-link-hover); }
 #guavajam-search button:disabled, #guavajam-search-prev:is(:disabled, [aria-disabled="true"]), #guavajam-search-next:is(:disabled, [aria-disabled="true"]) { opacity: .55; cursor: default; }
 .guavajam-search-filters { grid-column: 1 / -1; margin: 0 0 .1rem; }
-.guavajam-search-filters summary { cursor: pointer; font: .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
+.guavajam-search-filters summary { cursor: pointer; font: 600 .86rem/1.5 system-ui, sans-serif; width: fit-content; padding: .3rem .2rem; color: var(--guavajam-link); }
 .guavajam-filter-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .65rem; margin: .6rem 0 .3rem; }
 /* A single disclosure looks and operates the same in every directory. */
 .guavajam-document-list ul { list-style: none; padding-inline-start: 1rem; }
 .guavajam-document-list ul li { list-style: none; }
 .guavajam-message-detail { margin-top: .35rem; font: .86rem/1.5 system-ui, sans-serif; }
-.guavajam-message-detail summary { cursor: pointer; color: var(--guavajam-link); width: fit-content; padding: .3rem .2rem; }
-:is(.guavajam-search-filters, .guavajam-message-detail) > summary:hover { text-decoration: underline; text-underline-offset: .16em; }
+.guavajam-message-detail summary { cursor: pointer; font-weight: 600; color: var(--guavajam-link); width: fit-content; padding: .3rem .2rem; }
+:is(.guavajam-search-filters, .guavajam-message-detail) > summary:hover { color: var(--guavajam-link-hover); }
 .guavajam-editions .guavajam-message { font: .94rem/1.5 system-ui, sans-serif; color: var(--guavajam-ink); }
 .guavajam-editions .guavajam-meta code { font-size: .89em; }
 .guavajam-static-pages { gap: .35rem .85rem; }
@@ -293,7 +288,7 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 }
 .guavajam-match-source { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: 0 0 .2rem; }
 @media (forced-colors: active) {
-  .guavajam-record-list mark { forced-color-adjust: none; color: HighlightText; background: Highlight; }
+  .guavajam-record-list mark, .guavajam-record-list a:hover mark { forced-color-adjust: none; color: HighlightText; background: Highlight; }
 }
 /* A traditional contents outline: headings, indentation, and clean line
    spacing rather than horizontal rules between manuscript sections. */
@@ -314,5 +309,5 @@ button.guavajam-facet[aria-pressed="true"] { color: var(--guavajam-link); border
 }
 
 @media print {
-  .guavajam-record-list mark { color: inherit; background: transparent; text-decoration: underline; }
+  .guavajam-record-list mark, .guavajam-record-list a:hover mark { color: inherit; background: transparent; text-decoration: underline; }
 }
