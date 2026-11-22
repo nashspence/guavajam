@@ -135,7 +135,7 @@ class DirectoryPageTests(unittest.TestCase):
                 self.assertIn('href="../../documents.html"', html)
             if number == 3:
                 self.assertIn('href="2.html" rel="prev"', html)
-        self.assertEqual([20, 20, 13], totals)
+        self.assertEqual([20, 20, 12], totals)
         view = json.loads((latest / 'VIEW.json').read_text())
         for location in doc_pages:
             relative = location.relative_to(latest).as_posix()
@@ -190,8 +190,10 @@ class DirectoryPageTests(unittest.TestCase):
         self.assertNotIn('index.html#quoted', links)
         self.assertIn('Opening &lt;study&gt;', html)
         self.assertIn('Detail &amp; evidence', html)
-        self.assertIn('</a><ol><li><a href="index.html#detail">', html)
-        self.assertIn('.guavajam-contents-list > ol > li { padding: 0; border: 0;', html)
+        self.assertIn('Opening &lt;study&gt;</p><ol><li><p class="guavajam-contents-entry', html)
+        self.assertIn('<h2>Table of Contents</h2>', html)
+        self.assertIn('class="guavajam-icon guavajam-icon-link"',html)
+        self.assertIn('aria-label="Go to section Opening &lt;study&gt;"',html)
         self.assertNotIn('border-bottom: 1px solid var(--guavajam-border); padding: .55rem 0;', html)
         self.assertIn('href="index.html">v1</a>', html)
         self.assertNotIn('<script', html)

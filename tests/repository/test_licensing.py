@@ -39,7 +39,9 @@ class LicensingTests(unittest.TestCase):
                 project = ROOT / package
                 metadata = tomllib.loads((project / 'pyproject.toml').read_text())['project']
                 self.assertEqual('Apache-2.0', metadata['license'])
-                self.assertEqual([LICENSE, 'REUSE.toml'], metadata['license-files'])
+                expected = [LICENSE, 'REUSE.toml']
+                if package != '.': expected.append('src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt')
+                self.assertEqual(expected, metadata['license-files'])
 
     def test_browser_tool_metadata_agrees_with_repository_license(self):
         package = json.loads((ROOT / 'package.json').read_text())

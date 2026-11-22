@@ -70,20 +70,22 @@ try {
       assert.equal(await page.locator('.guavajam-version-menu').count(), 1);
       assert(await page.locator('.guavajam-version-menu').evaluate(node =>
         Boolean(node.compareDocumentPosition(document.querySelector('main .guavajam-citation')) & Node.DOCUMENT_POSITION_FOLLOWING)));
-      assert.deepEqual(await page.locator('.guavajam-version-menu a').allTextContents(),
-        ['Contents', 'Documents', 'Passages', 'Metadata', 'Download']);
+      assert.deepEqual((await page.locator('.guavajam-version-menu a').allTextContents()).map(s => s.trim()),
+        ['Contents', 'Documents', 'Passages', 'Metadata', 'Download (text/markdown)']);
       for (const width of [320, 360, 390, 430, 500]) {
         await page.setViewportSize({width, height: 900});
         await page.goto(base + edition + 'read/index.html');
         const menu = page.getByRole('navigation', {name: 'Version links', exact: true});
-        assert(await menu.evaluate(n => n.scrollWidth > n.clientWidth), 'mobile version links should overflow within their own lane');
+        const pannable = await menu.evaluate(n => n.scrollWidth > n.clientWidth);
+        if (width === 320) assert(pannable, 'narrow version links overflow within their own lane');
         const rows = await menu.locator('a').evaluateAll(ns => ns.map(n => n.getBoundingClientRect().top));
         assert(rows.every(top => Math.abs(top - rows[0]) < 1), 'version links remain on one row');
         await menu.focus();
         const beforePan = await menu.evaluate(n => n.scrollLeft);
         await page.keyboard.press('ArrowRight');
         await page.waitForTimeout(250); // Native scroll animation; this context has scripts disabled.
-        assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan the version menu');
+        if (pannable) assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan an overflowing version menu');
+        else assert.equal(await menu.evaluate(n => n.scrollLeft), beforePan, 'fitting links need no pan');
         for (const link of await menu.locator('a').all()) {
           await page.keyboard.press('Tab');
           await page.waitForTimeout(250);
@@ -102,10 +104,16 @@ try {
       }
       await page.setViewportSize({width: 360, height: 900});
       await page.goto(base + edition + 'read/index.html');
+      assert(await page.locator('.guavajam-permalink').count()>0);
+      for(const control of await page.locator('.guavajam-permalink').all()){
+        assert.equal(await control.locator('svg.guavajam-icon-link[aria-hidden=true]').count(),1);
+        assert.equal((await control.textContent()).trim(),'');
+        assert.match(await control.getAttribute('aria-label'),/^Permalink to /);
+      }
       assert.equal(await page.locator('nav.guavajam-contents').count(), 0,
         'Contents has moved off the manuscript without changing the standalone renderer');
       const downloadedSource = page.waitForEvent('download');
-      await page.getByRole('link', {name: 'Download', exact: true}).click();
+      await page.getByRole('link', {name: 'Download (text/markdown)', exact: true}).click();
       const source = await downloadedSource;
       assert.equal(source.suggestedFilename(), 'source.gfm');
       assert.deepEqual(await fs.readFile(await source.path()), await fs.readFile(path.join(root, edition, 'read/source.gfm')));
@@ -118,6 +126,29 @@ try {
       await page.getByRole('link', {name: 'Contents', exact: true}).click();
       assert(page.url().endsWith('/read/contents.html'));
       assert.equal(await page.locator('.guavajam-contents-list a[href="index.html#opening"]').count(), 1);
+      assert.equal(await page.getByRole('heading', {name:'Table of Contents', exact:true}).count(),1);
+      for (const entry of await page.locator('.guavajam-contents-entry').all()) {
+        assert.equal(await entry.locator('a > svg.guavajam-icon-link').count(),1);
+        assert.equal(await entry.locator('a').textContent(),'');
+        assert(await entry.evaluate(n => {
+          const css=getComputedStyle(n), link=n.querySelector('a');
+          return css.whiteSpace==='nowrap' && css.overflowX==='auto' &&
+            link===n.firstElementChild && Number(getComputedStyle(n).fontWeight)===400;
+        }));
+      }
+
+      const entry = page.locator('.guavajam-contents-entry').first();
+      await entry.evaluate(n => n.append(' A deliberately long contents entry for native horizontal reading.'.repeat(12)));
+      assert(await entry.evaluate(n => n.scrollWidth > n.clientWidth));
+      await entry.focus();await page.keyboard.press('ArrowRight');await page.waitForTimeout(250);
+      assert(await entry.evaluate(n => n.scrollLeft > 0), 'Contents entries pan with the keyboard');
+      await page.keyboard.press('Tab');
+      assert(await entry.evaluate(n => getComputedStyle(n).whiteSpace === 'nowrap' && getComputedStyle(n).overflowX === 'auto'),
+        'focusing the leading link keeps its Contents entry in one scroll lane');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      assert(await entry.evaluate(n => getComputedStyle(n).scrollbarWidth === 'none' ||
+        getComputedStyle(n,'::-webkit-scrollbar').display === 'none'), 'Contents overflow has no visible bar');
+      await page.reload();
       await page.locator('.guavajam-contents-list a[href="index.html#opening"]').click();
       assert(page.url().endsWith('/read/index.html#opening'));
       await page.getByRole('link', {name: 'Passages', exact: true}).click();
@@ -153,7 +184,7 @@ try {
         assert.equal(canonical.revision, revision);
         assert.equal(canonical.anchor, anchor);
         assert(!Object.hasOwn(canonical, 'url'));
-        await entry.getByRole('link', {name: 'Read this passage'}).click();
+        await entry.locator('h3 a').click();
         assert.equal(page.url(), base + edition + 'read/index.html#' + anchor);
       }
       await page.goto(base + edition + 'read/supporting/note.html');
@@ -170,7 +201,7 @@ try {
       const support = page.locator('[id="' + fragment('content/supporting/note.md', 'supporting-tail') + '"]');
       const cited = (await support.locator('.guavajam-citation').textContent());
       assert(cited.includes('content/supporting/note.md'));
-      await support.getByRole('link', {name: 'Read this passage'}).click();
+      await support.locator('h3 a').click();
       assert(page.url().endsWith('/read/supporting/note.html#supporting-tail'));
       await page.goto(base + edition + 'metadata.html');
       assert.equal(await page.locator('.guavajam-metadata-locators > li').count() > 0, true);

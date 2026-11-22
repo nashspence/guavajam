@@ -167,7 +167,7 @@ a:hover mark { color: var(--guavajam-match-hover-ink); }
   vertical-align: middle;
 }
 /* The targeted heading/paragraph owns the tint. Painting an independent
-   2.75rem rectangle behind ¶ obscures the continuous passage highlight. */
+   2.75rem rectangle behind the link icon obscures the continuous passage highlight. */
 .guavajam-permalink:hover { color: var(--guavajam-link-hover); }
 .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target .guavajam-permalink {
   background: transparent;
@@ -476,3 +476,11 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
   .guavajam-media audio, .guavajam-media video { display: none; }
   .guavajam-media-poster { display: block; }
 }
+
+/* One Lucide stroke and optical size serves prose, citation and route links. */
+.guavajam-icon {
+  display: inline-block; inline-size: 1em; block-size: 1em; flex: none;
+  vertical-align: -.125em; fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.guavajam-link-mime { font: .8em/1.4 system-ui, sans-serif; }

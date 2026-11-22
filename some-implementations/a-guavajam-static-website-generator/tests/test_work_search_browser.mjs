@@ -118,14 +118,18 @@ try {
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
       await page.locator('.guavajam-static-pages a[rel=next]').first().click();
-      assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 5);
+      assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 4);
       await enable(fixture.documents, 'documents');
       await page.locator('.guavajam-search-filters summary').click();
       await page.locator('select[name=sort]').selectOption('title');
       await waitTotal(fixture.documents, 'documents');
       await query('Appendix 23', 1, 'documents');
       assert.equal((await page.locator('#guavajam-search-results h3 mark').allTextContents()).join(' '), 'Appendix 23');
-      await query('Abyssalappendixselector', 1, 'documents');
+      await query('Abyssalappendixselector', 0, 'documents');
+      await query('Archive work', 0, 'documents');
+      await query('unlinked 23', 0, 'documents');
+      await query('Abyssalabstractselector', 1, 'documents');
+      assert.equal(await page.locator('#guavajam-search-results .guavajam-abstract mark').textContent(), 'Abyssalabstractselector');
       assert((await page.locator('#guavajam-search-results h3').textContent()).includes('Appendix 23'));
 
       await page.goto(passagesURL);
@@ -133,14 +137,12 @@ try {
       assert.equal(await page.locator('select[name=supporting]').inputValue(), 'all');
       const canonicalFirst = await page.locator('#guavajam-static-section .guavajam-citation-entry').first().evaluate(row => ({
         text: row.querySelector('.guavajam-citation').textContent,
-        download: row.querySelector('.guavajam-citation a[download]').href,
-        context: row.querySelector('.guavajam-meta').textContent
+        download: row.querySelector('.guavajam-citation a[download]').href
       }));
       await enable(fixture.versionPassages, 'passages');
       assert.deepEqual(await page.locator('#guavajam-search-results > li').first().evaluate(row => ({
         text: row.querySelector('.guavajam-citation').textContent,
-        download: row.querySelector('.guavajam-citation a[download]').href,
-        context: row.querySelector('.guavajam-meta').textContent
+        download: row.querySelector('.guavajam-citation a[download]').href
       })), canonicalFirst, 'enhancement retains the full canonical citation and its download');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
       assert.equal(await page.locator('#guavajam-search-page').textContent(),
@@ -165,33 +167,19 @@ try {
       }, fixture.manuscriptPassages);
       await query('Bathymetric ecology', 1, 'passages');
       const result = page.locator('#guavajam-search-results > li');
-      const passageHref = await result.locator('h3 a').getAttribute('href');
-      assert(passageHref.includes('/read/passages/page/2.html#citation:'));
-      const quote = result.locator('.guavajam-passage-excerpt');
-      assert.equal(await quote.count(), 1);
-      assert((await quote.textContent()).length <= 321, 'source quote is bounded');
-      assert((await quote.textContent()).toLowerCase().includes('bathymetric'));
-      assert(await quote.locator('mark').count() > 0, 'the FTS match is highlighted');
-      assert.equal(await result.getByRole('link', {name: 'Read this passage'}).getAttribute('href'), base + fixture.section);
+      assert.equal(await result.locator('.guavajam-meta').count(),0);
+      assert.equal(await result.getByRole('link', {name:'Read this passage'}).count(),0);
+      assert.equal(await result.locator('h3 a').getAttribute('href'),base + fixture.section);
       await result.locator('h3 a').click();
-      assert.equal(page.url(), passageHref);
-      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
-      const origin = await page.evaluate(() => performance.timeOrigin);
-      await query('Bathymetric ecology', 1, 'passages');
-      await page.locator('#guavajam-search-results h3 a').click();
-      assert.equal(await page.evaluate(() => performance.timeOrigin), origin, 'same-page citation does not require a redirect');
-      assert.equal(await page.locator('#guavajam-static-section').isVisible(), true);
-      assert.equal(await page.evaluate(() => document.activeElement.id), new URL(passageHref).hash.slice(1));
-      await page.locator('[id="' + new URL(passageHref).hash.slice(1) + '"]').getByRole('link', {name: 'Read this passage'}).click();
-      assert.equal(page.url(), base + fixture.section);
-      assert.equal(await page.locator('script').count(), 0);
+      assert.equal(page.url(),base + fixture.section);
+      assert.equal(await page.locator('script').count(),0);
 
       await page.goto(passagesURL);
       await query('Bathyal', 2, 'passages');
       const hits = await page.locator('#guavajam-search-results h3 a').allTextContents();
       assert.equal(hits.length, 2);
       // Only the manuscript section and the actual supporting passage match.
-      assert.deepEqual((await page.getByRole('link', {name: 'Read this passage'}).evaluateAll(
+      assert.deepEqual((await page.locator('#guavajam-search-results h3 a').evaluateAll(
         links => links.map(link => link.href))).sort(), [base + fixture.lastSection,
         base + fixture.work + `editions/${fixture.latest}/read/supporting/unlinked-23.html#support-44`].sort());
 
@@ -204,7 +192,6 @@ try {
       await page.locator('select[name=sort]').selectOption('relevance');
       await waitTotal(2, 'passages');
       await query('Quotientwave', 3, 'passages');
-      assert((await page.locator('#guavajam-search-results').textContent()).includes('Quoted passage'));
       assert((await page.locator('#guavajam-search-results').textContent()).includes('content/supporting/correspondence.md'));
 
       // A match on signed metadata must show the native FTS highlight and

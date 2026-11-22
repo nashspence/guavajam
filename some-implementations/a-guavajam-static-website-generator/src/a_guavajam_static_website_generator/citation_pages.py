@@ -19,7 +19,7 @@ from .citation_routes import (citation_fragment, citation_href, citation_page,
                               passage_json, relative_href)
 from .pagination import PAGE_SIZE, _slices, _static_pager
 from .site import citation_control, page
-from .citation import passage_context
+from .icons import icon
 
 
 def add_passage_links(html, view, source, anchors, start):
@@ -61,7 +61,7 @@ def add_passage_links(html, view, source, anchors, start):
                 edits.append((end, '<a class="guavajam-passage-cite" lang="en" href="' +
                               escape(routes[anchor], quote=True) +
                               '" aria-label="Cite committed source passage ' + escape(anchor, quote=True) +
-                              '"><span>Cite</span></a>'))
+                              '">' + icon('quote') + '</a>'))
 
         def handle_startendtag(self, tag, attrs):
             self.handle_starttag(tag, attrs)
@@ -138,15 +138,11 @@ def build_citation_pages(output, editions, *, collection, runtime, download):
                     write(json_file, encoded(cited))
                     body += ('<li class="guavajam-citation-entry" id="' +
                              citation_fragment(source, anchor) + '" tabindex="-1">'
-                             '<article><h3><a href="#' + citation_fragment(source, anchor) + '">' +
-                             escape(record['title'] or '#' + anchor) + '</a></h3>'
-                             '<p class="guavajam-meta guavajam-scrollline" tabindex="0" aria-label="Passage source">' +
-                             escape(passage_context(source, anchor, record['scope'])) + '</p>' +
+                             '<article><h3><a href="' + escape(relative(reader) + '#' + anchor, quote=True) + '">' +
+                             escape(record['title'] or '#' + anchor) + '</a></h3>' +
                              citation_control(cited, relative(json_file), title=title, authors=authors,
                                               published=published, edition_number=position,
-                                              document_title=document_title) +
-                             '<p><a href="' + escape(relative(reader) + '#' + anchor, quote=True) +
-                             '">Read this passage</a></p></article></li>')
+                                              document_title=document_title) + '</article></li>')
                 body += '</ol>' + pager
             else:
                 body += '<p>No individually citable passages were declared.</p>'

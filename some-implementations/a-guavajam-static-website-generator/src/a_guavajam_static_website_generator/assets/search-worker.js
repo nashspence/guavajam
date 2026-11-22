@@ -37,12 +37,12 @@ function literalQuery(value, operator = 'AND') {
 // Search membership, ranking and explanatory snippets share the same FTS
 // record. A displayed current title is never evidence for a historical hit.
 const MATCH_FIELDS = [['body', 4], ['authors', 1], ['title', 0], ['abstract', 2], ['labels', 3], ['git', 5]];
-function matchExcerpts(table) {
-  return MATCH_FIELDS.map(([name, column]) =>
+function matchExcerpts(table, fields = MATCH_FIELDS) {
+  return fields.map(([name, column]) =>
     `snippet(${table}, ${column}, char(57344), char(57345), '…', 24) AS ${name}_excerpt`).join(', ');
 }
-function matchEvidence(alias, content = 'document') {
-  const choose = value => 'CASE ' + MATCH_FIELDS.map(([name]) =>
+function matchEvidence(alias, content = 'document', fields = MATCH_FIELDS) {
+  const choose = value => 'CASE ' + fields.map(([name]) =>
     `WHEN instr(${alias}.${name}_excerpt, char(57344)) > 0 THEN ${value(name)}`).join(' ') + ' ELSE NULL END';
   return `${choose(name => `${alias}.${name}_excerpt`)} AS excerpt,
     ${choose(name => `'${name === 'body' ? content : 'metadata'}'`)} AS excerpt_context,
@@ -69,7 +69,7 @@ function displayHighlights(result, term) {
     for (const tag of JSON.parse(row.keywords_json || '[]')) add(tag);
     for (const subject of JSON.parse(row.subjects_json || '[]')) add(subject.label);
     if (row.citation_json) {
-      const citation = JSON.parse(row.citation_json); add(citation.context);
+      const citation = JSON.parse(row.citation_json);
       for (const [, value] of [...citation.description, ...citation.source]) add(value);
     }
   }
@@ -173,16 +173,19 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       FROM editions e JOIN works w ON w.id=e.work_id`;
     }
   } else if (selected === 'documents') {
+    // This directory searches only what it displays: supporting titles and
+    // abstracts. Body, author and provenance discovery belong to other views.
+    const fields = [['title', 0], ['abstract', 1]];
     base = fts ? `WITH hits AS MATERIALIZED (
-      SELECT s.document_id, bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score,
-        ${matchExcerpts('search_fts')}
-      FROM search_fts JOIN search_records s ON s.id=search_fts.rowid WHERE search_fts MATCH ?
+      SELECT document_fts.rowid AS document_id, bm25(document_fts, 4.0, 1.0) AS score,
+        ${matchExcerpts('document_fts', fields)}
+      FROM document_fts WHERE document_fts MATCH ?
     ) ` : '';
     if (fts) bind.push(fts);
-    base += `SELECT d.id, d.title, d.url, e.revision, e.published, e.position,
+    base += `SELECT d.id, d.title, d.abstract, d.url, e.revision, e.published, e.position,
       d.title AS document_title, d.path AS document_path, '' AS anchor, 'document' AS scope,
       0 AS node_position, ${fts ? 'm.score' : '0'} AS score, NULL AS hit_url
-      ${fts ? `, ${matchEvidence('m')}, e.position AS match_position, d.title AS match_document` : ''}
+      ${fts ? `, ${matchEvidence('m', 'document', fields)}, e.position AS match_position, d.title AS match_document` : ''}
     FROM documents d JOIN editions e ON e.id=d.edition_id JOIN works w ON w.id=e.work_id
       ${fts ? 'JOIN hits m ON m.document_id=d.id' : ''}`;
   } else {
@@ -206,6 +209,7 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
   // Publication order is independent of a publisher's claimed Git dates.
   base += ` WHERE (? = 'all' OR (? = 'latest' AND e.revision=w.latest_revision) OR e.revision=?)`;
   bind.push(String(edition), String(edition), String(edition));
+  if (selected === 'documents') base += ` AND d.path <> 'content/manuscript.md'`;
   if (selected === 'editions') {
     base += ` AND (? = '' OR EXISTS
       (SELECT 1 FROM documents selected WHERE selected.edition_id=e.id AND selected.path=?))`;

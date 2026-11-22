@@ -155,8 +155,7 @@ if (form) {
     a.href = href;
     a.setAttribute('aria-label', label);
     a.title = label;
-    // Fixed local icon markup. Untrusted search text is always textContent.
-    a.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3.5h9l3 3V20.5H6z"/><path d="M15 3.5v4h4M9 12h6M9 15h6"/></svg>';
+    a.append(document.querySelector('#guavajam-icon-history').content.cloneNode(true));
     return a;
   }
 
@@ -177,16 +176,6 @@ if (form) {
     if (worksHeading) worksHeading.textContent = worksHeading.dataset.staticHeading || 'Passages';
     entry.focus({preventScroll: true});
     return entry;
-  }
-
-  function openStaticCitation(event) {
-    // A hit on this very static page is only a fragment navigation. Reveal its
-    // native entry before the browser follows the href; no reload is implied.
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    const target = new URL(event.currentTarget.href);
-    const current = new URL(document.URL);
-    if (target.origin !== current.origin || target.pathname !== current.pathname || target.search !== current.search) return;
-    showStaticCitation(target.hash);
   }
 
   if (directory === 'citations') window.addEventListener('hashchange', () => {
@@ -284,10 +273,9 @@ if (form) {
       const article = document.createElement('article');
       const heading = document.createElement('h3');
       const link = document.createElement('a');
-      link.href = work ? workURL(directory === 'citations' ? row.citation_url : row.url) :
+      link.href = work ? workURL(row.url) :
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
       appendText(link, row.title);
-      if (directory === 'citations') link.addEventListener('click', openStaticCitation);
       heading.append(link);
       if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
 
@@ -325,21 +313,21 @@ if (form) {
         }
       } else {
         const presentation = resultKind === 'passages' ? JSON.parse(row.citation_json) : null;
-        const meta = document.createElement('p');
-        meta.className = 'guavajam-meta guavajam-scrollline'; meta.tabIndex = 0;
-        meta.setAttribute('aria-label', resultKind === 'passages' ? 'Passage source' : resultKind === 'documents' ? 'Document source' : 'Version date and source');
-        if (resultKind === 'passages') appendText(meta, presentation.context);
-        else if (resultKind === 'documents') {
-          meta.append(document.createTextNode((row.document_path === 'content/manuscript.md' ? 'Manuscript' : 'Supporting document') + ' · '));
-          const path = document.createElement('code'); appendText(path, row.document_path); meta.append(path);
-        } else {
+        if (resultKind === 'editions') {
+          const meta = document.createElement('p');
+          meta.className = 'guavajam-meta guavajam-scrollline'; meta.tabIndex = 0;
+          meta.setAttribute('aria-label', 'Version date and source');
           const date = document.createElement('time'); date.dateTime = row.published; appendText(date, row.published);
           const revision = document.createElement('code'); revision.title = row.revision; appendText(revision, row.revision.slice(0, 12));
           const metadata = document.createElement('a');
           metadata.href = workURL('editions/' + row.revision + '/metadata.html#provenance'); metadata.textContent = 'Metadata';
           meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' · '), metadata);
+          article.append(meta);
         }
-        article.append(meta);
+        if (resultKind === 'documents' && row.abstract) {
+          const abstract = document.createElement('p'); abstract.className = 'guavajam-abstract';
+          appendText(abstract, row.abstract); article.append(abstract);
+        }
         if (resultKind === 'passages' && directory === 'citations') article.append(resultCitation(presentation));
         if (resultKind === 'editions' && row.message) {
           const [subject, ...more] = row.message.split('\n');
@@ -361,15 +349,15 @@ if (form) {
           }
         }
       }
-      if (row.excerpt) {
+      if (row.excerpt && resultKind !== 'documents') {
         const excerpt = matchedExcerpt(row);
         if (excerpt) article.append(excerpt);
       }
-      if (work && resultKind === 'passages') {
+      if (work && resultKind === 'passages' && directory !== 'citations') {
         const action = document.createElement('a');
-        action.href = workURL(directory === 'citations' ? row.url : row.citation_url);
-        action.textContent = directory === 'citations' ? 'Read this passage' : 'Cite';
-        if (directory !== 'citations') action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
+        action.href = workURL(row.citation_url); action.className = 'guavajam-passage-cite';
+        action.setAttribute('aria-label', 'Cite committed source passage ' + row.anchor);
+        action.append(document.querySelector('#guavajam-icon-quote').content.cloneNode(true));
         const actions = document.createElement('p'); actions.append(action); article.append(actions);
       }
       if (row.hit_url) {

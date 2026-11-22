@@ -1,5 +1,6 @@
 """Readable metadata and exact Git identities, shared by every generated surface."""
 from html import escape
+from .icons import icon
 from guavajam.bibliography import ordered_authors, author_text
 
 
@@ -36,13 +37,6 @@ def citation_presentation(record, href, *, title='', authors='', published='', e
             'label': 'Download draft source identity JSON' if provisional else 'Download official citation JSON'}
 
 
-def passage_context(source, anchor, scope):
-    """The same source label accompanies static entries and search results."""
-    return (('Manuscript' if source == 'content/manuscript.md' else 'Supporting document') +
-            ' · ' + source + ' · #' + anchor +
-            (' · Quoted passage' if scope.startswith('quotation:') else ''))
-
-
 def citation_control(record, href, *, heading=False, **options):
     """Readable Git citation, optionally carrying the document's real title."""
     if record is None:
@@ -65,10 +59,9 @@ def citation_control(record, href, *, heading=False, **options):
             + ('<div class="guavajam-citation-description">' +
                inline(data['description'], title_heading=heading) + '</div>' if data['description'] else '') +
             '<p class="guavajam-citation-source">' + inline(data['source']) + '</p>' +
-            '<a href="' + escape(data['href'], quote=True) + '" download '
-            'aria-label="' + data['label'] + '" title="Download citation JSON">'
-            '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
-            '<path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></svg></a></div>')
+            '<a href="' + escape(data['href'], quote=True) + '" download type="application/json" '
+            'data-guavajam-icon="" aria-label="' + data['label'] + '" '
+            'title="Download citation JSON (application/json)">' + icon('file-json') + '</a></div>')
 
 
 def document_citation(revision, facts, *, source='content/manuscript.md', details=None, preview=False):

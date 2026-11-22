@@ -3,7 +3,7 @@ name = "a-guavajam-static-website-generator"
 version = "0.1.0"
 description = "Static websites from independently verified GuavaJam works"
 license = "Apache-2.0"
-license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml"]
+license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml", "src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt"]
 requires-python = ">=3.12,<3.13"
 dependencies = ["guavajam==0.1.0"]
 
@@ -19,7 +19,7 @@ where = ["src"]
 namespaces = false
 
 [tool.setuptools.package-data]
-a_guavajam_static_website_generator = ["templates/*.yml", "styles/*.css", "assets/*.js", "assets/*.mjs", "assets/*.wasm", "assets/*.txt"]
+a_guavajam_static_website_generator = ["templates/*.yml", "styles/*.css", "assets/*.js", "assets/*.mjs", "assets/*.wasm", "assets/*.txt", "assets/*.json", "assets/*.license"]
 
 [tool.uv.sources]
 guavajam = { workspace = true }

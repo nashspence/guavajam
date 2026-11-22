@@ -14,7 +14,8 @@ MARKDOWN_DATA = {
     'tests/fixtures/chatgpt/lantern-current.gfm.md',
     'tests/fixtures/chatgpt/lantern-alternate.gfm.md',
 }
-LICENSE_TEXT = {'LICENSES/Apache-2.0.txt',
+LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'LICENSES/ISC.txt', 'LICENSES/MIT.txt',
+                'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt',
                 'some-implementations/a-guavajam-static-website-generator/LICENSES/Apache-2.0.txt',
                 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3-LICENSE.txt',
                 'src/guavajam/resources/chatgpt-capture/LICENSES/Apache-2.0.txt'}
