@@ -67,7 +67,7 @@ try {
       });
       const waitTotal = async (total, kind) => {
         try {
-          await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
+          await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
             document.querySelector('#guavajam-search-status').textContent === expected,
             `${total} total`);
         } catch (error) {
@@ -293,7 +293,7 @@ try {
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // close
           await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // retry on reopen
-          await fallback.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
+          await fallback.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
             `${total} total`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));
           assert.equal(new Set(values).size, values.length, 'a successful retry does not duplicate selector options');

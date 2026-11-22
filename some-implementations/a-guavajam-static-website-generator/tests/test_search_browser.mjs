@@ -53,7 +53,7 @@ try {
       });
       const waitTotal = async total => {
         try {
-          await page.waitForFunction(total => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
+          await page.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
             document.querySelector('#guavajam-search-status').textContent === `${total} total`, total);
         } catch (error) {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
@@ -470,7 +470,7 @@ try {
       } finally {
         releaseDatabase();
       }
-      await waiting.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent ===
+      await waiting.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
         `${total} total`, fixture.works);
       assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
@@ -565,7 +565,7 @@ try {
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
       if (!await stale.locator('#guavajam-index-search').evaluate(n => n.open))
         await stale.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
-      await stale.waitForFunction(total => document.querySelector('#guavajam-search-status').textContent === `${total} total`, fixture.works);
+      await stale.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent === `${total} total`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();
       report.push({engine: name, version: browser.version(), executablePath: executablePath ?? 'Playwright pinned',
