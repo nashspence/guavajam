@@ -72,7 +72,13 @@ export async function hoverControls(page) {
     }
     const before = await paint(); await target.hover();
     const after = await paint();
-    assert.notEqual(after[0], before[0], `Hover brightens the foreground: ${selector}`);
+    // Forced colors belong to the user/UA, which may map link and hover ink
+    // to the same system color. Keep its palette and test keyboard focus too.
+    if (await page.evaluate(() => matchMedia('(forced-colors: active)').matches)) {
+      assert.equal(await target.evaluate(n => getComputedStyle(n).forcedColorAdjust), 'auto');
+    } else {
+      assert.notEqual(after[0], before[0], `Hover brightens the foreground: ${selector}`);
+    }
     assert.deepEqual(after.slice(1), before.slice(1), `Hover changes only the foreground: ${selector}`);
     assert(await target.evaluate(n => {
       const b = n.getBoundingClientRect(), hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
