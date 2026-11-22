@@ -44,7 +44,7 @@ export async function navigationCues(page) {
     assert.equal(await menu.locator('a[download] > svg').evaluate(n=>getComputedStyle(n).marginInlineEnd),'0px',
       'File downloads retain their existing icon spacing');
   }
-  for (const [selector,name,label] of [['.guavajam-search-summary','search','Indexed Search'],
+  for (const [selector,name,label] of [['.guavajam-search-summary','search','Search'],
       ['.guavajam-search-filters > summary','sliders-horizontal','Filters and sort']]) {
     for (const summary of await page.locator(selector).all()) {
       assert.equal(await summary.locator(':scope > svg.guavajam-icon-'+name+'[aria-hidden=true][focusable=false]').count(),1);
@@ -56,6 +56,7 @@ export async function navigationCues(page) {
 export async function keyboardControls(page) {
   await iconLinkFallbacks(page);
   await navigationCues(page);
+  await listControlLayout(page);
   const count = await page.evaluate(() => {
     const visible = [...document.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex]')]
       .filter(n => !n.disabled && n.getClientRects().length && getComputedStyle(n).visibility !== 'hidden')
@@ -209,13 +210,45 @@ export async function searchEvidence(page) {
 }
 
 export async function recordLinkAlignment(page) {
-  for (const heading of await page.locator('.guavajam-record-list:visible h3:has(.guavajam-record-link)').all()) {
-    const aligned = await heading.evaluate(n => {
-      const title = n.querySelector('a:first-child').getBoundingClientRect();
-      const icon = n.querySelector('.guavajam-record-link').getBoundingClientRect();
-      return Math.abs((title.top + title.bottom - icon.top - icon.bottom) / 2) < 1 && icon.left >= title.right;
+  for (const row of await page.locator('.guavajam-works:visible > li').all()) {
+    assert.equal(await row.locator('h3 .guavajam-record-link').count(), 0);
+    const link = row.locator('.guavajam-byline > .guavajam-record-link');
+    assert.equal(await link.count(), 1, 'each work retains a leading byline history control');
+    assert(await link.evaluate(n => n.parentElement.firstElementChild === n &&
+      !n.previousSibling?.textContent.trim()), 'the history icon precedes date and author text');
+    assert(await link.evaluate(n => {
+      const date=n.parentElement.querySelector(':scope > time');
+      return !date || n.nextElementSibling === date;
+    }), 'the publication date precedes author text when available');
+  }
+}
+
+export async function listControlLayout(page) {
+  await recordLinkAlignment(page);
+  const field = page.locator('form#guavajam-search input[name=q]');
+  if (await field.isVisible()) {
+    const input = await field.boundingBox();
+    const button = await page.locator('form#guavajam-search button[type=submit]').boundingBox();
+    assert(Math.abs(input.y + input.height / 2 - button.y - button.height / 2) < 1 &&
+      button.x > input.x + input.width, 'search input and right-hand submit share one centered row');
+  }
+  for (const pager of await page.locator('.guavajam-pagination:visible').all()) {
+    const centered = await pager.evaluate(n => {
+      const bounds = n.getBoundingClientRect(), rows = new Map();
+      for (const child of n.children) {
+        const box = child.getBoundingClientRect(), key = Math.round(box.top + box.height / 2);
+        const row = rows.get(key) || [];
+        row.push(box); rows.set(key, row);
+      }
+      return [...rows.values()].every(row => Math.abs(
+        Math.min(...row.map(b => b.left)) + Math.max(...row.map(b => b.right)) - bounds.left - bounds.right) < 2);
     });
-    assert(aligned, 'the work-page icon stays inline and vertically centered beside its title');
+    assert(centered, 'static and searched paging controls are horizontally centered');
+  }
+  for (const link of await page.locator('.guavajam-editions:visible a[href*="/metadata.html#provenance"]').all()) {
+    assert.match(await link.getAttribute('aria-label'), /^Metadata for v[0-9]+$/);
+    assert.equal(await link.locator('svg.guavajam-icon-info[aria-hidden=true][focusable=false]').count(), 1);
+    assert.equal(await link.locator('.guavajam-icon-fallback').textContent(), 'Metadata');
   }
 }
 

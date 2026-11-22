@@ -22,11 +22,11 @@ from .icons import link_icon, finish_html, search_icon_templates, normalize_site
 from .view_cache import cached_render
 
 
-def detail_link(href, label):
-    """An unobtrusive, accessible route from a reading title to its record."""
+def detail_link(href, label, *, icon_name="history", fallback="Versions"):
+    """A compact record link with an accessible name and text-client fallback."""
     return (' <a class="guavajam-record-link" href="' + escape(href, quote=True) +
             '" aria-label="' + escape(label, quote=True) + '" title="' +
-            escape(label, quote=True) + '">' + link_icon('history', 'Versions') + '</a>')
+            escape(label, quote=True) + '">' + link_icon(icon_name, fallback) + '</a>')
 
 
 

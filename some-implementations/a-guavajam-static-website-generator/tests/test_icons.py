@@ -74,6 +74,10 @@ class IconTests(unittest.TestCase):
         templates = search_icon_templates()
         self.assertIn('guavajam-icon-fallback">Versions</span>', templates)
         self.assertIn('guavajam-icon-fallback">Cite</span>', templates)
+        self.assertIn('guavajam-icon-fallback">Metadata</span>', templates)
+        metadata = detail_link('/version/metadata.html#provenance', 'Metadata for v1', icon_name='info', fallback='Metadata')
+        self.assertEqual([('/version/metadata.html#provenance', 'Metadata')], TextClientLinks(metadata).links)
+        self.assertIn('aria-label="Metadata for v1"', metadata)
         self.assertNotIn('<script', html + templates)
 
     def test_external_icon_depends_on_site_origin_when_available(self):

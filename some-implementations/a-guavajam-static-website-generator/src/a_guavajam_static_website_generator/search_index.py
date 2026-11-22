@@ -504,13 +504,14 @@ def homepage(site, *, interactive, site_origin=None):
             for work_id, title, authors, abstract, day, revision, _committer_name, _committer_email, path, source in records:
                 work = base + path + '/'
                 target = (work + 'editions/' + revision + '/read/index.html') if revision else work + 'index.html'
-                byline = escape(authors) if authors else ''
-                if day:
-                    byline += (' · ' if byline else '') + '<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>'
+                byline = ('<time datetime="' + escape(day, quote=True) + '">' + escape(day) + '</time>') if day else ''
+                if authors:
+                    byline += (' · ' if byline else '') + escape(authors)
+                byline = detail_link(work + 'index.html', title + ' work page') + (' ' + byline if byline else '')
                 entries.append('<li><article><h3><a href="' + escape(target, quote=True) + '">' +
-                               escape(title) + '</a>' + detail_link(work + 'index.html', title + ' work page') +
+                               escape(title) + '</a>' +
                                '</h3>' +
-                               ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work authors and date">' + byline + '</p>' if byline else '') +
+                               ('<p class="guavajam-byline guavajam-scrollline" tabindex="0" aria-label="Work date and authors">' + byline + '</p>' if byline else '') +
                                _facets(tags[work_id], subjects[work_id]) +
                                ('<p class="guavajam-abstract">' + escape(abstract) + '</p>' if abstract else '') +
                                '</article></li>')

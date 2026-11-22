@@ -35,7 +35,7 @@ def inline_icon(name, fallback):
 
 def search_icon_templates():
     return ''.join('<template id="guavajam-icon-' + name + '">' + link_icon(name, label) + '</template>'
-                   for name, label in [('history', 'Versions'), ('quote', 'Cite')])
+                   for name, label in [('history', 'Versions'), ('quote', 'Cite'), ('info', 'Metadata')])
 
 
 MIME_TYPES = {'.json': 'application/json', '.pdf': 'application/pdf', '.gfm': 'text/markdown',

@@ -282,7 +282,7 @@ try {
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
         assert.equal(await fallback.locator('#guavajam-static-section').isVisible(), true);
-        assert((await fallback.locator('#guavajam-index-search > summary').textContent()).includes('Indexed Search'));
+        assert((await fallback.locator('#guavajam-index-search > summary').textContent()).includes('Search'));
         assert.equal(await fallback.locator('#guavajam-index-search').getAttribute('open'), '');
         assert.equal(await fallback.locator('#guavajam-search-results').isVisible(), false);
         assert.deepEqual(unexpected, [], `${name}: failure must not make external requests`);

@@ -32,11 +32,10 @@
 }
 
 .guavajam-record-link {
-  display: inline-flex; vertical-align: baseline; width: 1.35rem; height: 1.35rem;
+  position: relative; display: inline-flex; vertical-align: middle; width: 1.35rem; height: 1.35rem;
   align-items: center; justify-content: center; flex: none;
 }
 .guavajam-record-link { margin-inline-start: .2rem; }
-.guavajam-works h3 .guavajam-record-link { font-size: .83rem; }
 
 .guavajam-byline, .guavajam-record-list > li > article > .guavajam-meta { color: var(--guavajam-muted); font: .95rem/1.6 system-ui, sans-serif; }
 .guavajam-byline { margin: 0 0 .15rem; }
@@ -49,8 +48,7 @@
 }
 .guavajam-scrollline::-webkit-scrollbar, .guavajam-record-list h3 > a:first-child::-webkit-scrollbar { display: none; }
 .guavajam-record-list h3 { display: flex; align-items: center; gap: .2rem; flex-wrap: nowrap; white-space: nowrap; }
-/* The title owns its native scroll viewport; adjacent record controls keep
-   their own space and focus ring, even when the title exceeds the column. */
+/* Long record titles retain their own native horizontal scroll viewport. */
 .guavajam-record-list h3 > a:first-child { flex: 0 1 auto; min-width: 0; }
 .guavajam-facets {
   display: flex; align-items: baseline; gap: .7rem; margin: .1rem 0 .45rem;
@@ -176,7 +174,7 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 @media (prefers-reduced-motion: reduce) { .guavajam-search-spinner { animation: none; border-style: dotted; } }
 .guavajam-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .guavajam-search-help { margin: .3rem 0 .7rem; }
-#guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem .8rem; align-items: end; margin: .75rem 0 0; }
+#guavajam-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .65rem .8rem; align-items: center; margin: .75rem 0 0; }
 #guavajam-search > .guavajam-query-field { min-width: 0; }
 #guavajam-search label { display: block; font: 600 .83rem/1.4 system-ui, sans-serif; margin-bottom: .25rem; }
 #guavajam-search input, #guavajam-search select, #guavajam-search button,
@@ -186,7 +184,7 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 /* iOS Safari magnifies focused controls below 16 CSS px and can retain
    that visual-viewport zoom after blur. Preserve user zoom; size the text. */
 #guavajam-search :is(input, select) { font-size: max(.9rem, 16px); }
-#guavajam-search input { width: 100%; min-width: 0; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
+#guavajam-search input { display: block; width: 100%; min-width: 0; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
 #guavajam-search select { width: 100%; background: var(--guavajam-paper); color: var(--guavajam-ink); border: 1px solid var(--guavajam-border); }
 #guavajam-search button, .guavajam-index-search button,
 #guavajam-search-prev, #guavajam-search-next {
@@ -215,16 +213,12 @@ button.guavajam-facet[aria-pressed="true"] { font-weight: 700; }
 /* Search and its directory list never need a redundant separator. */
 .guavajam-listing { border: 0; padding-top: 0; min-width: 0; width: 100%; }
 .guavajam-list-heading { margin: .65rem 0 .45rem; font-size: 1.15rem; }
-.guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
+.guavajam-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem; margin: 1.25rem 0; font: .86rem/1.6 system-ui, sans-serif; }
 .guavajam-pagination > * { flex: none; }
 .guavajam-pagination button { padding: .3rem .7rem; }
 .guavajam-pagination #guavajam-search-page { color: var(--guavajam-muted); }
 .guavajam-site footer { border-top: 1px solid var(--guavajam-border); padding-top: 1.2rem; margin-top: 1.65rem; font: .83rem/1.65 system-ui, sans-serif; color: var(--guavajam-muted); }
 [hidden] { display: none !important; }
-@media (max-width: 430px) {
-  #guavajam-search { grid-template-columns: minmax(0, 1fr); }
-  #guavajam-search button[type=submit] { width: fit-content; }
-}
 @media print {
   .guavajam-index-search, .guavajam-directory-enhancement, .guavajam-pagination,
   .guavajam-passage-cite, .guavajam-skip { display: none !important; }

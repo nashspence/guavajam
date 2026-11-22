@@ -66,7 +66,7 @@ if (form) {
     demoteStaticFacets();
     if (listing) listing.hidden = false;
     summary.textContent = directory || !work ?
-      'Search is unavailable. The static pages remain accessible; close and reopen Indexed Search to retry, or reload.' :
+      'Search is unavailable. The static pages remain accessible; close and reopen Search to retry, or reload.' :
       'Search is unavailable. Retry or reload this page.';
     reload.hidden = false;
     fallback.hidden = false;
@@ -149,13 +149,13 @@ if (form) {
     return (form.dataset.root || '') + value;
   }
 
-  function recordLink(href, label) {
+  function recordLink(href, label, iconName = 'history') {
     const a = document.createElement('a');
     a.className = 'guavajam-record-link';
     a.href = href;
     a.setAttribute('aria-label', label);
     a.title = label;
-    a.append(document.querySelector('#guavajam-icon-history').content.cloneNode(true));
+    a.append(document.querySelector('#guavajam-icon-' + iconName).content.cloneNode(true));
     return a;
   }
 
@@ -277,23 +277,26 @@ if (form) {
         collectionURL(row.path + (row.latest_revision ? '/editions/' + row.latest_revision + '/read/index.html' : '/index.html'));
       appendText(link, row.title);
       heading.append(link);
-      if (!work) heading.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'));
 
       article.append(heading);
       if (!work) {
         const byline = document.createElement('p');
         byline.className = 'guavajam-byline guavajam-scrollline';
         byline.tabIndex = 0;
-        byline.setAttribute('aria-label', 'Work authors and date');
-        if (row.authors) appendText(byline, row.authors);
+        byline.setAttribute('aria-label', 'Work date and authors');
+        byline.append(recordLink(collectionURL(row.path + '/index.html'), row.title + ' work page'),
+          document.createTextNode(' '));
         if (row.latest_published) {
-          if (byline.childNodes.length) byline.append(document.createTextNode(' · '));
           const date = document.createElement('time');
           date.dateTime = row.latest_published;
           appendText(date, row.latest_published);
           byline.append(date);
         }
-        if (byline.childNodes.length) article.append(byline);
+        if (row.authors) {
+          if (row.latest_published) byline.append(document.createTextNode(' · '));
+          appendText(byline, row.authors);
+        }
+        article.append(byline);
         const tags = JSON.parse(row.keywords_json || '[]');
         const subjects = JSON.parse(row.subjects_json || '[]');
         if (tags.length || subjects.length) {
@@ -319,9 +322,9 @@ if (form) {
           meta.setAttribute('aria-label', 'Version date and source');
           const date = document.createElement('time'); date.dateTime = row.published; appendText(date, row.published);
           const revision = document.createElement('code'); revision.title = row.revision; appendText(revision, row.revision.slice(0, 12));
-          const metadata = document.createElement('a');
-          metadata.href = workURL('editions/' + row.revision + '/metadata.html#provenance'); metadata.textContent = 'Metadata';
-          meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' · '), metadata);
+          const metadata = recordLink(workURL('editions/' + row.revision + '/metadata.html#provenance'),
+            'Metadata for ' + row.title, 'info');
+          meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' '), metadata);
           article.append(meta);
         }
         if (resultKind === 'documents' && row.abstract) {
