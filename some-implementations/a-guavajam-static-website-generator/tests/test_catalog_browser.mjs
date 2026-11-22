@@ -76,14 +76,16 @@ try {
         await page.setViewportSize({width, height: 900});
         await page.goto(base + edition + 'read/index.html');
         const menu = page.getByRole('navigation', {name: 'Version links', exact: true});
-        assert(await menu.evaluate(n => n.scrollWidth > n.clientWidth), 'mobile version links should overflow within their own lane');
+        const pannable = await menu.evaluate(n => n.scrollWidth > n.clientWidth);
+        if (width === 320) assert(pannable, 'narrow version links overflow within their own lane');
         const rows = await menu.locator('a').evaluateAll(ns => ns.map(n => n.getBoundingClientRect().top));
         assert(rows.every(top => Math.abs(top - rows[0]) < 1), 'version links remain on one row');
         await menu.focus();
         const beforePan = await menu.evaluate(n => n.scrollLeft);
         await page.keyboard.press('ArrowRight');
         await page.waitForTimeout(250); // Native scroll animation; this context has scripts disabled.
-        assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan the version menu');
+        if (pannable) assert(await menu.evaluate(n => n.scrollLeft) > beforePan, 'arrow keys pan an overflowing version menu');
+        else assert.equal(await menu.evaluate(n => n.scrollLeft), beforePan, 'fitting links need no pan');
         for (const link of await menu.locator('a').all()) {
           await page.keyboard.press('Tab');
           await page.waitForTimeout(250);
