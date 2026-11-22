@@ -122,7 +122,7 @@ class SearchIndexTests(unittest.TestCase):
                            for n in (2, 3)]
         unique = []
         for n, markup in enumerate(pages, 1):
-            work_rows = re.findall(r'<li><article><h3[^>]*>.*?<a href="([^"]+)"[^>]*>.*?</a> <span class="guavajam-link-label" aria-hidden="true">Work (\d+)</span>', markup)
+            work_rows = re.findall(r'<li><article><h3[^>]*>.*?<a href="([^"]+)"[^>]*>.*?</a><span class="guavajam-link-label" aria-hidden="true">Work (\d+)</span>', markup)
             self.assertEqual([20, 20, 5][n - 1], len(work_rows))
             self.assertLessEqual(len(work_rows), 20)
             self.assertIn('45 total</p>', markup)

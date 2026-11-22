@@ -30,7 +30,7 @@ def search_progress(identifier):
 def disclosure_summary(label, *, extra='', css=''):
     """Keep native keyboard toggling; only the arrow accepts pointer clicks."""
     return ('<summary class="guavajam-disclosure-summary ' + css + '">'
-            '<span class="guavajam-disclosure-arrow">' + icon('chevron-right') + '</span> '
+            '<span class="guavajam-disclosure-arrow">' + icon('chevron-right') + '</span>'
             '<span class="guavajam-disclosure-label">' + escape(label) + '</span>' + extra + '</summary>')
 
 
@@ -224,7 +224,7 @@ def _write_contents(output, entries, *, collection, site_origin=None):
             return '<ol>' + ''.join(
                 '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
                 '<a class="guavajam-contents-link" href="index.html#' + escape(node['record']['anchor'], quote=True) +
-                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a> ' +
+                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a>' +
                 escape(node['record']['title']) + '</p>' +
                 (contents(node['children']) if node['children'] else '') + '</li>'
                 for node in nodes) + '</ol>'

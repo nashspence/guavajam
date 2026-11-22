@@ -36,16 +36,59 @@ export async function textLinkCues(page) {
   for (const wrapper of await page.locator('.guavajam-text-link:visible').all()) {
     assert(await wrapper.evaluate(n=>{
       const a=n.querySelector('a'),caption=n.querySelector('.guavajam-link-label'),s=getComputedStyle(n);
-      const probe=document.createElement('span');probe.style.color='var(--guavajam-muted)';n.append(probe);
+      const probe=document.createElement('span');probe.style.color='var(--guavajam-rule)';n.append(probe);
       const muted=getComputedStyle(probe).color;probe.remove();
       return !a.contains(caption) && a.getAttribute('aria-label') && a.textContent.trim()==='Link' &&
         getComputedStyle(caption).color===s.color && s.borderBottomStyle==='dotted' &&
         parseFloat(s.borderBottomWidth)===1 && s.borderBottomColor===muted;
-    }),'prose links activate through an emphasized icon; a muted dotted rule groups icon and plain caption');
+    }),'prose links activate through an emphasized icon; a subtle dotted rule groups icon and plain caption');
   }
 }
 
+
+export async function readerDetailLayout(page) {
+  const report=await page.evaluate(()=>{
+    const failures=[];
+    // Measure artwork-to-caption distance, including any accidental HTML spaces.
+    for (const n of document.querySelectorAll('.guavajam-icon-label,.guavajam-text-link,.guavajam-contents-entry,.guavajam-disclosure-summary')) {
+      if (!n.getClientRects().length) continue;
+      const a=n.querySelector('.guavajam-icon-control,.guavajam-contents-link,.guavajam-disclosure-arrow');
+      if (!a) continue;
+      const svg=[...a.querySelectorAll('svg')].at(-1), caption=n.querySelector('.guavajam-link-label,.guavajam-disclosure-label');
+      const range=document.createRange();
+      if(caption) range.selectNodeContents(caption);
+      else {range.setStartAfter(a);range.setEnd(n,n.childNodes.length);}
+      const b=range.getClientRects()[0],s=svg.getBoundingClientRect();
+      if(!b || b.left<s.right || b.top>=s.bottom || b.bottom<=s.top) continue; // Prose may wrap.
+      const expected=parseFloat(getComputedStyle(a).fontSize)*.3;
+      if(Math.abs(b.left-s.right-expected)>.8) failures.push({kind:n.className,gap:b.left-s.right,expected});
+    }
+    const field=document.querySelector('#guavajam-search input[name=q]');
+    if(field?.getClientRects().length) {
+      const x=field.getBoundingClientRect().left;
+      for(const a of document.querySelectorAll('.guavajam-disclosure-summary > .guavajam-disclosure-arrow')) {
+        if(a.getClientRects().length && Math.abs(a.querySelector('svg').getBoundingClientRect().left-x)>.8)
+          failures.push({kind:'disclosure alignment'});
+      }
+    }
+    const search=document.querySelector('.guavajam-index-search');
+    if(search && Math.abs(parseFloat(getComputedStyle(search).marginBottom)-parseFloat(getComputedStyle(document.documentElement).fontSize)*.75)>.1)
+      failures.push({kind:'compact search spacing'});
+    for(const code of document.querySelectorAll('.guavajam-citation-source code'))
+      if(getComputedStyle(code).backgroundColor!=='rgba(0, 0, 0, 0)') failures.push({kind:'citation code background'});
+    const rule=document.createElement('span');rule.style.color='var(--guavajam-rule)';document.body.append(rule);
+    const color=getComputedStyle(rule).color;rule.remove();
+    for(const n of document.querySelectorAll('hr,.guavajam-navigation,.guavajam-record-list > li,footer'))
+      if(getComputedStyle(n).borderTopStyle==='solid' && getComputedStyle(n).borderTopColor!==color ||
+         getComputedStyle(n).borderBottomStyle==='solid' && getComputedStyle(n).borderBottomColor!==color)
+        failures.push({kind:'decorative rule color'});
+    return failures;
+  });
+  assert.deepEqual(report,[],'reader icons share a compact gap; disclosure edges, rules, and citation identities stay consistent');
+}
+
 export async function navigationCues(page) {
+  await readerDetailLayout(page);
   await textLinkCues(page);
   const menu = page.locator('.guavajam-version-menu');
   if (await menu.count()) {
@@ -67,7 +110,9 @@ export async function navigationCues(page) {
   for (const label of await page.locator('.guavajam-icon-label:visible').all()) {
     assert(await label.evaluate(n=>{
       const a=n.querySelector('a'), text=n.querySelector('.guavajam-link-label');
-      return !a.contains(text) && getComputedStyle(text).color===getComputedStyle(document.body).color;
+      const expected=n.closest('.guavajam-excerpt-label') || document.body;
+      return !a.contains(text) && getComputedStyle(text).color===getComputedStyle(expected).color &&
+        getComputedStyle(n).borderBottomStyle==='none';
     }),'only the leading icon links; adjacent text uses normal foreground');
   }
   for (const note of await page.locator('a.footnote-ref,a[role=doc-noteref]').all()) {
