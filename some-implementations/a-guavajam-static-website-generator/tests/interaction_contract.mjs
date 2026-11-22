@@ -74,8 +74,12 @@ export async function readerDetailLayout(page) {
     const search=document.querySelector('.guavajam-index-search');
     if(search && Math.abs(parseFloat(getComputedStyle(search).marginBottom)-parseFloat(getComputedStyle(document.documentElement).fontSize)*.75)>.1)
       failures.push({kind:'compact search spacing'});
-    for(const code of document.querySelectorAll('.guavajam-citation-source code'))
-      if(getComputedStyle(code).backgroundColor!=='rgba(0, 0, 0, 0)') failures.push({kind:'citation code background'});
+    for(const code of document.querySelectorAll('.guavajam-citation-source code')) {
+      const color=getComputedStyle(code).backgroundColor;
+      // Forced colors may substitute Canvas RGB while preserving zero opacity.
+      if(color!=='transparent' && !/^rgba\([^)]*,\s*0\)$/.test(color))
+        failures.push({kind:'citation code background'});
+    }
     const rule=document.createElement('span');rule.style.color='var(--guavajam-rule)';document.body.append(rule);
     const color=getComputedStyle(rule).color;rule.remove();
     for(const n of document.querySelectorAll('hr,.guavajam-navigation,.guavajam-record-list > li,footer'))
