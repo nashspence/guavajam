@@ -54,7 +54,7 @@
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
 }
 /* A partially visible metadata control must become fully readable on Tab. */
-.guavajam-scrollline:not(.guavajam-list-header):has(:is(a, button):focus-visible) {
+.guavajam-scrollline:where(:not(.guavajam-list-header)):has(:is(a, button):focus-visible) {
   overflow: visible; white-space: normal; flex-wrap: wrap;
 }
 .guavajam-scrollline:has(:is(a, button):focus-visible) .guavajam-facet {
