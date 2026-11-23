@@ -12,7 +12,7 @@ setup: ## Install pinned project tools and dependencies.
 	mise install
 	mise exec -- uv sync --locked --package guavajam --no-dev
 test: check-licenses check-boundaries test-guavajam test-a-guavajam-static-website-generator test-a-chatgpt-conversation-archive-gfm-extractor test-a-chatgpt-conversation-archiver-browser-extension test-deployment-config test-repository ## Run package, deployment configuration and repository contracts.
-test-guavajam: ## Run source, capture, storage and preservation contracts.
+test-guavajam: ## Run source, storage and preservation contracts.
 	@$(PYTHON) tools/run_tests.py guavajam
 	@mise exec -- node --test tests/guavajam/test_worker.mjs tests/guavajam/test_gateway_server.mjs tests/guavajam/test_private_preview.mjs
 test-a-guavajam-static-website-generator: ## Run rendering, catalog and update contracts.
