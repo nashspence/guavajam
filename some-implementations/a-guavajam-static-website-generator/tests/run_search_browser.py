@@ -51,6 +51,10 @@ def prepare(directory):
         subject = {1: 'Geography', 2: 'Computing'}.get(number)
         metadata(publisher, f'Work {number:02d}', body,
                  keyword='Café studies' if number == 1 else 'Field observations', subject=subject)
+        if number == 3:
+            source = publisher.repo / 'content/manuscript.md'
+            source.write_text(source.read_text().replace('<a id="opening"></a>\n## Opening\n\n', '') +
+                              '\nFreeprosebodyevidence stays findable without a declared source anchor.\n')
         revision = publisher.publish(f'Publish work {number:02d}', date=f'2026-11-{number:02d}T12:00:00Z')
         relative = 'sources/' + name
         entry = {'repository': f'https://example.org/{name}.git', 'path': relative, 'tip': revision}

@@ -283,9 +283,9 @@ try {
       assert.equal(await page.locator('.guavajam-match-source').textContent(), 'v2 · Old geography');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeoriver');
       assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'Work 01');
-      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), fixture.historical + '#:~:text=Palaeoriver');
+      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), fixture.historical + '#opening');
       await page.locator('.guavajam-excerpt-label a').click();
-      assert(page.url().endsWith(fixture.historical + '#:~:text=Palaeoriver'));
+      assert(page.url().endsWith(fixture.historical + '#opening'));
       assert((await page.locator('article').textContent()).includes('Palaeoriver'));
       await page.goto(base);
       await page.locator('#guavajam-search-toggle').click();
@@ -311,6 +311,12 @@ try {
       assert.equal(new URL(destination.url()).hash,'#claim');
       assert((await destination.locator(':target').textContent()).includes('Glaciolacustrine'));
       await destination.close();
+      await query('Freeprosebodyevidence', 1);
+      const freeProse = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
+      assert(freeProse.endsWith('/read/index.html#:~:text=Freeprosebodyevidence'));
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(),'Freeprosebodyevidence');
+      const freeResponse=await page.request.get(new URL(freeProse,page.url()).href);
+      assert(freeResponse.ok() && (await freeResponse.text()).includes('Freeprosebodyevidence'));
       await query('cafe collection', 1); // metadata and body share the same search record
       assert.equal(await page.locator('#guavajam-search-results .guavajam-tag mark').textContent(), 'Café');
       // Commit identifiers are searchable too: another random fixture hash can

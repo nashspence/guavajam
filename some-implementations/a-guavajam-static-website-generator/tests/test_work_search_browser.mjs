@@ -112,7 +112,7 @@ try {
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
       await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
       assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'),
-        base + fixture.historical + '#:~:text=Palaeotidal');
+        base + fixture.historical + '#opening');
       await query('Bathymetric ecology', 1, 'editions');
       assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), base + fixture.section);
 
