@@ -30,6 +30,8 @@ metadata:
     - Estuary
 ---
 
+<a id="metadata"></a>
+
 <a id="overview"></a>
 
 ## Overview
