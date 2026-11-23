@@ -248,6 +248,7 @@ class ChromeTests(unittest.TestCase):
             output = Path(temp) / 'site'
             with (patch('a_guavajam_static_website_generator.site.verify', side_effect=verify_stub),
                   patch('a_guavajam_static_website_generator.site.render', side_effect=render_stub),
+                  patch('a_guavajam_static_website_generator.feed.write_work_feed'),
                   patch('a_guavajam_static_website_generator.site.git_blob', return_value=b'example source'),
                   patch('a_guavajam_static_website_generator.site.committer_identity', return_value={'name': 'Mara', 'email': ''}),
                   patch('a_guavajam_static_website_generator.work_search.build_work_index', return_value=None)):

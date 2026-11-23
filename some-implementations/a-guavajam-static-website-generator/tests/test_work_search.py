@@ -355,7 +355,7 @@ class WorkSearchTests(unittest.TestCase):
         trust.write_text(yaml.safe_dump({url: {'allowed_signers': str(self.publisher.allowed_signers)}
                                         for url in urls}))
         previous = directory / 'previous.json'
-        previous.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}}))
+        previous.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}, 'feed': None}))
         output = directory / 'site'
         with patch.dict('os.environ', {'GUAVAJAM_SQLITE_WASM_DIR': str(runtime)}), \
                 patch('a_guavajam_static_website_generator.index.prepare_source', return_value=self.publisher.repo):

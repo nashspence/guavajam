@@ -430,6 +430,8 @@ export async function listControlLayout(page) {
 export async function listHeadingOverflow(page) {
   const header=page.locator('.guavajam-list-header'), status=header.locator('#guavajam-search-status');
   const saved=await status.textContent();
+  const feed=header.locator('.guavajam-feed-link');
+  if(await feed.count()) await feed.focus();
   try {
     await status.evaluate(n=>n.textContent='9'.repeat(320)+' total');
     assert(await header.evaluate(n=>n.scrollWidth > n.clientWidth && getComputedStyle(n).scrollbarWidth === 'none'));

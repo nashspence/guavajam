@@ -18,6 +18,7 @@ import yaml
 from guavajam.catalog import CatalogError, encoded, https, validate
 from guavajam.publication_protocol import discover, run
 from .site import build_site
+from .feed import advance_collection, validate_state, write_collection_feed
 from .search_index import create_index, emit_browser_assets, homepage, runtime_identity
 from .update import digest, locked_root, read_json, renderer_identity, trust_identity, verify_public_delivery
 
@@ -177,8 +178,11 @@ def retained(root):
     if site.resolve() != site or not site.is_dir():
         raise CatalogError('collection generation is missing or redirected')
     receipt = read_json(site.parent / 'STATE.json', maximum=64 * MAX_BYTES)
-    if receipt.get('schema') != 'guavajam.index-state.v1' or digest((site / 'INDEX.json').read_bytes()) != receipt.get('index_sha256'):
+    if (not isinstance(receipt, dict) or set(receipt) != {'schema', 'identity', 'catalogs', 'index_sha256', 'feed'}
+            or receipt['schema'] != 'guavajam.index-state.v1'
+            or digest((site / 'INDEX.json').read_bytes()) != receipt['index_sha256']):
         raise CatalogError('collection baseline differs from its retained receipt')
+    validate_state(receipt['feed'])
     return receipt
 
 
@@ -228,12 +232,15 @@ def update_index(index, trust_file, output, *, site_origin=None):
                                           view_cache=root / '.cache' / digest((renderer + trusted + identifier).encode()))
                 catalogs[url] = catalog
                 entries.append({'repository': url, 'path': 'sources/' + identifier, 'tip': catalog['tip']})
+            feed = advance_collection(old['feed'] if old else None,
+                                       old['catalogs'] if old else {}, entries, site)
+            write_collection_feed(site, feed)
             create_index(site, entries)
             (site / 'index.html').write_text(homepage(site, interactive=interactive, site_origin=site_origin), encoding='utf-8')
             public = {'schema': 'guavajam.index-view.v1', 'repositories': entries}
             (site / 'INDEX.json').write_bytes(encoded(public))
             receipt = {'schema': 'guavajam.index-state.v1', 'identity': identity, 'catalogs': catalogs,
-                       'index_sha256': digest(encoded(public))}
+                       'index_sha256': digest(encoded(public)), 'feed': feed}
             (stage / 'STATE.json').write_bytes(encoded(receipt))
             for path in stage.rglob('*'):
                 if path.is_file():
@@ -272,8 +279,13 @@ def build_pages(index, trust_file, output, previous_state, state_output, *, site
     if any(url not in policies for url in urls):
         raise CatalogError('every indexed repository requires independent signer trust')
     previous = read_json(Path(previous_state), maximum=64 * MAX_BYTES)
-    if not isinstance(previous, dict) or set(previous) != {'schema', 'catalogs'} or previous['schema'] != 'guavajam.index-checkpoint.v1':
+    if (not isinstance(previous, dict) or set(previous) != {'schema', 'catalogs', 'feed'}
+            or previous['schema'] != 'guavajam.index-checkpoint.v1'):
         raise CatalogError('Pages requires an independently retained verification checkpoint')
+    if previous['feed'] is not None:
+        validate_state(previous['feed'])
+    elif previous['catalogs'] != {}:
+        raise CatalogError('a retained catalog requires its collection feed checkpoint')
     catalogs = previous['catalogs']
     if not isinstance(catalogs, dict) or len(catalogs) > 1024:
         raise CatalogError('invalid retained collection')
@@ -306,10 +318,12 @@ def build_pages(index, trust_file, output, previous_state, state_output, *, site
                                       repository=url, search_assets='../../' if interactive else '', site_origin=site_origin)
             next_catalogs[url] = catalog
             entries.append({'repository': url, 'path': path, 'tip': catalog['tip']})
+        feed = advance_collection(previous['feed'], catalogs, entries, staging)
+        write_collection_feed(staging, feed)
         create_index(staging, entries)
         (staging / 'index.html').write_text(homepage(staging, interactive=interactive, site_origin=site_origin), encoding='utf-8')
         (staging / 'INDEX.json').write_bytes(encoded({'schema': 'guavajam.index-view.v1', 'repositories': entries}))
-        next_state = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': next_catalogs}
+        next_state = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': next_catalogs, 'feed': feed}
         state_file.parent.mkdir(parents=True, exist_ok=True)
         with state_file.open('xb') as stream:
             stream.write(encoded(next_state))
