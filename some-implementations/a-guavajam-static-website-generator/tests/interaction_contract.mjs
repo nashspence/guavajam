@@ -236,7 +236,7 @@ export async function keyboardControls(page) {
 
 export async function hoverControls(page) {
   for (const selector of ['.guavajam-passage-cite', '.guavajam-citation > a', '.guavajam-record-link',
-    '.guavajam-disclosure-arrow', '.guavajam-message-detail > summary', '#guavajam-search button:not(:disabled)']) {
+    '#guavajam-search-toggle', '.guavajam-disclosure-arrow', '.guavajam-message-detail > summary', '#guavajam-search button:not(:disabled)']) {
     const target = page.locator(selector).first();
     if (!await target.isVisible()) continue;
     await page.evaluate(() => document.activeElement?.blur());

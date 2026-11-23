@@ -237,6 +237,15 @@ class WorkSearchTests(unittest.TestCase):
                 self.assertEqual([('works/field-notes/' + url,) for (url,) in work_urls], aggregate_urls)
             self.assertFalse(aggregate.execute(
                 "SELECT name FROM sqlite_master WHERE name IN ('passages','passage_records','passage_fts')").fetchall())
+            # Aggregate routing carries the same source-body targets without
+            # the work index's full citation/author/provenance payload.
+            body_urls = [row[0] for row in aggregate.execute('SELECT url FROM document_passages ORDER BY id')]
+            work_body_urls = [row[0] for row in work.execute('SELECT url FROM passages ORDER BY id')]
+            self.assertEqual(['works/field-notes/' + url for url in work_body_urls], body_urls)
+            aggregate.execute("CREATE VIRTUAL TABLE temp.body_tokens USING fts5vocab(main, document_passage_fts, 'instance')")
+            work.execute("CREATE VIRTUAL TABLE temp.body_tokens USING fts5vocab(main, passage_fts, 'instance')")
+            body_tokens = "SELECT term,doc,offset FROM temp.body_tokens WHERE col='body' ORDER BY doc,offset,term"
+            self.assertEqual(work.execute(body_tokens).fetchall(), aggregate.execute(body_tokens).fetchall())
             for connection in (aggregate, work):
                 connection.execute("CREATE VIRTUAL TABLE temp.tokens USING fts5vocab(main, search_fts, 'instance')")
             # Repository provenance legitimately differs between a standalone

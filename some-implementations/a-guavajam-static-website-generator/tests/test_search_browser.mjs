@@ -265,7 +265,7 @@ try {
       await page.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 2);
       assert.equal(await page.locator('#guavajam-search-next').isDisabled(), true);
-      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
+      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-search-results',
         'paging hands keyboard focus to the new results before disabling the last-page control');
       await page.keyboard.press('Tab');
       assert.equal(await page.locator('#guavajam-search-results h3').first().evaluate(n=>n===document.activeElement),true);
@@ -350,7 +350,7 @@ try {
       await waitTotal(fixture.works - 1);
       assert.equal(await page.locator('select[name=keyword]').inputValue(), 'Field observations');
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
-      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
+      assert.equal(await page.locator(':focus').getAttribute('id'), 'guavajam-search-results',
         'replacing an activated facet never drops focus to the document body');
       await page.keyboard.press('Tab');
       assert.equal(await page.locator('#guavajam-search-results h3').first().evaluate(n=>n===document.activeElement),true);
@@ -482,8 +482,8 @@ try {
       await waiting.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
         `${total} total`, fixture.works);
       assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), false);
-      assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-works-heading',
-        'hiding the static list hands its focused link to the new results');
+      assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-search-results',
+        'hiding the static list hands its focused link to the new results after the search controls');
       await waiting.evaluate(() => { window.guavajamSearchTest.hold = true; });
       await waiting.locator('#guavajam-search-next').focus();
       const beforeQuery = await searchFeedbackGeometry(waiting);

@@ -207,29 +207,42 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
         # result must carry query-positioned evidence from the exact winning
         # record, including historical metadata and deep source-body matches.
         # No second copy of those fields belongs in the relational mapping.
-        conn.executescript('''
-            CREATE VIRTUAL TABLE document_fts USING fts5(title, abstract,
-                content=documents, content_rowid=id, detail=full, columnsize=1,
-                tokenize='unicode61 remove_diacritics 2');
-            CREATE TABLE passages (
-                id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
-                document_id INTEGER NOT NULL REFERENCES documents(id),
-                work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
-                title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
-                position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                url TEXT NOT NULL, citation_url TEXT NOT NULL, citation_json TEXT NOT NULL,
-                UNIQUE(document_id, anchor)
-            );
-            CREATE TABLE passage_records (
-                id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
-                edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
-                url TEXT NOT NULL
-            );
-            CREATE INDEX passages_by_document ON passages(document_id, position);
-            CREATE INDEX passages_by_edition ON passages(edition_id);
-            CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
-                detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
-        ''')
+        if scope == 'work':
+            conn.executescript('''
+                CREATE VIRTUAL TABLE document_fts USING fts5(title, abstract,
+                    content=documents, content_rowid=id, detail=full, columnsize=1,
+                    tokenize='unicode61 remove_diacritics 2');
+                CREATE TABLE passages (
+                    id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
+                    document_id INTEGER NOT NULL REFERENCES documents(id),
+                    work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
+                    title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
+                    position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
+                    url TEXT NOT NULL, citation_url TEXT NOT NULL, citation_json TEXT NOT NULL,
+                    UNIQUE(document_id, anchor)
+                );
+                CREATE TABLE passage_records (
+                    id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
+                    edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
+                    url TEXT NOT NULL
+                );
+                CREATE INDEX passages_by_document ON passages(document_id, position);
+                CREATE INDEX passages_by_edition ON passages(edition_id);
+                CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
+                    detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+            ''')
+        else:
+            # Aggregate text hits need only a source URL and body evidence;
+            # full citation/passage metadata remains in each work's index.
+            conn.executescript("""
+                CREATE TABLE document_passages (
+                    id INTEGER PRIMARY KEY, document_id INTEGER NOT NULL REFERENCES documents(id),
+                    position INTEGER NOT NULL, url TEXT NOT NULL,
+                    UNIQUE(document_id, position)
+                );
+                CREATE VIRTUAL TABLE document_passage_fts USING fts5(body,
+                    detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+            """)
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('scope', scope))
@@ -308,7 +321,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                               (edition_id, number, detail['title'], source_path, url,
                                                detail['language'], detail['source_sha256'], detail.get('abstract', '')))
                         document_id = cursor.lastrowid
-                        if source_path != 'content/manuscript.md':
+                        if scope == 'work' and source_path != 'content/manuscript.md':
                             conn.execute('INSERT INTO document_fts(rowid,title,abstract) VALUES (?,?,?)',
                                          (document_id, detail['title'], detail.get('abstract', '')))
                         title = facts['title']
@@ -331,6 +344,12 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                       labels, document['text'], provenance))
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
+                            if scope == 'collection':
+                                cursor = conn.execute('INSERT INTO document_passages(document_id,position,url) VALUES (?,?,?)',
+                                                      (document_id, anchor['position'], target))
+                                conn.execute('INSERT INTO document_passage_fts(rowid,body) VALUES (?,?)',
+                                             (cursor.lastrowid, anchor['text']))
+                                continue
                             cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
                                 source_path, passage_starts[source_path] + anchor['position'],
                                 anchor['anchor']), safe='/#:')

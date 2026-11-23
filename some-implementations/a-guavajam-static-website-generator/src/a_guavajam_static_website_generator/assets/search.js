@@ -35,9 +35,10 @@ if (form) {
   const pageLabel = document.querySelector('#guavajam-search-page');
   const pagination = pageLabel.closest('nav');
   const worksHeading = document.querySelector('#guavajam-works-heading');
-  // This stable heading receives focus when a result or paging control goes
-  // away, without adding another stop to normal sequential navigation.
-  if (worksHeading) worksHeading.tabIndex = -1;
+  // The result list follows the revealed controls. Focus it after paging so
+  // Tab continues into results rather than returning to the query form.
+  results.tabIndex = -1;
+  if (worksHeading) results.setAttribute('aria-labelledby', worksHeading.id);
   const staticStatus = summary.textContent;
   const failure = document.createElement('p');
   failure.id = 'guavajam-search-message'; failure.className = 'guavajam-search-help';
@@ -399,7 +400,7 @@ if (form) {
     // Hand focus from replaced content or its pager to the new results. A
     // reply must never pull readers away from the query, filters, another tab,
     // or any destination they have reached while the worker was busy.
-    if (lostFocus) worksHeading?.focus();
+    if (lostFocus) results.focus();
     back.disabled = current <= 1;
     next.disabled = current >= pages;
     back.removeAttribute('aria-disabled');

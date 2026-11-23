@@ -91,13 +91,16 @@ function displayHighlights(result, term) {
 function documentMatchTargets(result, term) {
   const query = literalQuery(term, 'OR');
   if (!query) return result;
+  const table = scope === 'work' ? 'passage_fts' : 'document_passage_fts';
+  const mapping = scope === 'work' ? 'passages' : 'document_passages';
+  const column = scope === 'work' ? 4 : 0;
   for (const row of result.rows) {
     if (row.excerpt_context !== 'document' || !row.hit_url) continue;
     const hit = db.selectObjects(`SELECT p.url AS hit_url,
-        snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS excerpt
-      FROM passage_fts JOIN passages p ON p.id=passage_fts.rowid
-      WHERE passage_fts MATCH ? AND p.document_id=?
-      ORDER BY bm25(passage_fts), p.position, p.id LIMIT 1`,
+        snippet(${table}, ${column}, char(57344), char(57345), '…', 24) AS excerpt
+      FROM ${table} JOIN ${mapping} p ON p.id=${table}.rowid
+      WHERE ${table} MATCH ? AND p.document_id=?
+      ORDER BY bm25(${table}), p.position, p.id LIMIT 1`,
       ['body : (' + query + ')', row.match_document_id])[0];
     if (hit) Object.assign(row, hit);
     else {
