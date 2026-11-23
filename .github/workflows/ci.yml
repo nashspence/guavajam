@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [guavajam, a-guavajam-static-website-generator]
+        package: [guavajam, a-guavajam-static-website-generator, a-chatgpt-conversation-archive-gfm-extractor]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -28,11 +28,7 @@ jobs:
       - run: mise install
       - name: Install only this package and its dependencies
         run: |
-          if [ "${{ matrix.package }}" = guavajam ]; then
-            mise exec -- uv sync --locked --package guavajam --no-dev
-          else
-            mise exec -- uv sync --locked --all-packages --group dev
-          fi
+          mise exec -- uv sync --locked --package "${{ matrix.package }}" --group dev
       - name: Enforce repository documentation policy
         run: make test-repository PYTHON=.venv/bin/python
       - name: Enforce package boundaries
@@ -44,18 +40,16 @@ jobs:
       - name: Build wheel and standalone source distribution
         run: |
           mise exec -- uv build --package guavajam
-          if [ "${{ matrix.package }}" = a-guavajam-static-website-generator ]; then
-            mise exec -- uv build --package a-guavajam-static-website-generator
+          if [ "${{ matrix.package }}" != guavajam ]; then
+            mise exec -- uv build --package "${{ matrix.package }}"
           fi
       - name: Verify isolated installed artifacts
         run: mise exec -- .venv/bin/python tools/check_artifacts.py --package ${{ matrix.package }}
       - name: Install browser qualification tools
+        if: matrix.package == 'a-guavajam-static-website-generator'
         run: |
           mise exec -- npm ci --ignore-scripts
           mise exec -- npx playwright install --with-deps chromium firefox webkit
-      - name: Qualify capture extension and importer
-        if: matrix.package == 'guavajam'
-        run: mise exec -- make test-capture-browser PYTHON=.venv/bin/python
       - name: Qualify rendering, catalog, native playback, accessibility and print
         if: matrix.package == 'a-guavajam-static-website-generator'
         run: mise exec -- make test-browser PYTHON=.venv/bin/python
@@ -88,3 +82,41 @@ jobs:
           install: false
       - run: mise install
       - run: make check-licenses
+
+  archiver:
+    name: Verify ChatGPT archiver distribution
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: mise install
+      - run: make test-a-chatgpt-conversation-archiver-browser-extension PYTHON='mise exec -- python'
+      - run: |
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install --with-deps chromium
+      - run: make test-archiver-browser PYTHON='mise exec -- python'
+
+  archive_handoff:
+    name: Verify ChatGPT archive-to-GFM handoff
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          version: 2026.11.0
+          install: false
+      - run: mise install
+      - run: |
+          mise exec -- uv sync --locked --package a-chatgpt-conversation-archive-gfm-extractor --no-dev
+          mise exec -- npm ci --ignore-scripts
+          mise exec -- npx playwright install --with-deps chromium
+      - run: mise exec -- make test-chatgpt-handoff PYTHON=.venv/bin/python

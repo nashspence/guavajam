@@ -16,31 +16,32 @@ class LicensingTests(unittest.TestCase):
         canonical = (ROOT / LICENSE).read_bytes()
         self.assertEqual(APACHE_SHA256, hashlib.sha256(canonical).hexdigest())
         self.assertEqual(canonical, (ROOT / 'LICENSE').read_bytes())
-        self.assertEqual(canonical, (ROOT / 'src/guavajam/resources/chatgpt-capture' / LICENSE).read_bytes())
-        for package in ['.', 'some-implementations/a-guavajam-static-website-generator']:
+        for package in ['.', 'some-implementations/a-guavajam-static-website-generator', 'some-implementations/a-chatgpt-conversation-archive-gfm-extractor', 'some-implementations/a-chatgpt-conversation-archiver-browser-extension']:
             with self.subTest(package=package):
                 self.assertEqual(canonical, (ROOT / package / LICENSE).read_bytes())
 
     def test_reuse_defaults_cover_files_and_preserve_explicit_file_notices(self):
         reuse = (ROOT / 'REUSE.toml').read_bytes()
-        self.assertEqual(reuse, (ROOT / 'src/guavajam/resources/chatgpt-capture/REUSE.toml').read_bytes())
         data = tomllib.loads(reuse.decode())
         self.assertEqual(1, data['version'])
         self.assertEqual([{'path': '**', 'precedence': 'closest',
                            'SPDX-FileCopyrightText': '2026 Nash Spence',
                            'SPDX-License-Identifier': 'Apache-2.0'}], data['annotations'])
-        for package in ['.', 'some-implementations/a-guavajam-static-website-generator']:
+        for package in ['.', 'some-implementations/a-guavajam-static-website-generator', 'some-implementations/a-chatgpt-conversation-archive-gfm-extractor', 'some-implementations/a-chatgpt-conversation-archiver-browser-extension']:
             with self.subTest(package=package):
                 self.assertEqual(reuse, (ROOT / package / 'REUSE.toml').read_bytes())
 
-    def test_both_distributions_declare_spdx_license_and_ship_text_and_copyright_metadata(self):
-        for package in ['.', 'some-implementations/a-guavajam-static-website-generator']:
+    def test_owned_distributions_declare_spdx_license_and_ship_legal_artifacts(self):
+        for package in ['.', 'some-implementations/a-guavajam-static-website-generator', 'some-implementations/a-chatgpt-conversation-archive-gfm-extractor', 'some-implementations/a-chatgpt-conversation-archiver-browser-extension']:
             with self.subTest(package=package):
                 project = ROOT / package
+                if package.endswith('a-chatgpt-conversation-archiver-browser-extension'):
+                    self.assertEqual('Apache-2.0',json.loads((project/'package.json').read_text())['license'])
+                    continue
                 metadata = tomllib.loads((project / 'pyproject.toml').read_text())['project']
                 self.assertEqual('Apache-2.0', metadata['license'])
                 expected = [LICENSE, 'REUSE.toml']
-                if package != '.': expected.append('src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt')
+                if package.endswith('a-guavajam-static-website-generator'): expected.append('src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt')
                 self.assertEqual(expected, metadata['license-files'])
 
     def test_browser_tool_metadata_agrees_with_repository_license(self):

@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import axe from 'axe-core';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
-const fixture = JSON.parse(await fs.readFile(new URL('../fixtures/capture/conversation.json', import.meta.url)));
-const liveShape = JSON.parse(await fs.readFile(new URL('../fixtures/capture/live-shape.json', import.meta.url)));
+const root = fileURLToPath(new URL('../../../', import.meta.url));
+const fixture = JSON.parse(await fs.readFile(new URL('../../../tests/fixtures/capture/conversation.json', import.meta.url)));
+const liveShape = JSON.parse(await fs.readFile(new URL('../../../tests/fixtures/capture/live-shape.json', import.meta.url)));
 const id = fixture.conversation_id;
 const origin = 'https://chatgpt.com';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -56,7 +56,7 @@ async function attach(browser, targetId) {
 }
 
 async function qualify(scenario) {
-  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'guavajam-capture-'));
+  const profile = await fs.mkdtemp(path.join(os.tmpdir(), 'chatgpt-archive-'));
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true, acceptDownloads: true,
     ignoreDefaultArgs: ['--disable-extensions'],
@@ -116,7 +116,7 @@ async function qualify(scenario) {
     await context.addCookies([{ name: 'fixture-session', value: 'synthetic-cookie', url: origin,
       httpOnly: true, secure: true, sameSite: 'Lax' }]);
     const browser = await context.browser().newBrowserCDPSession();
-    const loaded = await browser.send('Extensions.loadUnpacked', { path: path.join(root, 'src/guavajam/resources/chatgpt-capture') });
+    const loaded = await browser.send('Extensions.loadUnpacked', { path: process.env.CHATGPT_ARCHIVER_EXTENSION_DIR || path.join(root, 'some-implementations/a-chatgpt-conversation-archiver-browser-extension/src') });
     const page = context.pages()[0];
     await page.goto(origin + '/c/' + (scenario === 'local-url' ? 'local-chatgpt%3A' + id : id));
     page.on('download', download => downloads.push(download));
@@ -221,8 +221,8 @@ async function qualify(scenario) {
     if (!mustFail) {
       const download = downloads[0];
       assert.equal(await download.failure(), null);
-      assert.equal(download.suggestedFilename(), `chatgpt-capture-${id}.zip`);
-      await download.saveAs(path.join(process.env.GUAVAJAM_CAPTURE_OUTPUT_DIR, scenario + '.zip'));
+      assert.equal(download.suggestedFilename(), `chatgpt-conversation-archive-${id}.zip`);
+      await download.saveAs(path.join(process.env.CHATGPT_ARCHIVER_ARCHIVE_DIR, scenario + '.zip'));
     }
     return { scenario, browser: context.browser().version(), requests: requests.length, downloaded: !mustFail };
   } finally {

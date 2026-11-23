@@ -6,12 +6,12 @@ import re
 import subprocess
 from pathlib import Path
 import html
-from .supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, ATTRIBUTION_TOKEN, valid_timestamp
+from guavajam.supporting_gfm import MAX_RECORD_BYTES, SPEAKERS, ATTRIBUTION_TOKEN, valid_timestamp
 
-from .asset_policy import AssetError
-from .identifiers import SLUG
-from .chat_references import citation_inlines, component_inlines
-from .source_ast import plain_text, walk
+from guavajam.asset_policy import AssetError
+from guavajam.identifiers import SLUG
+from .references import citation_inlines, component_inlines
+from guavajam.source_ast import plain_text, walk
 
 
 def _normalize_quote_blank_markers(text: str) -> str:
@@ -387,7 +387,7 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
             report('unsupported-block-format-as-literal-code')
             return {'t':'CodeBlock','c':[['',[],[]],plain_text(value)]}
         if kind == 'Link':
-            from .validate_sources import valid_source_link
+            from guavajam.validate_sources import valid_source_link
             if not valid_source_link(value['c'][2][0]) or value['c'][2][0].startswith('#'):
                 report('unresolved-or-unsafe-link-as-text')
                 return {'t':'Str','c':plain_text(value['c'][1])+' ['+value['c'][2][0]+']'}
@@ -498,14 +498,14 @@ def review_gfm(record, *, identity='document', references=None, metadata=None):
     if result.returncode:
         raise AssetError('ChatGPT GFM writing failed or warned')
     rendered = _normalize_gfm_pipe_tables(_restore_math_gfm(_normalize_quote_blank_markers(result.stdout.rstrip()), math_tokens)) + '\n'
-    from .supporting_metadata import document_frontmatter
+    from guavajam.supporting_metadata import document_frontmatter
     if metadata:
         rendered = '<a name="metadata-'+doc_id+'"></a>\n\n' + rendered
         diagnostics['document-metadata-fields-added'] = len(metadata)
     rendered = document_frontmatter(title, metadata=metadata or ()) + rendered
     data = rendered.encode()
-    from .supporting_gfm import parse_gfm_record
-    from .validate_sources import read_text
+    from guavajam.supporting_gfm import parse_gfm_record
+    from guavajam.validate_sources import read_text
     source, errors = read_text(Path('review.md'), Path('review.md'), raw=data)
     if errors:
         raise AssetError('converted GFM is not valid source: ' + '; '.join(errors))

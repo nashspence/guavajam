@@ -1,4 +1,4 @@
-/* GuavaJam ChatGPT Capture reference implementation.
+/* Native ChatGPT conversation archiver.
  * Intentionally self-contained: Chrome serializes this function for injection
  * into the active tab's ISOLATED world. No network calls leave chatgpt.com.
  * There is NO DOM/flattening fallback for the native branching graph.
@@ -401,11 +401,11 @@ export async function captureCurrentConversation() {
     }
 
     checkActive();
-    const nativeBytes = jsonBytes([native]); // Direct input to GuavaJam chat-extract.
+    const nativeBytes = jsonBytes([native]); // Native archive data; conversion is a separate authority.
     const files = [["conversations.json", nativeBytes]];
     if (evidence) files.push(["selected-branch-pages.json", jsonBytes(evidence.pages)]);
     const report = {
-      schema: "guavajam.chatgpt-capture-reference.v1",
+      schema: "chatgpt.conversation-archive.v1",
       captured_at_utc: new Date().toISOString(),
       conversation_id: id,
       capture_limits: {
@@ -436,15 +436,15 @@ export async function captureCurrentConversation() {
         "Neither endpoint proves that every historical branch or hidden message is present.",
         "The native mapping may omit messages included in the paginated selected branch.",
         "Attachments and generated files are not downloaded; references may be present.",
-        "Unfiltered native JSON may contain hidden context, tool messages, and private metadata. Keep it outside GuavaJam source control."
+        "Unfiltered native JSON may contain hidden context, tool messages, and private metadata. Keep it outside publication source control."
       ]
     };
-    files.push(["capture-manifest.json", jsonBytes(report)]);
+    files.push(["archive-manifest.json", jsonBytes(report)]);
     const blob = buildZip(files);
     checkActive();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    const filename = `chatgpt-capture-${id}.zip`;
+    const filename = `chatgpt-conversation-archive-${id}.zip`;
     anchor.href = url;
     anchor.download = filename;
     anchor.style.display = "none";

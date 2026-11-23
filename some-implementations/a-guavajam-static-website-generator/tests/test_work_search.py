@@ -17,7 +17,6 @@ from a_guavajam_static_website_generator.citation_routes import citation_fragmen
 from a_guavajam_static_website_generator.search_index import create_index
 from a_guavajam_static_website_generator.site import build_site
 from a_guavajam_static_website_generator.update import update
-from guavajam.chat_gfm import review_gfm
 from guavajam_test_support.discovery_fixture import Publisher
 
 
@@ -63,14 +62,7 @@ class WorkSearchTests(unittest.TestCase):
         (supporting / 'unlinked.md').write_text(
             '---\ntitle: Unlinked evidence\nabstract: Lacustrine methods and supplemental observations.\n---\n\n'
             '<a name="42"></a>\n\nGlaciolacustrine evidence survives without a manuscript link.\n')
-        review, _ = review_gfm({'title': 'Reviewed correspondence', 'scope': 'Test fixture', 'passages': [
-            {'id': 'author', 'label': 'Author', 'speaker': 'author',
-             'text': '# Author outline\n\nAn authorial observation.'},
-            {'id': 'reply', 'label': 'Correspondent', 'speaker': 'responder',
-             'text': '# Quoted outline\n\nQuoted palaeobiology.\n\n## Quoted detail\n\nA nested observation.'},
-            {'id': 'continuation', 'label': 'Author', 'speaker': 'author',
-             'text': '## Author continuation\n\nThe author resumes.'},
-        ]})
+        review = (Path(__file__).parent / 'fixtures/work-search.gfm.md').read_bytes()
         (supporting / 'review.md').write_bytes(review)
         cls.publisher.source('Earlier field notes', 'Palaeoriver belongs to the historical edition.')
         cls.older = cls.publisher.publish('Historical observation', date='2030-11-10T12:00:00Z')

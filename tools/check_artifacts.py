@@ -11,17 +11,18 @@ import tempfile
 import zipfile
 import tomllib
 from version import check
+from workspace import PROJECTS, PYTHON_PROJECTS, MODULES, GENERATOR_NAME, ARCHIVER_NAME
 
 ROOT = Path(__file__).resolve().parents[1]
-DISTRIBUTIONS = {'guavajam': 'guavajam', 'a-guavajam-static-website-generator': 'a_guavajam_static_website_generator'}
+DISTRIBUTIONS = MODULES
 
 def license_files(package):
-    project = ROOT if package == 'guavajam' else ROOT / 'some-implementations/a-guavajam-static-website-generator'
+    project = PROJECTS[package]
     return tomllib.loads((project / 'pyproject.toml').read_text())['project']['license-files']
 
 
 def legal_source(package, name):
-    project = ROOT if package == 'guavajam' else ROOT / 'some-implementations/a-guavajam-static-website-generator'
+    project = PROJECTS[package]
     return project / name
 
 
@@ -31,16 +32,16 @@ def run(*args, cwd=None, env=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--package', choices=['guavajam', 'a-guavajam-static-website-generator', 'both'], default='both')
+    parser.add_argument('--package', choices=[*PYTHON_PROJECTS, 'all'], default='all')
     args = parser.parse_args()
     version = check()
-    packages = ['guavajam', 'a-guavajam-static-website-generator'] if args.package == 'both' else [args.package]
+    packages = list(PYTHON_PROJECTS) if args.package == 'all' else [args.package]
     env = {key: value for key, value in os.environ.items() if key not in {'PYTHONPATH', 'VIRTUAL_ENV', 'UV_PROJECT_ENVIRONMENT'}}
     env['UV_NO_PROGRESS'] = '1'
     with tempfile.TemporaryDirectory(prefix='guavajam-artifacts-') as directory:
         scratch = Path(directory)
         wheels = {}
-        for package in ['guavajam', 'a-guavajam-static-website-generator']:
+        for package in PYTHON_PROJECTS:
             wheel = ROOT / f'dist/{DISTRIBUTIONS[package]}-{version}-py3-none-any.whl'
             if package in packages or package == 'guavajam':
                 assert wheel.is_file(), wheel
@@ -58,7 +59,10 @@ def main():
                         assert not any(name.startswith('a_guavajam_static_website_generator/') for name in names)
                     else:
                         assert not any(name.startswith('guavajam/') for name in names)
-                        assert any(name.endswith('styles/reading.css') for name in names)
+                        if package == GENERATOR_NAME:
+                            assert any(name.endswith('styles/reading.css') for name in names)
+                        else:
+                            assert any(name.endswith('/extractor.py') for name in names)
         for package in packages:
             # A standalone sdist must build without the workspace root or sibling sources.
             sdist = ROOT / f'dist/{DISTRIBUTIONS[package]}-{version}.tar.gz'
@@ -85,6 +89,9 @@ def main():
             # -I removes the checkout and inherited import paths from module resolution.
             run(str(python), '-I', str(ROOT / 'tools/artifact_smoke.py'), package, cwd=work, env=env)
             run(str(python), '-I', str(ROOT / 'tools/run_tests.py'), package, cwd=work, env=env)
+        if args.package == 'all':
+            project = PROJECTS[ARCHIVER_NAME]
+            run(sys.executable, str(project / 'tools/build.py'), '--output', str(ROOT / 'dist' / (ARCHIVER_NAME + '-' + version + '.zip')))
         for artifact in sorted((ROOT / 'dist').glob('*')):
             if artifact.is_file() and any(artifact.name.startswith(f'{DISTRIBUTIONS[package]}-{version}') for package in packages):
                 print(hashlib.sha256(artifact.read_bytes()).hexdigest(), artifact.name)

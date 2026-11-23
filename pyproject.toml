@@ -22,7 +22,8 @@ namespaces = false
 guavajam = ["resources/*", "resources/**/*"]
 
 [tool.uv.workspace]
-members = ["some-implementations/a-guavajam-static-website-generator"]
+members = ["some-implementations/a-guavajam-static-website-generator",
+           "some-implementations/a-chatgpt-conversation-archive-gfm-extractor"]
 
 [dependency-groups]
 dev = []

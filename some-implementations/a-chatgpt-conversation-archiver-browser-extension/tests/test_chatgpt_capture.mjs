@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { captureCurrentConversation } from "../../src/guavajam/resources/chatgpt-capture/capture.mjs";
+import { captureCurrentConversation } from "../src/capture.mjs";
 
 const ID = "12345678-1234-1234-1234-123456789abc";
 const singular = "/backend-api/conversation/" + ID;
@@ -114,15 +114,15 @@ test("preserves the complete native fork and separates missing selected-branch e
   assert.equal(x.result.nodes, 4);
   assert.equal(x.result.branchPoints, 1);
   assert.equal(x.result.missingFromGraph, 1);
-  assert.equal(x.filename, "chatgpt-capture-" + ID + ".zip");
+  assert.equal(x.filename, "chatgpt-conversation-archive-" + ID + ".zip");
   if (process.env.CAPTURE_FIXTURE_PATH) {
     fs.writeFileSync(process.env.CAPTURE_FIXTURE_PATH, Buffer.from(await x.blob.arrayBuffer()));
   }
   const files = await unzip(x.blob);
-  assert.deepEqual([...files.keys()], ["conversations.json", "selected-branch-pages.json", "capture-manifest.json"]);
+  assert.deepEqual([...files.keys()], ["conversations.json", "selected-branch-pages.json", "archive-manifest.json"]);
   assert.deepEqual(JSON.parse(files.get("conversations.json")), [native()]);
   assert.deepEqual(JSON.parse(files.get("selected-branch-pages.json")), [page1(), page2()]);
-  const report = JSON.parse(files.get("capture-manifest.json"));
+  const report = JSON.parse(files.get("archive-manifest.json"));
   assert.equal(report.native_graph.branch_points, 1);
   assert.equal(report.selected_branch_audit.pagination_reached_oldest_page, true);
   assert.equal(report.selected_branch_audit.selected_branch_messages_absent_from_native_mapping, 1);
@@ -165,8 +165,8 @@ test("retains a valid native graph but discloses an unavailable optional audit",
   assert.equal(x.result.ok, true);
   assert.equal(x.result.audit, "unavailable");
   const files = await unzip(x.blob);
-  assert.deepEqual([...files.keys()], ["conversations.json", "capture-manifest.json"]);
-  assert.equal(JSON.parse(files.get("capture-manifest.json")).selected_branch_audit.status, "unavailable");
+  assert.deepEqual([...files.keys()], ["conversations.json", "archive-manifest.json"]);
+  assert.equal(JSON.parse(files.get("archive-manifest.json")).selected_branch_audit.status, "unavailable");
 });
 test("rejects non-conversation routes without network access", async () => {
   const x = await capture(routes(), { pathname: "/share/abcdefghijklmnop" });
@@ -233,7 +233,7 @@ test("accepts nested project /c/id routes only at the end", async () => {
   assert.equal(bad.result.ok, false);
 });
 test("manifest has temporary permissions only", async () => {
-  const manifest = JSON.parse(fs.readFileSync(new URL("../../src/guavajam/resources/chatgpt-capture/manifest.json", import.meta.url)));
+  const manifest = JSON.parse(fs.readFileSync(new URL("../src/manifest.json", import.meta.url)));
   assert.equal(manifest.minimum_chrome_version, "156", "the qualified browser baseline");
   assert.deepEqual([...manifest.permissions].sort(), ["activeTab", "scripting"]);
   for (const key of ["host_permissions", "optional_host_permissions", "background", "content_scripts", "externally_connectable"]) {

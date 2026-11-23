@@ -5,9 +5,9 @@ import sys
 import tempfile
 import unittest
 
-from guavajam.chat_gfm import review_gfm
-from guavajam.chat_references import component_inlines, reference_index
-from guavajam.extract_chatgpt import branch_messages, transcript
+from a_chatgpt_conversation_archive_gfm_extractor.gfm import review_gfm
+from a_chatgpt_conversation_archive_gfm_extractor.references import component_inlines, reference_index
+from a_chatgpt_conversation_archive_gfm_extractor.extractor import branch_messages, transcript
 from guavajam.source_ast import plain_text, walk
 from guavajam.supporting_gfm import load_gfm_record
 

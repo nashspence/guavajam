@@ -15,11 +15,11 @@ import unittest
 import zipfile
 
 from guavajam_test_support import FIXTURES, RESOURCES
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 from guavajam.asset_policy import AssetError
-from guavajam.chat_gfm import review_gfm
-from guavajam.extract_chatgpt import branch_messages, transcript
-from guavajam.chat_references import reference_index
+from a_chatgpt_conversation_archive_gfm_extractor.gfm import review_gfm
+from a_chatgpt_conversation_archive_gfm_extractor.extractor import branch_messages, transcript
+from a_chatgpt_conversation_archive_gfm_extractor.references import reference_index
 from guavajam.source_ast import plain_text, walk
 from guavajam.supporting_gfm import load_gfm_record
 from guavajam.validate_sources import git_sources, validate_repository
@@ -202,7 +202,7 @@ class LanternConversionTests(unittest.TestCase):
                 archive.writestr('conversations.json', FIXTURE.read_bytes())
             for tip in TIPS:
                 output = root / (tip + '.md')
-                command = ['make', '--no-print-directory', 'chat-gfm', f'PYTHON={sys.executable}']
+                command = ['make', '--no-print-directory', 'extract', f'PYTHON={sys.executable}']
                 env = {**os.environ, 'FILE': str(package), 'CONVERSATION': 'lantern-qualification',
                        'TIP': tip, 'OUTPUT': str(output)}
                 run = subprocess.run(command, cwd=ROOT, env=env, text=True, capture_output=True)

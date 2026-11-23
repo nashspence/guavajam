@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 from .resources import ROOT as RESOURCES
 
-EXPORTS = {'capture': 'chatgpt-capture', 'credentials': 'storage/credentials.env.example',
+EXPORTS = {'credentials': 'storage/credentials.env.example',
            'preview': 'storage/preview.svg'}
 
 
