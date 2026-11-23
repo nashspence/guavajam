@@ -98,7 +98,7 @@ class SiteOriginTests(unittest.TestCase):
                 for name, href in [('index.html', 'https://publication.example/work'),
                                    ('supporting/note.html', 'https://publication.example/note')]:
                     self.assertEqual(expected_external, link_icons((read / name).read_text())[href])
-                self.assertEqual(expected_external, link_icons((read.parent / 'metadata.html').read_text())['https://publication.example/work.git'])
+                self.assertFalse(link_icons((read.parent / 'metadata.html').read_text())['source.bundle'])
                 self.assertEqual(not expected_external, link_icons((read / 'index.html').read_text())['https://other.example/work'])
                 view = json.loads((read / 'VIEW.json').read_text())
                 for name, digest in view['files'].items():

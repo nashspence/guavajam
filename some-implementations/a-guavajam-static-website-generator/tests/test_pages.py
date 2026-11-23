@@ -34,13 +34,14 @@ class PagesTests(unittest.TestCase):
         build_pages(self.index, self.trust, output, self.previous, next_state)
         return output, next_state
 
-    def test_pages_artifact_uses_explicit_origin_for_repository_links(self):
+    def test_pages_artifact_exposes_a_local_repository_download(self):
         from test_site_origin import link_icons
         output = self.root / 'origin-site'
         build_pages(self.index, self.trust, output, self.previous, self.root / 'origin-state.json',
                     site_origin='https://example.org')
         metadata = next((output / 'sources').glob('*/editions/*/metadata.html'))
-        self.assertFalse(link_icons(metadata.read_text())[self.url])
+        self.assertFalse(link_icons(metadata.read_text())['source.bundle'])
+        self.assertTrue((metadata.parent / 'source.bundle').is_file())
 
     def test_static_pages_and_checkpoint_are_separate_and_reverifiable(self):
         policy = read_trust(self.trust)[self.url]

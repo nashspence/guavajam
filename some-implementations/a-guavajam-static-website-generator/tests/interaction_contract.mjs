@@ -115,8 +115,17 @@ export async function navigationCues(page) {
   await textLinkCues(page);
   const menu = page.locator('.guavajam-version-menu');
   if (await menu.count()) {
-    for (const [href,name,label] of [['contents.html','list-tree','Contents'],['documents.html','files','Documents'],
-                                   ['passages.html','book-open-text','Passages'],['../metadata.html','info','Metadata']]) {
+    const supporting = await menu.getAttribute('aria-label') === 'Document links';
+    assert.equal(await menu.getAttribute('aria-label'), supporting ? 'Document links' : 'Version links');
+    const stem = await page.evaluate(() => location.pathname.split('/').at(-1).replace(/\.html$/, ''));
+    const tools = supporting
+      ? [[stem + '.contents.html','list-tree','Contents'],[stem + '.metadata.html','info','Metadata']]
+      : [['contents.html','list-tree','Contents'],['documents.html','files','Documents'],
+         ['passages.html','book-open-text','Passages'],['../metadata.html','info','Metadata']];
+    // Each supporting document has its own tools; both menus retain one GFM download.
+    assert.equal(await menu.locator('a').count(), tools.length + 1);
+    assert.equal(await menu.locator('a[download][type="text/markdown"]').count(), 1);
+    for (const [href,name,label] of tools) {
       const link=menu.locator('a[href="'+href+'"]');
       assert.equal(await link.locator('svg.guavajam-icon-'+name+'[aria-hidden=true][focusable=false]').count(),1);
       assert.equal(await link.getAttribute('aria-label'),label);

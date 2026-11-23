@@ -77,9 +77,15 @@ class PeriodicUpdateTests(unittest.TestCase):
         read = self.output / 'current/editions' / self.revision / 'read'
         paths = ('index.html', 'contents.html', 'passages.html', passage_json('index.html', 'opening'),
                  'source.gfm', 'source.citation.json')
-        def without_generator_time(data):
-            return re.sub(rb'<footer>.*?</footer>', b'<footer>generated</footer>', data, flags=re.S)
-        expected = {name: without_generator_time((read / name).read_bytes()) for name in paths}
+        def without_generation_details(data):
+            data = re.sub(rb'<footer>.*?</footer>', b'<footer>generated</footer>', data, flags=re.S)
+            # The work index includes the mutable catalog tip. Housekeeping
+            # changes its transport descriptor while edition citations stay exact.
+            data = re.sub(rb'(data-database="[^"]*work\.)[a-f0-9]{64}(\.sqlite\.gz")',
+                          rb'\1current-index\2', data)
+            return re.sub(rb'data-database-transfer-size="[0-9]+"',
+                          b'data-database-transfer-size="current-index"', data)
+        expected = {name: without_generation_details((read / name).read_bytes()) for name in paths}
         cache = next((self.output / '.cache').glob('*/*/index.html')).parent
         self.assertNotIn('guavajam-passage-cite', (cache / 'index.html').read_text())
         self.assertFalse((cache / 'passages.html').exists())
@@ -92,7 +98,7 @@ class PeriodicUpdateTests(unittest.TestCase):
         self.p.git('add', 'README.md'); self.p.git('commit', '-qm', 'Housekeeping')
         with patch('a_guavajam_static_website_generator.view_cache.render', side_effect=AssertionError('reuse edition')):
             self.assertTrue(self.update()['changed'])
-        self.assertEqual(expected, {name: without_generator_time((read / name).read_bytes()) for name in paths})
+        self.assertEqual(expected, {name: without_generation_details((read / name).read_bytes()) for name in paths})
         html = (read / 'index.html').read_text()
         self.assertEqual(1, html.count('href="' + citation_href('content/manuscript.md', 0, 'opening') + '"'))
         self.assertNotIn('<script', html)

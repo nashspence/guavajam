@@ -34,10 +34,12 @@ def _linked_field(label, href, text, *, download=False):
             escape(text) + '</a></dd></div>')
 
 
-def _group(name, identifier, content):
+def _group(name, identifier, content, *, empty=None):
+    fields = ('<dl class="guavajam-metadata-fields">' + content + '</dl>' if content or empty is None
+              else '<p>' + escape(empty) + '</p>')
     return ('<section class="guavajam-metadata-branch" id="' + identifier + '" '
             'aria-labelledby="' + identifier + '-heading"><h2 id="' + identifier + '-heading">' +
-            escape(name) + '</h2><dl class="guavajam-metadata-fields">' + content + '</dl></section>')
+            escape(name) + '</h2>' + fields + '</section>')
 
 
 def write_metadata(directory, *, facts, title, ancestors, revision, published, message,
@@ -78,8 +80,9 @@ def write_metadata(directory, *, facts, title, ancestors, revision, published, m
                         identity + '</a>')
         provenance += ('<div class="guavajam-metadata-field"><dt>Committer</dt><dd>' +
                        identity + '</dd></div>')
+    provenance += _linked_field('Source repository', 'source.bundle', 'Git bundle', download=True)
     if repository:
-        provenance += _linked_field('Source repository', repository, repository)
+        provenance += _field('Repository location', repository)
 
     rights = _field('Rights', facts.get('rights') or 'No rights statement declared')
     locators = ([('Subject', item) for item in facts.get('subjects', ())] +
@@ -107,3 +110,32 @@ def write_metadata(directory, *, facts, title, ancestors, revision, published, m
     (directory / 'metadata.html').write_text(
         page(title + ' — Metadata', body, ancestors=tuple(ancestors),
              breadcrumb_current='Metadata', site_origin=site_origin), encoding='utf-8')
+
+
+def write_document_metadata(target, *, facts, fields, source, revision, source_sha256,
+                            ancestors, site_origin=None):
+    """Present a supporting document's own facts and literal declared metadata."""
+    target = Path(target)
+    reader = target.with_name(target.name.removesuffix('.metadata.html') + '.html')
+    download = reader.with_suffix('.gfm').name
+    cited = reader.with_suffix('.citation.json').name
+    document = _field('Title', facts['title'])
+    if facts.get('abstract'):
+        document += _field('Abstract', facts['abstract'])
+    declared = ''
+    for label, value in fields:
+        content = ('<ul>' + ''.join('<li>' + escape(item) + '</li>' for item in value) + '</ul>'
+                   if isinstance(value, list) else escape(value))
+        declared += ('<div class="guavajam-metadata-field"><dt>' + escape(label) + '</dt><dd>' + content + '</dd></div>')
+    provenance = (_field('Git commit', revision, css='guavajam-metadata-identity') +
+                  _field('Source path', source) + _field('Source SHA-256', source_sha256) +
+                  _linked_field('Source document', download, source, download=True) +
+                  _linked_field('Canonical citation', cited, cited, download=True) +
+                  _linked_field('Verification record', '../../SOURCE.json', 'SOURCE.json', download=True) +
+                  _linked_field('Edition metadata', '../../metadata.html', 'Edition metadata') +
+                  _linked_field('Source repository', '../../source.bundle', 'Git bundle', download=True))
+    body = (_group('Document', 'document', document) +
+            _group('Declared metadata', 'declared', declared, empty='No document metadata declared.') +
+            _group('Provenance', 'provenance', provenance))
+    target.write_text(page(facts['title'] + ' — Metadata', body, ancestors=ancestors,
+                           breadcrumb_current='Metadata', site_origin=site_origin), encoding='utf-8')

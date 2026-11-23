@@ -14,7 +14,9 @@ import re
 import uuid
 import xml.etree.ElementTree as ET
 
-from guavajam.catalog import CatalogError, https
+from guavajam.catalog import CatalogError, text
+
+from .icons import normalize_http_location
 from guavajam.publication_protocol import commit, history
 
 ATOM = 'http://www.w3.org/2005/Atom'
@@ -118,6 +120,15 @@ def write_work_feed(output, repo, catalog, *, repository=''):
     _write(Path(output) / 'feed.atom', root)
 
 
+def _repository_locator(value, label):
+    # Retained feed locations are display data, never source-fetch authority.
+    text(value, label, 2048)
+    try:
+        normalize_http_location(value)
+    except ValueError as exc:
+        raise CatalogError('invalid ' + label) from exc
+
+
 def validate_state(state):
     """Bound the independently retained (not publisher-controlled) event log."""
     if (not isinstance(state, dict) or set(state) != {'schema', 'id', 'initialized', 'members', 'titles', 'events'}
@@ -140,11 +151,11 @@ def validate_state(state):
     if not isinstance(members, list) or len(members) > 256 or len(set(map(str, members))) != len(members):
         raise CatalogError('invalid retained feed membership')
     for url in members:
-        https(url, 'retained feed member')
+        _repository_locator(url, 'retained feed member')
     if not isinstance(titles, dict) or len(titles) > 1024:
         raise CatalogError('invalid retained feed titles')
     for url, title in titles.items():
-        https(url, 'retained feed title repository')
+        _repository_locator(url, 'retained feed title repository')
         if not isinstance(title, str) or len(title.encode('utf-8')) > 4096:
             raise CatalogError('invalid retained feed title')
     if not isinstance(events, list) or len(events) > MAX_EVENTS:
@@ -161,7 +172,7 @@ def validate_state(state):
         except (ValueError, AttributeError) as exc:
             raise CatalogError('invalid retained feed event ID') from exc
         ids.add(event['id'])
-        https(event['repository'], 'retained feed repository')
+        _repository_locator(event['repository'], 'retained feed repository')
         check_stamp(event['observed'])
         if (not isinstance(event['title'], str) or len(event['title'].encode('utf-8')) > 4096
                 or not isinstance(event['message'], str) or len(event['message'].encode('utf-8')) > 65536

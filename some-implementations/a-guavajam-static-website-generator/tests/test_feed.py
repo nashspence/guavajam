@@ -122,6 +122,29 @@ class CollectionFeedTests(unittest.TestCase):
         self.assertEqual(50, len(nodes(self.root / 'feed.atom')))
         self.assertEqual(50, len({e.findtext('a:id', namespaces=NS) for e in nodes(self.root / 'feed.atom')}))
 
+    def test_private_http_locations_do_not_relax_public_index_fetch_policy(self):
+        from a_guavajam_static_website_generator.index import read_index
+        from guavajam.catalog import CatalogError
+        for location in ['http://localhost:8080/work.git', 'https://publication.example:8443/work.git']:
+            with self.subTest(location=location):
+                state, entries = self.transition(None, {}, [(location, 'Local work', work_catalog(self.first))])
+                self.assertIn(location, state['members'])
+                self.assertEqual(location, state['events'][0]['repository'])
+                self.assertTrue(entries[0].find('a:link', NS).get('href').endswith('/index.html'))
+                # Public collection fetching still uses its stricter core policy.
+                index = self.root / 'index.json'
+                index.write_text(json.dumps({'repositories': [location]}))
+                with self.assertRaises(CatalogError):
+                    read_index(index)
+
+    def test_feed_locations_reject_credentials_queries_fragments_and_other_schemes(self):
+        from guavajam.catalog import CatalogError
+        for location in ['http://user:password@localhost/work.git', 'http://localhost/work.git?token=example',
+                         'http://localhost/work.git#fragment', 'file:///source', 'git://localhost/work.git',
+                         'javascript:example', 'http://localhost:99999/work.git', 'http://localhost/a b.git']:
+            with self.subTest(location=location), self.assertRaises(CatalogError):
+                self.transition(None, {}, [(location, 'Invalid location', work_catalog(self.first))])
+
     def test_invalid_retained_feed_state_rejected(self):
         state, _ = self.transition(None, {}, [(self.a, 'Initial', work_catalog(self.first))])
         for mutate in [lambda d: d['members'].append(self.a),

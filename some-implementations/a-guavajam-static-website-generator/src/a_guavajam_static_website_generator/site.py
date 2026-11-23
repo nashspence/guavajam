@@ -129,6 +129,8 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         (directory / 'COMMITTER.json').write_bytes(encoded(metadata))
         (directory / 'SOURCE.json').write_bytes(encoded(proof))
         (directory / 'CITATION.json').write_bytes(encoded(citation(proof)))
+        from guavajam.source_archive import bundle_revision
+        bundle_revision(repo, sha, directory / 'source.bundle')
         for document, details in view['documents'].items():
             source = git_blob(repo, sha, document)
             destination = reader / source_download(details['view'])
@@ -151,6 +153,22 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                        ancestors=edition_crumbs, revision=sha,
                        published=edition['published'], message=edition['message'],
                        committer=metadata, repository=repository, site_origin=site_origin)
+        from .metadata import write_document_metadata
+        from .citation_routes import document_metadata, relative_href
+        from guavajam.supporting_metadata import split_frontmatter
+        for source, details in view['documents'].items():
+            if source == 'content/manuscript.md':
+                continue
+            facts, fields, _ = split_frontmatter(git_blob(repo, sha, source).decode('utf-8'))
+            relative = document_metadata(details['view'])
+            destination = reader / relative
+            within_edition = destination.relative_to(directory).as_posix()
+            crumbs = tuple((relative_href(within_edition, href), label) for href, label in edition_crumbs)
+            crumbs += ((relative_href(relative, details['view']), facts['title']),)
+            write_document_metadata(destination, facts=facts, fields=fields, source=source, revision=sha,
+                                    source_sha256=details['source_sha256'], ancestors=crumbs, site_origin=site_origin)
+            view['files'][relative] = hashlib.sha256(destination.read_bytes()).hexdigest()
+        (reader / 'VIEW.json').write_bytes(encoded(view))
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
     from .feed import write_work_feed
     write_work_feed(output, repo, catalog, repository=repository)

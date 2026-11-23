@@ -38,7 +38,7 @@ def search_icon_templates():
                    for name, label in [('history', 'Versions'), ('quote', 'Cite'), ('info', 'Metadata'), ('link', 'Link')])
 
 
-MIME_TYPES = {'.json': 'application/json', '.pdf': 'application/pdf', '.gfm': 'text/markdown',
+MIME_TYPES = {'.bundle': 'application/octet-stream', '.json': 'application/json', '.pdf': 'application/pdf', '.gfm': 'text/markdown',
               '.md': 'text/markdown', '.txt': 'text/plain', '.csv': 'text/csv', '.html': 'text/html',
               '.zip': 'application/zip', '.gz': 'application/gzip', '.mp3': 'audio/mpeg',
               '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.mp4': 'video/mp4', '.webm': 'video/webm',
@@ -61,23 +61,32 @@ def download_icon(mime):
     return 'file-down'
 
 
-def normalize_site_origin(value):
-    """Accept an operator-selected HTTP(S) origin, never infer one from source."""
-    if value is None:
-        return None
+def normalize_http_location(value):
+    """Normalize a credential-free HTTP(S) presentation location without fetching it."""
     if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 for c in value) or '\\' in value:
-        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, query or fragment')
     parsed = urlsplit(value)
     if (parsed.scheme not in {'http', 'https'} or not parsed.hostname
             or parsed.username is not None or parsed.password is not None
-            or parsed.path not in {'', '/'} or parsed.query or parsed.fragment):
-        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+            or parsed.query or parsed.fragment):
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, query or fragment')
     host = parsed.hostname.encode('idna').decode('ascii')
     host = '[' + host + ']' if ':' in host else host
     port = parsed.port
     if port is not None and port != (443 if parsed.scheme == 'https' else 80):
         host += ':' + str(port)
-    return parsed.scheme + '://' + host
+    return parsed.scheme + '://' + host + parsed.path
+
+
+def normalize_site_origin(value):
+    """Accept an operator-selected HTTP(S) origin, never infer one from source."""
+    if value is None:
+        return None
+    location = normalize_http_location(value)
+    parsed = urlsplit(location)
+    if parsed.path not in {'', '/'}:
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+    return parsed.scheme + '://' + parsed.netloc
 
 
 def finish_html(html, *, site_origin=None):
@@ -133,7 +142,9 @@ def finish_html(html, *, site_origin=None):
                 nav = any(t == 'nav' and set(a.get('class', '').split()) &
                           {'guavajam-navigation', 'guavajam-version-menu', 'guavajam-contents'} for t, a in self.stack)
                 heading = any(t in {'h1','h2','h3','h4','h5','h6'} for t, _ in self.stack)
-                self.anchor = (start, start + len(self.get_starttag_text()), attrs, nav, heading)
+                standalone = (bool(self.stack) and self.stack[-1][0] == 'dd' and
+                              any('guavajam-metadata-field' in a.get('class', '').split() for _, a in self.stack))
+                self.anchor = (start, start + len(self.get_starttag_text()), attrs, nav, heading, standalone)
             if tag not in void: self.stack.append((tag, attrs))
 
         def handle_endtag(self, tag):
@@ -144,7 +155,7 @@ def finish_html(html, *, site_origin=None):
                     del self.stack[index:]; break
 
         def decorate(self):
-            start, end, attrs, nav, heading = self.anchor; self.anchor = None
+            start, end, attrs, nav, heading, standalone = self.anchor; self.anchor = None
             if not attrs.get('href') or 'data-guavajam-link' in attrs or 'data-guavajam-icon' in attrs: return
             if 'guavajam-skip' in attrs.get('class', '').split(): return
             if (attrs.get('role') in {'doc-noteref', 'doc-backlink'} or
@@ -177,7 +188,7 @@ def finish_html(html, *, site_origin=None):
                 names = [download_icon(mime) if download else artwork.group(1) if artwork else names[0]]
             cues = ''.join(icon(name) + ' ' for name in names[:-1]) + link_icon(names[-1], 'Link')
             suffix = ' <span class="guavajam-link-mime">(' + escape(mime) + ')</span>' if download and mime else ''
-            wrapper = 'guavajam-icon-label' if nav or heading else 'guavajam-text-link'
+            wrapper = 'guavajam-icon-label' if nav or heading or standalone else 'guavajam-text-link'
             replacement = ('<span class="' + wrapper + '"><a' + attributes(attrs) + '>' + cues +
                            '</a><span class="guavajam-link-label" aria-hidden="true">' +
                            inner.strip() + suffix + '</span></span>')
