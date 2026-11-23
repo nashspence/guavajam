@@ -11,6 +11,20 @@
   --guavajam-prose-rule: #c5c5c5;
   --guavajam-icon-gap: .3em;
   --guavajam-tint: #f0eee9;
+  /* VS Code Light+ editor colors, adapted to Pandoc's Skylighting tokens. */
+  --guavajam-code-paper: #fff;
+  --guavajam-code-ink: #000;
+  --guavajam-code-keyword: #0000ff;
+  --guavajam-code-control: #af00db;
+  --guavajam-code-type: #267f99;
+  --guavajam-code-function: #795e26;
+  --guavajam-code-string: #a31515;
+  --guavajam-code-comment: #008000;
+  --guavajam-code-number: #098658;
+  --guavajam-code-variable: #001080;
+  --guavajam-code-constant: #0070c1;
+  --guavajam-code-attribute: #e50000;
+  --guavajam-code-error: #cd3131;
   --guavajam-focus: var(--guavajam-link);
   --guavajam-match-paper: #854500;
   --guavajam-match-ink: #f2f2f2;
@@ -215,11 +229,28 @@ pre {
   overflow-x: auto;
   padding: .8rem 1rem;
   border: 1px solid var(--guavajam-border);
-  background: var(--guavajam-tint);
+  background: var(--guavajam-code-paper);
+  color: var(--guavajam-code-ink);
   border-radius: .15rem;
   line-height: 1.45;
 }
 pre code { font-size: 1em; white-space: pre; overflow-wrap: normal; }
+
+/* Pandoc/Skylighting emits these spans at build time for language-tagged
+   fences. Keep untagged blocks neutral and inline code on the reading palette.
+   VS Code uses richer TextMate scopes: several categories map approximately. */
+code.sourceCode :is(.kw, .im, .pp) { color: var(--guavajam-code-keyword); }
+code.sourceCode .cf { color: var(--guavajam-code-control); }
+code.sourceCode :is(.dt, .an, .in, .ot) { color: var(--guavajam-code-type); }
+code.sourceCode :is(.fu, .bu) { color: var(--guavajam-code-function); }
+code.sourceCode :is(.st, .ss, .vs, .ch, .sc) { color: var(--guavajam-code-string); }
+code.sourceCode :is(.co, .cv, .do) { color: var(--guavajam-code-comment); }
+code.sourceCode :is(.bn, .dv, .fl) { color: var(--guavajam-code-number); }
+code.sourceCode .va { color: var(--guavajam-code-variable); }
+code.sourceCode .cn { color: var(--guavajam-code-constant); }
+code.sourceCode .at { color: var(--guavajam-code-attribute); }
+code.sourceCode :is(.al, .er, .wa) { color: var(--guavajam-code-error); }
+/* .op and .ex intentionally inherit the plain editor foreground. */
 
 /* Keep real table semantics; the focusable wrapper scrolls on narrow screens. */
 .guavajam-scroll { max-width: 100%; overflow-x: auto; }
@@ -395,6 +426,20 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-rule: #202020;
     --guavajam-prose-rule: #383838;
     --guavajam-tint: #25292c;
+    /* VS Code Dark+ editor colors; Dark+ inherits the Dark editor surface. */
+    --guavajam-code-paper: #1e1e1e;
+    --guavajam-code-ink: #d4d4d4;
+    --guavajam-code-keyword: #569cd6;
+    --guavajam-code-control: #c586c0;
+    --guavajam-code-type: #4ec9b0;
+    --guavajam-code-function: #dcdcaa;
+    --guavajam-code-string: #ce9178;
+    --guavajam-code-comment: #6a9955;
+    --guavajam-code-number: #b5cea8;
+    --guavajam-code-variable: #9cdcfe;
+    --guavajam-code-constant: #4fc1ff;
+    --guavajam-code-attribute: #9cdcfe;
+    --guavajam-code-error: #f44747;
     --guavajam-focus: var(--guavajam-link);
     --guavajam-match-paper: #ffdc75;
     --guavajam-match-ink: #181a1c;
@@ -435,6 +480,9 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
+  /* Syntax coloring must not defeat user-selected high-contrast colors. */
+  pre { color: CanvasText; background: Canvas; border-color: GrayText; }
+  code.sourceCode span[class] { color: inherit; }
   /* Use the native system-color outline, never an extra margin stripe. */
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target::before { content: none; }
   .guavajam-permalink:focus-visible { outline: 3px solid Highlight; }
@@ -459,7 +507,11 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-rule: #666;
     --guavajam-prose-rule: #666;
     --guavajam-tint: #f5f5f5;
+    --guavajam-code-paper: #fff;
+    --guavajam-code-ink: #000;
   }
+  /* Monochrome print is readable even when browsers omit backgrounds. */
+  code.sourceCode span[class] { color: inherit; }
   body { max-width: none; padding: 0; }
   /* Keep prose and labels readable across page breaks without forcing whole
      tables or long supporting passages onto one sheet. */
