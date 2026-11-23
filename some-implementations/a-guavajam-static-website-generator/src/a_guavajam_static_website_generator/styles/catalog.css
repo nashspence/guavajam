@@ -54,7 +54,7 @@
   font: .8rem/1.5 system-ui, sans-serif; color: var(--guavajam-muted);
 }
 /* A partially visible metadata control must become fully readable on Tab. */
-.guavajam-scrollline:has(:is(a, button):focus-visible) {
+.guavajam-scrollline:not(.guavajam-list-header):has(:is(a, button):focus-visible) {
   overflow: visible; white-space: normal; flex-wrap: wrap;
 }
 .guavajam-scrollline:has(:is(a, button):focus-visible) .guavajam-facet {
@@ -206,7 +206,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 .guavajam-list-header { display: flex; align-items: baseline; font-size: 1.15rem; gap: var(--guavajam-icon-gap); margin-block: .65rem .45rem; }
 .guavajam-list-header > * { flex: none; margin: 0; }
 .guavajam-feed-link {
-  display: inline-flex; align-items: center; justify-content: center; align-self: center;
+  position: relative; display: inline-flex; align-items: center; justify-content: center; align-self: center;
   width: 1.35rem; height: 1.5rem; color: var(--guavajam-link);
 }
 .guavajam-feed-link:hover { color: var(--guavajam-link-hover); }
