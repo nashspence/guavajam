@@ -32,7 +32,7 @@ metadata:
 
 <a id="metadata"></a>
 
-<a id="overview"></a>
+<a id="section-overview"></a>
 
 ## Overview
 
@@ -40,7 +40,7 @@ metadata:
 
 Independent observations.
 
-<a id="detail"></a>
+<a id="section-detail"></a>
 
 ### Detailed observations
 
@@ -48,7 +48,7 @@ Independent observations.
 
 The source evidence.
 
-<a id="method"></a>
+<a id="section-method"></a>
 
 ## Method
 
@@ -56,7 +56,7 @@ The source evidence.
 
 A repeatable procedure.
 
-<a id="closing"></a>
+<a id="section-closing"></a>
 
 ## Closing
 
@@ -96,7 +96,7 @@ A bounded conclusion.
     def test_supporting_contents_uses_local_anchors_and_nested_outline_rows(self):
         html = (self.read / 'supporting/note.contents.html').read_text()
         hrefs = [attrs.get('href') for tag, attrs in Tags(html).tags if tag == 'a']
-        for anchor in ('overview', 'detail', 'method', 'closing'):
+        for anchor in ('section-overview', 'section-detail', 'section-method', 'section-closing'):
             self.assertIn('note.html#' + anchor, hrefs)
         self.assertNotIn('index.html#opening', hrefs)
         self.assertIn('Overview</p><ol>', html)
