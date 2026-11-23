@@ -258,7 +258,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 /* Bibliographic metadata is one readable outline: titled branches with
    narrower indented leaves, not three competing record pages or UI cards. */
 .guavajam-metadata-branch { margin: 1.65rem 0; scroll-margin-top: 1rem; }
-.guavajam-metadata-branch h2 { font: 600 1.16rem/1.45 Georgia, Cambria, serif; margin: 0 0 .65rem; }
+.guavajam-metadata-branch h2 { font: 600 1.16rem/1.45 system-ui, sans-serif; margin: 0 0 .65rem; }
 .guavajam-metadata-fields {
   border-inline-start: 2px solid var(--guavajam-border);
   padding-inline-start: 1rem; margin: 0; min-width: 0;
@@ -283,7 +283,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
   font: 700 .74rem/1.5 system-ui, sans-serif; letter-spacing: .025em;
 }
 .guavajam-metadata-leaf h3 {
-  font: 600 1.04rem/1.45 Georgia, Cambria, serif; margin: 0 0 .25rem;
+  font: 600 1.04rem/1.45 system-ui, sans-serif; margin: 0 0 .25rem;
   overflow-wrap: anywhere;
 }
 .guavajam-metadata-leaf .guavajam-metadata-fields { margin: .35rem 0 0 .35rem; }
@@ -294,7 +294,7 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 .guavajam-excerpt-label { color: var(--guavajam-muted); font: .79rem/1.55 system-ui, sans-serif; margin: .65rem 0 .2rem; }
 .guavajam-excerpt-label :is(.guavajam-icon-label, .guavajam-link-label) { color: inherit; }
 .guavajam-search-excerpt .guavajam-passage-excerpt { margin: 0 0 .65rem; }
-.guavajam-passage-excerpt { font: .94rem/1.55 Georgia, Cambria, serif; overflow-wrap: anywhere; }
+.guavajam-passage-excerpt { font: .94rem/1.55 system-ui, sans-serif; overflow-wrap: anywhere; }
 .guavajam-record-list mark {
   color: var(--guavajam-match-ink); background: var(--guavajam-match-paper); font-weight: inherit;
 }
