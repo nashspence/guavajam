@@ -553,7 +553,8 @@ def homepage(site, *, interactive, site_origin=None):
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
                     '</form></div>')
-            body = search_listing_open('Works', count, controls=controls, result_class='guavajam-works')
+            body = search_listing_open('Works', count, controls=controls, result_class='guavajam-works',
+                                       feed_href=base + 'feed.atom', feed_title='Subscribe to collection updates')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,
@@ -565,7 +566,8 @@ def homepage(site, *, interactive, site_origin=None):
             # A collection spans Git repositories and cannot have one canonical
             # publication-commit citation.
             html = page('GuavaJam' if number == 1 else f'GuavaJam — page {number}',
-                        body, search=interactive, breadcrumb_current='GuavaJam', site_origin=site_origin)
+                         body, search=interactive, breadcrumb_current='GuavaJam', site_origin=site_origin,
+                         feed_href=base + 'feed.atom', feed_title='GuavaJam — Collection updates')
             if number == 1:
                 first_html = html
             else:

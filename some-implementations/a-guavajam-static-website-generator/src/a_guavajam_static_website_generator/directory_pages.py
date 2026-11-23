@@ -38,7 +38,8 @@ def search_submit():
     return '<div class="guavajam-search-submit"><button type="submit">Search</button></div>'
 
 
-def search_listing_open(title, total, *, controls='', result_class='guavajam-editions'):
+def search_listing_open(title, total, *, controls='', result_class='guavajam-editions',
+                        feed_href=None, feed_title=None):
     """One stable heading, optional icon toggle, shared progress slot and rule."""
     body = '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
     body += ('<div class="guavajam-list-header guavajam-scrollline" tabindex="0" aria-label="List heading and status">')
@@ -49,6 +50,11 @@ def search_listing_open(title, total, *, controls='', result_class='guavajam-edi
                  '" title="Search ' + escape(title, quote=True) + '">' + link_icon('search', 'Search') + '</button></span>')
     body += ('<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
              'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>')
+    if feed_href:
+        label = feed_title or 'Subscribe to ' + title
+        body += ('<a class="guavajam-feed-link" href="' + escape(feed_href, quote=True) +
+                 '" aria-label="' + escape(label, quote=True) + '" title="' +
+                 escape(label, quote=True) + '">' + link_icon('rss', 'Subscribe') + '</a>')
     if controls:
         body += search_progress('guavajam-search-spinner')
     body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
@@ -147,7 +153,8 @@ def _write_work(output, entries, title, *, collection, runtime, download, site_o
         if download is not None:
             controls = _sqlite_controls(kind='editions', edition='all', root=root,
                                      runtime=runtime, download=download)
-        body = search_listing_open('Versions', len(entries), controls=controls)
+        body = search_listing_open('Versions', len(entries), controls=controls,
+                                   feed_href=root + 'feed.atom', feed_title='Subscribe to work editions')
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions guavajam-record-list">' +
                  ''.join(_history_row(item, links_prefix=root + 'editions/') for item in chunk) +
@@ -159,7 +166,8 @@ def _write_work(output, entries, title, *, collection, runtime, download, site_o
         body += '</section>' + search_listing_close(interactive=download is not None)
         destination.write_text(page(title if first else f'{title} — page {number}',
                                     body, search=download is not None, ancestors=crumbs,
-                                    breadcrumb_current=title if first else f'Page {number}', site_origin=site_origin), encoding='utf-8')
+                                     breadcrumb_current=title if first else f'Page {number}', site_origin=site_origin,
+                                     feed_href=root + 'feed.atom', feed_title=title + ' — Editions'), encoding='utf-8')
 
 
 def _write_documents(output, entries, *, collection, runtime, download, site_origin=None):

@@ -47,7 +47,8 @@ def generator_footer():
 
 def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
          citation_record=None, citation_href=None, citation_title=None, citation_authors=None,
-         citation_published=None, citation_edition=None, citation_document_title='', site_origin=None):
+         citation_published=None, citation_edition=None, citation_document_title='', site_origin=None,
+         feed_href=None, feed_title=None):
     """Use the breadcrumb itself as the one page heading, above the citation."""
     styles = Path(__file__).parent / 'styles'
     css = (styles / 'reading.css').read_text('utf-8') + '\n' + (styles / 'catalog.css').read_text('utf-8')
@@ -69,7 +70,10 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
             'style-src \'unsafe-inline\'; img-src data:; ' + script +
             'base-uri \'none\'; object-src \'none\'; ' + form_action + '">'
-            '<title>' + escape(title) + (' — GuavaJam' if title != 'GuavaJam' else '') + '</title><style>' + css + '</style></head>'
+            '<title>' + escape(title) + (' — GuavaJam' if title != 'GuavaJam' else '') + '</title>' +
+            ('<link rel="alternate" type="application/atom+xml" title="' + escape(feed_title or title, quote=True) +
+             '" href="' + escape(feed_href, quote=True) + '">' if feed_href else '') +
+            '<style>' + css + '</style></head>'
             '<body class="guavajam-site"><a class="guavajam-skip" href="#main">Skip to content</a>'
             + crumb + '<main id="main" tabindex="-1">' + citation_html + (search_icon_templates() if search else '') + body + '</main>'
             + generator_footer() + '</body></html>\n', site_origin=site_origin)
@@ -148,6 +152,8 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
                        published=edition['published'], message=edition['message'],
                        committer=metadata, repository=repository, site_origin=site_origin)
         edition_rows.append((sha, ed_label, edition['published'], edition['message']))
+    from .feed import write_work_feed
+    write_work_feed(output, repo, catalog, repository=repository)
     (output / 'CATALOG.json').write_bytes(encoded(catalog))
     database = build_work_index(output, catalog, repository=repository, search_assets=search_assets)
     from .directory_pages import build_directories
