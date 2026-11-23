@@ -50,15 +50,16 @@ def search_listing_open(title, total, *, controls='', result_class='guavajam-edi
                  '" title="Search ' + escape(title, quote=True) + '">' + link_icon('search', 'Search') + '</button></span>')
     body += ('<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
              'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>')
+    feed_link = ''
     if feed_href:
         label = feed_title or 'Subscribe to ' + title
-        body += ('<a class="guavajam-feed-link" href="' + escape(feed_href, quote=True) +
+        feed_link = ('<a class="guavajam-feed-link" href="' + escape(feed_href, quote=True) +
                  '" aria-label="' + escape(label, quote=True) + '" title="' +
                  escape(label, quote=True) + '">' + link_icon('rss', 'Subscribe') + '</a>')
     if controls:
         body += search_progress('guavajam-search-spinner')
     body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-             + str(total) + ' total</p></div>' + controls + '<hr class="guavajam-list-divider">')
+             + str(total) + ' total</p>' + feed_link + '</div>' + controls + '<hr class="guavajam-list-divider">')
     if controls:
         body += ('<span id="guavajam-search-progress-status" class="guavajam-visually-hidden" '
                  'role="status" aria-live="polite"></span>'
