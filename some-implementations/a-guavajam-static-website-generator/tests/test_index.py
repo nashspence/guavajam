@@ -39,15 +39,17 @@ class IndexTests(unittest.TestCase):
 
     def test_collection_origin_changes_regenerate_cached_work_metadata(self):
         from test_site_origin import link_icons
-        self.update(site_origin='https://publisher.example')
+        self.update(site_origin='https://github.com')
         source = next((self.output / 'current/sources').glob('*/editions/*/metadata.html'))
         urls = link_icons(source.read_text())
-        repository = next(url for url in self.urls if url in urls)
-        self.assertFalse(urls[repository])
+        generator = 'https://github.com/nashspence/guavajam'
+        self.assertFalse(urls[generator])
+        self.assertFalse(urls['source.bundle'])
+        self.assertFalse(any(url in urls for url in self.urls))
         selected = self.selected()
         self.assertTrue(self.update(site_origin='https://different.example')['changed'])
         self.assertNotEqual(selected, self.selected())
-        self.assertTrue(link_icons(source.read_text())[repository])
+        self.assertTrue(link_icons(source.read_text())[generator])
         self.assertFalse(self.update(site_origin='https://DIFFERENT.example:443/')['changed'])
 
     def test_two_repositories_keep_distinct_histories_and_noop_reverifies(self):
