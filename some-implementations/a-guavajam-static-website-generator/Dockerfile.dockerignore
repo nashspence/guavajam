@@ -23,3 +23,5 @@
 !some-implementations/a-guavajam-static-website-generator/LICENSES/**
 !some-implementations/a-guavajam-static-website-generator/REUSE.toml
 !MANIFEST.in
+!some-implementations/a-chatgpt-conversation-archive-gfm-extractor/
+!some-implementations/a-chatgpt-conversation-archive-gfm-extractor/pyproject.toml
