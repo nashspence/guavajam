@@ -231,6 +231,18 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                 CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
                     detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
             ''')
+        else:
+            # Aggregate text hits need only a source URL and body evidence;
+            # full citation/passage metadata remains in each work's index.
+            conn.executescript("""
+                CREATE TABLE document_passages (
+                    id INTEGER PRIMARY KEY, document_id INTEGER NOT NULL REFERENCES documents(id),
+                    position INTEGER NOT NULL, url TEXT NOT NULL,
+                    UNIQUE(document_id, position)
+                );
+                CREATE VIRTUAL TABLE document_passage_fts USING fts5(body,
+                    detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+            """)
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('scope', scope))
@@ -330,10 +342,14 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                      'VALUES (?,?,?,?,?,?,?)',
                                      (cursor.lastrowid, title, authors, facts.get('abstract', ''),
                                       labels, document['text'], provenance))
-                        if scope != 'work':
-                            continue
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
+                            if scope == 'collection':
+                                cursor = conn.execute('INSERT INTO document_passages(document_id,position,url) VALUES (?,?,?)',
+                                                      (document_id, anchor['position'], target))
+                                conn.execute('INSERT INTO document_passage_fts(rowid,body) VALUES (?,?)',
+                                             (cursor.lastrowid, anchor['text']))
+                                continue
                             cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
                                 source_path, passage_starts[source_path] + anchor['position'],
                                 anchor['anchor']), safe='/#:')
@@ -468,7 +484,7 @@ def homepage(site, *, interactive, site_origin=None):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import (PAGE_SIZE, _static_pager, search_summary, search_submit,
+    from .directory_pages import (PAGE_SIZE, _static_pager, search_submit,
                                   search_listing_open, search_listing_close, disclosure_summary)
     from .site import detail_link, page
 
@@ -515,11 +531,10 @@ def homepage(site, *, interactive, site_origin=None):
                                _facets(tags[work_id], subjects[work_id]) +
                                ('<p class="guavajam-abstract">' + escape(abstract) + '</p>' if abstract else '') +
                                '</article></li>')
-            body = ''
+            controls = ''
             if interactive:
-                body += (
-                    '<details class="guavajam-index-search" id="guavajam-index-search" hidden>' +
-                    search_summary(download) +
+                controls = (
+                    '<div class="guavajam-index-search" id="guavajam-index-search" hidden>' +
                     '<form id="guavajam-search" role="search" '
                     'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
                     'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
@@ -537,8 +552,8 @@ def homepage(site, *, interactive, site_origin=None):
                     '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
-                    '</form></details>')
-            body += search_listing_open('Works', count, interactive=interactive, result_class='guavajam-works')
+                    '</form></div>')
+            body = search_listing_open('Works', count, controls=controls, result_class='guavajam-works')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,

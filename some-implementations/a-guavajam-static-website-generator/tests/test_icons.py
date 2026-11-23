@@ -104,7 +104,7 @@ class IconTests(unittest.TestCase):
         html = ('<a href="/history" aria-label="All versions">' + link_icon('history', 'Versions') + '</a>' +
                 '<a href="/cite" aria-label="Cite passage">' + link_icon('quote', 'Cite') + '</a>' +
                 '<a href="/json" aria-label="Download citation JSON">' + link_icon('file-json', 'Download JSON') + '</a>' +
-                '<a href="#heading" aria-label="Permalink to heading">' + link_icon('link', 'Permalink') + '</a>')
+                '<a href="#heading" aria-label="Permalink to heading">' + link_icon('hash', 'Permalink') + '</a>')
         self.assertEqual([('/history', 'Versions'), ('/cite', 'Cite'),
                           ('/json', 'Download JSON'), ('#heading', 'Permalink')],
                          TextClientLinks(html).links)
@@ -162,7 +162,7 @@ class IconTests(unittest.TestCase):
         data = json.loads(files('a_guavajam_static_website_generator').joinpath('assets/lucide.json').read_text())
         self.assertEqual('0.577.0',data['version'])
         self.assertEqual('0ea8780434e2b4527dc860b18ff94883d080b59c',data['revision'])
-        for name in ['list-tree', 'files', 'book-open-text', 'info', 'chevron-right']:
+        for name in ['list-tree', 'files', 'book-open-text', 'info', 'chevron-right', 'search', 'hash']:
             self.assertIn(name, data['icons'])
             self.assertEqual(name, data['sources'][name])
             self.assertIn('<', data['icons'][name])

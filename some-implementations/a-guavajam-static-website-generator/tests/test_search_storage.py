@@ -155,6 +155,11 @@ class SearchStorageTests(unittest.TestCase):
                                      [row[1] for row in db.execute('PRAGMA table_info(search_records)')])
                     if scope == 'collection':
                         self.assertFalse(db.execute("SELECT name FROM sqlite_master WHERE name LIKE 'passage%'").fetchall())
+                        self.assertEqual(['id', 'document_id', 'position', 'url'],
+                                         [row[1] for row in db.execute('PRAGMA table_info(document_passages)')])
+                        self.assertEqual([entry['path'] + '/' + row[0]
+                                          for entry, rows in zip(entries, all_rows) for row in rows['passage_fts']],
+                                         [row[0] for row in db.execute('SELECT url FROM document_passages ORDER BY id')])
                         document_rows = [(entry['path'] + '/' + row[0], *row[1:])
                                          for entry, rows in zip(entries, all_rows) for row in rows['search_fts']]
                     else:

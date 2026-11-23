@@ -86,6 +86,34 @@ function displayHighlights(result, term) {
   return {...result, highlights: highlights.map(row => [row.value, row.marked])};
 }
 
+// Keep membership/ranking at document scope, but explain body hits using an
+// actual anchored passage from that same document whenever one contains a hit.
+function documentMatchTargets(result, term) {
+  const query = literalQuery(term, 'OR');
+  if (!query) return result;
+  const table = scope === 'work' ? 'passage_fts' : 'document_passage_fts';
+  const mapping = scope === 'work' ? 'passages' : 'document_passages';
+  const column = scope === 'work' ? 4 : 0;
+  for (const row of result.rows) {
+    if (row.excerpt_context !== 'document' || !row.hit_url) continue;
+    const hit = db.selectObjects(`SELECT p.url AS hit_url,
+        snippet(${table}, ${column}, char(57344), char(57345), '…', 24) AS excerpt
+      FROM ${table} JOIN ${mapping} p ON p.id=${table}.rowid
+      WHERE ${table} MATCH ? AND p.document_id=?
+      ORDER BY bm25(${table}), p.position, p.id LIMIT 1`,
+      ['body : (' + query + ')', row.match_document_id])[0];
+    if (hit) Object.assign(row, hit);
+    else {
+      // Free prose has no source anchor. A native text directive locates the
+      // exact highlighted token without inventing a publication identifier.
+      const token = /\uE000([^\uE001]+)\uE001/u.exec(row.excerpt)?.[1];
+      if (token) row.hit_url += '#:~:text=' + encodeURIComponent(token).replace(/[-!'()*]/g,
+        char => '%' + char.charCodeAt(0).toString(16).toUpperCase());
+    }
+  }
+  return result;
+}
+
 const WORK_FACETS = `,
     (SELECT json_group_array(name) FROM (
       SELECT name FROM keywords WHERE work_id=w.id ORDER BY name COLLATE NOCASE, name
@@ -110,7 +138,7 @@ function search({term = '', keyword = '', subject = '', sort = 'recent', page = 
       FROM hits
     )
     SELECT w.id, w.title, w.authors, w.abstract, w.latest_published,
-      w.latest_revision, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url,
+      w.latest_revision, w.edition_count, r.path, r.url AS repository, m.score, m.url AS hit_url, m.document_id AS match_document_id,
       ${matchEvidence('m')}, e.position AS match_position, d.title AS match_document ${WORK_FACETS}
     FROM works w JOIN repositories r ON w.repository_id = r.id
       JOIN ranked m ON m.work_id = w.id AND m.position = 1
@@ -150,7 +178,7 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
   if (selected === 'editions') {
     if (fts) {
       base = `WITH hits AS MATERIALIZED (
-        SELECT s.edition_id, s.id, s.url, d.title AS document_title,
+        SELECT s.edition_id, s.document_id, s.id, s.url, d.title AS document_title,
           bm25(search_fts, 4.0, 2.0, 1.0, 2.0, 1.0, 0.5) AS score, ${matchExcerpts('search_fts')}
         FROM search_fts JOIN search_records s ON s.id=search_fts.rowid
           JOIN documents d ON d.id=s.document_id
@@ -161,7 +189,7 @@ function searchWork({term = '', kind = 'documents', edition = 'latest', document
       )
       SELECT e.id, 'v' || (e.position + 1) AS title, 'editions/' || e.revision || '/read/index.html' AS url,
         e.revision, e.published, e.position, e.message, '' AS document_title, '' AS document_path,
-        '' AS anchor, '' AS scope, 0 AS node_position, m.score, m.url AS hit_url,
+        '' AS anchor, '' AS scope, 0 AS node_position, m.score, m.url AS hit_url, m.document_id AS match_document_id,
         ${matchEvidence('m')}, e.position AS match_position, m.document_title AS match_document
       FROM editions e JOIN works w ON w.id=e.work_id
         JOIN ranked m ON m.edition_id=e.id AND m.rank=1`;
@@ -287,7 +315,7 @@ self.onmessage = async event => {
       self.postMessage({id, ok: true, ready: true, keywords, subjects});
     } else if (action === 'search' && db) {
       self.postMessage({id, ok: true, ...displayHighlights(
-        scope === 'work' ? searchWork(event.data) : search(event.data), event.data.term)});
+        documentMatchTargets(scope === 'work' ? searchWork(event.data) : search(event.data), event.data.term), event.data.term)});
     } else {
       throw new Error('Search database is not initialized');
     }

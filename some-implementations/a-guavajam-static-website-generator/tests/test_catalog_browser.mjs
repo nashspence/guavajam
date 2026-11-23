@@ -106,7 +106,7 @@ try {
       await page.goto(base + edition + 'read/index.html');
       assert(await page.locator('.guavajam-permalink').count()>0);
       for(const control of await page.locator('.guavajam-permalink').all()){
-        assert.equal(await control.locator('svg.guavajam-icon-link[aria-hidden=true]').count(),1);
+        assert.equal(await control.locator('svg.guavajam-icon-hash[aria-hidden=true]').count(),1);
         assert.equal((await control.textContent()).trim(),'Permalink');
         assert.equal(await control.locator('.guavajam-icon-fallback').count(), 1);
         assert(await control.locator('.guavajam-icon-fallback').evaluate(n =>
