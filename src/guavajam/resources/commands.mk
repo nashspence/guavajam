@@ -1,7 +1,7 @@
 # Publisher command recipes owned and shipped by guavajam.
-.PHONY: check check-source check-assets capture asset-credentials image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check chat-list chat-gfm gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release
+.PHONY: check check-source check-assets asset-credentials image asset-upload assets-gc asset-retire assets-policy-plan assets-policy-apply publication-check gateway-plan gateway-deploy archive-export archive-check asset-pin publication-prepare catalog-export assets-qualify assets-release
 export TITLE AUTHOR LANGUAGE
-export FILE REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CONVERSATION TIP METADATA CLOUDFLARE_ENV ASSET_WORKER SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
+export FILE REV OUTPUT TRUSTED_GPG_FINGERPRINT SSH_ALLOWED_SIGNERS S3_ENV S3_RELEASE_ENV BRANCH HEAD_SHA APPLY ASSET_APP KEY RETAIN_UNTIL RETENTION_MODE CLOUDFLARE_ENV ASSET_WORKER SOURCE_REF PREVIOUS_CATALOG REPO REQUIRE_RETENTION MAIN_SHA REMOTE
 
 check: check-source check-assets ## Validate public source/assets. Use assets-qualify for committed private drafts.
 
@@ -10,9 +10,6 @@ check-source: ## Validate tracked GFM manuscripts and supporting sources offline
 
 check-assets: ## Verify anonymous public delivery after release; private drafts use assets-qualify.
 	@$(PYTHON) -m guavajam.verify_source_assets
-
-capture: ## OUTPUT=new-directory Export the installed capture extension for loading unpacked in Chrome.
-	@$(PYTHON) -m guavajam resources capture --output "$${OUTPUT:?Set OUTPUT}"
 
 asset-credentials: ## OUTPUT=.env.assets Write a new credential template; fill it locally and keep it owner-only.
 	@$(PYTHON) -m guavajam resources credentials --output "$${OUTPUT:-.env.assets}"
@@ -39,13 +36,6 @@ assets-policy-apply: ## ASSET_APP=app-slug  Activate the previewed branch-deleti
 publication-check: ## REV=full-sha TRUSTED_GPG_FINGERPRINT=hex|SSH_ALLOWED_SIGNERS=external-file  Verify signed source and all referenced bytes. Never signs or publishes.
 	@set --; if [ -n "$$SSH_ALLOWED_SIGNERS" ]; then set -- --ssh-allowed-signers "$$SSH_ALLOWED_SIGNERS"; else set -- --trusted-gpg-fingerprint "$${TRUSTED_GPG_FINGERPRINT:?Set independent signer trust}"; fi; \
 	$(PYTHON) -m guavajam.publication_commit --revision "$${REV:?Set REV to the full signed commit SHA}" "$$@"
-
-chat-list: ## FILE=../export.zip  List conversation IDs and titles locally. Also accepts conversations JSON.
-	@$(PYTHON) -m guavajam.extract_chatgpt --list -- "$${FILE:?Set FILE to the export path}"
-
-chat-gfm: ## FILE=../export.zip CONVERSATION=id OUTPUT=../review.md [TIP=node-id] [METADATA=../fields.yml]  Convert one branch to anchored GFM for review, reporting losses. OUTPUT must be new and outside the checkout; no commit is made.
-	@$(PYTHON) -m guavajam.extract_chatgpt --conversation="$${CONVERSATION:?Set CONVERSATION to the conversation ID}" \
-		--output="$${OUTPUT:?Set OUTPUT to a new file path}" $${TIP:+"--tip=$$TIP"} $${METADATA:+"--metadata=$$METADATA"} -- "$${FILE:?Set FILE to the export path}"
 
 gateway-plan: ## Preview authenticated, identity-pinned asset routing without reading credentials or making API calls.
 	@$(PYTHON) -m guavajam.deploy_asset_gateway

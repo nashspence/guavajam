@@ -11,7 +11,7 @@ COMMANDS = {
     'assets-qualify': 'qualify_assets', 'assets-release': 'asset_release',
     'asset-policy': 'configure_asset_maintenance', 'asset-pin': 'asset_versions',
     'gateway': 'deploy_asset_gateway', 'archive': 'source_archive',
-    'chat': 'extract_chatgpt', 'catalog-export': 'export_catalog',
+    'catalog-export': 'export_catalog',
     'init': 'bootstrap', 'resources': 'starters',
 }
 

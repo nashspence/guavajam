@@ -21,21 +21,7 @@ from test_assets import SVG
 
 
 BODY = '<a name="claim"></a>\n\nReviewed claim.\n'
-FIELDS = '''date_created: 2026-11-08
-user_account: "example-user"
-exported_identity: "Example User"
-title: "Supporting metadata title"
-schema: "A submitter label"
-unknown_: "Do not discard this field"
-header-includes: '<script>literal()</script>'
-"Quoted <key> & label": ['first & literal', 'second <literal>']
-boolean: yes
-number: 001
-empty: ""
-multiline: |
-  First line.
-  Second line.
-'''
+FIELDS = (FIXTURES / 'supporting/fields.yml').read_text()
 
 
 def document(fields=FIELDS, *, anchor='details', body=BODY):
@@ -147,28 +133,6 @@ class MetadataSourceTests(unittest.TestCase):
         later = document(body=BODY) + '\n---\nunknown_: must remain visible or fail\n---\n'
         with self.assertRaises(AssetError): self.parse(later)
 
-    def test_metadata_is_optional_local_import_input_and_never_changes_default_output(self):
-        native = json.loads((FIXTURES / 'capture/conversation.json').read_text())
-        with tempfile.TemporaryDirectory() as scratch:
-            root = Path(scratch); source = root/'capture.json'; source.write_text(json.dumps([native]))
-            metadata = root/'optional fields.yml'; metadata.write_text(FIELDS)
-            output = root/'review.md'
-            command = ['make','--no-print-directory','chat-gfm',f'PYTHON={sys.executable}',
-                       'FILE='+str(source),'CONVERSATION='+native['conversation_id'],'OUTPUT='+str(output),
-                       'METADATA='+str(metadata)]
-            run = subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
-            self.assertEqual(0,run.returncode,run.stderr)
-            self.assertEqual(0o600,output.stat().st_mode&0o777)
-            ast, anchors, *_ = load_gfm_record(output)
-            self.assertEqual(1,sum(n['t']=='DefinitionList' for n in walk(ast['blocks'])))
-            self.assertTrue(any(key.startswith('metadata-doc-') for key in anchors))
-            self.assertNotIn('Example User',run.stdout+run.stderr)
-            self.assertNotEqual(0,subprocess.run(command,cwd=ROOT,capture_output=True).returncode)
-            metadata.write_text('a: &private private-sentinel\nb: *private\n')
-            output.unlink()
-            bad = subprocess.run(command,cwd=ROOT,capture_output=True,text=True)
-            self.assertNotEqual(0,bad.returncode); self.assertFalse(output.exists())
-            self.assertNotIn('private-sentinel',bad.stdout+bad.stderr)
 
 
 

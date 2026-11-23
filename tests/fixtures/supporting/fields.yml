@@ -1,0 +1,14 @@
+date_created: 2026-11-08
+user_account: "example-user"
+exported_identity: "Example User"
+title: "Supporting metadata title"
+schema: "A submitter label"
+unknown_: "Do not discard this field"
+header-includes: '<script>literal()</script>'
+"Quoted <key> & label": ['first & literal', 'second <literal>']
+boolean: yes
+number: 001
+empty: ""
+multiline: |
+  First line.
+  Second line.

@@ -4,9 +4,24 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
+    "a-chatgpt-conversation-archive-gfm-extractor",
     "a-guavajam-static-website-generator",
     "guavajam",
 ]
+
+[[package]]
+name = "a-chatgpt-conversation-archive-gfm-extractor"
+version = "0.1.0"
+source = { editable = "some-implementations/a-chatgpt-conversation-archive-gfm-extractor" }
+dependencies = [
+    { name = "guavajam" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "guavajam", editable = "." }]
+
+[package.metadata.requires-dev]
+dev = []
 
 [[package]]
 name = "a-guavajam-static-website-generator"

@@ -32,7 +32,7 @@ def _native_json(raw):
     for item in items:
         if not isinstance(item, dict):
             continue
-        if item.get('schema') == 'guavajam.chatgpt-capture-reference.v1':
+        if item.get('schema') == 'chatgpt.conversation-archive.v1':
             return True
         if (isinstance(item.get('mapping'), dict) and ('current_node' in item or 'conversation_id' in item)
                 and any(isinstance(node, dict) and 'message' in node and 'parent' in node

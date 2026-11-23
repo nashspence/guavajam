@@ -11,7 +11,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path[:0] = [str(REPO_ROOT / 'tests/support'),
                str(REPO_ROOT / 'src'), str(REPO_ROOT / 'some-implementations/a-guavajam-static-website-generator/src')]
 from guavajam_test_support.discovery_fixture import Publisher
-from guavajam.chat_gfm import review_gfm
 from a_guavajam_static_website_generator.search_index import emit_browser_assets
 from a_guavajam_static_website_generator.site import build_site
 
@@ -61,12 +60,7 @@ def prepare(directory):
                 for passage in range(1, 45):
                     phrase = 'Bathyal supporting citation.' if passage == 44 else f'Supporting proof {passage}.'
                     stream.write(f'\n<a name="support-{passage:02d}"></a>\n\n{phrase}\n')
-            reviewed, _ = review_gfm({'title': 'Reviewed correspondence', 'scope': 'Synthetic review', 'passages': [
-                {'id': 'm-author', 'label': 'Author', 'speaker': 'author',
-                 'text': '# Author analysis\n\nAuthor observations.'},
-                {'id': 'm-reply', 'label': 'Correspondent', 'speaker': 'responder',
-                 'text': '# Quoted analysis\n\nQuotientwave evidence.'},
-            ]})
+            reviewed = (Path(__file__).parent / 'fixtures/work-search-browser.gfm.md').read_bytes()
             (support / 'correspondence.md').write_bytes(reviewed)
         date = '2026-10-01T12:00:00Z' if number == 22 else f'2026-11-{number:02d}T12:00:00Z'
         message = f'Observation {number:02d}'

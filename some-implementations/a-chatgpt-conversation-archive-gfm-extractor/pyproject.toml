@@ -1,0 +1,25 @@
+[project]
+name = "a-chatgpt-conversation-archive-gfm-extractor"
+version = "0.1.0"
+description = "Selected ChatGPT archive branches as private, reviewable GuavaJam GFM"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "REUSE.toml"]
+requires-python = ">=3.12,<3.13"
+dependencies = ["guavajam==0.1.0"]
+
+[project.scripts]
+a-chatgpt-conversation-archive-gfm-extractor = "a_chatgpt_conversation_archive_gfm_extractor.extractor:main"
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.uv.sources]
+guavajam = { workspace = true }
+
+[dependency-groups]
+dev = []

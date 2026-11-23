@@ -124,7 +124,15 @@ class DeploymentConfigurationTests(unittest.TestCase):
         for image in images:
             with self.subTest(image=image):
                 self.assertRegex(image, r'@sha256:[0-9a-f]{64}$')
-        self.assertIn('RUN uv sync --locked --all-packages --no-dev --no-editable', self.stages['packages'])
+        self.assertIn('RUN uv sync --locked --package a-guavajam-static-website-generator --no-dev --no-editable', self.stages['packages'])
+        extractor = 'some-implementations/a-chatgpt-conversation-archive-gfm-extractor/'
+        self.assertIn('COPY ' + extractor + 'pyproject.toml ' + extractor + 'pyproject.toml', self.stages['packages'])
+        self.assertNotIn(extractor + 'src', self.stages['packages'])
+        self.assertIn("assert importlib.util.find_spec('a_chatgpt_conversation_archive_gfm_extractor') is None", self.stages['packages'])
+        context = (APP / 'Dockerfile.dockerignore').read_text().splitlines()
+        self.assertIn('!' + extractor, context)
+        self.assertIn('!' + extractor + 'pyproject.toml', context)
+        self.assertNotIn('!' + extractor + 'src/**', context)
         self.assertIn('RUN python /tmp/install_pandoc.py', self.stages['a-guavajam-static-website-generator'])
         self.assertIn('COPY --from=packages /build/.venv/lib/python3.12/site-packages/guavajam/resources/storage /opt/gateway',
                       self.stages['gateway'])

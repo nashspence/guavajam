@@ -14,14 +14,33 @@ def run(*args, cwd=None):
 def main():
     root = Path.cwd()
     repo = root / 'publisher'
-    view = sys.argv[1] == 'a-guavajam-static-website-generator'
+    package = sys.argv[1]
+    view = package == 'a-guavajam-static-website-generator'
+    extractor = 'a_chatgpt_conversation_archive_gfm_extractor'
+    if package == 'a-chatgpt-conversation-archive-gfm-extractor':
+        assert importlib.util.find_spec('a_guavajam_static_website_generator') is None
+        module = __import__(extractor)
+        assert Path(module.__file__).is_relative_to(Path(sys.prefix))
+        source = root / 'conversations.json'
+        source.write_text(json.dumps([{'id':'fixture','title':'Archive review','current_node':'reply',
+            'mapping':{'root':{'parent':None,'message':None},'reply':{'parent':'root','message':{
+            'author':{'role':'assistant'},'content':{'content_type':'text','parts':['A reviewed observation.']}}}}}]))
+        assert json.loads(run(sys.executable, '-m', extractor, source, '--list')) == ['fixture','Archive review']
+        output = root / 'review.md'
+        run(sys.executable, '-m', extractor, source, '--conversation', 'fixture', '--output', output)
+        from guavajam.supporting_gfm import load_gfm_record
+        load_gfm_record(output)
+        assert output.stat().st_mode & 0o777 == 0o600
+        print('Installed archive extractor and GuavaJam contract independently verified.')
+        return
+    assert importlib.util.find_spec(extractor) is None, 'An unrelated optional authority was installed'
     if not view:
         assert importlib.util.find_spec('a_guavajam_static_website_generator') is None, 'GuavaJam installed the view'
     assert importlib.util.find_spec('guavajam_test_support') is None, 'test helpers leaked into a runtime distribution'
     import guavajam
     assert Path(guavajam.__file__).is_relative_to(Path(sys.prefix)), 'GuavaJam came from a checkout'
     resources = Path(guavajam.__file__).parent / 'resources'
-    for name in ('storage/worker.js', 'storage/preview.mjs', 'storage/server.mjs', 'chatgpt-capture/manifest.json',
+    for name in ('storage/worker.js', 'storage/preview.mjs', 'storage/server.mjs',
                  'templates/work/manuscript.md', 'commands.mk'):
         assert (resources / name).is_file(), name
     if not repo.exists():
@@ -48,10 +67,6 @@ def main():
         run('git', 'commit', '-S', '-m', 'Publish the initial work', cwd=repo)
         # The CLI must read the caller's repository even from a nested directory.
         run(sys.executable, '-m', 'guavajam', 'validate-sources', cwd=repo / 'content')
-        run(sys.executable, '-m', 'guavajam', 'resources', 'capture', '--output', str(root / 'capture'), cwd=repo)
-        assert (root / 'capture/capture.mjs').is_file()
-        for legal in ['LICENSES/Apache-2.0.txt', 'REUSE.toml']:
-            assert (root / 'capture' / legal).read_bytes() == (resources / 'chatgpt-capture' / legal).read_bytes()
     for command in ('assets-qualify', 'assets-release'):
         assert '--revision' in run(sys.executable, '-m', 'guavajam', command, '--help', cwd=repo)
     sha = run('git', 'rev-parse', 'HEAD', cwd=repo)

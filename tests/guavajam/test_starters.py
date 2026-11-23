@@ -94,12 +94,13 @@ class BootstrapTests(unittest.TestCase):
             bootstrap.dotenv(envfile)
 
     def test_resources_need_neither_git_nor_optional_view(self):
-        destination = self.root / 'capture'
+        destination = self.root / 'credentials.env'
         result = subprocess.run([sys.executable, '-m', 'guavajam', 'resources',
-                                 'capture', '--output', str(destination)], cwd=self.root,
+                                 'credentials', '--output', str(destination)], cwd=self.root,
                                 capture_output=True, text=True)
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertTrue((destination / 'capture.mjs').is_file())
+        self.assertTrue(destination.is_file())
+        self.assertEqual(0o600, destination.stat().st_mode & 0o777)
         removed = subprocess.run([sys.executable, '-m', 'guavajam', 'new-work'], cwd=self.root,
                                  capture_output=True)
         self.assertNotEqual(0, removed.returncode)

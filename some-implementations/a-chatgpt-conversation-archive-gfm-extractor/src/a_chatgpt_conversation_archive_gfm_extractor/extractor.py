@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Convert one selected ChatGPT export branch to private GFM for review and redaction."""
-from .repository import repository_root
 import argparse
 import hashlib
 import json
@@ -8,13 +7,14 @@ import math
 import os
 import re
 import sys
+import subprocess
 import zipfile
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from .chat_gfm import ATTRIBUTION_TOKEN, review_gfm
-from .supporting_gfm import MAX_RECORD_BYTES
+from .gfm import ATTRIBUTION_TOKEN, review_gfm
+from guavajam.supporting_gfm import MAX_RECORD_BYTES
 
 
 def conversations(source):
@@ -144,7 +144,7 @@ def main():
     select.add_argument("--list", action="store_true", help="print IDs and titles locally as JSON lines")
     select.add_argument("--conversation", help="exact conversation ID")
     parser.add_argument("--tip", help="mapping node to use in place of current_node")
-    parser.add_argument("--output", type=Path, help="new review GFM .md file outside the GuavaJam checkout")
+    parser.add_argument("--output", type=Path, help="new review GFM .md file outside Git worktrees")
     parser.add_argument("--metadata", type=Path, help="optional local YAML mapping of submitter-defined document metadata")
     args = parser.parse_args()
     if args.list and (args.tip or args.output or args.metadata) or not args.list and not args.output:
@@ -164,17 +164,19 @@ def main():
         if selected is None:
             raise ValueError("conversation ID not found")
         record = transcript(selected, args.tip if args.tip is not None else selected.get("current_node"))
-        from .chat_references import reference_index
+        from .references import reference_index
         references = reference_index(msg for _, msg in branch_messages(
             selected, args.tip if args.tip is not None else selected.get("current_node")))
-        from .supporting_metadata import read_metadata
+        from guavajam.supporting_metadata import read_metadata
         metadata = read_metadata(args.metadata) if args.metadata else None
         data, diagnostics = review_gfm(record, identity=args.conversation, references=references, metadata=metadata)
         if len(data) > MAX_RECORD_BYTES:
             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
         output = args.output.parent.resolve(strict=True) / args.output.name
-        if output.is_relative_to(repository_root()):
-            raise ValueError("private review output must be outside the GuavaJam checkout")
+        custody = subprocess.run(['git', '-C', str(output.parent), 'rev-parse', '--is-inside-work-tree'],
+                                 capture_output=True, text=True, timeout=15)
+        if custody.returncode == 0 and custody.stdout.strip() == 'true':
+            raise ValueError("private review output must be outside Git worktrees")
         if output.suffix != ".md":
             raise ValueError("review output must be a GFM .md file")
         with open(output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:

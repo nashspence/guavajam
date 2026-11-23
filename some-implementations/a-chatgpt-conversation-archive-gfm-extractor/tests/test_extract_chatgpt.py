@@ -8,8 +8,8 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from guavajam.extract_chatgpt import export_timestamp, transcript
-from guavajam.chat_gfm import review_gfm
+from a_chatgpt_conversation_archive_gfm_extractor.extractor import export_timestamp, transcript
+from a_chatgpt_conversation_archive_gfm_extractor.gfm import review_gfm
 
 
 class ExtractTests(unittest.TestCase):
@@ -138,12 +138,21 @@ class ExtractTests(unittest.TestCase):
             (root / "linked").symlink_to(checkout, target_is_directory=True)
             for parent in (checkout, root / "linked"):
                 output = parent / "review.md"
-                result = subprocess.run([sys.executable, "-m", "guavajam.extract_chatgpt",
+                result = subprocess.run([sys.executable, "-m", "a_chatgpt_conversation_archive_gfm_extractor.extractor",
                                          source, "--conversation", "selected", "--output", output],
                                         cwd=checkout, capture_output=True, text=True)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("outside the GuavaJam checkout", result.stderr)
+                self.assertIn("outside Git worktrees", result.stderr)
                 self.assertFalse(output.exists())
+
+    def test_standalone_private_directory_needs_no_publication_checkout(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root=Path(scratch);source=root/'conversations.json';output=root/'review.md'
+            source.write_text(json.dumps([self.record]))
+            subprocess.run([sys.executable,'-m','a_chatgpt_conversation_archive_gfm_extractor',source,'--conversation','selected','--output',output],
+                           cwd=root,check=True,capture_output=True)
+            self.assertEqual(0o600,output.stat().st_mode & 0o777)
+            self.assertIn(b'Visible reply',output.read_bytes())
 
     def test_sharded_zip_plain_json_and_output_protection(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -160,7 +169,7 @@ class ExtractTests(unittest.TestCase):
             checkout = root / "publication"
             checkout.mkdir()
             subprocess.run(["git", "init", "-q", str(checkout)], check=True)
-            cmd = [sys.executable, "-m", "guavajam.extract_chatgpt"]
+            cmd = [sys.executable, "-m", "a_chatgpt_conversation_archive_gfm_extractor.extractor"]
             args = ["--conversation", "selected", "--output", str(output)]
             subprocess.run([*cmd, source, *args], cwd=checkout, check=True)
             expected = output.read_bytes()

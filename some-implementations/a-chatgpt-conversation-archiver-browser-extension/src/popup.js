@@ -31,10 +31,10 @@ button.addEventListener("click", async () => {
     } else if (result.audit === "audited") {
       show("Archive requested: " + result.filename + "\n" + details +
            "\nWarning: " + result.missingFromGraph + " selected-branch messages absent from native graph; " +
-           result.uncomparableMessages + " IDs could not be compared. See capture-manifest.json.", "warning");
+           result.uncomparableMessages + " IDs could not be compared. See archive-manifest.json.", "warning");
     } else {
       show("Archive requested: " + result.filename + "\n" + details +
-           "\nWarning: selected-branch audit unavailable. See capture-manifest.json.", "warning");
+           "\nWarning: selected-branch audit unavailable. See archive-manifest.json.", "warning");
     }
   } catch (error) {
     show(error instanceof Error ? error.message : "Capture failed.", "error");

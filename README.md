@@ -60,4 +60,6 @@ to generate a local Git repository without creating a remote. Every later edit
 uses normal Git, a text editor, PR review, and Actions. GuavaJam can validate,
 discover and preserve works without the optional `a-guavajam-static-website-generator` package.
 
+The optional [conversation archiver](some-implementations/a-chatgpt-conversation-archiver-browser-extension/) captures native private archives. The separate [archive GFM extractor](some-implementations/a-chatgpt-conversation-archive-gfm-extractor/) selects a branch for private review, consuming GuavaJam’s source contracts. Neither tool signs or publishes a work.
+
 [Developer onboarding](AGENTS.md). Run `make help` for tooling commands.

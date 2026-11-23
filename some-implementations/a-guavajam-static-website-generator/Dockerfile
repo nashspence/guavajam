@@ -9,6 +9,7 @@ COPY --from=uv /uv /usr/local/bin/uv
 WORKDIR /build
 COPY pyproject.toml uv.lock ./
 COPY some-implementations/a-guavajam-static-website-generator/pyproject.toml some-implementations/a-guavajam-static-website-generator/pyproject.toml
+COPY some-implementations/a-chatgpt-conversation-archive-gfm-extractor/pyproject.toml some-implementations/a-chatgpt-conversation-archive-gfm-extractor/pyproject.toml
 COPY LICENSES LICENSES
 COPY REUSE.toml MANIFEST.in ./
 COPY some-implementations/a-guavajam-static-website-generator/LICENSES some-implementations/a-guavajam-static-website-generator/LICENSES
@@ -17,7 +18,8 @@ COPY src src
 COPY some-implementations/a-guavajam-static-website-generator/src some-implementations/a-guavajam-static-website-generator/src
 COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/index.mjs some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3.mjs
 COPY --from=search_assets /search/node_modules/@sqlite.org/sqlite-wasm/dist/sqlite3.wasm some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3.wasm
-RUN uv sync --locked --all-packages --no-dev --no-editable
+RUN uv sync --locked --package a-guavajam-static-website-generator --no-dev --no-editable
+RUN .venv/bin/python -c "import importlib.util; assert importlib.util.find_spec('a_chatgpt_conversation_archive_gfm_extractor') is None"
 
 FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c AS a-guavajam-static-website-generator
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git openssh-client gnupg libgmp10 && rm -rf /var/lib/apt/lists/*

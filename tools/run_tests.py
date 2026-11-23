@@ -9,7 +9,7 @@ from workspace import ROOT, TESTS
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('package', choices=['guavajam', 'a-guavajam-static-website-generator'])
+    parser.add_argument('package', choices=list(TESTS))
     args = parser.parse_args()
     sys.path.insert(0, str(ROOT / 'tests/support'))
     suite = unittest.defaultTestLoader.discover(str(TESTS[args.package]))
