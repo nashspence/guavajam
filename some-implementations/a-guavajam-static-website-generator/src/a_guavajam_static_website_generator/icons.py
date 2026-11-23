@@ -61,23 +61,32 @@ def download_icon(mime):
     return 'file-down'
 
 
-def normalize_site_origin(value):
-    """Accept an operator-selected HTTP(S) origin, never infer one from source."""
-    if value is None:
-        return None
+def normalize_http_location(value):
+    """Normalize a credential-free HTTP(S) presentation location without fetching it."""
     if not isinstance(value, str) or any(c.isspace() or ord(c) < 32 for c in value) or '\\' in value:
-        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, query or fragment')
     parsed = urlsplit(value)
     if (parsed.scheme not in {'http', 'https'} or not parsed.hostname
             or parsed.username is not None or parsed.password is not None
-            or parsed.path not in {'', '/'} or parsed.query or parsed.fragment):
-        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+            or parsed.query or parsed.fragment):
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, query or fragment')
     host = parsed.hostname.encode('idna').decode('ascii')
     host = '[' + host + ']' if ':' in host else host
     port = parsed.port
     if port is not None and port != (443 if parsed.scheme == 'https' else 80):
         host += ':' + str(port)
-    return parsed.scheme + '://' + host
+    return parsed.scheme + '://' + host + parsed.path
+
+
+def normalize_site_origin(value):
+    """Accept an operator-selected HTTP(S) origin, never infer one from source."""
+    if value is None:
+        return None
+    location = normalize_http_location(value)
+    parsed = urlsplit(location)
+    if parsed.path not in {'', '/'}:
+        raise ValueError('site origin must be an HTTP(S) origin without credentials, path, query or fragment')
+    return parsed.scheme + '://' + parsed.netloc
 
 
 def finish_html(html, *, site_origin=None):
