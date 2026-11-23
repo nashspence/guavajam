@@ -1,5 +1,6 @@
 """Generated website chrome needs no signed fixtures, network, or JavaScript."""
 from html.parser import HTMLParser
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -217,8 +218,10 @@ class ChromeTests(unittest.TestCase):
             {'revision': sha2, 'published': '2026-11-03', 'message': 'Update'}]}
         fact = {'title': 'Shoreline research', 'author': 'Mara Levin',
                 'abstract': 'Observations of the coast.'}
+        source = b'---\ntitle: Note <untrusted> & evidence\n---\n\nA reviewed supporting note.\n'
         documents = {'content/manuscript.md': {'title': 'Shoreline research', 'view': 'index.html', 'anchors': []},
-                     'content/supporting/note.md': {'title': 'Note <untrusted> & evidence', 'view': 'supporting/note.html', 'anchors': []}}
+                     'content/supporting/note.md': {'title': 'Note <untrusted> & evidence', 'view': 'supporting/note.html', 'anchors': [],
+                                                     'source_sha256': hashlib.sha256(source).hexdigest()}}
 
         def render_stub(_repo, revision, target, **_kwargs):
             target.mkdir()
@@ -249,7 +252,9 @@ class ChromeTests(unittest.TestCase):
             with (patch('a_guavajam_static_website_generator.site.verify', side_effect=verify_stub),
                   patch('a_guavajam_static_website_generator.site.render', side_effect=render_stub),
                   patch('a_guavajam_static_website_generator.feed.write_work_feed'),
-                  patch('a_guavajam_static_website_generator.site.git_blob', return_value=b'example source'),
+                  patch('a_guavajam_static_website_generator.site.git_blob', return_value=source),
+                  patch('guavajam.source_archive.bundle_revision',
+                        side_effect=lambda repo, revision, target: target.write_bytes(b'fixture repository bundle')),
                   patch('a_guavajam_static_website_generator.site.committer_identity', return_value={'name': 'Mara', 'email': ''}),
                   patch('a_guavajam_static_website_generator.work_search.build_work_index', return_value=None)):
                 _build(Path(temp), catalog, output, fingerprints=(), allowed_signers=None,

@@ -31,22 +31,34 @@ metadata:
 ---
 
 <a id="overview"></a>
+
 ## Overview
+
+<a id="overview-text"></a>
 
 Independent observations.
 
 <a id="detail"></a>
+
 ### Detailed observations
+
+<a id="detail-text"></a>
 
 The source evidence.
 
 <a id="method"></a>
+
 ## Method
+
+<a id="method-text"></a>
 
 A repeatable procedure.
 
 <a id="closing"></a>
+
 ## Closing
+
+<a id="closing-text"></a>
 
 A bounded conclusion.
 """)
