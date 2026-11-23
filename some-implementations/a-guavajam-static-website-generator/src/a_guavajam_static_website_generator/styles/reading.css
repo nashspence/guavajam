@@ -15,7 +15,7 @@
   --guavajam-match-paper: #854500;
   --guavajam-match-ink: #f2f2f2;
   --guavajam-match-hover-ink: #fff;
-  font: 1.0625rem/1.65 Georgia, Cambria, 'Times New Roman', serif;
+  font: 1.0625rem/1.6 system-ui, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -30,7 +30,10 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
+  font-family: inherit;
+  font-weight: 600;
   line-height: 1.25;
+  letter-spacing: -.015em;
   text-wrap: balance;
   break-after: avoid;
 }
@@ -52,7 +55,7 @@ div.guavajam-citation {
   border-inline-start: .2rem solid var(--guavajam-border);
   background: transparent; min-width: 0; color: var(--guavajam-ink);
 }
-.guavajam-citation p, .guavajam-citation-description { margin: 0; font: .97rem/1.6 Georgia, Cambria, serif; }
+.guavajam-citation p, .guavajam-citation-description { margin: 0; font: .97rem/1.6 system-ui, sans-serif; }
 .guavajam-citation :is(p, .guavajam-citation-description) + p { margin-top: .35rem; }
 .guavajam-citation-title { display: inline; margin: 0; font: inherit; text-wrap: inherit; }
 .guavajam-citation cite { font-style: italic; }

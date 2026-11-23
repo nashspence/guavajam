@@ -51,6 +51,26 @@ class ChromeTests(unittest.TestCase):
                              for tag, attrs in nodes))
         self.assertNotIn('<script', html)
 
+    def test_generated_pages_use_one_system_typography_stack(self):
+        html = page('Typography', '<h2>Section</h2><p>Prose</p>')
+        reading = (Path(__file__).resolve().parents[1] /
+                   'src/a_guavajam_static_website_generator/styles/reading.css').read_text()
+        catalog = (Path(__file__).resolve().parents[1] /
+                   'src/a_guavajam_static_website_generator/styles/catalog.css').read_text()
+        for css in (reading, catalog):
+            self.assertNotRegex(css, r'\b(?:Georgia|Cambria|Times New Roman)\b')
+        self.assertIn('font: 1.0625rem/1.6 system-ui, sans-serif;', html)
+        self.assertRegex(reading, r'h1, h2, h3, h4, h5, h6 \{\s*font-family: inherit;'
+                         r'\s*font-weight: 600;\s*line-height: 1\.25;'
+                         r'\s*letter-spacing: -\.015em;')
+        self.assertIn('font: .97rem/1.6 system-ui, sans-serif;', reading)
+        self.assertIn('font: 600 1.16rem/1.45 system-ui, sans-serif;', catalog)
+        self.assertIn('font: 600 1.04rem/1.45 system-ui, sans-serif;', catalog)
+        self.assertIn('font: .94rem/1.55 system-ui, sans-serif;', catalog)
+        # The typography change must not substitute system fonts for code and math.
+        self.assertIn("ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace", reading)
+        self.assertIn('<h2>Section</h2><p>Prose</p>', html)
+
     def test_citation_includes_exact_supporting_document_and_escapes_titles(self):
         supporting = {**self.citation, 'document': 'content/supporting/note.md'}
         html = citation_control(supporting, 'note.citation.json', title='Work & Research',
