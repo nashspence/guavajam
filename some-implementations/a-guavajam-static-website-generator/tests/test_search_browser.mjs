@@ -510,6 +510,9 @@ try {
         'a busy pager cannot submit another page change');
       await waiting.locator('#guavajam-search-toggle').focus();
       await waiting.keyboard.press('Tab');
+      assert.equal(await waiting.locator('.guavajam-feed-link').evaluate(n => n === document.activeElement), true,
+        'the collection feed remains keyboard accessible between its heading control and search fields');
+      await waiting.keyboard.press('Tab');
       assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true);
       await waiting.evaluate(() => {
         window.guavajamSearchTest.focus = document.activeElement;
