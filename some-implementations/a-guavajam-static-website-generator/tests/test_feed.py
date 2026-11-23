@@ -89,7 +89,8 @@ class CollectionFeedTests(unittest.TestCase):
         self.assertEqual(ids, [e.findtext('a:id', namespaces=NS) for e in same_entries])
         removed, entries = self.transition(unchanged, {self.a: updated}, [])
         self.assertEqual('work-removed', category(entries[0]))
-        self.assertEqual(self.a, entries[0].find('a:link', NS).get('href'))
+        self.assertEqual('index.html', entries[0].find('a:link', NS).get('href'))
+        self.assertIn(self.a, entries[0].findtext('a:summary', namespaces=NS))
         self.assertIn('not been retracted', entries[0].findtext('a:summary', namespaces=NS))
         self.assertEqual(4, len(removed['events']))
         readded, entries = self.transition(removed, {self.a: updated}, [(self.a, 'Revised <Notes>', updated)])
@@ -110,16 +111,6 @@ class CollectionFeedTests(unittest.TestCase):
         self.assertEqual(3, after['events'][-1]['version'])
         self.assertEqual(1, sum(e['kind'] == 'new-edition' for e in after['events']))
 
-    def test_legacy_checkpoint_migration_suppresses_historical_events(self):
-        one = work_catalog(self.first, self.second)
-        state, entries = self.transition(None, {self.a: one}, [(self.a, 'Old work', one)])
-        self.assertEqual([], entries)
-        self.assertEqual([self.a], state['members'])
-        newer = work_catalog(self.first, self.second, self.third)
-        later, entries = self.transition(state, {self.a: one}, [(self.a, 'Old work', newer)])
-        self.assertEqual(['new-edition'], [category(e) for e in entries])
-        self.assertEqual(1, len(later['events']))
-
     def test_event_log_is_bounded_and_atom_document_is_parseable(self):
         state, _ = self.transition(None, {}, [])
         for i in range(220):
@@ -127,6 +118,7 @@ class CollectionFeedTests(unittest.TestCase):
             state, _ = self.transition(state, {}, [(url, 'Name', work_catalog(self.first))])
             state, _ = self.transition(state, {}, [])
         self.assertLessEqual(len(state['events']), 200)
+        self.assertLessEqual(len(state['titles']), 201)
         self.assertEqual(50, len(nodes(self.root / 'feed.atom')))
         self.assertEqual(50, len({e.findtext('a:id', namespaces=NS) for e in nodes(self.root / 'feed.atom')}))
 
@@ -180,6 +172,22 @@ class WorkFeedTests(unittest.TestCase):
             self.assertEqual(before, [e.findtext('a:id', namespaces=NS) for e in nodes(site / 'feed.atom')])
             self.assertEqual(feed.findtext('a:id', namespaces=NS), ET.parse(site / 'feed.atom').getroot().findtext('a:id', namespaces=NS))
 
+    def test_standalone_feed_identity_survives_the_first_publication(self):
+        from guavajam_test_support.discovery_fixture import Publisher
+        from guavajam.publication_protocol import discover
+        from a_guavajam_static_website_generator.site import build_site
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); publisher = Publisher(root / 'publisher')
+            bootstrap = publisher.git('rev-parse', publisher.revisions[0] + '^')
+            identifiers = []
+            for number, ref in enumerate((bootstrap, publisher.revisions[0])):
+                output = root / str(number)
+                build_site(publisher.repo, output, ref=ref, **publisher.trust)
+                feed = ET.parse(output / 'feed.atom').getroot()
+                identifiers.append(feed.findtext('a:id', namespaces=NS))
+                self.assertEqual(number, len(nodes(output / 'feed.atom')))
+            self.assertEqual(identifiers[0], identifiers[1])
+
     def test_heading_icon_and_head_autodiscovery_are_direct_links_without_js(self):
         for title, label in [('Works', 'collection updates'), ('Versions', 'work editions')]:
             body = search_listing_open(title, 2, feed_href='feed.atom', feed_title='Subscribe to ' + label)
@@ -214,7 +222,7 @@ class CollectionPipelineTests(unittest.TestCase):
         self.trust_file.write_text(yaml.safe_dump({self.url: {'fingerprints': ['f' * 40]}}))
         self.output = self.root / 'generated'
         self.previous = self.root / 'previous.json'
-        self.previous.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}}))
+        self.previous.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}, 'feed': None}))
 
         def build(_repo, target, **options):
             target.mkdir(parents=True)

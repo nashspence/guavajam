@@ -93,8 +93,8 @@ def write_work_feed(output, repo, catalog, *, repository=''):
     """One entry per immutable verified edition; no persistent work feed state."""
     editions = catalog['editions']
     # The configured source URL distinguishes independently indexed repositories;
-    # an immutable first edition is the fallback for standalone publications.
-    initial = repository or (editions[0]['revision'] if editions else history(repo, catalog['tip'])[1][0])
+    # the repository's immutable root commit anchors standalone publications.
+    initial = repository or history(repo, catalog['tip'])[1][0]
     identifier = 'urn:uuid:' + str(uuid.uuid5(uuid.NAMESPACE_URL, 'guavajam:work:' + initial))
     details = []
     for position, edition in enumerate(editions[-FEED_LENGTH:], max(1, len(editions) - FEED_LENGTH + 1)):
@@ -175,11 +175,7 @@ def validate_state(state):
 
 
 def advance_collection(previous, previous_catalogs, entries, site):
-    """Observe only membership changes and new editions of continuing members.
-
-    Legacy checkpoints with existing catalogs establish a baseline without
-    fabricating historical notifications during the first upgraded build.
-    """
+    """Observe membership changes and new editions of continuing members."""
     when = observed_time()
     if previous is not None:
         validate_state(previous)
@@ -189,7 +185,7 @@ def advance_collection(previous, previous_catalogs, entries, site):
         identifier = previous['id']
         initialized = previous['initialized']
     else:
-        before = {entry['repository'] for entry in entries} if previous_catalogs else set()
+        before = set()
         events, titles = [], {}
         identifier = 'urn:uuid:' + str(uuid.uuid4())
         initialized = when
@@ -220,6 +216,8 @@ def advance_collection(previous, previous_catalogs, entries, site):
                 view = json.loads((directory / 'editions' / edition['revision'] / 'read' / 'VIEW.json').read_text('utf-8'))
                 record('new-edition', url, view['facts']['title'], revision=edition['revision'],
                        version=position, message=edition['message'])
+    retained_urls = selected | {event['repository'] for event in events[-MAX_EVENTS:]}
+    titles = {url: title for url, title in titles.items() if url in retained_urls}
     state = {'schema': FEED_STATE, 'id': identifier, 'initialized': initialized,
              'members': members, 'titles': titles, 'events': events[-MAX_EVENTS:]}
     return validate_state(state)
@@ -248,7 +246,8 @@ def write_collection_feed(site, state):
             href = 'sources/' + digest(url.encode()) + ('/editions/' + event['revision'] + '/read/index.html'
                                                         if kind == 'new-edition' else '/index.html')
         else:
-            href = url
+            href = 'index.html'
+            summary += ' Source repository: ' + url
         _entry(root, identifier=event['id'], title=headline, updated=event['observed'],
                href=href, summary=summary, category=kind)
     _write(Path(site) / 'feed.atom', root)

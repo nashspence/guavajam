@@ -275,7 +275,7 @@ class SignedSearchTests(unittest.TestCase):
         self.trust = self.root / 'trust.yaml'
         self.trust.write_text(yaml.safe_dump({self.url: {'allowed_signers': str(self.publisher.allowed_signers)}}))
         self.baseline = self.root / 'previous.json'
-        self.baseline.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}}))
+        self.baseline.write_text(json.dumps({'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}, 'feed': None}))
         fake = patch('a_guavajam_static_website_generator.index.prepare_source', return_value=self.publisher.repo)
         fake.start()
         self.addCleanup(fake.stop)

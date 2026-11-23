@@ -182,6 +182,11 @@ class ComposeLifecycleTests(unittest.TestCase):
                 # OpenSSH requires a passwd entry even when verification needs no home files.
                 dc('exec','-T','updater','python','-c','import os,pwd;assert pwd.getpwuid(os.getuid()).pw_uid==1000')
                 wait_for(lambda:catalog()['editions'][-1]['revision']==p.revisions[-1])
+                import xml.etree.ElementTree as ET
+                for feed in ('/feed.atom', '/sources/' + source_id + '/feed.atom'):
+                    with urllib.request.urlopen(origin + feed, timeout=3) as response:
+                        assert response.headers.get_content_type() == 'application/atom+xml'
+                        assert ET.fromstring(response.read()).tag == '{http://www.w3.org/2005/Atom}feed'
                 first_download = self.qualify_search_downloads(origin)
                 assert set(dc('ps','--services','--status','running').splitlines())=={'source','updater','web'}
                 selected=dc('exec','-T','updater','readlink','/state/site/current')

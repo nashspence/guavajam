@@ -5,7 +5,7 @@ from pathlib import Path
 
 from guavajam.bootstrap import bootstrap as create_repository, git, put, push, command
 
-CHECKPOINT = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}}
+CHECKPOINT = {'schema': 'guavajam.index-checkpoint.v1', 'catalogs': {}, 'feed': None}
 
 
 def create_checkpoint(repo):
