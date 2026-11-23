@@ -75,7 +75,7 @@ def prepare_presentation_ast(ast: dict, navigation=None) -> dict:
                         ["lang", "en"], ["aria-label", "Permalink to section " + anchored],
                     ]]
                     title.extend([{"t": "Space"}, {"t": "Link", "c": [
-                        link_attr, [inline_icon("link", "Permalink")], ["#" + anchored, ""],
+                        link_attr, [inline_icon("hash", "Permalink")], ["#" + anchored, ""],
                     ]}])
         new.append(block)
         i += 1

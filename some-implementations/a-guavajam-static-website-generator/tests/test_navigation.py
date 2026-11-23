@@ -131,7 +131,7 @@ class NavigationTests(unittest.TestCase):
         self.assertNotIn('Nested evidence', first)
         self.assertIn('Nested evidence', document['anchors'][1]['text'])
         self.assertNotIn('Deepest observation', document['anchors'][1]['text'])
-        for generated in ('Contents', 'guavajam-icon-link', 'UNSIGNED PREVIEW', 'Canonical source', 'Example Author'):
+        for generated in ('Contents', 'guavajam-icon-link', 'guavajam-icon-hash', 'UNSIGNED PREVIEW', 'Canonical source', 'Example Author'):
             self.assertNotIn(generated, document['text'])
 
     def test_quotation_outline_never_changes_author_outline(self):
