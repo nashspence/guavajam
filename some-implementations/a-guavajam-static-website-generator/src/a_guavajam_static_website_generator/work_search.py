@@ -11,6 +11,21 @@ from guavajam.catalog import CatalogError, encoded
 from .search_index import create_index, emit_browser_assets
 
 
+
+def document_menu(view):
+    """Share the reader's compact icon menu without linking another document's tools."""
+    from .icons import icon
+    from .citation_routes import document_contents, document_metadata, relative_href, source_download
+    links = [(document_contents(view), 'list-tree', 'Contents')]
+    if view == 'index.html':
+        links += [('documents.html', 'files', 'Documents'), ('passages.html', 'book-open-text', 'Passages')]
+    links += [(document_metadata(view), 'info', 'Metadata')]
+    label = 'Version links' if view == 'index.html' else 'Document links'
+    return ('<nav class="guavajam-actions guavajam-version-menu" aria-label="' + label + '" tabindex="0">' +
+            ''.join('<a href="' + escape(relative_href(view, target), quote=True) + '">' + icon(name) + text + '</a>'
+                    for target, name, text in links) +
+            '<a href="' + escape(relative_href(view, source_download(view)), quote=True) + '" download>Download</a></nav>')
+
 def publication_navigation(reader, view, revision, *, work_title, edition_number,
                            published="", in_collection=False, site_origin=None):
     """Site-owned readers get an unobtrusive breadcrumb and exact Git citation.
@@ -82,7 +97,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             from .citation import document_citation
             text = text.replace(document_citation(revision, view['facts'], source=source,
                                 details=view['documents'][source]), '', 1)
-        if relative == 'index.html':
+        if relative != 'documents.html':
             # The native TOC moves to Contents on the site-owned reader only.
             # The standalone renderer and its immutable cache keep their own TOC.
             text = re.sub(r'<nav\b[^>]*class="guavajam-contents"[^>]*>.*?</nav>',
@@ -97,16 +112,7 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
             # redundant with the version menu in site-owned readers.
             text = re.sub(r'<nav\b[^>]*class="guavajam-document-nav"[^>]*>.*?</nav>',
                           '', text, count=1, flags=re.S)
-            if relative == 'index.html':
-                # One compact route menu, directly above the manuscript; no
-                # second edition cover, repeated abstract, or extra citation.
-                menu = ('<nav class="guavajam-actions guavajam-version-menu" '
-                        'aria-label="Version links" tabindex="0">'
-                        '<a href="contents.html">' + icon('list-tree') + 'Contents</a>'
-                        '<a href="documents.html">' + icon('files') + 'Documents</a>'
-                        '<a href="passages.html">' + icon('book-open-text') + 'Passages</a>'
-                        '<a href="../metadata.html">' + icon('info') + 'Metadata</a>'
-                        '<a href="source.gfm" download>Download</a></nav>')
+            menu = document_menu(relative)
         # Keep the document's title/citation within its article, with the route
         # menu still immediately above it.
         text, replaced = re.subn(r'<article class="guavajam-edition"[^>]*>',

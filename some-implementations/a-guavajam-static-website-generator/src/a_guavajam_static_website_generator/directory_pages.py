@@ -211,40 +211,44 @@ def _write_documents(output, entries, *, collection, runtime, download, site_ori
 
 
 def _write_contents(output, entries, *, collection, site_origin=None):
-    """One script-free Contents page per manuscript, from the verified NAV outline.
-
-    Keeping source anchors unchanged lets every TOC link target the original
-    manuscript reader. The standalone render cache retains its own outline.
-    """
+    """Give every source document the same script-free author-outline view."""
+    from .citation_routes import document_contents, relative_href
+    from .navigation import section_outline
     for position, (revision, _, _, _) in enumerate(entries, 1):
         read = output / 'editions' / revision / 'read'
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
         navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
         manuscript = navigation['canonical']['manuscript']
-        doc = navigation['documents'][manuscript]
-        from .navigation import section_outline
-        roots = section_outline(doc['anchors'])
+        for source, doc in navigation['documents'].items():
+            relative = document_contents(doc['view'])
+            reader_href = relative_href(relative, doc['view'])
+            roots = section_outline(doc['anchors'])
 
-        def contents(nodes):
-            return '<ol>' + ''.join(
-                '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
-                '<a class="guavajam-contents-link" href="index.html#' + escape(node['record']['anchor'], quote=True) +
-                '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a>' +
-                escape(node['record']['title']) + '</p>' +
-                (contents(node['children']) if node['children'] else '') + '</li>'
-                for node in nodes) + '</ol>'
+            def contents(nodes):
+                return '<ol>' + ''.join(
+                    '<li><p class="guavajam-contents-entry guavajam-scrollline" tabindex="0" aria-label="Contents entry: ' + escape(node['record']['title'], quote=True) + '">'
+                    '<a class="guavajam-contents-link" href="' + escape(reader_href, quote=True) + '#' + escape(node['record']['anchor'], quote=True) +
+                    '" aria-label="Go to section ' + escape(node['record']['title'], quote=True) + '">' + link_icon('link', 'Go to section') + '</a>' +
+                    escape(node['record']['title']) + '</p>' +
+                    (contents(node['children']) if node['children'] else '') + '</li>'
+                    for node in nodes) + '</ol>'
 
-        ancestors = ((( '../../../../../index.html', 'GuavaJam'),) if collection else ()) + (
-            ('../../../index.html', view['facts']['title']), ('index.html', 'v' + str(position)))
-        body = '<h2>Table of Contents</h2>' + ('<nav class="guavajam-contents-directory" aria-label="Manuscript outline">'
-                '<div class="guavajam-contents-list">' + contents(roots) + '</div></nav>' if roots
-                else '<p>No individually titled sections were declared in this manuscript.</p>')
-        html = page(view['facts']['title'] + ' — Contents', body,
-                    ancestors=ancestors, breadcrumb_current='Contents', site_origin=site_origin)
-        target = read / 'contents.html'
-        target.write_text(html, encoding='utf-8')
-        view['files']['contents.html'] = hashlib.sha256(html.encode('utf-8')).hexdigest()
+            ancestors = ((( '../../../../../index.html', 'GuavaJam'),) if collection else ()) + (
+                ('../../../index.html', view['facts']['title']), ('index.html', 'v' + str(position)))
+            if source != manuscript:
+                ancestors += ((doc['view'], doc['title']),)
+            ancestors = tuple((relative_href(relative, href), label) for href, label in ancestors)
+            kind = 'Manuscript' if source == manuscript else 'Document'
+            body = '<h2>Table of Contents</h2>' + ('<nav class="guavajam-contents-directory" aria-label="' + kind + ' outline">'
+                    '<div class="guavajam-contents-list">' + contents(roots) + '</div></nav>' if roots
+                    else '<p>No individually titled sections were declared in this ' + kind.lower() + '.</p>')
+            html = page(doc['title'] + ' — Contents', body,
+                        ancestors=ancestors, breadcrumb_current='Contents', site_origin=site_origin)
+            target = read / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(html, encoding='utf-8')
+            view['files'][relative] = hashlib.sha256(html.encode('utf-8')).hexdigest()
         view_path.write_bytes(encoded(view))
 
 

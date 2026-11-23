@@ -37,7 +37,8 @@ const passages = position => 'read/' + (position < 20 ? 'passages.html' : `passa
 const fragment = (source, anchor) => 'citation:' + createHash('sha256').update(source).digest('hex').slice(0, 20) + ':' + anchor;
 const pages = ['index.html', edition + 'metadata.html', edition + 'read/index.html',
   edition + 'read/contents.html', edition + 'read/documents.html',
-  edition + 'read/supporting/note.html', edition + passages(0), edition + passages(40),
+  edition + 'read/supporting/note.html', edition + 'read/supporting/note.contents.html',
+  edition + 'read/supporting/note.metadata.html', edition + passages(0), edition + passages(40),
   edition + passages(80), first + 'read/index.html'];
 const engines = {chromium, firefox, webkit};
 const selected = (process.env.GUAVAJAM_BROWSER_ENGINES || 'chromium,firefox,webkit').split(',');
@@ -235,6 +236,18 @@ try {
       assert.equal(await page.locator('.guavajam-citation h1 cite').textContent(), 'Supporting note');
       assert.equal(await page.locator('.guavajam-navigation [aria-current=page]').textContent(), 'Supporting note');
       assert.equal(await page.getByRole('link', {name: 'Cite this document'}).count(), 0);
+      const tools = page.getByRole('navigation', {name: 'Document links', exact: true});
+      assert.deepEqual(await tools.locator('a').evaluateAll(ns => ns.map(n => n.getAttribute('href'))),
+                       ['note.contents.html', 'note.metadata.html', 'note.gfm']);
+      await tools.getByRole('link', {name: 'Contents', exact: true}).click();
+      assert(page.url().endsWith('/read/supporting/note.contents.html'));
+      assert.equal(await page.getByRole('heading', {name: 'Table of Contents', exact: true}).count(), 1);
+      await page.getByRole('link', {name: 'Supporting note', exact: true}).click();
+      await page.getByRole('navigation', {name: 'Document links', exact: true}).getByRole('link', {name: 'Metadata', exact: true}).click();
+      assert(page.url().endsWith('/read/supporting/note.metadata.html'));
+      assert.equal(await page.locator('.guavajam-metadata-field .guavajam-text-link').count(), 0);
+      assert.equal(await page.locator('.guavajam-metadata-field a[href="note.gfm"][download]').count(), 1);
+      await page.getByRole('link', {name: 'Supporting note', exact: true}).click();
       await page.getByRole('link', {name: 'Cite committed source passage supporting-tail'}).click();
       assert(page.url().endsWith('/read/passages/page/5.html#' + fragment('content/supporting/note.md', 'supporting-tail')));
       const support = page.locator('[id="' + fragment('content/supporting/note.md', 'supporting-tail') + '"]');
@@ -243,6 +256,12 @@ try {
       await support.locator('h3 a').click();
       assert(page.url().endsWith('/read/supporting/note.html#supporting-tail'));
       await page.goto(base + edition + 'metadata.html');
+      assert.equal(await page.locator('.guavajam-metadata-field .guavajam-text-link').count(), 0);
+      const repositoryDownload = page.locator('.guavajam-metadata-field a[href="source.bundle"][download]');
+      const repositoryEvent = page.waitForEvent('download');
+      await repositoryDownload.focus(); await repositoryDownload.press('Enter');
+      const bundle = await repositoryEvent;
+      assert((await fs.readFile(await bundle.path(), 'utf8')).startsWith('# v2 git bundle\n'));
       assert.equal(await page.locator('.guavajam-metadata-locators > li').count() > 0, true);
       assert.equal(await page.locator('.guavajam-static-pages').count(), 0);
       assert.equal(await page.locator('.guavajam-metadata-locators > li').count(), 23);

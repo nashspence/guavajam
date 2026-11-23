@@ -52,3 +52,13 @@ def relative_href(filename, target):
     while common < min(len(origin), len(destination)) and origin[common] == destination[common]:
         common += 1
     return '/'.join(['..'] * (len(origin) - common) + list(destination[common:])) or '.'
+
+
+def document_contents(view):
+    path = PurePosixPath(view)
+    return str(path.with_name('contents.html' if view == 'index.html' else path.stem + '.contents.html'))
+
+
+def document_metadata(view):
+    path = PurePosixPath(view)
+    return '../metadata.html' if view == 'index.html' else str(path.with_name(path.stem + '.metadata.html'))
