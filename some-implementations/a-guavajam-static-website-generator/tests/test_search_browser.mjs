@@ -59,8 +59,8 @@ try {
           throw new Error(`${name}: expected ${total} matches; status=${await page.locator('#guavajam-search-status').textContent()}; browser errors=${errors.join('; ')}`, {cause: error});
         }
       };
-      // All four directories use the same CLOSED native disclosure. Inspect
-      // its rendered summary at phone widths without activating SQLite, plus
+      // All four directories use the same closed search panel. Inspect
+      // its heading toggle at phone widths without activating SQLite, plus
       // form typography for the controls available once it opens.
       const parityContext = await browser.newContext();
       const parityPage = await parityContext.newPage();
@@ -79,16 +79,14 @@ try {
           await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
         return parityPage.evaluate(() => {
-          const section = document.querySelector('.guavajam-index-search').getBoundingClientRect();
-          const summary = document.querySelector('.guavajam-search-summary').getBoundingClientRect();
+          const section = document.querySelector('.guavajam-list-header').getBoundingClientRect();
+          const toggle = document.querySelector('#guavajam-search-toggle').getBoundingClientRect();
           const crumb = document.querySelector('.guavajam-navigation').getBoundingClientRect();
-          const geometry = {sectionWidth: section.width, summaryHeight: summary.height,
-            summaryOffset: summary.top - section.top, headingGap: section.top - crumb.bottom};
-          const typography = ['.guavajam-search-summary'].map(selector => {
-            const style = getComputedStyle(document.querySelector(selector));
-            return Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
-          });
-          return {geometry, typography, collapsed: !document.querySelector('#guavajam-index-search').open};
+          const geometry = {sectionWidth: section.width, toggleHeight: toggle.height,
+            toggleOffset: toggle.top - section.top, headingGap: section.top - crumb.bottom};
+          const style = getComputedStyle(document.querySelector('#guavajam-search-toggle'));
+          const typography = Object.fromEntries(['fontSize', 'fontFamily', 'fontWeight', 'lineHeight'].map(property => [property, style[property]]));
+          return {geometry, typography, collapsed: document.querySelector('#guavajam-index-search').hidden};
         });
       };
       for (const width of [320, 390, 500, 760]) {
@@ -184,7 +182,7 @@ try {
         assertRowStyle(await rowStyle(staticRow), await expectedRow(staticRow), `${name}: static Works row parity at ${url}`);
         await listHeadingOverflow(parityPage);
         await contain();
-        await parityPage.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        await parityPage.locator('#guavajam-search-toggle').click();
         await parityPage.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
           !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
         assertRowStyle(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
@@ -203,7 +201,7 @@ try {
           isMobile: true, hasTouch: true, deviceScaleFactor: 3});
         const mobile = await phone.newPage();
         for (const url of [base, ...surfaces]) {
-          await mobile.goto(url);await mobile.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').tap();
+          await mobile.goto(url);await mobile.locator('#guavajam-search-toggle').tap();
           await mobile.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
             !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
           await fixedPageHorizontalScroll(mobile, {touch: true});
@@ -226,7 +224,6 @@ try {
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), true);
       assert.equal(await page.locator('#guavajam-search-status').textContent(), `${fixture.works} total`);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
-      assert.equal(await page.locator('.guavajam-index-size').count(), 1);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-static-list .guavajam-facet').count() > 0, true);
       assert.equal(await page.locator('#guavajam-static-list button.guavajam-facet-type').count(), 0,
@@ -242,7 +239,7 @@ try {
       assert.equal(await page.locator('#guavajam-static-list > li').count(), fixture.works - 20);
       assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../');
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
-      await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+      await page.locator('#guavajam-search-toggle').click();
       await waitTotal(fixture.works);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
@@ -254,11 +251,11 @@ try {
       assert(pagedHit.startsWith('../sources/'));
       assert((await page.request.get(new URL(pagedHit, page.url()).href)).ok());
       await page.goto(base);
-      await page.locator('#guavajam-index-search > summary').focus();
-      await page.locator('#guavajam-index-search > summary').press('Enter');
+      await page.locator('#guavajam-search-toggle').focus();
+      await page.locator('#guavajam-search-toggle').press('Enter');
       await waitTotal(fixture.works);
-      assert.equal(await page.locator('#guavajam-index-search > summary').evaluate(node => node === document.activeElement), true,
-        'the native summary retains keyboard focus after loading');
+      assert.equal(await page.locator('#guavajam-search-toggle').evaluate(node => node === document.activeElement), true,
+        'the heading search toggle retains keyboard focus after loading');
       assert.equal(await page.evaluate(() => crossOriginIsolated), false);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -286,12 +283,12 @@ try {
       assert.equal(await page.locator('.guavajam-match-source').textContent(), 'v2 · Old geography');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeoriver');
       assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'Work 01');
-      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), fixture.historical);
+      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), fixture.historical + '#:~:text=Palaeoriver');
       await page.locator('.guavajam-excerpt-label a').click();
-      assert(page.url().endsWith(fixture.historical));
+      assert(page.url().endsWith(fixture.historical + '#:~:text=Palaeoriver'));
       assert((await page.locator('article').textContent()).includes('Palaeoriver'));
       await page.goto(base);
-      await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+      await page.locator('#guavajam-search-toggle').click();
       await waitTotal(fixture.works);
       await fixedPageHorizontalScroll(page);
       await query('Glaciolacustrine', 1);
@@ -300,8 +297,20 @@ try {
       await searchHighlightContrast(page);await linkPalette(page);
       const support = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
       assert(support.startsWith('sources/work-02/editions/'));
-      assert(support.endsWith('/read/supporting/evidence.html'));
+      assert(support.endsWith('/read/supporting/evidence.html#claim'));
       assert.equal((await page.request.get(base + support)).status(), 200);
+      // Follow the actual reason control: it must reveal the cited source block.
+      const destination = await context.newPage();
+      await destination.goto(base);
+      await destination.locator('#guavajam-search-toggle').click();
+      await destination.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
+      await destination.locator('input[name=q]').fill('Glaciolacustrine');
+      await destination.locator('#guavajam-search button[type=submit]').click();
+      await destination.waitForFunction(() => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent==='1 total');
+      await destination.locator('.guavajam-excerpt-label a').click();
+      assert.equal(new URL(destination.url()).hash,'#claim');
+      assert((await destination.locator(':target').textContent()).includes('Glaciolacustrine'));
+      await destination.close();
       await query('cafe collection', 1); // metadata and body share the same search record
       assert.equal(await page.locator('#guavajam-search-results .guavajam-tag mark').textContent(), 'Café');
       // Commit identifiers are searchable too: another random fixture hash can
@@ -458,12 +467,12 @@ try {
       try {
         await waiting.goto(base);
         const beforeDownload = await searchFeedbackGeometry(waiting, true);
-        await waiting.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        await waiting.locator('#guavajam-search-toggle').click();
         await Promise.race([signalled, new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
         assert.deepEqual(await searchFeedbackGeometry(waiting, true), beforeDownload,
-          'the download spinner occupies a stable slot to the right of the label');
+          'the download spinner occupies the reserved heading slot');
         assert.equal(await waiting.locator('#guavajam-search-status').textContent(), `${fixture.works} total`);
         assert.equal(await waiting.locator('#guavajam-search-progress-status').textContent(), 'Loading local search…');
         await waiting.locator('#guavajam-static-list h3 a').first().focus();
@@ -484,16 +493,16 @@ try {
       assert.equal(await waiting.locator(':focus').getAttribute('id'), 'guavajam-search-next',
         'a pending page change keeps its initiating button focused');
       assert.equal(await waiting.locator('#guavajam-search-next').getAttribute('aria-disabled'), 'true');
-      assert.equal(await waiting.locator('#guavajam-search-query-spinner').isVisible(), true);
+      assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
       assert.deepEqual(await searchFeedbackGeometry(waiting), beforeQuery,
-        'the query spinner occupies a stable slot to the right of Search');
+        'query progress occupies the same reserved heading slot');
       assert.equal(await waiting.locator('#guavajam-search-results').innerHTML(), beforeRows,
         'pending work retains the visible result rows');
       const pendingRequests = await waiting.evaluate(() => window.guavajamSearchTest.requests);
       await waiting.keyboard.press('Enter');
       assert.equal(await waiting.evaluate(() => window.guavajamSearchTest.requests), pendingRequests,
         'a busy pager cannot submit another page change');
-      await waiting.locator('#guavajam-index-search > summary').focus();
+      await waiting.locator('#guavajam-search-toggle').focus();
       await waiting.keyboard.press('Tab');
       assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true);
       await waiting.evaluate(() => {
@@ -543,7 +552,7 @@ try {
         }
         const fallback = await failure.newPage();
         await fallback.goto(base);
-        await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        await fallback.locator('#guavajam-search-toggle').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-list > li').count(), 20);
@@ -558,13 +567,13 @@ try {
       await stale.locator('#guavajam-search').evaluate(form => {
         form.dataset.database = './index.' + '0'.repeat(64) + '.sqlite.gz';
       });
-      await stale.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+      await stale.locator('#guavajam-search-toggle').click();
       await stale.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
       assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
       await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
-      if (!await stale.locator('#guavajam-index-search').evaluate(n => n.open))
-        await stale.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+      if (!await stale.locator('#guavajam-index-search').evaluate(n => !n.hidden))
+        await stale.locator('#guavajam-search-toggle').click();
       await stale.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent === `${total} total`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();

@@ -82,7 +82,7 @@ class DirectoryPageTests(unittest.TestCase):
             self.assertIn('guavajam-icon-chevron-right', markup)
             self.assertIn('guavajam-disclosure-arrow', markup)
             self.assertIn('class="guavajam-index-search guavajam-directory-enhancement"', markup)
-            self.assertIn('Search</span> <span class="guavajam-index-size"', markup)
+            self.assertIn('guavajam-icon-search', markup)
             self.assertNotIn('Enable search', markup)
             self.assertNotIn('data-lazy=', markup)
             self.assertIn('class="guavajam-disclosure-summary ', markup)

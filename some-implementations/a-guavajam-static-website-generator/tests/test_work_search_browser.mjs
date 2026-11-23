@@ -75,12 +75,12 @@ try {
         }
       };
       const enable = async (total, kind) => {
-        await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        await page.locator('#guavajam-search-toggle').click();
         await waitTotal(total, kind);
       };
       const query = async (term, total, kind) => {
-        if (!await page.locator('#guavajam-index-search').evaluate(node => node.open))
-          await page.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        if (!await page.locator('#guavajam-index-search').evaluate(node => !node.hidden))
+          await page.locator('#guavajam-search-toggle').click();
         await page.locator('input[name=q]').fill(term);
         await page.locator('#guavajam-search button[type=submit]').click();
         await waitTotal(total, kind);
@@ -112,7 +112,9 @@ try {
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
       await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
       assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'),
-        base + fixture.historical);
+        base + fixture.historical + '#:~:text=Palaeotidal');
+      await query('Bathymetric ecology', 1, 'editions');
+      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), base + fixture.section);
 
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
@@ -275,14 +277,14 @@ try {
         } else if (broken === 'wrong-size') {
           await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
-        await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click();
+        await fallback.locator('#guavajam-search-toggle').click();
         await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
         assert.equal(await fallback.locator('.guavajam-listing').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
         assert.equal(await fallback.locator('#guavajam-static-section').isVisible(), true);
-        assert((await fallback.locator('#guavajam-index-search > summary').textContent()).includes('Search'));
-        assert.equal(await fallback.locator('#guavajam-index-search').getAttribute('open'), '');
+        assert((await fallback.locator('#guavajam-search-toggle').textContent()).includes('Search'));
+        assert.equal(await fallback.locator('#guavajam-search-toggle').getAttribute('aria-expanded'), 'true');
         assert.equal(await fallback.locator('#guavajam-search-results').isVisible(), false);
         assert.deepEqual(unexpected, [], `${name}: failure must not make external requests`);
         if (broken === 'redirect') {
@@ -291,8 +293,8 @@ try {
         if (broken === 'database' || broken === 'redirect') {
           if (broken === 'database') await failure.unroute(databaseRoute);
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
-          await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // close
-          await fallback.locator('#guavajam-index-search > summary .guavajam-disclosure-arrow').click(); // retry on reopen
+          await fallback.locator('#guavajam-search-toggle').click(); // close
+          await fallback.locator('#guavajam-search-toggle').click(); // retry on reopen
           await fallback.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
             `${total} total`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));

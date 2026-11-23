@@ -119,11 +119,11 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
             ancestors = (((relative('../../../../../index.html'), 'GuavaJam'),) if collection else ()) + (
                 (relative('../../../index.html'), title),
                 (relative('index.html'), 'v' + str(position)),)
-            body = ''
+            controls = ''
             if download is not None:
-                body += _sqlite_controls(kind='citations', edition=revision,
+                controls = _sqlite_controls(kind='citations', edition=revision,
                                          root=root, runtime=runtime, download=download)
-            body += search_listing_open('Passages', len(records), interactive=download is not None, result_class='guavajam-citation-list')
+            body = search_listing_open('Passages', len(records), controls=controls, result_class='guavajam-citation-list')
             body += '<section id="guavajam-static-section" class="guavajam-directory">'
             pager = _static_pager(number, len(chunks), first_href=relative(citation_page()),
                                   page_prefix=relative('passages/page') + '/')

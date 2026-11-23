@@ -207,30 +207,29 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
         # result must carry query-positioned evidence from the exact winning
         # record, including historical metadata and deep source-body matches.
         # No second copy of those fields belongs in the relational mapping.
-        if scope == 'work':
-            conn.executescript('''
-                CREATE VIRTUAL TABLE document_fts USING fts5(title, abstract,
-                    content=documents, content_rowid=id, detail=full, columnsize=1,
-                    tokenize='unicode61 remove_diacritics 2');
-                CREATE TABLE passages (
-                    id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
-                    document_id INTEGER NOT NULL REFERENCES documents(id),
-                    work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
-                    title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
-                    position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
-                    url TEXT NOT NULL, citation_url TEXT NOT NULL, citation_json TEXT NOT NULL,
-                    UNIQUE(document_id, anchor)
-                );
-                CREATE TABLE passage_records (
-                    id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
-                    edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
-                    url TEXT NOT NULL
-                );
-                CREATE INDEX passages_by_document ON passages(document_id, position);
-                CREATE INDEX passages_by_edition ON passages(edition_id);
-                CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
-                    detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
-            ''')
+        conn.executescript('''
+            CREATE VIRTUAL TABLE document_fts USING fts5(title, abstract,
+                content=documents, content_rowid=id, detail=full, columnsize=1,
+                tokenize='unicode61 remove_diacritics 2');
+            CREATE TABLE passages (
+                id INTEGER PRIMARY KEY, edition_id INTEGER NOT NULL REFERENCES editions(id),
+                document_id INTEGER NOT NULL REFERENCES documents(id),
+                work_id INTEGER NOT NULL REFERENCES works(id), anchor TEXT NOT NULL,
+                title TEXT NOT NULL, kind TEXT NOT NULL, level INTEGER NOT NULL,
+                position INTEGER NOT NULL, parent TEXT, scope TEXT NOT NULL,
+                url TEXT NOT NULL, citation_url TEXT NOT NULL, citation_json TEXT NOT NULL,
+                UNIQUE(document_id, anchor)
+            );
+            CREATE TABLE passage_records (
+                id INTEGER PRIMARY KEY REFERENCES passages(id), work_id INTEGER NOT NULL REFERENCES works(id),
+                edition_id INTEGER NOT NULL REFERENCES editions(id), document_id INTEGER NOT NULL REFERENCES documents(id),
+                url TEXT NOT NULL
+            );
+            CREATE INDEX passages_by_document ON passages(document_id, position);
+            CREATE INDEX passages_by_edition ON passages(edition_id);
+            CREATE VIRTUAL TABLE passage_fts USING fts5(title, authors, abstract, labels, body, git,
+                detail=full, columnsize=1, tokenize='unicode61 remove_diacritics 2');
+        ''')
         with conn:
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('schema', SCHEMA))
             conn.execute('INSERT INTO metadata VALUES (?,?)', ('scope', scope))
@@ -309,7 +308,7 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                               (edition_id, number, detail['title'], source_path, url,
                                                detail['language'], detail['source_sha256'], detail.get('abstract', '')))
                         document_id = cursor.lastrowid
-                        if scope == 'work' and source_path != 'content/manuscript.md':
+                        if source_path != 'content/manuscript.md':
                             conn.execute('INSERT INTO document_fts(rowid,title,abstract) VALUES (?,?,?)',
                                          (document_id, detail['title'], detail.get('abstract', '')))
                         title = facts['title']
@@ -330,8 +329,6 @@ def create_index(site, entries, *, filename='index.sqlite', scope='collection'):
                                      'VALUES (?,?,?,?,?,?,?)',
                                      (cursor.lastrowid, title, authors, facts.get('abstract', ''),
                                       labels, document['text'], provenance))
-                        if scope != 'work':
-                            continue
                         for anchor in document['anchors']:
                             target = url + '#' + quote(anchor['anchor'], safe='')
                             cited = quote(prefix + 'editions/' + sha + '/read/' + citation_href(
@@ -468,7 +465,7 @@ def homepage(site, *, interactive, site_origin=None):
     large hidden list. Querying/searching/sorting in the browser still uses
     the same collection SQLite worker and only loads on interaction.
     """
-    from .directory_pages import (PAGE_SIZE, _static_pager, search_summary, search_submit,
+    from .directory_pages import (PAGE_SIZE, _static_pager, search_submit,
                                   search_listing_open, search_listing_close, disclosure_summary)
     from .site import detail_link, page
 
@@ -515,11 +512,10 @@ def homepage(site, *, interactive, site_origin=None):
                                _facets(tags[work_id], subjects[work_id]) +
                                ('<p class="guavajam-abstract">' + escape(abstract) + '</p>' if abstract else '') +
                                '</article></li>')
-            body = ''
+            controls = ''
             if interactive:
-                body += (
-                    '<details class="guavajam-index-search" id="guavajam-index-search" hidden>' +
-                    search_summary(download) +
+                controls = (
+                    '<div class="guavajam-index-search" id="guavajam-index-search" hidden>' +
                     '<form id="guavajam-search" role="search" '
                     'data-scope="collection" data-root="' + escape(base, quote=True) + '" '
                     'data-worker="' + escape(base + 'search-worker.js', quote=True) + '" ' +
@@ -537,8 +533,8 @@ def homepage(site, *, interactive, site_origin=None):
                     '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'
                     '<option value="editions">Most editions</option></select></div></div></details>'
-                    '</form></details>')
-            body += search_listing_open('Works', count, interactive=interactive, result_class='guavajam-works')
+                    '</form></div>')
+            body = search_listing_open('Works', count, controls=controls, result_class='guavajam-works')
             body += ('<div id="guavajam-static-section"><ol id="guavajam-static-list" '
                      'class="guavajam-works guavajam-record-list">' + ''.join(entries) + '</ol>')
             body += _static_pager(number, pages,

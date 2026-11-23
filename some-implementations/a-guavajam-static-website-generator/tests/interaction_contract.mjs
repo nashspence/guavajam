@@ -36,11 +36,12 @@ export async function textLinkCues(page) {
   for (const wrapper of await page.locator('.guavajam-text-link:visible').all()) {
     assert(await wrapper.evaluate(n=>{
       const a=n.querySelector('a'),caption=n.querySelector('.guavajam-link-label'),s=getComputedStyle(n);
-      const probe=document.createElement('span');probe.style.color='var(--guavajam-rule)';n.append(probe);
+      const probe=document.createElement('span');probe.style.color='var(--guavajam-prose-rule)';n.append(probe);
       const muted=getComputedStyle(probe).color;probe.remove();
       return !a.contains(caption) && a.getAttribute('aria-label') && a.textContent.trim()==='Link' &&
         getComputedStyle(caption).color===s.color && s.borderBottomStyle==='dotted' &&
-        parseFloat(s.borderBottomWidth)===1 && s.borderBottomColor===muted;
+        parseFloat(s.borderBottomWidth)===1 && s.borderBottomColor===muted &&
+        [...a.querySelectorAll('svg')].every(svg=>Math.abs(svg.getBoundingClientRect().width-parseFloat(getComputedStyle(a).fontSize)*.9)<.2);
     }),'prose links activate through an emphasized icon; a subtle dotted rule groups icon and plain caption');
   }
 }
@@ -60,7 +61,7 @@ export async function readerDetailLayout(page) {
       else {range.setStartAfter(a);range.setEnd(n,n.childNodes.length);}
       const b=range.getClientRects()[0],s=svg.getBoundingClientRect();
       if(!b || b.left<s.right || b.top>=s.bottom || b.bottom<=s.top) continue; // Prose may wrap.
-      const expected=parseFloat(getComputedStyle(a).fontSize)*.3;
+      const expected=parseFloat(getComputedStyle(a).fontSize)*(n.matches('.guavajam-text-link') ? .2 : .3);
       if(Math.abs(b.left-s.right-expected)>.8) failures.push({kind:n.className,gap:b.left-s.right,expected});
     }
     const field=document.querySelector('#guavajam-search input[name=q]');
@@ -72,8 +73,26 @@ export async function readerDetailLayout(page) {
       }
     }
     const search=document.querySelector('.guavajam-index-search');
-    if(search && Math.abs(parseFloat(getComputedStyle(search).marginBottom)-parseFloat(getComputedStyle(document.documentElement).fontSize)*.75)>.1)
-      failures.push({kind:'compact search spacing'});
+    const header=document.querySelector('.guavajam-list-header');
+    if(header) {
+      const rule=header.parentElement.querySelector('.guavajam-list-divider');
+      if(!rule || rule.getBoundingClientRect().top<header.getBoundingClientRect().bottom)
+        failures.push({kind:'rule below heading and controls'});
+      if(search) {
+        const toggle=header.querySelector('#guavajam-search-toggle'), spinner=header.querySelector('.guavajam-search-progress');
+        const heading=header.querySelector('h2'), total=header.querySelector('#guavajam-search-status');
+        if(!toggle || !toggle.querySelector('svg.guavajam-icon-search') || !spinner ||
+           spinner.previousElementSibling!==heading || spinner.nextElementSibling!==total ||
+           !header.contains(toggle) || (!search.hidden &&
+           (search.getBoundingClientRect().top<header.getBoundingClientRect().bottom ||
+            search.getBoundingClientRect().bottom>rule.getBoundingClientRect().top)))
+          failures.push({kind:'heading search and stable shared spinner'});
+        if(toggle && toggle.getAttribute('aria-expanded')!==String(!search.hidden))
+          failures.push({kind:'search expanded state'});
+        if(document.querySelectorAll('.guavajam-search-spinner').length!==1)
+          failures.push({kind:'one shared search spinner'});
+      }
+    }
     for(const code of document.querySelectorAll('.guavajam-citation-source code')) {
       const color=getComputedStyle(code).backgroundColor;
       // Forced colors may substitute Canvas RGB while preserving zero opacity.
@@ -281,15 +300,11 @@ export async function searchFeedbackGeometry(page, initial = false) {
       const r = n.getBoundingClientRect();
       return Object.fromEntries(['x', 'y', 'width', 'height'].map(k => [k, Math.round(r[k] * 10) / 10]));
     };
-    const summary = document.querySelector('.guavajam-search-summary');
-    const range = document.createRange(); range.selectNodeContents(summary.querySelector('.guavajam-disclosure-label'));
-    const rect = range.getBoundingClientRect();
-    const state = {summary: bounds(summary), label: [rect.x, rect.y, rect.width, rect.height],
-      downloadSlot: bounds(document.querySelector('#guavajam-search-spinner').parentElement)};
-    if (!initial) {
-      state.button = bounds(document.querySelector('#guavajam-search button[type=submit]'));
-      state.querySlot = bounds(document.querySelector('#guavajam-search-query-spinner').parentElement);
-    }
+    const state = {toggle: bounds(document.querySelector('#guavajam-search-toggle')),
+      heading: bounds(document.querySelector('#guavajam-works-heading')),
+      total: bounds(document.querySelector('#guavajam-search-status')),
+      spinnerSlot: bounds(document.querySelector('#guavajam-search-spinner').parentElement)};
+    if (!initial) state.button = bounds(document.querySelector('#guavajam-search button[type=submit]'));
     return state;
   }, initial);
 }
@@ -298,6 +313,11 @@ export async function searchFeedbackGeometry(page, initial = false) {
 // shared by Works, Versions, Documents and Passages, including historical hits.
 export async function searchEvidence(page) {
   await textLinkCues(page);
+  for(const label of await page.locator('.guavajam-excerpt-label:visible').all()) {
+    if((await label.textContent()).trim()!=='LinkDocument text match') continue;
+    const href=await label.locator('a').getAttribute('href');
+    assert(new URL(href,page.url()).hash.length>1,'document-body evidence links to a passage or native text directive');
+  }
   for (const row of await page.locator('#guavajam-search-results > li').all()) {
     if (await page.locator('form[data-directory=documents]').count()) {
       assert(await row.locator('h3 mark, .guavajam-abstract mark').count() > 0,

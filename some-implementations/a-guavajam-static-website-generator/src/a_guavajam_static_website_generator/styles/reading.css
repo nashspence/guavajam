@@ -8,6 +8,7 @@
   --guavajam-link-hover: #1174c4;
   --guavajam-border: #888;
   --guavajam-rule: #dfdfdf;
+  --guavajam-prose-rule: #c5c5c5;
   --guavajam-icon-gap: .3em;
   --guavajam-tint: #f0eee9;
   --guavajam-focus: var(--guavajam-link);
@@ -76,11 +77,12 @@ a:hover, a:visited:hover { color: var(--guavajam-link-hover); }
 .guavajam-icon-label { display: inline-flex; align-items: baseline; gap: var(--guavajam-icon-gap); color: var(--guavajam-ink); }
 .guavajam-link-label { color: var(--guavajam-ink); min-width: 0; }
 .guavajam-text-link {
-  border-block-end: 1px dotted var(--guavajam-rule); padding-block-end: .1em;
+  border-block-end: 1px dotted var(--guavajam-prose-rule); padding-block-end: .1em;
   box-decoration-break: clone; -webkit-box-decoration-break: clone;
 }
 .guavajam-text-link .guavajam-link-label { color: inherit; }
-.guavajam-text-link > .guavajam-icon-control { min-height: 1em; margin-inline-end: var(--guavajam-icon-gap); }
+.guavajam-text-link > .guavajam-icon-control { min-width: .9em; min-height: 1em; margin-inline-end: .2em; }
+.guavajam-text-link > .guavajam-icon-control > .guavajam-icon { inline-size: .9em; block-size: .9em; }
 .guavajam-icon-control {
   position: relative; display: inline-flex; align-items: center; justify-content: flex-start;
   flex: none; min-width: 1em; min-height: 1.5rem; vertical-align: -.125em;
@@ -388,6 +390,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-link-hover: #70b6ff;
     --guavajam-border: #868b8e;
     --guavajam-rule: #202020;
+    --guavajam-prose-rule: #383838;
     --guavajam-tint: #25292c;
     --guavajam-focus: var(--guavajam-link);
     --guavajam-match-paper: #ffdc75;
@@ -421,6 +424,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-link: LinkText; --guavajam-link-hover: ActiveText;
     --guavajam-muted: GrayText;
     --guavajam-rule: GrayText;
+    --guavajam-prose-rule: GrayText;
     --guavajam-focus: Highlight;
   }
   .guavajam-edition :is(h2, h3, h4, h5, h6, div, li)[id]:target {
@@ -450,6 +454,7 @@ figure.guavajam-turn:target > figcaption.guavajam-turn-attribution { color: var(
     --guavajam-link-hover: #164a7c;
     --guavajam-border: #666;
     --guavajam-rule: #666;
+    --guavajam-prose-rule: #666;
     --guavajam-tint: #f5f5f5;
   }
   body { max-width: none; padding: 0; }

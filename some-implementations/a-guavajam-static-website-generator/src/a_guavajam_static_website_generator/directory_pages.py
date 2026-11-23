@@ -34,33 +34,30 @@ def disclosure_summary(label, *, extra='', css=''):
             '<span class="guavajam-disclosure-label">' + escape(label) + '</span>' + extra + '</summary>')
 
 
-def search_summary(download):
-    """Native disclosure is the sole entry point to the optional SQLite index."""
-    kib = (download['transfer_size'] + 1023) // 1024
-    return disclosure_summary('Search', css='guavajam-search-summary', extra=
-            ' <span class="guavajam-index-size" aria-label="Index download size: ' + str(kib) +
-            ' KiB">(' + str(kib) + ' KiB)</span>' + search_progress('guavajam-search-spinner'))
-
-
 def search_submit():
-    """The same stable submit/progress row serves every search directory."""
-    return ('<div class="guavajam-search-submit"><button type="submit">Search</button>' +
-            search_progress('guavajam-search-query-spinner') +
-            '<span id="guavajam-search-progress-status" class="guavajam-visually-hidden" '
-            'role="status" aria-live="polite"></span></div>')
+    return '<div class="guavajam-search-submit"><button type="submit">Search</button></div>'
 
 
-def search_listing_open(title, total, *, interactive, result_class='guavajam-editions'):
-    """Every static directory starts with the same handoff state as Works."""
-    body = ('<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
-            '<div class="guavajam-list-header guavajam-scrollline" tabindex="0" aria-label="List heading and status">'
-            '<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
-            'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>'
-            '<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
-            + str(total) + ' total</p></div>')
-    if interactive:
-        body += '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>'
-    if interactive and title == 'Passages':
+def search_listing_open(title, total, *, controls='', result_class='guavajam-editions'):
+    """One stable heading, optional icon toggle, shared progress slot and rule."""
+    body = '<section class="guavajam-listing" aria-labelledby="guavajam-works-heading">'
+    body += ('<div class="guavajam-list-header guavajam-scrollline" tabindex="0" aria-label="List heading and status">')
+    if controls:
+        body += ('<span class="guavajam-search-toggle-slot"><button id="guavajam-search-toggle" '
+                 'class="guavajam-search-toggle" type="button" hidden aria-expanded="false" '
+                 'aria-controls="guavajam-index-search" aria-label="Search ' + escape(title, quote=True) +
+                 '" title="Search ' + escape(title, quote=True) + '">' + link_icon('search', 'Search') + '</button></span>')
+    body += ('<h2 class="guavajam-list-heading" id="guavajam-works-heading" '
+             'data-static-heading="' + escape(title, quote=True) + '">' + escape(title) + '</h2>')
+    if controls:
+        body += search_progress('guavajam-search-spinner')
+    body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
+             + str(total) + ' total</p></div>' + controls + '<hr class="guavajam-list-divider">')
+    if controls:
+        body += ('<span id="guavajam-search-progress-status" class="guavajam-visually-hidden" '
+                 'role="status" aria-live="polite"></span>'
+                 '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>')
+    if controls and title == 'Passages':
         from .citation import citation_control
         body += ('<template id="guavajam-citation-template">' +
                  citation_control({'revision': ''}, '') + '</template>')
@@ -78,9 +75,9 @@ def search_listing_close(*, interactive):
 
 
 def _sqlite_controls(*, kind, edition, root, runtime, download):
-    """Use the same collapsed native search disclosure as the works index.
+    """Use the same optional search panel as the works index.
 
-    JavaScript reveals the closed details control, then initializes the worker
+    JavaScript reveals the heading toggle, then initializes the worker
     only if the reader opens it. Static HTML stays independent of JavaScript.
     """
     history = kind == 'editions'
@@ -95,8 +92,8 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
              ('<option value="publication">Source order</option>'
               '<option value="title">Title (A–Z)</option>'
               '<option value="relevance">Relevance</option>'))
-    return ('<details class="guavajam-index-search guavajam-directory-enhancement" '
-            'id="guavajam-index-search" hidden>' + search_summary(download) +
+    return ('<div class="guavajam-index-search guavajam-directory-enhancement" '
+            'id="guavajam-index-search" hidden>' +
             '<form id="guavajam-search" role="search" '
             'data-scope="work" data-directory="' + escape(kind, quote=True) + '" '
             'data-root="' + escape(root, quote=True) + '" ' +
@@ -115,7 +112,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
              '</select></div>' if citations else '') + '</div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
-            '</form></details><script src="' + escape(root + runtime + 'search.js', quote=True) +
+            '</form></div><script src="' + escape(root + runtime + 'search.js', quote=True) +
             '" defer></script>')
 
 
@@ -146,11 +143,11 @@ def _write_work(output, entries, title, *, collection, runtime, download, site_o
         crumbs = ((root + '../../index.html', 'GuavaJam'),) if collection else ()
         if not first:
             crumbs += ((root + 'index.html', title),)
-        body = ''
+        controls = ''
         if download is not None:
-            body += _sqlite_controls(kind='editions', edition='all', root=root,
+            controls = _sqlite_controls(kind='editions', edition='all', root=root,
                                      runtime=runtime, download=download)
-        body += search_listing_open('Versions', len(entries), interactive=download is not None)
+        body = search_listing_open('Versions', len(entries), controls=controls)
         body += ('<section id="guavajam-static-section" class="guavajam-directory">'
                  '<ol class="guavajam-editions guavajam-record-list">' +
                  ''.join(_history_row(item, links_prefix=root + 'editions/') for item in chunk) +
@@ -183,11 +180,11 @@ def _write_documents(output, entries, *, collection, runtime, download, site_ori
             target.parent.mkdir(parents=True, exist_ok=True)
             crumbs = (((root + '../../index.html', 'GuavaJam'),) if collection else ()) + (
                 (root + 'index.html', title), (read_root + 'index.html', 'v' + str(position)))
-            body = ''
+            controls = ''
             if download is not None:
-                body += _sqlite_controls(kind='documents', edition=revision, root=root,
+                controls = _sqlite_controls(kind='documents', edition=revision, root=root,
                                          runtime=runtime, download=download)
-            body += search_listing_open('Documents', len(documents), interactive=download is not None)
+            body = search_listing_open('Documents', len(documents), controls=controls)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
                      document_directory({'documents': dict(chunk)}, prefix=read_root,
                                         headings=True))

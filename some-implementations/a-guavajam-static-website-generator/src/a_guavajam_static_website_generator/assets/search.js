@@ -14,23 +14,22 @@ if (form) {
   const documentFilter = form.querySelector('[name="document"]');
   const supportingFilter = form.querySelector('[name="supporting"]');
   const disclosure = document.querySelector('#guavajam-index-search');
-  const disclosureSummary = disclosure.querySelector('.guavajam-search-summary');
+  const toggle = document.querySelector('#guavajam-search-toggle');
   const spinner = document.querySelector('#guavajam-search-spinner');
-  const querySpinner = document.querySelector('#guavajam-search-query-spinner');
   const progressStatus = document.querySelector('#guavajam-search-progress-status');
   let highlights = new Map();
   const listing = document.querySelector('#guavajam-search-listing');
   const directory = form.dataset.directory || '';
   // A non-JS page never exposes an unusable search form. JavaScript reveals
-  // only the closed disclosure; opening it requests the optional database.
-  disclosure.hidden = false;
+  // only the heading icon; opening its panel requests the optional database.
+  toggle.hidden = false;
   const reload = document.createElement('button');
   reload.id = 'guavajam-search-reload';
   reload.type = 'button';
   reload.textContent = 'Reload page';
   reload.hidden = true;
   reload.addEventListener('click', () => location.reload());
-  disclosureSummary.after(' ', reload);
+  disclosure.prepend(reload);
   const back = document.querySelector('#guavajam-search-prev');
   const next = document.querySelector('#guavajam-search-next');
   const pageLabel = document.querySelector('#guavajam-search-page');
@@ -52,7 +51,7 @@ if (form) {
   }
 
   function settled() {
-    spinner.hidden = querySpinner.hidden = true;
+    spinner.hidden = true;
     progressStatus.textContent = '';
     failure.hidden = true;
     form.removeAttribute('aria-busy');
@@ -81,7 +80,7 @@ if (form) {
     back.disabled = next.disabled = true;
     pageLabel.textContent = '';
     pagination.hidden = true;
-    if (lostFocus) disclosureSummary.focus();
+    if (lostFocus) toggle.focus();
     // Closing and reopening the disclosure retries the same worker, with no
     // competing Enable/Retry search buttons or separate query implementation.
   }
@@ -410,7 +409,7 @@ if (form) {
   }
 
   function pending() {
-    querySpinner.hidden = false;
+    spinner.hidden = false;
     progressStatus.textContent = 'Searching…';
     form.setAttribute('aria-busy', 'true');
     results.setAttribute('aria-busy', 'true');
@@ -468,8 +467,8 @@ if (form) {
     spinner.hidden = false;
     form.setAttribute('aria-busy', 'true');
     if (listing) listing.hidden = false;
-    // The summary remains keyboard-focusable while loading; the spinner is an
-    // in-place cue without replacing or disabling the native disclosure.
+    // The heading toggle stays focusable and the same reserved slot remains
+    // visible across both database loading and the first query.
     progressStatus.textContent = 'Loading local search…';
     try {
       worker = new Worker(new URL(form.dataset.worker || './search-worker.js', document.baseURI), {type: 'module'});
@@ -520,10 +519,9 @@ if (form) {
       unavailable();
     }
   }
-  disclosure.addEventListener('toggle', event => {
-    if (event.target !== disclosure) return;
-    if (disclosure.open && !ready && !loading) initialize();
+  toggle.addEventListener('click', () => {
+    disclosure.hidden = !disclosure.hidden;
+    toggle.setAttribute('aria-expanded', String(!disclosure.hidden));
+    if (!disclosure.hidden) initialize();
   });
-  // Browsers can restore an opened disclosure through session history.
-  if (disclosure.open) initialize();
 }
