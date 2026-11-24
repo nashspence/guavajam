@@ -1,0 +1,163 @@
+diff --git a/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py b/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py
+index 79454ef..1854401 100644
+--- a/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py
++++ b/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py
+@@ -137,6 +137,41 @@ def transcript(conversation, tip):
+     }
+ 
+ 
++def review_output_path(candidate):
++    """Prove the resolved output is outside a worktree before writing private text."""
++    output = candidate.parent.resolve(strict=True) / candidate.name
++    if output.suffix != ".md":
++        raise ValueError("review output must be a GFM .md file")
++    # A marker is enough to refuse custody even when Git cannot read the
++    # repository, or its configuration would make discovery report 'false'.
++    for directory in (output.parent, *output.parent.parents):
++        try:
++            (directory / '.git').lstat()
++        except FileNotFoundError:
++            continue
++        except OSError as exc:
++            raise ValueError("cannot verify private review output is outside Git worktrees") from exc
++        raise ValueError("private review output must be outside Git worktrees")
++    # The output directory, not an inherited Git invocation, defines custody.
++    environment = {key: value for key, value in os.environ.items() if not key.startswith('GIT_')}
++    environment.update(LC_ALL='C', GIT_DISCOVERY_ACROSS_FILESYSTEM='1')
++    try:
++        custody = subprocess.run(['git', '-C', str(output.parent), 'rev-parse', '--is-inside-work-tree'],
++                                 capture_output=True, text=True, timeout=15, env=environment)
++    except (OSError, subprocess.TimeoutExpired) as exc:
++        raise ValueError("cannot verify private review output is outside Git worktrees") from exc
++    if custody.returncode == 0 and custody.stdout.strip() == 'true':
++        raise ValueError("private review output must be outside Git worktrees")
++    if custody.returncode == 0 and custody.stdout.strip() == 'false' and not custody.stderr.strip():
++        return output
++    # Git uses 128 for both absence and failures. Accept only its C-locale
++    # absence diagnostic; configuration, ownership and other failures refuse.
++    absent = 'fatal: not a git repository (or any of the parent directories): .git'
++    if custody.returncode == 128 and not custody.stdout.strip() and custody.stderr.strip() == absent:
++        return output
++    raise ValueError("cannot verify private review output is outside Git worktrees")
++
++
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("source", type=Path, help="private native capture/export ZIP or conversations JSON file")
+@@ -172,13 +207,7 @@ def main():
+         data, diagnostics = review_gfm(record, identity=args.conversation, references=references, metadata=metadata)
+         if len(data) > MAX_RECORD_BYTES:
+             raise ValueError(f"extracted supporting record exceeds {MAX_RECORD_BYTES} bytes")
+-        output = args.output.parent.resolve(strict=True) / args.output.name
+-        custody = subprocess.run(['git', '-C', str(output.parent), 'rev-parse', '--is-inside-work-tree'],
+-                                 capture_output=True, text=True, timeout=15)
+-        if custody.returncode == 0 and custody.stdout.strip() == 'true':
+-            raise ValueError("private review output must be outside Git worktrees")
+-        if output.suffix != ".md":
+-            raise ValueError("review output must be a GFM .md file")
++        output = review_output_path(args.output)
+         with open(output, "xb", opener=lambda path, flags: os.open(path, flags, 0o600)) as stream:
+             stream.write(data)
+         print('Review required; GFM diagnostics: '+json.dumps(diagnostics,sort_keys=True),file=sys.stderr)
+diff --git a/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/tests/test_output_custody.py b/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/tests/test_output_custody.py
+new file mode 100644
+index 0000000..370a95c
+--- /dev/null
++++ b/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/tests/test_output_custody.py
+@@ -0,0 +1,96 @@
++"""Private review files require positive evidence of safe output custody."""
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import unittest
++from unittest.mock import patch
++
++from a_chatgpt_conversation_archive_gfm_extractor import extractor
++
++
++class OutputCustodyTests(unittest.TestCase):
++    def setUp(self):
++        self.temporary = tempfile.TemporaryDirectory()
++        self.addCleanup(self.temporary.cleanup)
++        self.root = Path(self.temporary.name)
++        self.source = self.root / 'conversations.json'
++        self.source.write_text(json.dumps([{
++            'id': 'selected', 'title': 'Private review', 'current_node': 'tip',
++            'mapping': {'tip': {'parent': None, 'message': {
++                'author': {'role': 'user'},
++                'content': {'content_type': 'text', 'parts': ['Private source text.']},
++            }}},
++        }]))
++
++    def extract(self, output, *, env=None):
++        return subprocess.run([
++            sys.executable, '-m', 'a_chatgpt_conversation_archive_gfm_extractor',
++            str(self.source), '--conversation', 'selected', '--output', str(output),
++        ], cwd=self.root, env=env, capture_output=True, text=True)
++
++    def test_git_environment_cannot_hide_the_output_worktree(self):
++        checkout = self.root / 'publication'
++        subprocess.run(['git', 'init', '-q', str(checkout)], check=True)
++        nested = checkout / 'drafts'
++        nested.mkdir()
++        variants = [
++            {'GIT_DIR': str(self.root / 'missing.git')},
++            {'GIT_CEILING_DIRECTORIES': str(checkout)},
++            {'GIT_CONFIG_COUNT': '1', 'GIT_CONFIG_KEY_0': 'core.bare', 'GIT_CONFIG_VALUE_0': 'true'},
++        ]
++        for values in variants:
++            with self.subTest(environment=values):
++                output = nested / 'review.md'
++                result = self.extract(output, env={**os.environ, **values})
++                self.assertNotEqual(0, result.returncode)
++                self.assertIn('outside Git worktrees', result.stderr)
++                self.assertFalse(output.exists())
++
++    def test_git_environment_does_not_redirect_an_external_output_check(self):
++        checkout = self.root / 'publication'
++        subprocess.run(['git', 'init', '-q', str(checkout)], check=True)
++        output = self.root / 'review.md'
++        result = self.extract(output, env={**os.environ, 'GIT_DIR': str(checkout / '.git'),
++                                          'GIT_WORK_TREE': str(self.root)})
++        self.assertEqual(0, result.returncode, result.stderr)
++        self.assertEqual(0o600, output.stat().st_mode & 0o777)
++        self.assertIn('Private source text.', output.read_text())
++
++    def test_git_failures_and_unexpected_replies_cannot_authorize_output(self):
++        failures = [
++            subprocess.CompletedProcess(['git'], 128, '', 'fatal: detected dubious ownership in repository'),
++            subprocess.CompletedProcess(['git'], 128, '', 'fatal: bad config line'),
++            subprocess.CompletedProcess(['git'], 0, '', ''),
++            subprocess.CompletedProcess(['git'], 0, 'unexpected\n', ''),
++            subprocess.CompletedProcess(['git'], 1, '', ''),
++            OSError('Git unavailable'),
++            subprocess.TimeoutExpired(['git'], 15),
++        ]
++        for number, failure in enumerate(failures):
++            with self.subTest(failure=failure):
++                output = self.root / f'review-{number}.md'
++                argv = ['extractor', str(self.source), '--conversation', 'selected', '--output', str(output)]
++                response = {'side_effect': failure} if isinstance(failure, Exception) else {'return_value': failure}
++                with patch.object(sys, 'argv', argv), patch.object(extractor, 'review_gfm', return_value=(b'review\n', {})), \
++                        patch.object(extractor.subprocess, 'run', **response), self.assertRaises(SystemExit):
++                    extractor.main()
++                self.assertFalse(output.exists())
++
++    def test_nested_linked_worktree_output_is_refused(self):
++        checkout = self.root / 'publication'
++        linked = self.root / 'linked-worktree'
++        subprocess.run(['git', 'init', '-q', str(checkout)], check=True)
++        subprocess.run(['git', '-C', str(checkout), '-c', 'user.name=Fixture',
++                        '-c', 'user.email=fixture@example.org', 'commit', '--allow-empty', '-qm', 'Initialize'], check=True)
++        subprocess.run(['git', '-C', str(checkout), 'worktree', 'add', '--quiet', '--detach', str(linked)], check=True)
++        self.assertTrue((linked / '.git').is_file())
++        nested = linked / 'private'
++        nested.mkdir()
++        output = nested / 'review.md'
++        result = self.extract(output)
++        self.assertNotEqual(0, result.returncode)
++        self.assertIn('outside Git worktrees', result.stderr)
++        self.assertFalse(output.exists())

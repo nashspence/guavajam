@@ -1,0 +1,47 @@
+diff --git a/README.md b/README.md
+index 9c1a640..7002098 100644
+--- a/README.md
++++ b/README.md
+@@ -12,9 +12,11 @@ Initialize a new GitHub work repository **once**, using a local `.env` containin
+ `GH_TOKEN` for `gh` authentication:
+ 
+ ```sh
+-uvx --from 'git+https://github.com/nashspence/guavajam.git' guavajam init work --env .env
++uvx --from 'git+https://github.com/nashspence/guavajam.git@<reviewed-sha>' guavajam init work --env .env
+ ```
+ 
++Use the same reviewed commit in the command and `GUAVAJAM_TOOL_REF`.
++
+ When publishing, Git must be configured for **SSH signed commits** (`git commit -S`).
+ At initialization, `gh` must have permissions to create public repositories and Actions secrets.
+ The initializer commits only repository infrastructure, leaving the new
+diff --git a/tests/repository/test_policy.py b/tests/repository/test_policy.py
+index 9c52406..c227ec6 100644
+--- a/tests/repository/test_policy.py
++++ b/tests/repository/test_policy.py
+@@ -39,6 +39,25 @@ class DocumentationPolicyTests(unittest.TestCase):
+         self.assertNotRegex((ROOT / 'README.md').read_text(),
+                             r'(?i)\b(?:licen[cs]\w*|copyright|spdx|apache-2\.0)\b')
+ 
++    def test_documented_initializers_pin_the_executed_packages(self):
++        examples = re.findall(r'```sh\n(.*?)```', (ROOT / 'README.md').read_text(), re.S)
++        initializers = [example for example in examples if re.search(r'\binit (?:work|index)\b', example)]
++        self.assertEqual({'work', 'index'}, {
++            kind for example in initializers for kind in re.findall(r'\binit (work|index)\b', example)
++        })
++        for example in initializers:
++            references = re.findall(r"git\+https://github\.com/nashspence/guavajam\.git[^'\s]*", example)
++            self.assertTrue(references, 'initializer examples must identify their package source')
++            revisions = set()
++            for reference in references:
++                with self.subTest(reference=reference):
++                    match = re.fullmatch(
++                        r'git\+https://github\.com/nashspence/guavajam\.git@'
++                        r'(<reviewed-sha>|[0-9a-f]{40})(?:#subdirectory=[A-Za-z0-9/_-]+)?', reference)
++                    self.assertIsNotNone(match, 'pin the executing initializer, not only its generated workflow')
++                    revisions.add(match[1])
++            self.assertEqual(1, len(revisions), 'initializer packages must use the same reviewed revision')
++
+     def test_onboarding_links_resolve_to_current_checkout_files(self):
+         for name in sorted(ONBOARDING):
+             source = ROOT / name

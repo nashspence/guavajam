@@ -1,0 +1,593 @@
+{
+  "kind": "guavajam-stabilization-implementation-plan",
+  "format_version": 1,
+  "repository": "nashspence/guavajam",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "prepared_date": "2026-11-23",
+  "date_timezone": "America/Los_Angeles",
+  "proffer_contract_commit": "2ce5e15c3191fcdc2be70213c0170f57c852a883",
+  "purpose": "Recommendations and proposed implementations for the owner integration agent; independent evaluation precedes any integration.",
+  "integration_protocol": {
+    "read_order": [
+      "proffer.json",
+      "implementation-plan.json",
+      "patches.json",
+      "checks/results.json",
+      "designs/private-retention.json",
+      "designs/release.json",
+      "integration-review.json"
+    ],
+    "first_action": "Confirm the target repository and compare current main with the pinned base; reconcile intervening changes before evaluating any patch.",
+    "reference_branch": "proffer/pre-v1-stabilization-20261123",
+    "work_state": "patches; repository runtime files on the handoff branch remain at the base",
+    "application": "Extract the listed patch files, verify their SHA-256 values, and apply selected patches to a separate integration worktree. Do not merge the .reference payload into main as implementation.",
+    "independence": "Each patch is based independently on the pinned base. The manifest also records the ordered combined evaluation tree. Acceptance may be per patch or adapted implementation.",
+    "test_imports": "Select the integration worktree explicitly through its environment/PYTHONPATH. Reusing an editable installation can silently import the original source checkout.",
+    "checkout_regression": "For GJ-RC-06, make a disposable evaluation commit before running repository tests because the byte comparison intentionally reads HEAD.",
+    "gates": "Run relevant installed-package and qualified browser/deployment CI on the actual integration SHA. Green local source-tree checks and Proffer validation do not grant acceptance or publication authority.",
+    "disposition": "In the owning issue, record the immutable handoff SHA, reused/adapted/deferred/rejected concern IDs, actual integration SHA when applicable, check sources and next trigger for any deferred item. Use Proffer disposition records; producer does not claim consumer acceptance."
+  },
+  "recommended_sequence": [
+    {
+      "phase": "Authority and source contract",
+      "concerns": [
+        "GJ-RC-01",
+        "GJ-RC-02"
+      ],
+      "gate": "Resolve remaining HTTPS credential policy before freezing accepted v1 input."
+    },
+    {
+      "phase": "Private work and operational correctness",
+      "concerns": [
+        "GJ-RC-03",
+        "GJ-RC-04",
+        "GJ-RC-05",
+        "GJ-RC-11"
+      ],
+      "gate": "Shared-bucket collection apply remains gated until private roots and maintenance fencing are qualified."
+    },
+    {
+      "phase": "Repeatable setup and candidate preparation",
+      "concerns": [
+        "GJ-RC-06",
+        "GJ-RC-07",
+        "GJ-RC-08",
+        "GJ-RC-09"
+      ],
+      "gate": "Use exact checked source/version/artifact identities."
+    },
+    {
+      "phase": "Compatibility freeze",
+      "concerns": [
+        "GJ-RC-10"
+      ],
+      "gate": "Freeze accepted historical bytes once; consume them with later installed builds."
+    }
+  ],
+  "concerns": [
+    {
+      "id": "GJ-RC-01",
+      "title": "Bind verification to the selected signature family",
+      "priority": "P1: before RC",
+      "finding": "Git's gpg.format is a signing default; it does not force verify-commit to use that family. A valid OpenPGP commit in an ambient trusted keyring can satisfy the existing SSH path even when the supplied SSH allowed-signers file is unrelated.",
+      "impact": "The recorded external SSH authority can differ from the authority that actually verified the edition. A wrong-family signature also selects a verifier backend outside the expected pinning path.",
+      "ownership": [
+        "src/guavajam/trusted_git.py",
+        "tests/guavajam/test_signature_family.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch",
+        "artifact": "patches/01-signature-family.patch",
+        "steps": [
+          "Inspect the raw immutable commit object with replacements disabled before invoking Git signature verification.",
+          "Recognize one unambiguous SSH or OpenPGP gpgsig header and require the selected family to match the caller-provided independent policy.",
+          "Retain the existing pinned executable, cryptographic verification, full GPG fingerprint or external SSH allowed-signers checks.",
+          "Use an offline frozen real OpenPGP commit/public key fixture to prove ambient GPG trust cannot satisfy an SSH policy; retain real SSH and tampering cases."
+        ]
+      },
+      "acceptance": [
+        "Matching SSH and explicit OpenPGP policies verify real valid signatures.",
+        "Wrong-family, duplicate, unsupported and malformed signatures fail before any verifier backend executes.",
+        "Matching armor with altered signed bytes still fails cryptographic verification.",
+        "Run publication/discovery contracts and inspect direct trusted_git callers for acceptance changes."
+      ],
+      "limitations_and_decisions": [
+        "The proposed 64 KiB whole-commit bound matches the existing publication_protocol limit; it newly applies that restriction to direct trusted_git callers. Review whether to share the limit instead of duplicating it.",
+        "Exact armor and single-gpgsig requirements reject alternate signature headers, including gpgsig-sha256; existing publication IDs remain SHA-1. Confirm the intended v1 acceptance contract.",
+        "The new fixture verifies a public historical Git object with only its public key. It is not a full frozen GuavaJam publication corpus.",
+        "Object inspection adds two Git subprocesses per verification; no performance claim is made."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/trusted_git.py",
+          "supports": "Verification selects trust settings but does not inspect the signature family."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/publication_protocol.py",
+          "supports": "Existing publication commit-object limits and durable input shape."
+        },
+        {
+          "url": "https://github.com/git/git/blob/master/gpg-interface.c",
+          "supports": "Git chooses the verification format from signature data; this moving upstream source is explanatory, while the regression is the pinned repository evidence."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-02",
+      "title": "Preserve source-approved external links across historical rendering",
+      "priority": "P1: before RC",
+      "finding": "Core accepts mailto links with query parameters, but the renderer rejects them. A later edit removing the link does not repair regeneration of the retained earlier edition.",
+      "impact": "A valid signed source history can be discoverable yet impossible for the generator to rebuild.",
+      "ownership": [
+        "src/guavajam/validate_sources.py",
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch plus unresolved policy decision",
+        "artifact": "patches/02-uri-parity.patch",
+        "steps": [
+          "Consult the core valid_source_link contract for external-link syntax and preserve source-approved mailto queries.",
+          "Continue to enforce generator-owned image origin restrictions and credential-bearing URL refusal.",
+          "Exercise a real signed two-edition history with mailto queries in both manuscript and supporting GFM; rebuild it after the later edition removes the links.",
+          "Before freezing v1, choose and document a shared policy for credential-bearing HTTPS links, which core currently accepts and the renderer refuses. Inspect retained source before any tightening."
+        ]
+      },
+      "acceptance": [
+        "The earlier edition and its exact mailto query targets render after a later correction.",
+        "Malformed HTTPS authority is rejected consistently.",
+        "Credential rejection and image-origin checks remain covered.",
+        "Do not mark complete URI parity achieved until the credential-policy decision and historical-source consequences are tested."
+      ],
+      "limitations_and_decisions": [
+        "The patch deliberately leaves the credential-bearing HTTPS mismatch visible in a regression test; it fixes the demonstrated mailto/history defect, not every policy difference.",
+        "A blanket stricter validator would invalidate old signed sources. Resolve syntax in core and rendering capability deliberately, without silently reinterpreting accepted history."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/validate_sources.py",
+          "supports": "valid_source_link permits mailto query parameters and credential-bearing HTTPS."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py",
+          "supports": "_href independently rejects mailto queries and URL credentials."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-03",
+      "title": "Protect private authoring roots before shared-bucket collection apply",
+      "priority": "P1 when shared-bucket deletion is in scope",
+      "finding": "The retained-asset scan sees public remote roots plus the collector checkout. Staged assets referenced only by another active private clone can outlive their upload lease and become collection candidates.",
+      "impact": "A manual shared-bucket sweep can delete bytes still needed by private work.",
+      "ownership": [
+        "src/guavajam/manage_assets.py",
+        "src/guavajam/object_store.py",
+        "tests/guavajam/test_asset_storage.py"
+      ],
+      "proposed_implementation": {
+        "status": "design-only; tracked by existing issue #64",
+        "design": "designs/private-retention.json",
+        "steps": [
+          "Keep collection planning available; establish an explicit v1 operational gate for shared-bucket apply until private-root completeness and writer coordination are qualified.",
+          "Separate durable registration and explicit retirement of private roots from short-lived per-asset upload leases.",
+          "Use exact immutable source snapshots and independent root authority; unavailable, stale or invalid active roots must block deletion instead of silently disappearing.",
+          "Preserve reader-only preview credentials and separate authority for registration/renewal and deletion.",
+          "Require a bucket-wide maintenance window that actually fences all relevant writers/reference-adoption workflows, or implement a genuine shared fencing protocol before permitting concurrent operation."
+        ]
+      },
+      "acceptance": [
+        "Two independent private clones retain their referenced assets beyond the upload grace period.",
+        "Expired, unreachable, stale or corrupt active private authorities cause apply to refuse deletion.",
+        "Retirement is explicit and cannot remove permanent protection for released assets.",
+        "Concurrent renewal, adoption, upload and collection are tested at phase boundaries, including a resumed stale process.",
+        "Inventory changes still abort apply; no local lock or last-moment read is represented as a distributed fence."
+      ],
+      "limitations_and_decisions": [
+        "No collector patch is supplied because safe authority/retirement/fencing semantics require a concrete owner decision.",
+        "The current operator_lock is checkout-local. Existing collect documentation assumes writers and reference changes are paused throughout the sweep; rechecking immediately before deletion alone leaves a race.",
+        "The detailed design offers a bounded v1 gate as an alternative to rushing a new distributed retention protocol."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/issues/64",
+          "supports": "Existing owner-tracked private-root protection requirement."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/manage_assets.py",
+          "supports": "Local operator lock, collection grace period and inventory rechecks."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/manage_assets.py",
+          "supports": "retained_assets enumerates remote and collector-local source roots."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-04",
+      "title": "Restore the last-good private preview after replacement failure",
+      "priority": "P2: before RC",
+      "finding": "Refresh stops the current listener before replacement startup/readiness succeeds. Replacement failure can leave the old output on disk with no listener serving it.",
+      "impact": "A failed preview refresh makes an otherwise valid private workspace unavailable and can leave a child process holding the port.",
+      "ownership": [
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch",
+        "artifact": "patches/04-preview-rollback.patch",
+        "steps": [
+          "Retain accepted output, manifest, revision and reader configuration until candidate readiness succeeds.",
+          "On spawn/early-exit/readiness failure, stop and reap the candidate, restart the last-good listener, and keep the refresh error visible through failed service health.",
+          "Delete output only after its owning process is stopped. If restoration fails, retain accepted files and state for retry.",
+          "Reap already-exited children and escalate graceful-shutdown timeout to bounded kill/wait."
+        ]
+      },
+      "acceptance": [
+        "Inject spawn failure, early child exit and readiness timeout; the old revision remains available when rollback succeeds.",
+        "A later retry replaces the preview successfully.",
+        "Failed rollback retains accepted state and files and exposes failure.",
+        "Candidate files are never removed while its process remains active; shutdown timeout is bounded."
+      ],
+      "limitations_and_decisions": [
+        "Rollback can briefly interrupt connections and depends on the old listener being restartable.",
+        "Readiness remains an authenticated root-page check, not a guarantee that every asset/provider is healthy.",
+        "Reused in-memory reader credentials may have been externally revoked. No browser/Compose/live-provider run was repeated for this patch."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py",
+          "supports": "Replacement startup and process/output lifecycle."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-05",
+      "title": "Fail closed when private extractor output custody is uncertain",
+      "priority": "P2: before RC",
+      "finding": "The review-output guard treats most failed Git discovery results as evidence of being outside a worktree. Inherited GIT_* routing variables can also hide or redirect discovery.",
+      "impact": "Private extracted conversation text can be written inside a repository when the guard cannot establish its location.",
+      "ownership": [
+        "some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py",
+        "some-implementations/a-chatgpt-conversation-archive-gfm-extractor/tests/test_output_custody.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch",
+        "artifact": "patches/05-extractor-custody.patch",
+        "steps": [
+          "Resolve the existing output parent and refuse a .git marker at any ancestor, including linked worktrees.",
+          "Run Git discovery with inherited GIT_* variables removed, C locale and cross-filesystem discovery enabled.",
+          "Accept only a recognized outside-worktree response; fail on timeout, execution/config/ownership errors or unexpected output.",
+          "Retain exclusive file creation and 0600 private output permissions."
+        ]
+      },
+      "acceptance": [
+        "Normal external output succeeds and repository/linked-worktree output is refused.",
+        "GIT_DIR, GIT_CEILING_DIRECTORIES and config routing cannot change custody decisions.",
+        "Timeout, dubious ownership, bad config, missing/unexpected replies refuse output without creating a file.",
+        "Qualify the exact outside-repository diagnostic under every supported Git/OS baseline."
+      ],
+      "limitations_and_decisions": [
+        "The reference recognizes an exact C-locale Git diagnostic tested with Git 2.56.1. Other diagnostics fail closed and can require portability adaptation.",
+        "Bare-repository policy is unchanged: an explicit false worktree response is accepted.",
+        "This is not a hostile-filesystem race or malicious-local-user security boundary."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py",
+          "supports": "review_output_path accepts nonzero discovery status too broadly."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-06",
+      "title": "Stabilize tracked runtime checkout bytes used in renderer identity",
+      "priority": "P2: before RC",
+      "finding": "Checkout line-ending conversion changes renderer fingerprints. Extending draft PR #79 to all tracked runtime inputs reproduced 15 drifting text files, beyond its six JavaScript files.",
+      "impact": "The same commit can produce different renderer identities and unnecessary or inconsistent rebuild decisions across checkouts.",
+      "ownership": [
+        ".gitattributes",
+        "tests/repository/test_renderer_checkout.py",
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/update.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch; adapt existing PR #79",
+        "artifact": "patches/06-renderer-inputs.patch",
+        "steps": [
+          "Set text=auto eol=lf at both core and generator runtime package roots whose bytes feed renderer_identity.",
+          "Reuse PR #79 test_renderer_checkout.py, broadening its tracked-input set to all files in those roots while retaining explicit JavaScript coverage.",
+          "Use a temporary index and compare committed file bytes after false, input and true core.autocrlf checkouts. Preserve binary auto-detection."
+        ]
+      },
+      "acceptance": [
+        "All tracked hashed runtime bytes match across all three autocrlf modes.",
+        "Binary assets retain their original bytes.",
+        "Run the regression from a disposable commit containing the patch because it intentionally inspects HEAD."
+      ],
+      "limitations_and_decisions": [
+        "Linux Git checkout-mode simulation passed; native Windows qualification remains separate.",
+        "This changes runtime checkout normalization and may intentionally cause one renderer-identity transition; it does not change signed source identities.",
+        "Reconcile with PR #79 rather than creating two competing copies of the regression."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/pull/79",
+          "supports": "Existing draft checkout-byte regression; inspected head 1ccb4443ab10dac1405358b30f0746c9914af054."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/update.py",
+          "supports": "renderer_identity hashes both runtime package roots."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/.gitattributes",
+          "supports": "Existing per-suffix normalization misses hashed runtime resources."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-07",
+      "title": "Pin the first documented initializer to the reviewed revision",
+      "priority": "P3: small pre-RC cleanup",
+      "finding": "The first README initializer runs an unpinned Git URL even though subsequent setup is expected to use a reviewed tool reference.",
+      "impact": "A user can bootstrap with different code from the revision they reviewed or subsequently configure.",
+      "ownership": [
+        "README.md",
+        "tests/repository/test_policy.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch",
+        "artifact": "patches/07-bootstrap-pin.patch",
+        "steps": [
+          "Add @<reviewed-sha> to the work initializer and align the instructions with GUAVAJAM_TOOL_REF.",
+          "Check both README initializer examples and matching revisions where an example uses multiple packages."
+        ]
+      },
+      "acceptance": [
+        "Both documented initializer commands pin each executed package.",
+        "The repository documentation/link policy still passes."
+      ],
+      "limitations_and_decisions": [
+        "The placeholder must be replaced with a reviewed immutable revision by the operator; this patch does not choose a release SHA."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/README.md",
+          "supports": "First initializer is unpinned; later index initializer already uses a reviewed reference."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-08",
+      "title": "Define a coordinated RC version mapping and exact artifact names",
+      "priority": "P2: decide before producing an RC",
+      "finding": "Root release tooling accepts only numeric x.y.z and coordinates identical version strings, while Python prereleases, extension package SemVer and Chrome manifest numeric versions have different representations.",
+      "impact": "A real 1.0.0rc1 cannot be prepared through the existing coordinated path. A naive fourth-component candidate version can sort after a shorter final version.",
+      "ownership": [
+        "tools/version.py",
+        "tools/prepare_artifacts.py",
+        "tools/check_artifacts.py",
+        "tools/check_chatgpt_handoff.py",
+        "some-implementations/a-chatgpt-conversation-archiver-browser-extension/tools/build.py",
+        ".github/workflows/prepare-release.yml"
+      ],
+      "proposed_implementation": {
+        "status": "design-only",
+        "design": "designs/release.json#/proposals/rc_version_mapping",
+        "steps": [
+          "Use canonical Python-style M.m.prcN as the coordinated RC identity; derive extension M.m.p-rc.N and Chrome M.m.p.N.",
+          "Reserve Chrome fourth component 65535 for final and restrict RC numbers to 1..65534; use version_name for the human-readable SemVer.",
+          "Keep extension mapping validation in extension-owned tools so its standalone build remains independent.",
+          "Select exact expected artifact filenames per ecosystem in an empty release output directory; prefix globbing must not confuse rc1 with stale rc10.",
+          "Preserve prepare-release as artifact preparation with no automatic tags, registry upload or publication."
+        ]
+      },
+      "acceptance": [
+        "Check rc1 < rc2 < final < next patch rc1 for Chrome, and correct prerelease ordering for Python/SemVer.",
+        "Reject unsupported suffixes, leading zeroes and out-of-range components.",
+        "Build/install all RC Python distributions, load the independently built extension under the qualified Chrome baseline, and test installed handoff.",
+        "Record per-artifact version, exact source SHA and checksums; reject stale artifacts."
+      ],
+      "limitations_and_decisions": [
+        "The proposed final Chrome version is 1.0.0.65535, with version_name 1.0.0. Owner acceptance is required before adopting this durable mapping.",
+        "No version bump, lockfile update, release or new RC artifact is included in this handoff."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/tools/version.py",
+          "supports": "Current numeric-only coordinated version parser."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-chatgpt-conversation-archiver-browser-extension/tools/build.py",
+          "supports": "Current manifest/package equality and independent extension build."
+        },
+        {
+          "url": "https://developer.chrome.com/docs/extensions/reference/manifest/version",
+          "supports": "Chrome numeric component constraints and ordering."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-09",
+      "title": "Make existing CI checks enforceable for stabilization",
+      "priority": "P2: operational RC gate",
+      "finding": "The inspected main branch reports protected=false, required-check enforcement off and no repository rulesets, despite a successful existing seven-job CI run.",
+      "impact": "Passing CI is not currently an enforced condition for changing the stabilization source or promoting an artifact.",
+      "ownership": [
+        "Repository branch/ruleset settings",
+        ".github/workflows/ci.yml",
+        ".github/workflows/prepare-release.yml"
+      ],
+      "proposed_implementation": {
+        "status": "design-only; no settings changed",
+        "design": "designs/release.json#/proposals/enforced_ci_gates",
+        "steps": [
+          "Re-read current settings and configure an active ruleset for main and any explicitly selected stabilization branch.",
+          "Require the seven observed check-run contexts tied to GitHub Actions integration 15368, PRs, current-base checks, and no deletion/non-fast-forward updates.",
+          "Choose review count and emergency bypass deliberately for the actual maintainer model.",
+          "If adopting a merge queue, add and qualify merge_group triggers first.",
+          "Promote only the exact immutable source SHA whose required checks succeeded; treat tag protection/publication authority as a separate release action."
+        ]
+      },
+      "acceptance": [
+        "Read back the rules and exact required contexts.",
+        "Qualify passing and intentionally failing disposable PRs through the intended path without rewriting main.",
+        "Confirm promotion metadata refers to the checked source SHA and immutable artifact hashes."
+      ],
+      "limitations_and_decisions": [
+        "API observations are time-bound; reconcile later owner changes rather than overwriting them.",
+        "This handoff provides an actionable settings proposal, not evidence that protections are already enabled.",
+        "The existing CI includes browser, Compose/local S3, licensing, package isolation and installed archive handoff; the recommendation is to enforce those existing gates."
+      ],
+      "evidence": [
+        {
+          "url": "https://api.github.com/repos/nashspence/guavajam/branches/main",
+          "supports": "Observed unprotected main at the reviewed commit."
+        },
+        {
+          "url": "https://api.github.com/repos/nashspence/guavajam/rulesets",
+          "supports": "Observed empty ruleset list."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/actions/runs/45197088534",
+          "supports": "Successful baseline CI on the reviewed commit; not a run of these reference patches."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-10",
+      "title": "Freeze real historical artifacts as the v1 compatibility gate",
+      "priority": "P2: establish before finalizing the RC contract",
+      "finding": "Namespace checks and current-producer/current-consumer tests do not by themselves preserve the ability to read previously accepted signed source, archives, catalogs or continuity state.",
+      "impact": "A coordinated implementation change can make both ends of a test agree while silently breaking older durable artifacts.",
+      "ownership": [
+        "tests/fixtures/compatibility/v1-rc1/ (proposed)",
+        "tests/guavajam/",
+        "some-implementations/a-guavajam-static-website-generator/tests/",
+        "tools/check_chatgpt_handoff.py"
+      ],
+      "proposed_implementation": {
+        "status": "design-only",
+        "design": "designs/release.json#/proposals/frozen_compatibility_corpus",
+        "steps": [
+          "After accepting the RC source/authority contract, create a synthetic immutable corpus once, with exact byte hashes and producer versions.",
+          "Preserve a signed two-edition bundle/public trust, source archive and tiny asset, catalog/checkpoint/feed continuity, native branching archive, and expected canonical citations.",
+          "Have later installed core, generator and extractor artifacts consume the frozen inputs in their owning test lanes.",
+          "Keep durable source/citations/accepted-history distinct from rebuildable renderer/search/cache output.",
+          "Add new corpus versions without regenerating or replacing earlier accepted fixtures; fail unknown schema versions non-destructively."
+        ]
+      },
+      "acceptance": [
+        "Verify fixture hashes before opening them.",
+        "Consume old inputs from clean installed artifacts outside the checkout.",
+        "Preserve canonical commit/path/anchor citations, accepted edition order and feed identity.",
+        "Tampered/unknown inputs fail without replacing last-good authority or state.",
+        "No ordinary test invocation regenerates the frozen corpus with current producer code."
+      ],
+      "limitations_and_decisions": [
+        "The proposed promise is backward reading of selected v1-RC durable artifacts through v1.x, subject to owner acceptance.",
+        "Future-feature acceptance by old binaries is a separate forward-compatibility decision.",
+        "No complete compatibility corpus is frozen here; do that after the authority fixes and RC identity are accepted."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/tests/repository/test_namespace.py",
+          "supports": "Existing namespace contracts are distinct from historical byte compatibility."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/tools/check_artifacts.py",
+          "supports": "Existing installed-artifact lane can host durable-input compatibility checks."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/tools/check_chatgpt_handoff.py",
+          "supports": "Existing independent archive/extractor installed handoff boundary."
+        }
+      ]
+    },
+    {
+      "id": "GJ-RC-11",
+      "title": "Align the deployment example release authority with runtime keys",
+      "priority": "P2: additional setup correction",
+      "finding": "The deploy identity example grants writes beneath sha256/.released, while the actual release namespace and generated policy use released/sha256. The nearby Compose environment comment describes the stale namespace too.",
+      "impact": "An operator following the example can provision a release credential that cannot write the runtime release records.",
+      "ownership": [
+        "some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json",
+        "some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example",
+        "tests/deployment/test_configuration.py"
+      ],
+      "proposed_implementation": {
+        "status": "reference-patch",
+        "artifact": "patches/11-release-prefix.patch",
+        "steps": [
+          "Use the existing runtime release prefix in the example credential policy and accompanying environment comment; align both Read and Write grants with the generated release role.",
+          "Cross-check the example release grant against the generated role policy and canonical runtime prefix in a deployment configuration regression."
+        ]
+      },
+      "acceptance": [
+        "The release example authorizes the same prefix as the generated release-writer policy.",
+        "Private asset/pin authority stays separate from public release-record authority.",
+        "Deployment configuration and repository contracts pass."
+      ],
+      "limitations_and_decisions": [
+        "This corrects example setup; it does not migrate an existing provider credential or perform a live release."
+      ],
+      "evidence": [
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json",
+          "supports": "Stale release-writer prefix in checked-in provisioning example."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example",
+          "supports": "Stale descriptive release namespace."
+        },
+        {
+          "url": "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/object_store.py",
+          "supports": "Canonical RELEASE_PREFIX used by runtime."
+        }
+      ]
+    }
+  ],
+  "additional_observations": [
+    {
+      "related_to": "GJ-RC-01",
+      "observation": "The signature-format cap is newly enforced for direct trusted_git callers but already exists for normal publication verification; avoid presenting it as a newly lowered publication limit."
+    },
+    {
+      "related_to": "GJ-RC-02",
+      "observation": "The shared helper also rejects malformed HTTPS authority that the old renderer could emit; credential-bearing HTTPS remains a conscious unresolved policy difference."
+    },
+    {
+      "related_to": "GJ-RC-03",
+      "observation": "Local operator locking plus inventory rechecks do not serialize multiple private clones or a resumed writer across a collector sweep."
+    },
+    {
+      "related_to": "GJ-RC-04",
+      "observation": "Graceful shutdown timeout could leave the Node process holding the listener port; the patch adds bounded kill/reap."
+    },
+    {
+      "related_to": "GJ-RC-06",
+      "observation": "The complete hashed corpus shows 15 CRLF drifts, including nine non-JavaScript text resources."
+    },
+    {
+      "related_to": "GJ-RC-08",
+      "observation": "Artifact prefix matching can confuse rc1 and stale rc10; exact filenames and a clean per-release output directory belong in the RC implementation."
+    },
+    {
+      "related_to": "GJ-RC-11",
+      "observation": "Stale example release-writer authority was discovered during the private-retention review."
+    }
+  ],
+  "existing_owner_scope": [
+    {
+      "url": "https://github.com/nashspence/guavajam/issues/64",
+      "treatment": "Preserve the existing private-retention issue as the implementation owner; the new handoff issue coordinates evaluation."
+    },
+    {
+      "url": "https://github.com/nashspence/guavajam/pull/79",
+      "treatment": "Reuse/adapt its checkout regression; no merge or closure performed by this handoff."
+    },
+    {
+      "url": "https://github.com/nashspence/guavajam/issues/9",
+      "treatment": "Spoken screen-reader qualification is explicitly deferred by the owner; it is not promoted to a new RC blocker here."
+    }
+  ]
+}

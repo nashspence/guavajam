@@ -1,0 +1,111 @@
+diff --git a/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py b/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py
+index 2eef94c..bc0fa5d 100644
+--- a/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py
++++ b/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py
+@@ -105,9 +105,11 @@ def _make_media(item):
+ def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
+     parsed = urlsplit(url)
+     if parsed.scheme:
+-        if parsed.scheme == 'mailto' and kind == 'Link' and parsed.netloc == '' and parsed.path and not parsed.query:
+-            return url
+-        if parsed.scheme != 'https' or parsed.username or parsed.password:
++        from guavajam.validate_sources import valid_source_link
++        # Source-approved mailto headers must remain renderable in every
++        # accepted edition, including history after the link is removed.
++        if (not valid_source_link(url) or parsed.username or parsed.password
++                or (parsed.scheme == 'mailto' and kind != 'Link')):
+             raise RenderError('links must be HTTPS or mailto, without credentials')
+         if kind == 'Image':
+             asset(url, origin, set(IMAGE))
+diff --git a/some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py b/some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py
+index 350d072..dff3001 100644
+--- a/some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py
++++ b/some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py
+@@ -1,6 +1,7 @@
+ """Exact signed editions rendered from Git, with immutable downloads and citations."""
+ import json
+ import os
++from html import escape
+ from pathlib import Path
+ import tempfile
+ import unittest
+@@ -144,6 +145,33 @@ class CatalogBuildTests(unittest.TestCase):
+         self.assertFalse(list(reader.rglob('data set.html')))
+         self.assertNotIn('#section', (reader / 'index.html').read_text())
+ 
++    def test_accepted_source_links_survive_historical_regeneration(self):
++        links = [
++            'mailto:author@example.org?subject=Question&body=Hello%20world',
++            'https://example.org/paper?edition=first#section',
++        ]
++        body = '\n\n'.join(f'[Source {number}]({target})' for number, target in enumerate(links))
++        self.publisher.source('Linked edition', body)
++        supporting = self.publisher.repo / 'content/supporting'
++        supporting.mkdir()
++        (supporting / 'note.md').write_text('---\ntitle: Linked note\n---\n\n<a name="links"></a>\n\n' + body.replace('\n\n', ' ') + '\n')
++        linked = self.publisher.publish('Publish source-approved links')
++        self.publisher.source('Later edition', 'The current edition no longer contains those links.')
++        (supporting / 'note.md').unlink()
++        latest = self.publisher.publish('Remove the links from the current edition')
++        catalog, _ = discover(self.publisher.repo, **self.publisher.trust)
++        self.assertEqual(self.publisher.revisions, [item['revision'] for item in catalog['editions']])
++        self.assertEqual(latest, catalog['editions'][-1]['revision'])
++
++        self.build()
++
++        reader = self.output / 'editions' / linked / 'read'
++        for relative in ['index.html', 'supporting/note.html']:
++            markup = (reader / relative).read_text()
++            for target in links:
++                self.assertIn('href="' + escape(target, quote=True) + '"', markup)
++        self.assertTrue((self.output / 'editions' / latest / 'read/index.html').is_file())
++
+     def test_mutable_checkout_and_makefile_never_define_the_view(self):
+         (self.publisher.repo / 'Makefile').write_text('all:\n\ttouch SHOULD_NOT_EXIST\n')
+         (self.publisher.repo / 'content/manuscript.md').write_text('uncommitted content')
+diff --git a/some-implementations/a-guavajam-static-website-generator/tests/test_renderer.py b/some-implementations/a-guavajam-static-website-generator/tests/test_renderer.py
+index ae63edc..d5c55f4 100644
+--- a/some-implementations/a-guavajam-static-website-generator/tests/test_renderer.py
++++ b/some-implementations/a-guavajam-static-website-generator/tests/test_renderer.py
+@@ -198,6 +198,41 @@ class PortableViewTests(unittest.TestCase):
+ 
+ 
+ class ContractTests(unittest.TestCase):
++    def test_external_links_follow_the_shared_source_contract(self):
++        from guavajam.validate_sources import valid_source_link
++        from a_guavajam_static_website_generator.renderer import _href
++        targets = {
++            'mailto:author@example.org?subject=Question&body=Hello%20world': True,
++            'https://example.org/paper?edition=first#section': True,
++            'https:missing-authority': False,
++            'mailto://example.org/address': False,
++            'javascript:alert(1)': False,
++            'data:text/html,example': False,
++            'file:///tmp/example': False,
++            'http://example.org/paper': False,
++        }
++        for target, accepted in targets.items():
++            with self.subTest(target=target):
++                self.assertEqual(accepted, valid_source_link(target))
++                options = dict(kind='Link', path='content/manuscript.md', sha='0' * 40,
++                               repo=None, origin='', supporting={}, downloads={})
++                if accepted:
++                    self.assertEqual(target, _href(target, **options))
++                else:
++                    with self.assertRaises(RenderError):
++                        _href(target, **options)
++
++    def test_shared_source_link_validation_does_not_relax_renderer_credentials(self):
++        from guavajam.validate_sources import valid_source_link
++        from a_guavajam_static_website_generator.renderer import _href
++        target = 'https://reader:example-only@example.org/paper'
++        # Existing source acceptance cannot be tightened retroactively here.
++        # The renderer's credential restriction remains an explicit boundary.
++        self.assertTrue(valid_source_link(target))
++        with self.assertRaises(RenderError):
++            _href(target, kind='Link', path='content/manuscript.md', sha='0' * 40,
++                  repo=None, origin='', supporting={}, downloads={})
++
+     def test_duplicate_unknown_and_untrusted_media_fields_fail(self):
+         valid=json.loads(SRC.split('```guavajam-media\n',1)[1].split('\n```',1)[0])
+         self.assertEqual('video',decode(json.dumps(valid),ORIGIN)['kind'])

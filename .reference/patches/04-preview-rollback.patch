@@ -1,0 +1,268 @@
+diff --git a/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py b/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py
+index 1944fed..55e0e28 100644
+--- a/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py
++++ b/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py
+@@ -11,6 +11,7 @@ import re
+ import shutil
+ import signal
+ import stat
++import subprocess
+ import threading
+ import time
+ import urllib.request
+@@ -23,6 +24,8 @@ from .preview import build_preview, start_server
+ from .service import service_lock
+ from .update import atomic
+ 
++STOP_TIMEOUT = 15
++
+ 
+ def settings(env):
+     origin = env['GUAVAJAM_PREVIEW_ORIGIN']
+@@ -66,11 +69,31 @@ class Preview:
+         if not (re.fullmatch(r'refs/heads/[A-Za-z0-9._/-]+', self.ref) and '..' not in self.ref):
+             raise ValueError('select an explicit local branch')
+         self.process = self.output = self.revision = None
++        self._process_output = self._manifest = self._values = None
+ 
+     def close(self):
+-        if self.process and self.process.poll() is None:
+-            self.process.terminate(); self.process.wait(timeout=15)
+-        self.process = None
++        process = self.process
++        if process is not None:
++            if process.poll() is None: process.terminate()
++            try:
++                process.wait(timeout=STOP_TIMEOUT)
++            except subprocess.TimeoutExpired:
++                process.kill()
++                process.wait(timeout=STOP_TIMEOUT)
++            self.process = self._process_output = None
++
++    def _start(self, output, manifest, values):
++        self.process = start_server(output, manifest, values, port=self.port, token=self.token,
++                                    web_origin=self.origin, quiet=True)
++        self._process_output = output
++        deadline = time.monotonic() + 15
++        while True:
++            if self.process.poll() is not None: raise ValueError('preview listener failed')
++            try:
++                if reachable(self.origin, self.port, self.token): return
++            except OSError: pass
++            if time.monotonic() >= deadline: raise ValueError('preview listener timeout')
++            time.sleep(0.1)
+ 
+     def refresh(self):
+         revision = resolve(self.repo, self.ref)
+@@ -86,22 +109,28 @@ class Preview:
+             values = credentials(self.repo) if manifest['assets'] else {}
+             previous = self.output
+             self.close()
+-            self.process = start_server(pending, manifest, values, port=self.port, token=self.token,
+-                                        web_origin=self.origin, quiet=True)
+-            deadline = time.monotonic() + 15
+-            while True:
+-                if self.process.poll() is not None: raise ValueError('preview listener failed')
+-                try:
+-                    if reachable(self.origin, self.port, self.token): break
+-                except OSError: pass
+-                if time.monotonic() >= deadline: raise ValueError('preview listener timeout')
+-                time.sleep(0.1)
++            try:
++                self._start(pending, manifest, values)
++            except Exception:
++                # Reap the candidate before deleting any files it may still serve.
++                self.close()
++                if previous is not None:
++                    try:
++                        self._start(previous, self._manifest, self._values)
++                    except Exception as error:
++                        self.close()
++                        raise ValueError('preview replacement and last-good restart failed') from error
++                # A restored preview is still a failed refresh, never a successful
++                # adoption of the new revision. The service reports failed health.
++                raise
+             self.output, self.revision, self.selection = pending, revision, selection
++            self._manifest, self._values = manifest, dict(values)
+             if previous: shutil.rmtree(previous)
+             return 'updated'
+-        except BaseException:
+-            if pending != self.output and pending.exists(): shutil.rmtree(pending)
+-            raise
++        finally:
++            if pending != self.output:
++                if self._process_output == pending: self.close()
++                if pending.exists(): shutil.rmtree(pending)
+ 
+ 
+ def main(argv=None):
+diff --git a/some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py b/some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py
+index 892e87c..9601d1b 100644
+--- a/some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py
++++ b/some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py
+@@ -1,11 +1,15 @@
+ """Private session authentication and last-good previews of ordinary draft branches."""
+ from pathlib import Path
+ import socket
++import subprocess
++import sys
++import time
+ import tempfile
+ import unittest
+ import urllib.error
+ import urllib.request
+-from unittest.mock import patch
++from unittest.mock import patch, Mock
++import a_guavajam_static_website_generator.preview_service as preview_service
+ from a_guavajam_static_website_generator.preview_service import Preview, session_key, settings
+ from guavajam_test_support.discovery_fixture import Draft
+ 
+@@ -61,3 +65,148 @@ class PreviewServiceTests(unittest.TestCase):
+             key.chmod(0o600); self.assertEqual('a' * 64, session_key(key))
+             link = Path(directory) / 'link'; link.symlink_to(key)
+             with self.assertRaises(OSError): session_key(link)
++
++
++class PreviewReplacementTests(unittest.TestCase):
++    def setUp(self):
++        self.directory = tempfile.TemporaryDirectory()
++        self.addCleanup(self.directory.cleanup)
++        self.root = Path(self.directory.name)
++        self.draft = Draft(self.root)
++        state = self.root / 'state'; state.mkdir()
++        token = self.root / 'session.key'; token.write_text('f' * 64); token.chmod(0o600)
++        with socket.socket() as sock:
++            sock.bind(('127.0.0.1', 0)); self.port = sock.getsockname()[1]
++        env = {'GUAVAJAM_PREVIEW_ORIGIN': 'https://preview.publisher.test',
++               'GUAVAJAM_PREVIEW_PORT': str(self.port), 'GUAVAJAM_PREVIEW_REPO': str(self.draft.repo),
++               'GUAVAJAM_PREVIEW_REF': 'refs/heads/draft', 'GUAVAJAM_PREVIEW_TOKEN_FILE': str(token)}
++        self.preview = Preview(state, env)
++        self.children = []
++        self.addCleanup(self.stop_children)
++        self.addCleanup(self.preview.close)
++        self.real_start = preview_service.start_server
++
++    def stop_children(self):
++        for process in self.children:
++            if process.poll() is None: process.kill()
++            process.wait(timeout=5)
++
++    def start(self, *args, **kwargs):
++        process = self.real_start(*args, **kwargs)
++        self.children.append(process)
++        return process
++
++    def content(self):
++        request = urllib.request.Request('http://127.0.0.1:' + str(self.port) + '/',
++                    headers={'Host': 'preview.publisher.test', 'Cookie': 'guavajam_preview=' + 'f' * 64})
++        with urllib.request.urlopen(request, timeout=2) as response:
++            self.assertEqual('private, no-store', response.getheader('Cache-Control'))
++            return response.read()
++
++    def initial_and_candidate(self):
++        with patch.object(preview_service, 'start_server', side_effect=self.start):
++            self.assertEqual('updated', self.preview.refresh())
++        self.previous_output = self.preview.output
++        self.previous_revision = self.preview.revision
++        self.previous_content = self.content()
++        self.draft.source('Candidate revision', 'Candidate private observation.')
++        self.draft.git('add', 'content'); self.draft.git('commit', '-qm', 'Revise private draft')
++
++    def assert_restored(self):
++        self.assertEqual(self.previous_revision, self.preview.revision)
++        self.assertEqual(self.previous_output, self.preview.output)
++        self.assertEqual(self.previous_content, self.content())
++        self.assertNotIn(b'Candidate private observation', self.content())
++        self.assertEqual([self.previous_output], list(self.preview.state.glob('preview-*')))
++
++    def test_spawn_failure_restores_last_good_and_later_retry_succeeds(self):
++        self.initial_and_candidate()
++        calls = []
++        def start(*args, **kwargs):
++            calls.append(args[0])
++            if len(calls) == 1: raise OSError('injected listener startup failure')
++            return self.start(*args, **kwargs)
++        with patch.object(preview_service, 'start_server', side_effect=start):
++            with self.assertRaises(OSError): self.preview.refresh()
++        self.assert_restored()
++        self.assertEqual([calls[0], self.previous_output], calls)
++        self.assertEqual('updated', self.preview.refresh())
++        self.assertIn(b'Candidate private observation', self.content())
++        self.assertFalse(self.previous_output.exists())
++
++    def test_early_child_exit_restores_previous_revision(self):
++        self.initial_and_candidate()
++        calls = []
++        def start(*args, **kwargs):
++            calls.append(args[0])
++            if len(calls) == 1:
++                process = subprocess.Popen([sys.executable, '-c', 'raise SystemExit(7)'])
++                self.children.append(process)
++                process.wait(timeout=5)
++                return process
++            return self.start(*args, **kwargs)
++        with patch.object(preview_service, 'start_server', side_effect=start):
++            with self.assertRaisesRegex(ValueError, 'listener failed'): self.preview.refresh()
++        self.assert_restored()
++        self.assertEqual(7, self.children[1].returncode)
++
++    def test_readiness_timeout_reaps_candidate_before_removing_its_files(self):
++        self.initial_and_candidate()
++        calls = []
++        real_reachable, real_rmtree = preview_service.reachable, preview_service.shutil.rmtree
++        def start(*args, **kwargs):
++            calls.append(args[0])
++            return self.start(*args, **kwargs)
++        def reachable(*args):
++            return False if len(calls) == 1 else real_reachable(*args)
++        ticks = iter((0, 16))
++        clock = Mock(wraps=time)
++        def monotonic():
++            value = next(ticks, None)
++            return time.monotonic() if value is None else value
++        clock.monotonic.side_effect = monotonic
++        removed = []
++        def remove(path, *args, **kwargs):
++            if calls and Path(path) == calls[0]:
++                self.assertIsNotNone(self.children[1].poll(), 'stop the candidate before deleting its files')
++                removed.append(Path(path))
++            return real_rmtree(path, *args, **kwargs)
++        with patch.object(preview_service, 'start_server', side_effect=start), \
++             patch.object(preview_service, 'reachable', side_effect=reachable), \
++             patch.object(preview_service, 'time', clock), \
++             patch.object(preview_service.shutil, 'rmtree', side_effect=remove):
++            with self.assertRaisesRegex(ValueError, 'listener timeout'): self.preview.refresh()
++        self.assertEqual([calls[0]], removed)
++        self.assert_restored()
++
++    def test_failed_rollback_keeps_last_good_files_and_revision_for_retry(self):
++        self.initial_and_candidate()
++        with patch.object(preview_service, 'start_server', side_effect=OSError('listener unavailable')):
++            with self.assertRaises(ValueError): self.preview.refresh()
++        self.assertIsNone(self.preview.process)
++        self.assertEqual(self.previous_revision, self.preview.revision)
++        self.assertTrue(self.previous_output.exists())
++        self.assertEqual([self.previous_output], list(self.preview.state.glob('preview-*')))
++        self.assertEqual('updated', self.preview.refresh())
++        self.assertIn(b'Candidate private observation', self.content())
++
++    def test_close_reaps_listener_and_is_idempotent(self):
++        with patch.object(preview_service, 'start_server', side_effect=self.start):
++            self.assertEqual('updated', self.preview.refresh())
++        process = self.preview.process
++        self.preview.close(); self.preview.close()
++        self.assertIsNotNone(process.poll())
++        self.assertIsNone(self.preview.process)
++        with self.assertRaises(urllib.error.URLError): self.content()
++
++    def test_close_kills_and_reaps_child_that_ignores_termination(self):
++        process = subprocess.Popen([sys.executable, '-u', '-c',
++             "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready'); time.sleep(60)"],
++             stdout=subprocess.PIPE, text=True)
++        self.children.append(process)
++        self.assertEqual('ready', process.stdout.readline().strip())
++        process.stdout.close()
++        self.preview.process = process
++        with patch.object(preview_service, 'STOP_TIMEOUT', 0.1, create=True): self.preview.close()
++        self.assertIsNotNone(process.poll())
++        self.assertIsNone(self.preview.process)

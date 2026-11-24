@@ -1,0 +1,244 @@
+{
+  "kind": "release-stabilization-designs",
+  "repository": "nashspence/guavajam",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "purpose": "Implementation proposals for independent evaluation; settings and release schemas have not been changed.",
+  "observations": {
+    "checked_at_utc": "2026-11-24T00:55:09Z",
+    "main_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+    "main_protected": false,
+    "required_status_check_enforcement": "off",
+    "rulesets": [],
+    "successful_ci": {
+      "run_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534",
+      "commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "expected_checks": [
+        {
+          "context": "Verify guavajam distribution",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322446"
+        },
+        {
+          "context": "Verify ChatGPT archive-to-GFM handoff",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322416"
+        },
+        {
+          "context": "Verify a-guavajam-static-website-generator distribution",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322239"
+        },
+        {
+          "context": "Verify Compose and local S3",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322218"
+        },
+        {
+          "context": "Verify REUSE licensing",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322160"
+        },
+        {
+          "context": "Verify ChatGPT archiver distribution",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770322149"
+        },
+        {
+          "context": "Verify a-chatgpt-conversation-archive-gfm-extractor distribution",
+          "integration_id": 15368,
+          "integration_slug": "github-actions",
+          "conclusion": "success",
+          "details_url": "https://github.com/nashspence/guavajam/actions/runs/45197088534/job/137770321943"
+        }
+      ]
+    },
+    "api_sources": [
+      "https://api.github.com/repos/nashspence/guavajam/branches/main",
+      "https://api.github.com/repos/nashspence/guavajam/rulesets",
+      "https://api.github.com/repos/nashspence/guavajam/commits/54fce07b619628a5e92be946be4b189873ddf1a0/check-runs?per_page=100"
+    ]
+  },
+  "proposals": {
+    "rc_version_mapping": {
+      "status": "design-only; owner should accept mapping before implementation or any release",
+      "recommendation": "Use one coordinated release identity with ecosystem-specific versions. Accept only canonical M.m.p and M.m.prcN for this first workflow; reject unsupported alpha/beta/dev/post/local forms instead of guessing mappings.",
+      "mapping": [
+        {
+          "release": "1.0.0rc1",
+          "python": "1.0.0rc1",
+          "extension_package_json": "1.0.0-rc.1",
+          "chrome_manifest_version": "1.0.0.1",
+          "chrome_version_name": "1.0.0-rc.1"
+        },
+        {
+          "release": "1.0.0rc2",
+          "python": "1.0.0rc2",
+          "extension_package_json": "1.0.0-rc.2",
+          "chrome_manifest_version": "1.0.0.2",
+          "chrome_version_name": "1.0.0-rc.2"
+        },
+        {
+          "release": "1.0.0",
+          "python": "1.0.0",
+          "extension_package_json": "1.0.0",
+          "chrome_manifest_version": "1.0.0.65535",
+          "chrome_version_name": "1.0.0"
+        },
+        {
+          "release": "1.0.1rc1",
+          "python": "1.0.1rc1",
+          "extension_package_json": "1.0.1-rc.1",
+          "chrome_manifest_version": "1.0.1.1",
+          "chrome_version_name": "1.0.1-rc.1"
+        }
+      ],
+      "bounds": "M, m and p are canonical nonnegative integers <=65535; RC N is 1..65534; reserve Chrome fourth component 65535 for final. No leading zeroes. A later patch/minor/major has greater Chrome tuple precedence than the preceding final.",
+      "rationale": [
+        "Python rcN is a prerelease that remains below its final release.",
+        "The private extension package uses valid SemVer; the Chrome manifest uses only numeric components and displays the readable SemVer in version_name.",
+        "The fourth-component sentinel guarantees rc1 < rc2 < final < next release candidate without publishing a final-looking Python version for an RC.",
+        "The mapping intentionally replaces byte-for-byte equality across ecosystems with checked semantic coordination.",
+        "The existing extension 0.1.0 compares as 0.1.0.0; the proposed upcoming 1.0.0 candidates and final all advance it. Do not silently repackage an already published same-version artifact."
+      ],
+      "implementation": [
+        {
+          "owner": "tools/version.py",
+          "change": "Parse canonical release identity once, preserve exact coordinated Python versions and guavajam dependency pins, derive extension SemVer, invoke the independently owned extension version helper, validate all metadata before writing, and keep lock regeneration explicit via make version."
+        },
+        {
+          "owner": "some-implementations/a-chatgpt-conversation-archiver-browser-extension/tools/version.py (new)",
+          "change": "Own the extension-only SemVer-to-Chrome mapping and a check/update CLI using only the standard library and extension-local files. tools/build.py imports this local helper; root tools/version.py invokes it as repository orchestration. This keeps the extension independently buildable without GuavaJam or the workspace root."
+        },
+        {
+          "owner": "some-implementations/a-chatgpt-conversation-archiver-browser-extension/tools/build.py",
+          "change": "Replace direct manifest/package version equality with the local mapping check. Name standalone ZIPs using extension package SemVer, e.g. a-chatgpt-conversation-archiver-browser-extension-1.0.0-rc.1.zip, and include version_name in the manifest."
+        },
+        {
+          "owner": "tools/workspace.py or tools/version.py",
+          "change": "Expose a release descriptor containing the coordinated release, Python version, extension package version and Chrome version. Artifact consumers must select the version appropriate to their distribution."
+        },
+        {
+          "owner": "tools/prepare_artifacts.py, tools/check_artifacts.py, tools/check_chatgpt_handoff.py, Makefile",
+          "change": "Use canonical Python versions for wheel/sdist names and exact extension SemVer ZIP names. Replace prefix glob artifact selection with exact expected paths so rc1 cannot accidentally select stale rc10 output. Build into an empty per-release output directory. Record selected artifact names, per-artifact versions and hashes."
+        },
+        {
+          "owner": ".github/workflows/prepare-release.yml",
+          "change": "Keep workflow_dispatch.version as the coordinated canonical Python-style release. Verify metadata and exact source commit before preparation; retain the existing no-tag/no-release/no-registry-publication behavior. Include the artifact version mapping in prepared release metadata alongside SHA256SUMS."
+        },
+        {
+          "owner": "tests/repository/test_version.py (new) and extension tests",
+          "change": "Exercise rc1/rc2/final/next-patch ordering, Chrome bounds and zero rules, leading-zero and unsupported-suffix rejection, all dependency pins, mismatched version_name, independent extension build, and exact artifact selection in the presence of stale rc10 output."
+        }
+      ],
+      "acceptance": [
+        "A disposable 1.0.0rc1 metadata bump plus uv.lock regeneration builds all three Python wheels/sdists and the independent extension ZIP.",
+        "Clean installation of built RC Python artifacts resolves the exact GuavaJam RC dependency and runs installed handoff/smoke contracts.",
+        "The extension loads under the currently qualified Chrome baseline with numeric manifest version and matching version_name.",
+        "The package coordinator and independent extension builder reject inconsistent metadata before emitting artifacts.",
+        "Candidate preparation does not publish to a production distribution channel."
+      ],
+      "sources": [
+        "https://packaging.python.org/en/latest/specifications/version-specifiers/",
+        "https://semver.org/",
+        "https://developer.chrome.com/docs/extensions/reference/manifest/version"
+      ]
+    },
+    "enforced_ci_gates": {
+      "status": "design-only; no repository settings changed",
+      "target": "refs/heads/main, plus an explicitly selected stabilization branch if one is created",
+      "recommendation": [
+        "Create an active branch ruleset requiring the seven observed GitHub Actions check contexts, tied to integration 15368 rather than accepting same-named statuses from arbitrary integrations.",
+        "Require a pull request and require the pull-request branch to be up to date with its selected base/target branch (strict checks), or separately adopt a merge queue only after adding and validating merge_group workflow triggers.",
+        "Prohibit branch deletion and non-fast-forward updates. Include administrators unless a narrowly documented emergency bypass actor is explicitly chosen.",
+        "Decide review-count policy based on actual maintainer availability; do not impose an unavailable second reviewer on a solo maintainer.",
+        "Keep tag protection and publication authority as a separate explicit release step. Protect accepted v* release tags against deletion or movement when the release process is established."
+      ],
+      "acceptance": [
+        "Re-read main HEAD and current rules immediately before applying; reconcile drift rather than overwriting intervening settings.",
+        "Read back the resulting rules and verify all seven exact contexts and the intended integration.",
+        "A disposable PR with a deliberately failing required job cannot merge; a passing PR at the required current base can merge through the intended path.",
+        "Force-push/deletion attempts are blocked for an ordinary maintainer subject to the rules; validate safely without rewriting main.",
+        "Artifact promotion records the same immutable SHA whose required checks succeeded, plus release version mapping and checksums."
+      ],
+      "notes": [
+        "Check contexts are the check-run names listed in observations.successful_ci.expected_checks, not an invented combined workflow name.",
+        "GitHub settings work is a proposed operational action, not implemented by either reference patch.",
+        "The current CI is already successful and includes browser qualification, Compose/local S3, licensing, package isolation and archive handoff; this proposal makes those existing gates enforceable."
+      ]
+    },
+    "frozen_compatibility_corpus": {
+      "status": "design-only; freeze after the accepted RC contract is chosen",
+      "recommendation": "Create immutable synthetic v1-RC artifacts once and exercise them with later installed packages. Keep producers from regenerating the corpus during ordinary tests.",
+      "proposed_location": "tests/fixtures/compatibility/v1-rc1/",
+      "inventory": [
+        {
+          "artifact": "manifest.json",
+          "contract": "Producer commit, release/artifact versions, exact SHA256 and byte size for every frozen input, expected Git object IDs, public trust fixture identities and semantic expectations. No absolute developer paths or real user content."
+        },
+        {
+          "artifact": "signed-work.bundle and fixture-allowed-signers",
+          "contract": "Two signed content-changing editions with ordinary messages and stable explicit manuscript/supporting anchors. Only synthetic content and public fixture keys; no private signing keys. Freeze expected first-parent order and canonical commit/path/anchor citations."
+        },
+        {
+          "artifact": "source-archive/",
+          "contract": "ARCHIVE.json, selected Git bundle and a tiny synthetic content-addressed asset sufficient for offline preservation verification. New readers must accept this archive and recover the original signed bytes and inventory."
+        },
+        {
+          "artifact": "catalog.json, index-checkpoint.json and selected state fixtures",
+          "contract": "Preserve guavajam.catalog.v1, guavajam.index-checkpoint.v1 including feed state, and a representative guavajam.update.v1 / guavajam.index-state.v1 continuity baseline. Test upgrade preserves accepted editions and feed identity and rejects rollback/tampering. Do not treat a schema mismatch as an empty history."
+        },
+        {
+          "artifact": "native-conversation-archive/",
+          "contract": "Synthetic native branching JSON and archive manifest frozen from the independent archiver; expected selected branch/source IDs and review-GFM source custody are preserved when consumed by a later extractor."
+        },
+        {
+          "artifact": "expected-citations.json",
+          "contract": "Canonical revision, document path, explicit anchors and expected routes from frozen source. Verify navigation survives renderer/style changes without requiring all generated HTML bytes to remain identical."
+        }
+      ],
+      "ownership": [
+        "GuavaJam-only archive/catalog/citation tests remain in tests/guavajam and run with the core wheel alone.",
+        "Generator checkpoint/feed/route compatibility belongs in generator tests.",
+        "Native archive-to-GFM compatibility belongs in the installed cross-package handoff lane; the extension remains independent of GuavaJam.",
+        "If new Markdown fixture files are stored directly, update the executable MARKDOWN_DATA allowlist with their actual consumption tests. Prefer keeping signed Markdown inside the bundle/archive to avoid new prose documents."
+      ],
+      "contract_decisions": [
+        "Durable: signed Git content identity, canonical source paths/anchors, public source/archive/catalog schema semantics and accepted-history/feed continuity.",
+        "Rebuildable: renderer fingerprints, HTML/CSS, search databases and caches. Rebuild them without resetting durable authority or continuity.",
+        "For v1 readers, support the selected v1-RC durable fixtures through v1.x; reject unknown schema versions with explicit non-destructive errors. Decide major-version migration separately.",
+        "Do not require old binaries to accept future optional features unless that forward-compatibility promise is deliberately made. Backward reading of preserved sources is the primary gate."
+      ],
+      "acceptance": [
+        "Tests first verify fixture hashes before opening them.",
+        "The newest built core/extractor/generator artifacts consume the frozen corpus in clean environments outside the source checkout.",
+        "The corpus distinguishes source-preservation success from rendering changes and includes malformed/tampered counterparts that must fail without overwriting last-good state.",
+        "Adding a new corpus version preserves earlier accepted fixtures instead of replacing them.",
+        "A deliberate current-producer/current-consumer change cannot make the old corpus disappear from tests."
+      ],
+      "limitations": [
+        "No corpus was frozen in this reference handoff: the authority-format/security corrections and target RC identity must be accepted first.",
+        "This is a proposed compatibility promise requiring owner acceptance; the existing .v1 namespace tests alone do not imply it is already enforced."
+      ]
+    }
+  },
+  "patch_evaluation_notes": [
+    "06-renderer-inputs.patch reuses tests/repository/test_renderer_checkout.py from draft PR #79 head 1ccb4443ab10dac1405358b30f0746c9914af054, broadening selection to every tracked file beneath both hashed runtime roots and retaining explicit JavaScript coverage.",
+    "The broader baseline reproduced 15 tracked-text drifts under core.autocrlf=true. False/input modes passed; the patched package-root text=auto eol=lf rules passed all modes.",
+    "The regression intentionally retains the upstream PR's HEAD-based committed-input semantics. Commit the evaluated patches in a disposable detached worktree before running that test; its patched tested commit tree is c17e3bc0615e06692475d410e99e031ff9af3c3e.",
+    "07-bootstrap-pin.patch pins the first README initializer and adds an executable policy test covering both initializer examples and matching package revisions.",
+    "Both independent patches passed all 18 repository tests and git diff --check at their recorded trees.",
+    "These narrow patches were not subjected to another complete browser/Compose/provider rehearsal. Git autocrlf modes were exercised on Linux, not by a native Windows runner."
+  ]
+}

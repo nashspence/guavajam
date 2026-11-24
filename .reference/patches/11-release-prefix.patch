@@ -1,0 +1,71 @@
+diff --git a/some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example b/some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example
+index 1d35895..24290ec 100644
+--- a/some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example
++++ b/some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example
+@@ -13,7 +13,7 @@ S3_ENDPOINT=https://s3.publisher.example
+ S3_REGION=us-east-1
+ S3_BUCKET=publication-assets
+ # Private SeaweedFS identities: staged uploads, read-only delivery, release, maintenance.
+-# Public gateway reads .released/ records only; never provision release writes to uploaders.
++# Public gateway reads released/sha256/ records only; never provision release writes to uploaders.
+ SEAWEEDFS_IDENTITIES=/absolute/path/to/s3-identities.json
+ S3_ACCESS_KEY_ID_FILE=/absolute/path/to/delivery-access-key
+ S3_SECRET_ACCESS_KEY_FILE=/absolute/path/to/delivery-secret-key
+diff --git a/some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json b/some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json
+index 685219b..3b1fe42 100644
+--- a/some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json
++++ b/some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json
+@@ -52,9 +52,9 @@
+         }
+       ],
+       "actions": [
+-        "Read:publication-assets",
++        "Read:publication-assets/released/sha256/*",
+         "List:publication-assets",
+-        "Write:publication-assets/sha256/.released/*"
++        "Write:publication-assets/released/sha256/*"
+       ]
+     },
+     {
+diff --git a/tests/deployment/test_configuration.py b/tests/deployment/test_configuration.py
+index fa6ed93..edfb414 100644
+--- a/tests/deployment/test_configuration.py
++++ b/tests/deployment/test_configuration.py
+@@ -1,5 +1,6 @@
+ """Deployment configuration contracts; run without Docker via make test-deployment-config."""
+ from pathlib import Path
++import fnmatch
+ import json
+ import re
+ import unittest
+@@ -97,6 +98,30 @@ class DeploymentConfigurationTests(unittest.TestCase):
+             self.services['updater']['environment']['GIT_SSH_COMMAND'])
+         self.assertIn('-s3.config=/run/secrets/s3-identities.json', self.services['seaweedfs']['command'])
+ 
++    def test_example_release_identity_matches_generated_policy_and_runtime_prefix(self):
++        from guavajam.local_assets import role_actions
++        from guavajam.object_store import PREFIX, RELEASE_PREFIX
++
++        example = json.loads((APP / 'deploy/s3-identities.example.json').read_text())
++        roles = {identity['name']: identity['actions'] for identity in example['identities']}
++        settings = (APP / 'deploy/compose.env.example').read_text()
++        bucket_match = re.search(r'^S3_BUCKET=(\S+)$', settings, re.M)
++        self.assertIsNotNone(bucket_match)
++        bucket = bucket_match[1]
++        self.assertEqual(role_actions(bucket)['release'], roles['release'])
++
++        def can_write(role, key):
++            return any(fnmatch.fnmatchcase(bucket + '/' + key, action.removeprefix('Write:'))
++                       for action in roles[role] if action.startswith('Write:'))
++
++        release_record = RELEASE_PREFIX + 'a' * 64 + '.png.json'
++        staged_asset = PREFIX + 'a' * 64 + '.png'
++        self.assertTrue(can_write('release', release_record))
++        self.assertFalse(can_write('publisher', release_record))
++        self.assertFalse(can_write('release', staged_asset))
++        self.assertIn(RELEASE_PREFIX, settings)
++        self.assertNotIn('.released/', settings)
++
+     def test_index_lists_locations_and_trust_is_operator_owned(self):
+         updater = self.services['updater']['environment']
+         self.assertEqual('${GUAVAJAM_INDEX_URL:-}', updater['GUAVAJAM_INDEX_URL'])

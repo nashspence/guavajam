@@ -1,0 +1,375 @@
+{
+  "kind": "reference-evaluation-results",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "environment": {
+    "os": "Linux",
+    "python": "3.12.14",
+    "node": "24.22.3",
+    "git": "2.56.1",
+    "uv": "0.13.9",
+    "pandoc": "3.12.1 (repository checksum verified)",
+    "dependencies": "locked uv workspace dependencies; explicit evaluation-worktree PYTHONPATH",
+    "difference_from_mise": "Host Python/Node patch versions differ from the pinned 3.12.12/24.10.0. Qualified pinned CI remains an integration gate."
+  },
+  "regression_baselines": [
+    {
+      "concern": "GJ-RC-01",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base production trusted_git imported explicitly; final new signature-family tests and frozen fixtures from the patch worktree."
+      },
+      "summary": "5 tests, 7 failing subtests",
+      "log_sha256": "99f5e97bf73268c7adec7bb6d39a4f60fc1f7558d84ad9fa6afa709d526300eb",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-02",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base core/generator imported explicitly; new URI and retained-history regression tests from the patch worktree."
+      },
+      "summary": "3 tests, 1 failure and 2 errors",
+      "log_sha256": "9e06bac5711b60eb7c0876e7cca46c2e6c7223ba547b19e4abee30c76d2d7b07",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-04",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base generator imported explicitly; new replacement lifecycle regression tests from the patch worktree."
+      },
+      "summary": "3 tests, 2 connection-refused errors and 1 cleanup failure",
+      "log_sha256": "aed700fee25fed93024d3f8c91f97a49ca70cbfceb176c306e136f6076e44b91",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-05",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base extractor imported explicitly; new output-custody regression tests from the patch worktree."
+      },
+      "summary": "4 tests, 9 failing subtests and 1 timeout error",
+      "log_sha256": "1d5191f55f9001e2244f3be4c9b80b8db1c0689b60825b3f6936855233c6930e",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-06",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base runtime attributes plus new committed-input regression; source tree 9036e158f19007fafd98621deda33170323586c7."
+      },
+      "summary": "1 test, true checkout mode failed with 15 drifting text inputs",
+      "log_sha256": "3c4230b1a5d4ec551389e09a8b96a329f71a8163abc0c5414e8b71822053008b",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-07",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base README plus new policy regression; source tree e1e371a0933e3147762e5f59d41f1d78b59180dd."
+      },
+      "summary": "4 policy tests, 2 failures for the unpinned initializer",
+      "log_sha256": "2cb5e1a7474efe5fbefd03bbc4ea28845b52aae0e7490290a944184c9525b839",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    },
+    {
+      "concern": "GJ-RC-11",
+      "result": "failed-as-expected",
+      "source": {
+        "kind": "worktree",
+        "details": "Base 54fce07b619628a5e92be946be4b189873ddf1a0; Base deployment examples plus new regression; source tree 1c1e43c9d5939a9c9b50a697ab732ea297d228f4."
+      },
+      "summary": "1 deployment regression failed on the stale release permission example",
+      "log_sha256": "9cad0afa63abd0083225b4da0a474fb5343b1eef286edb53cf0377926b3bb474",
+      "purpose": "Demonstrates a regression against the reviewed implementation; not an outstanding failure of the proposed patch."
+    }
+  ],
+  "combined_source_checks": [
+    {
+      "name": "core",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 26.41,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "tools/run_tests.py",
+        "guavajam"
+      ],
+      "log_sha256": "9fbf3b34c03dae6090056194ccb09482b5927f1ceb220ecac85a9ce9c47523ae",
+      "tests_run": 329,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "generator",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 88.43,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "tools/run_tests.py",
+        "a-guavajam-static-website-generator"
+      ],
+      "log_sha256": "6e71d7719ea5853fab227128ff6e2e30626f560c65e7f5e814ea6737541349e8",
+      "tests_run": 170,
+      "skipped": 1,
+      "notes": "Generator OpenPGP signing-agent test skipped because the agent could not start in this environment; the new core public-key OpenPGP verification regression ran and passed."
+    },
+    {
+      "name": "extractor",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 17.51,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "tools/run_tests.py",
+        "a-chatgpt-conversation-archive-gfm-extractor"
+      ],
+      "log_sha256": "40d117ba1db8270e490f9f5d792f54b40695af532993bea7e13eaae85718d0e6",
+      "tests_run": 38,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "repository",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 0.82,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/repository",
+        "-v"
+      ],
+      "log_sha256": "158d35510fb939e70bc4d6246f6b233d3208ed8b4acab9c9d36646ce76d10370",
+      "tests_run": 19,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "deployment-config",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 0.17,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/deployment",
+        "-p",
+        "test_configuration.py",
+        "-v"
+      ],
+      "log_sha256": "409731bb042055b16954b2a199bd5a6ba2c6cb402f2b1f13d9635838ec841e77",
+      "tests_run": 12,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "node",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 1.48,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "node",
+        "--test",
+        "tests/guavajam/test_worker.mjs",
+        "tests/guavajam/test_gateway_server.mjs",
+        "tests/guavajam/test_private_preview.mjs",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_download_transport.mjs",
+        "some-implementations/a-chatgpt-conversation-archiver-browser-extension/tests/test_chatgpt_capture.mjs"
+      ],
+      "log_sha256": "25e46fbfbd19c297022fbd78a19cb79f0794586f61c5a002d0df3f4fa592ba2b",
+      "tests_run": 64,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "archiver-package",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 0.12,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "some-implementations/a-chatgpt-conversation-archiver-browser-extension/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "log_sha256": "8677a4582a513d2ae163626e84c1ab6378f2cb8286814ab6debecee87a1dfaad",
+      "tests_run": 1,
+      "skipped": 0,
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "name": "boundaries",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "seconds": 0.47,
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "exit_code": 0,
+      "command_argv": [
+        "python",
+        "tools/check_boundaries.py"
+      ],
+      "log_sha256": "0e8e518c4c305a809cceea132a32225572768497798e61773cdd4f00490bf00b",
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    }
+  ],
+  "final_seven_patch_checks": [
+    {
+      "name": "final-deployment-config",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "seconds": 0.164,
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "exit_code": 0,
+      "tests_run": 13,
+      "command_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/deployment",
+        "-p",
+        "test_configuration.py",
+        "-v"
+      ],
+      "log_sha256": "b8dde606cb406e72879fa50c07da1e903b6b2300e164949d6effc5face8d118e",
+      "notes": "Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    },
+    {
+      "name": "final-repository",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "seconds": 0.716,
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "exit_code": 0,
+      "tests_run": 19,
+      "command_argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/repository",
+        "-v"
+      ],
+      "log_sha256": "187f781c0b0533c87dfacab895b5286802f076b914c12a7922877dc7ebd485cd",
+      "notes": "Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    },
+    {
+      "name": "final-diff-check",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "seconds": 0.008,
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "exit_code": 0,
+      "tests_run": null,
+      "command_argv": [
+        "git",
+        "diff",
+        "54fce07b619628a5e92be946be4b189873ddf1a0",
+        "--check"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "notes": "Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    }
+  ],
+  "counting": "Suite counts are not added to focused regressions or other overlapping runs. A skipped test is not counted as passed.",
+  "baseline_remote_ci": {
+    "url": "https://github.com/nashspence/guavajam/actions/runs/45197088534",
+    "source": {
+      "kind": "commit",
+      "id": "54fce07b619628a5e92be946be4b189873ddf1a0"
+    },
+    "result": "passed",
+    "scope": "Existing main CI before any reference patch; not evidence that the candidate patches passed remote CI."
+  },
+  "not_run": [
+    {
+      "command": "Full browser qualification of the candidate integration commit",
+      "reason": "Local source changes received relevant Python/Node regressions; rerun qualified browser CI on the accepted integration SHA."
+    },
+    {
+      "command": "Compose/local S3 lifecycle and live-provider rehearsal of candidate patches",
+      "reason": "Deployment configuration passed; Docker/provider execution was not repeated and no live credentials or bucket mutations were used."
+    },
+    {
+      "command": "Fresh installed wheel/sdist/archive-to-GFM qualification for the combined candidate",
+      "reason": "Baseline distribution isolation already passed; this handoff source-tree evaluation does not claim new installed-artifact qualification."
+    },
+    {
+      "command": "Native Windows checkout/output-custody qualification",
+      "reason": "Autocrlf modes were tested using Linux Git. Platform-specific diagnostic handling still needs qualification."
+    },
+    {
+      "command": "RC version mapping, private-root/fencing protocol, repository protection and frozen compatibility acceptance",
+      "reason": "These are implementation designs or operational decisions, not implemented candidate code."
+    }
+  ],
+  "logs": "Only summaries and hashes are published. Raw local logs include ephemeral paths and private-preview test session URLs and are not distributed as handoff artifacts."
+}

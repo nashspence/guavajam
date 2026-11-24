@@ -1,0 +1,113 @@
+{
+  "schema": "guavajam.integration-review.v1",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "review_kind": "Static inspection of the six exact reference patches and relevant base source; no new implementation or test execution.",
+  "blocking_findings": [],
+  "conclusion": "No additional clear implementation blocker identified in this static pass. The references need independent integration review and the explicitly listed compatibility decisions; individual prior test results do not establish a qualified combined release.",
+  "patches": [
+    {
+      "file": "01-signature-family.patch",
+      "sha256": "6f6de065911a617e81dc8b07c11e742fbfbf83c5b76b016c9e3078e29a02b001",
+      "scope": "Core signature-family binding before Git verifier dispatch; affects every caller of the shared trusted-signature helper.",
+      "limitations": [
+        "Adds a 65,536-byte TOTAL commit-object cap at trusted_git.verify_signature, counting headers, signature and message. This is a new direct-helper input restriction. Normal publication verification already has the same total-object cap in publication_protocol.commit (MAX_MESSAGE=65536), reached through commit_identity/verify_shape before signature verification; do not describe this as a newly lowered cap for ordinary discovered editions.",
+        "Requires exactly one gpgsig header, rejects other gpgsig-prefixed headers, and accepts only the specified SSH or OpenPGP armor with a single BEGIN marker and exact final END line. These explicit syntax restrictions are separate from the required signature-family binding and may be narrower than Git backend parsing of historical input.",
+        "Retains inherited Git environment handling except GIT_GRAFT_FILE. The extractor environment cleanup in patch 05 does not harden these core Git operations."
+      ],
+      "independent_review": [
+        "Confirm the supported historical signature encodings and alternate-header policy before adoption. Inspect retained accepted history, including direct signature-helper use, rather than treating the new armor tests as proof of complete compatibility.",
+        "Keep the crucial mismatch rejection before backend dispatch. Reconcile the duplicated 64 KiB constants and document that the limit applies to the whole commit object.",
+        "Requalify explicit SSH and OpenPGP trust, both cross-family rejection directions, and preservation/discovery/rendering consumers on the integration revision. New source restrictions require an explicit compatibility decision; do not rewrite accepted source history to accommodate them."
+      ],
+      "evidence": [
+        "src/guavajam/publication_protocol.py:MAX_MESSAGE, commit, verify_shape",
+        "src/guavajam/publication_commit.py:commit_identity, signature, verify",
+        "src/guavajam/trusted_git.py:signature_format in reference patch"
+      ]
+    },
+    {
+      "file": "02-uri-parity.patch",
+      "sha256": "553fc56fd2f1f3960f15eaed64b639ad3082849385b1e029fddd4e82fc57c005",
+      "scope": "Generator compatibility with source-approved mailto query parameters and shared external-URI syntax validation.",
+      "limitations": [
+        "Intentionally partial parity: core valid_source_link still accepts credential-bearing HTTPS URLs while the renderer still refuses them. The reference preserves that renderer restriction and leaves core source acceptance unchanged.",
+        "Changing the core predicate to reject those historical URLs would retroactively reject some previously accepted signed inputs; simply widening the renderer would weaken its existing explicit credential policy.",
+        "A later source edit cannot repair an unrenderable historical edition because site generation traverses accepted history. The included regression covers that failure mode for mailto links, not every possible source/renderer contract difference."
+      ],
+      "independent_review": [
+        "Retain generator-to-core authority direction; the generator consumes the core URI predicate and does not define publication eligibility.",
+        "Resolve credential URL handling and any migration/versioning policy separately. Keep it visible as an unresolved recommendation, not a completed fix.",
+        "Review accepted-link compatibility for manuscript and supporting GFM while preserving the stricter media destination policy."
+      ]
+    },
+    {
+      "file": "04-preview-rollback.patch",
+      "sha256": "1ddd327be9437b2539f3955b4900101986bdcb7d64eb459ebdc500cd7d32f771",
+      "scope": "Generator hosted-private-preview process replacement and in-process rollback to last-good output.",
+      "limitations": [
+        "Uses stop/start on one port, so rollback improves recovery without guaranteeing uninterrupted connections or zero downtime.",
+        "A restored last-good listener still reports the attempted refresh as failed. This preserves failed health status instead of claiming the candidate revision was adopted.",
+        "Rollback metadata and storage values are retained in memory. The patch does not add durable crash recovery, process-restart restoration, or a policy for expiring credentials.",
+        "The new terminate/kill/reap bounds cover Preview.close. Existing preview.start_server and serve have separate termination paths that this patch does not comprehensively redesign."
+      ],
+      "independent_review": [
+        "Confirm last-good authentication and storage credentials are still usable when replayed; preserve private session isolation and no-store behavior.",
+        "Review dual startup failure, termination failure, shutdown, and deletion ordering with the deployment supervisor and intended platform.",
+        "Do not equate process rollback with private staged-asset retention; the separate garbage-collection/active-draft recommendation remains open."
+      ]
+    },
+    {
+      "file": "05-extractor-custody.patch",
+      "sha256": "00c77513554eedc92a5c211318163d5e4d26e3ae9f5a96950ac77f9b4abcf1de",
+      "scope": "Extractor private-output custody, independent of ambient Git routing and indeterminate Git failures.",
+      "limitations": [
+        "Recognizes repository absence through one exact Git diagnostic under forced LC_ALL=C. Verified with Git 2.56.1; changed wording on another supported version will conservatively refuse output rather than authorize it.",
+        "Any ancestor .git marker is enough to refuse output, including unreadable or invalid repository markers. This deliberately favors privacy over permissive recovery from broken repositories.",
+        "Preserves the original outside-worktree distinction: a genuine successful false reply without a .git ancestor remains allowed, including bare-repository contexts. It does not establish a broader prohibition on every directory containing Git data.",
+        "Sanitizes Git environment only for this custody check. It neither changes publication authority nor repairs other core Git invocation policies."
+      ],
+      "independent_review": [
+        "Qualify the absence diagnostic and path behavior on the supported Git/platform matrix; keep unknown failures fail-closed.",
+        "Confirm intended policy for bare repositories and Git environment overrides. Preserve ordinary external output, linked-worktree rejection, exclusive creation, and mode 0600.",
+        "Treat the check as local path custody using the existing exclusive-create model, not as a new filesystem transaction or hostile concurrent-directory defense."
+      ]
+    },
+    {
+      "file": "06-renderer-inputs.patch",
+      "sha256": "e46842544c1e2e0d7c6e308d3713957465ea9ffd70639b9b4fda9063981a729c",
+      "scope": "Repository checkout-byte stability for tracked core and generator runtime files used in renderer identity.",
+      "limitations": [
+        "text=auto eol=lf applies to the tracked runtime roots. It does not establish byte stability for untracked/generated/vendor-installed inputs, npm-supplied SQLite runtime files, compiler versions, or dependency versions.",
+        "Does not retroactively rewrite existing blobs or already-modified working files; verify from a clean integration checkout.",
+        "The regression intentionally reads HEAD with ls-tree/cat-file, including attributes. Running it on an uncommitted patch tests the previous commit rather than the staged candidate."
+      ],
+      "independent_review": [
+        "Run this regression against an actual integration commit or equivalent disposable commit containing the patch.",
+        "Confirm binary autodetection and any future explicit nested attributes for all tracked runtime input types; avoid blanket history renormalization.",
+        "Retain separate artifact/runtime qualification. The patch repairs checkout drift, not all sources of renderer fingerprint differences."
+      ]
+    },
+    {
+      "file": "07-bootstrap-pin.patch",
+      "sha256": "7e8f5eaa02ebcb82ab0a7375a8861d8611bbf88486c4f4b8b7ad6dd0c68c4ec9",
+      "scope": "Documented initializer package pinning and an executable check on those examples.",
+      "limitations": [
+        "Documentation-only execution pin: users must replace reviewed-sha with the reviewed full commit and use the same value in GUAVAJAM_TOOL_REF.",
+        "Does not add runtime enforcement that the executing initializer package matches GUAVAJAM_TOOL_REF, alter already-created repositories, or prove the chosen revision was reviewed.",
+        "The policy test checks command-reference syntax and intra-example consistency, not live package retrieval or deployment qualification."
+      ],
+      "independent_review": [
+        "Keep the onboarding example aligned with the actual release-install procedure and the repository minimal-prose policy.",
+        "If runtime package/reference equality becomes a release requirement, specify and implement it separately; do not claim this documentation patch enforces it."
+      ]
+    }
+  ],
+  "cross_package_review": [
+    "All six patches remain independently reviewable. No changed-path overlap or newly reversed package dependency is apparent from their diffs; textual independence does not prove runtime integration compatibility.",
+    "Patch 01 changes a shared trust helper consumed by discovery, signed rendering, assets and source preservation. Its family-binding security fix and its stricter accepted input syntax must be reviewed as distinct claims.",
+    "Patches 02 and 01 both affect the ability to regenerate retained history. Inventory existing accepted sources before changing those contracts; a source-edit-only workaround is insufficient for immutable historical editions.",
+    "Patches 01, 02 and 04 change runtime bytes hashed by renderer_identity; rebuilding disposable views or caches is expected. Patch 06 stabilizes checkout bytes but does not promise unchanged renderer fingerprints after code changes.",
+    "The contribution is a nonauthoritative implementation reference. Rebase/adapt to the current target revision, review the combined diff, and run required package, boundary, artifact and deployment gates on the final integration commit.",
+    "The six code/documentation patches do not themselves close the active-draft garbage-collection issue, external release/branch enforcement decisions, provider rehearsal, or deferred spoken screen-reader qualification."
+  ]
+}

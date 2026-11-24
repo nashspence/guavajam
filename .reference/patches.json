@@ -1,0 +1,115 @@
+{
+  "kind": "reference-patch-inventory",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "patches": [
+    {
+      "concern": "GJ-RC-01",
+      "path": ".reference/patches/01-signature-family.patch",
+      "sha256": "6f6de065911a617e81dc8b07c11e742fbfbf83c5b76b016c9e3078e29a02b001",
+      "bytes": 13434,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "c09e63468f3fccae1c6d563842e8d396700b7778",
+      "changed_paths": [
+        "src/guavajam/trusted_git.py",
+        "tests/fixtures/signatures/openpgp-commit.json",
+        "tests/fixtures/signatures/openpgp-public-key.asc",
+        "tests/guavajam/test_signature_family.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-02",
+      "path": ".reference/patches/02-uri-parity.patch",
+      "sha256": "553fc56fd2f1f3960f15eaed64b639ad3082849385b1e029fddd4e82fc57c005",
+      "bytes": 6721,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "62fa1d0accc969408d6638cbe1210b70a7c28115",
+      "changed_paths": [
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_catalog.py",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_renderer.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-04",
+      "path": ".reference/patches/04-preview-rollback.patch",
+      "sha256": "1ddd327be9437b2539f3955b4900101986bdcb7d64eb459ebdc500cd7d32f771",
+      "bytes": 13486,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "61186882494fd43e98e4f511a87084f0c8d4fb06",
+      "changed_paths": [
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py",
+        "some-implementations/a-guavajam-static-website-generator/tests/test_preview_service.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-05",
+      "path": ".reference/patches/05-extractor-custody.patch",
+      "sha256": "00c77513554eedc92a5c211318163d5e4d26e3ae9f5a96950ac77f9b4abcf1de",
+      "bytes": 9477,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "807d32ac5f4c0a73a6cbca67a18d775a29d82188",
+      "changed_paths": [
+        "some-implementations/a-chatgpt-conversation-archive-gfm-extractor/src/a_chatgpt_conversation_archive_gfm_extractor/extractor.py",
+        "some-implementations/a-chatgpt-conversation-archive-gfm-extractor/tests/test_output_custody.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-06",
+      "path": ".reference/patches/06-renderer-inputs.patch",
+      "sha256": "e46842544c1e2e0d7c6e308d3713957465ea9ffd70639b9b4fda9063981a729c",
+      "bytes": 3866,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "c17e3bc0615e06692475d410e99e031ff9af3c3e",
+      "changed_paths": [
+        ".gitattributes",
+        "tests/repository/test_renderer_checkout.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-07",
+      "path": ".reference/patches/07-bootstrap-pin.patch",
+      "sha256": "7e8f5eaa02ebcb82ab0a7375a8861d8611bbf88486c4f4b8b7ad6dd0c68c4ec9",
+      "bytes": 2634,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "e06c4bc3a0d4e2880828a7885e40246d27944697",
+      "changed_paths": [
+        "README.md",
+        "tests/repository/test_policy.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    },
+    {
+      "concern": "GJ-RC-11",
+      "path": ".reference/patches/11-release-prefix.patch",
+      "sha256": "5fa6eedeee0ea6b8ef530f1784ac5555c6e7c3b2dfc56b8a1bd165df9a887051",
+      "bytes": 3907,
+      "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "independently_tested_tree": "92b61c12f2b096fe529604e99ef56a78961334da",
+      "changed_paths": [
+        "some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example",
+        "some-implementations/a-guavajam-static-website-generator/deploy/s3-identities.example.json",
+        "tests/deployment/test_configuration.py"
+      ],
+      "application": "git apply --index <path> in a clean worktree at the pinned base; inspect and test before acceptance"
+    }
+  ],
+  "combined_evaluation": {
+    "tree": "dc380507a62accd365aafa95244b5cfc3e439a3a",
+    "patch_order": [
+      "01-signature-family.patch",
+      "02-uri-parity.patch",
+      "04-preview-rollback.patch",
+      "05-extractor-custody.patch",
+      "06-renderer-inputs.patch",
+      "07-bootstrap-pin.patch",
+      "11-release-prefix.patch"
+    ],
+    "local_only_commit": "09f0d38a95ca484b8fa4f275aa2b19beb0411e83",
+    "note": "This local evaluation commit is not the published handoff commit. Reconstruct its tree by applying the ordered patches to base. The handoff branch carries patch artifacts, not applied runtime changes."
+  }
+}

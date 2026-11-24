@@ -1,0 +1,309 @@
+{
+  "schema": "guavajam.proffer-design.v1",
+  "concern": "03-private-staging-retention",
+  "status": "design-only; this handoff implements no production gate, registration protocol or shared-bucket enablement",
+  "repository": "nashspence/guavajam",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "issue": {
+    "url": "https://github.com/nashspence/guavajam/issues/64",
+    "title": "Protect private authoring roots during shared-bucket collection",
+    "state_observed": "open; zero comments; owner nashspence; created and updated 2026-11-15",
+    "provenance": "Issue metadata and exact body supplied by the parent agent from its fresh GitHub read during this handoff.",
+    "body": "Private authoring clones can reference staged assets that are absent from a public remote retention snapshot. Upload leases protect recent assets, but age after the existing grace period. Add explicit private-root registration or bounded lease renewal so active private work remains protected before any manual shared-bucket collection apply. Preserve reader-only preview credentials, inert exact-commit source inspection, writer separation and collector inventory rechecks. Cover expiry, unreachable private authorities and concurrent renewal with executable contracts. Released assets retain their existing permanent collection protection."
+  },
+  "recommendation": {
+    "priority": "P1 before qualifying shared-bucket destructive collection for v1",
+    "immediate_v1_decision": "Make shared-bucket collection plan-only until both complete private-root coverage and an enforceable maintenance window are implemented and qualified. Make the unsupported apply path fail before the first delete; absence of private-root configuration must not mean an empty private-root set. This is proposed behavior, not an already-applied restriction.",
+    "retention_choice": "Use durable, explicitly registered private roots for long-lived drafts. Preserve the existing short per-asset upload lease as a bridge before registration, not as the lifetime of a registered root.",
+    "bounded_scope": "The smallest RC change is a hard shared-bucket apply gate with executable contracts. The schema and protocol below are a proposed next increment, not a claim that registration alone makes concurrent GC safe.",
+    "not_sufficient": [
+      "Increasing GRACE_DAYS or adding a best-effort heartbeat without a fail-closed maintenance gate.",
+      "A local flock, a GitHub Actions concurrency group, or a registry generation/CAS check presented as a bucket-wide fence.",
+      "Re-reading references, leases or object identities immediately before DELETE. A new reference can still appear after that read.",
+      "Object versioning alone: a new draft can begin depending on the same old version that the collector is about to delete."
+    ]
+  },
+  "current_evidence": [
+    {
+      "path": "src/guavajam/manage_assets.py",
+      "symbols": [
+        "operator_lock",
+        "upload",
+        "remote_roots",
+        "retained_assets"
+      ],
+      "lines": "40-58,99-117,167-213",
+      "finding": "The lock is stored in this checkout's Git directory. Retention scans the configured remote repository's full reachable main history, current remote branch/open-PR tips, and the maintenance checkout's own local heads, index and nonignored worktree. It does not discover other private authoring clones. Upload/reuse refreshes a separate lease object."
+    },
+    {
+      "path": "src/guavajam/manage_assets.py",
+      "symbols": [
+        "candidates",
+        "asset_inventory",
+        "collect",
+        "require_action",
+        "main"
+      ],
+      "lines": "236-290,293-330",
+      "finding": "Candidates require no retained digest, all grouped content/sidecar records older than the grace cutoff, and no current hold/retention. Any release-namespace record preserves its asset indefinitely. Apply rechecks reference and object inventories per candidate, explicitly assumes writers and reference changes stay paused for the entire sweep, and the CLI requires manual dispatch of the trusted main maintenance workflow. None of these checks inventories all private authorities or enforces a cross-machine pause."
+    },
+    {
+      "path": "src/guavajam/object_store.py",
+      "symbols": [
+        "GRACE_DAYS",
+        "ObjectStore"
+      ],
+      "lines": "10-16,72-91",
+      "finding": "The current grace is 30 days. The storage contract explicitly delegates serialization of mutating operators to an external mechanism. Version IDs and Object Lock are optional independent capabilities."
+    },
+    {
+      "path": "src/guavajam/ingest_asset.py",
+      "symbols": [
+        "upload_media"
+      ],
+      "lines": "11-38",
+      "finding": "Typed media follows the same lease-before-upload/reuse pattern. Any renewal/adoption change must cover media and image/bin paths."
+    },
+    {
+      "path": "src/guavajam/asset_storage.py",
+      "symbols": [
+        "S3._conditions",
+        "S3.delete"
+      ],
+      "lines": "250-263,379-395",
+      "finding": "Conditional object writes are optional and do not fence separate root and asset objects. Deletion rechecks object identity/retention but documents that portable unversioned compare-and-delete is unavailable and writers must remain paused."
+    },
+    {
+      "path": "src/guavajam/private_assets.py",
+      "symbols": [
+        "PrivateAssets.observe",
+        "PrivateAssets.verify"
+      ],
+      "lines": "43-98",
+      "finding": "Private qualification reads pins and exact asset versions, including optional retention, without lease or registry writes. That read-only boundary should remain intact."
+    }
+  ],
+  "exact_code_ownership": [
+    {
+      "owner": "GuavaJam core",
+      "paths": [
+        "src/guavajam/manage_assets.py",
+        "src/guavajam/object_store.py"
+      ],
+      "proposed_work": "Enforce the apply gate at the collect API as well as the CLI; merge all accepted private-root digests into retained_assets before candidates; preserve release protection, grace, all-version grouping and retention holds. Keep local operator_lock only as same-checkout exclusion."
+    },
+    {
+      "owner": "GuavaJam core, proposed new module",
+      "paths": [
+        "src/guavajam/private_retention.py"
+      ],
+      "proposed_work": "Strict bounded parsers for operator-owned scope/registry data and immutable root manifests; exact-commit inert digest extraction; explicit registration/retirement with expected registry generation; complete snapshot validation; typed maintenance authorization consumed by collect. Proposed name only, not an existing file."
+    },
+    {
+      "owner": "GuavaJam core",
+      "paths": [
+        "src/guavajam/asset_workflow.py",
+        "src/guavajam/resources/commands.mk",
+        "src/guavajam/cli.py"
+      ],
+      "proposed_work": "Keep preview dispatch available. Refuse unsupported sweep requests and enforce again in the eventual worker. Surface an actionable blocked reason and bind any supported maintenance run to its exact scope/registry generation. Add explicit operator registration commands only when the protocol is implemented."
+    },
+    {
+      "owner": "GuavaJam core",
+      "paths": [
+        "src/guavajam/manage_assets.py:upload",
+        "src/guavajam/ingest_asset.py:upload_media",
+        "src/guavajam/asset_release.py:main"
+      ],
+      "proposed_work": "All staging, reuse, renewal and release operations must participate in the same maintenance contract before shared apply is enabled. Root registration/adoption cannot occur after the freeze. A renewal writer remains separate from preview readers and release writers."
+    },
+    {
+      "owner": "GuavaJam core storage and optional deployment qualification",
+      "paths": [
+        "src/guavajam/asset_storage.py",
+        "src/guavajam/s3.py",
+        "src/guavajam/local_assets.py",
+        "src/guavajam/resources/storage/credentials.env.example",
+        "tests/deployment/test_compose.py"
+      ],
+      "proposed_work": "Qualify actual provider authority and denial behavior if a maintenance barrier is added. Avoid assuming client operation modes or S3_CONDITIONAL_WRITES enforce a global fence. The initial registry transport proposed below is private operator files, so no new storage prefix is required in the RC."
+    },
+    {
+      "owner": "GuavaJam core tests",
+      "paths": [
+        "tests/guavajam/test_asset_storage.py",
+        "tests/guavajam/test_asset_versions.py",
+        "tests/guavajam/test_asset_release.py",
+        "tests/guavajam/test_private_retention.py"
+      ],
+      "proposed_work": "Extend existing retention/lifecycle tests; add the proposed private-root contract suite. The last path is proposed. Use two real Git clones and deterministic storage inventory/race fixtures; add real provider denial tests only for a barrier implementation actually shipped."
+    },
+    {
+      "owner": "Optional static website generator",
+      "paths": [
+        "some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/preview_service.py",
+        "some-implementations/a-guavajam-static-website-generator/deploy/compose.env.example"
+      ],
+      "proposed_work": "Continue to use read-only private preview credentials. Do not add lease renewal, registry mutation or maintenance permission to the preview process. Any dedicated renewal/registration process belongs to the operator workflow, not the preview request path."
+    }
+  ],
+  "v1_operational_gate": {
+    "default": "Read-only collection plans are supported. Destructive collection is blocked for shared or unknown authority scope, whether invoked through the CLI or collect directly.",
+    "scope_source": "An explicit operator-owned maintenance configuration outside author-controlled source binds canonical S3 endpoint, region and bucket to an authority scope. Source asset-policy.json, a preview session, a local Git remote, and the workflow environment guard alone cannot establish exclusive bucket custody.",
+    "suggested_scope_record": {
+      "schema": "guavajam.asset-collection-scope.v1",
+      "storage": {
+        "endpoint": "https://objects.example.org",
+        "region": "us-east-1",
+        "bucket": "publication-assets"
+      },
+      "mode": "plan-only",
+      "authority_ids": [
+        "operator-assigned-opaque-authority-id"
+      ]
+    },
+    "validation": [
+      "Treat all schema names as working proposals until integrated. Reject unknown fields, duplicate JSON keys, unbounded input, invalid storage coordinates and scope/storage mismatches.",
+      "Missing config, plan-only, shared, unknown, multiple authorities, or incomplete private-root coverage must reject apply before any object deletion. No allow-unsafe-shared switch or boolean acknowledgement bypass.",
+      "If an isolated single-authority apply mode is retained for v1, it is an explicit deployment limitation: physically dedicated bucket, exclusive writer custody, complete controlled references, and the existing full-window pause contract. A label in a JSON file is not evidence that another authority does not exist.",
+      "If that isolated deployment limitation cannot be demonstrated and tested in the RC, disable all apply paths for this release. Shared preview/qualification/public delivery do not depend on enabling GC deletion.",
+      "Enforce at the collect entry point, not only asset_workflow.request or require_action. Preserve the existing trusted-main/manual-dispatch requirement as an additional gate.",
+      "A plan with incomplete private-root coverage must label its candidates unverified and report why apply is blocked. Never persist a plan as future deletion authority."
+    ],
+    "exit_condition_for_shared_apply": "Only enable after the private-root coverage and full maintenance-window acceptance scenarios below pass for the supported deployment. Schema implementation alone does not meet this condition.",
+    "shared_definition": "Treat a bucket as shared whenever it serves authoring clones, workspaces or publication authorities outside the collector's complete controlled retention scope. Multiple private clones under the same human owner, GitHub repository or storage credential still count; one account name does not establish exclusive custody."
+  },
+  "proposed_private_root_protocol": {
+    "retention_semantics": [
+      "A registered root is an operator-approved private authoring authority/ref with one or more explicitly retained exact commit snapshots. Root registration has no automatic TTL. All active snapshots contribute digest tokens to the existing conservative retained set.",
+      "A guavajam.asset-lease.v1 object remains a short bridge based on its server-observed modified timestamp and the existing 30-day grace. It does not make a private clone discoverable or authorize retirement of a registered root when a heartbeat stops.",
+      "Root freshness/heartbeat can inform diagnostics, but age, offline status, credential failure or a missing manifest must never silently remove retained digests. Failed refresh preserves the previous accepted snapshot and blocks apply if current coverage cannot be established.",
+      "A new exact commit is additive first. Do not replace the previous snapshot until its explicit retirement is accepted; edits, rewritten history and collector restarts must not quietly drop retention.",
+      "Registration protects retention only. It neither verifies publication signer authority nor creates a public release mapping. Released assets keep their existing permanent protection."
+    ],
+    "initial_transport": "Use a protected operator-owned registry bundle outside publication checkouts and public assets: an expected-authority/root registry plus immutable manifest files named by their SHA-256. A trusted maintenance operator imports these through an authenticated private channel. The collector has read-only access to this bundle and to any private Git sources needed to verify it. This avoids a new S3 namespace, additional web service or distributed lock in the RC. Do not let staging or preview credentials edit the authoritative registry.",
+    "registry_example": {
+      "schema": "guavajam.private-root-registry.v1",
+      "storage": {
+        "endpoint": "https://objects.example.org",
+        "region": "us-east-1",
+        "bucket": "publication-assets"
+      },
+      "generation": 7,
+      "roots": [
+        {
+          "root_id": "00000000000000000000000000000001",
+          "authority_id": "operator-assigned-opaque-authority-id",
+          "source_id": "operator-configured-private-source",
+          "snapshots": [
+            {
+              "revision": "1111111111111111111111111111111111111111",
+              "manifest_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ]
+        }
+      ]
+    },
+    "manifest_example": {
+      "schema": "guavajam.private-root.v1",
+      "root_id": "00000000000000000000000000000001",
+      "revision": "1111111111111111111111111111111111111111",
+      "digests": [
+        "3333333333333333333333333333333333333333333333333333333333333333"
+      ]
+    },
+    "schema_constraints": [
+      "Examples contain placeholders, not actual private roots. Use a stable opaque root ID; source_id resolves only through operator-owned configuration, never through a URL or executable supplied by a source commit.",
+      "Full lowercase 40-hex commit identities and 64-hex digests; sorted unique digest lists; unique root IDs; exact allowed fields; integer generation greater than zero; reject duplicate keys and malformed/unknown schema versions.",
+      "Proposed bounds: registry and each manifest at most 1 MiB; at most 1,000 roots; at most 10,000 digests per manifest; aggregate accepted manifest bytes at most 256 MiB. Reuse or tighten existing Git/object/byte scan budgets and fail closed on any exceeded bound. These are proposed limits, not current behavior.",
+      "Hash the exact immutable manifest bytes. Verify bytes against manifest_sha256 and root/revision against its registry entry. Publish the manifest first, then the registry entry atomically; a referenced missing/corrupt file blocks apply. Use owner-only regular files and reject symlinks/path traversal.",
+      "Registry removal is an explicit operator transaction using the expected current generation and exact root/snapshot identity. Lack of a list entry after a partial read or a failed discovery request is not a retirement transaction.",
+      "Keep private repository locations, credentials, manuscript paths and source bytes out of shared object names, public output and routine diagnostics. Even root IDs, revisions and digests belong only in the private bundle."
+    ],
+    "registration_steps": [
+      "Enroll every authoring authority that can use the bucket in the operator-owned expected-authority inventory. Registration cannot discover offline/unregistered clones; unknown authority coverage leaves apply disabled.",
+      "Resolve the desired authoring ref to an exact commit using trusted core code and read only bounded regular Git blobs. Use no checkout, filters, hooks, source scripts, submodules, grafts or replace objects. Conservatively scan all relevant committed blobs with the existing fingerprints normalization rather than relying on renderer-success or asset URLs alone.",
+      "Keep source_snapshot.snapshot's current content-only scope in mind: do not reuse it as proof of a complete whole-tree private retention scan without defining and testing the intended coverage. Use bounded ls-tree/scan_blobs-style inspection with safe Git configuration and validated object identities.",
+      "The maintenance side must verify the manifest against that exact source snapshot using its trusted scanner or an equally explicit trusted private-authority import process. A digest list supplied by arbitrary source code is not proof of completeness.",
+      "Before registering/adopting an old stored asset, the staging authority renews its short lease and privately verifies the object/pin, then imports the additive root snapshot and receives an acknowledgement. If a freeze is active, renewal/adoption/registration must fail or queue without reporting success.",
+      "Uncommitted or ignored local work is not protected by an exact-commit record. Before an apply window, commit private drafts to ordinary private commits and register them, or block collection; never require signing, publication or public pushing to obtain retention.",
+      "Retire an exact root snapshot only through the operator registry transaction while collection is excluded. Preserve other snapshots and other roots sharing a digest. Then normal public-root, lease-age, release and storage-retention checks determine later collectability; retirement never commands a direct delete."
+    ],
+    "optional_lease_renewal": "A separate staging-authority command may renew bounded known keys using existing lease objects. Preview/qualification remain read-only. Renewal must participate in the maintenance barrier; if a renewal is missed or a private authority is unreachable, hold shared apply until coverage is re-established. A timer by itself is not an indefinite-draft retention guarantee."
+  },
+  "maintenance_window_before_future_shared_apply": {
+    "model": "Deliberate exclusive maintenance window, not an online distributed GC protocol. Reference registration is separate from the short asset lease and separate again from writer exclusion.",
+    "sequence": [
+      "Establish complete authority coverage for the exact bucket. Acquire the one operator maintenance coordinator for that bucket; stop new uploads, multipart completions, pin changes, asset reuse/lease renewal, releases, root registration/retirement and branch/PR/private-ref adoption workflows across every participating authority.",
+      "Enforce the storage pause at the provider, credential issuer or a proven single writer gateway, including direct raw S3 requests and other maintenance jobs. Drain existing operations. A client-side marker or process-local lock is insufficient. If the deployment cannot fence all writers, remain in plan-only mode.",
+      "Keep reference/adoption workflows paused and collect their exact committed snapshots. Validate every expected authority and root manifest. An unreachable authority whose current coverage cannot be established blocks the sweep; preserve its previous accepted records. No private-source fetch or registry error means an empty root.",
+      "Take a fresh complete storage and public/private root inventory under that window. Freeze the registry generation for the run; derive the union of retained digests. Keep permanent release protection and every current hold/retention rule.",
+      "Run the existing per-candidate root and inventory rechecks and delete exact observed object identities. These checks detect drift and implementation errors but do not establish mutual exclusion. Abort remaining deletions on any reference, registry, lease, storage, authority or barrier change; already completed deletions are not rolled back.",
+      "Keep other writers denied until the collector has definitely stopped, including crash recovery. Do not auto-expire a maintenance marker and reopen writes while an old collector may still be running. Revoke that collector's deletion capability or establish process termination before reopening the writer gate.",
+      "Release the writer/reference pause only after completion or verified stop. New adoption must privately verify the asset still exists before succeeding; a queued operation cannot rely on a pre-maintenance read."
+    ],
+    "fence_limit": "This is an enablement requirement for a supported operator deployment, not an implemented distributed fence. Conditional writes to one registry record cannot atomically guard Git references plus S3 asset DELETE. If the team later wants online collection, require a separate coordinator/fencing design with enforced stale-writer rejection; do not retrofit a lease-shaped lock and claim equivalence.",
+    "unversioned_limit": "Portable unversioned delete remains non-atomic relative to writes. Shared apply stays disabled unless the full window excludes all writers for the entire sweep. Versioned storage still needs the reference/adoption pause."
+  },
+  "acceptance_scenarios": [
+    {
+      "id": "v1-gate",
+      "expectation": "Missing, unknown or shared scope rejects CLI and direct collect(apply=True) before store.delete. Preview remains read-only and explains incomplete coverage. A dispatch or trusted-action environment alone cannot bypass this."
+    },
+    {
+      "id": "private-clone-old-asset",
+      "expectation": "Use two real private/public Git clones sharing a fake store. The private exact commit alone references an asset absent from public branches/PRs. Its lease/pin/content are older than 30 days. With a registered active root, every version remains retained even after an arbitrarily old heartbeat."
+    },
+    {
+      "id": "lease-expiry-is-not-root-expiry",
+      "expectation": "An unregistered abandoned asset becomes a candidate after all grouped records pass the grace cutoff; the same age never removes a registered root. Test before, exactly at and after the cutoff according to current strict '<' comparison. No client-claimed expires_at overrides server timestamps."
+    },
+    {
+      "id": "incomplete-private-authority",
+      "expectation": "Unreachable private Git, missing/corrupt/oversized manifest, partial expected-root inventory, invalid schema, mismatched storage or failed registry read preserves previous retention and blocks apply with zero deletions if detected before the sweep. Do not silently accept an empty list."
+    },
+    {
+      "id": "registration-crashes-and-retirement",
+      "expectation": "Manifest written but registry not updated is inert; registry referencing a missing manifest blocks apply. Additive replacement preserves prior revision until explicit exact-snapshot retirement. Wrong expected generation refuses retirement. Retiring one of two roots sharing a digest never collects the other's dependency."
+    },
+    {
+      "id": "inert-source-inspection",
+      "expectation": "Private fixture commits contain hostile hooks/filter attributes, executable files and digest references in prose/JSON escapes. Only bounded blob reads occur; no source program executes, no checkout occurs, digests remain conservatively retained, and incomplete/submodule/symlink source coverage blocks apply according to the defined contract."
+    },
+    {
+      "id": "read-only-preview",
+      "expectation": "Private qualification and live preview work with read-only credentials and attempt no lease, registry or release writes. Registration/renewal uses its separate authority; public routing continues to require release records."
+    },
+    {
+      "id": "concurrent-renewal-and-adoption",
+      "expectation": "Force renewal or root registration between plan and recheck: abort with no affected deletion. Force it after the final check: for an enabled barrier implementation, the actual storage/adoption operation must be denied or queued until collection ends. Do not treat the first schedule alone as proof of race safety."
+    },
+    {
+      "id": "two-checkout-locks",
+      "expectation": "Show that two separate clones can each hold operator_lock. This must not satisfy the shared apply authorization. Test that direct provider writes from the second credential are blocked during any supported maintenance window, rather than merely testing client-side checks."
+    },
+    {
+      "id": "maintenance-crash",
+      "expectation": "Terminate or partition a collector during the window. Writers stay denied until the collector has stopped or lost deletion capability. A timed-out marker cannot permit both stale GC and a new writer. Recovery uses a fresh inventory, never a persisted deletion plan."
+    },
+    {
+      "id": "storage-modes-and-existing-authority",
+      "expectation": "Exercise both unversioned and versioned stores, delete-marker ordering, shared digests across extensions, legal holds and future Object Lock deadlines. Permanent released/sha256 protection is unchanged. Root registration never writes a release record or grants public access."
+    },
+    {
+      "id": "safe-new-adoption-after-sweep",
+      "expectation": "After the gate reopens, adoption rechecks a previously observed old asset. If collection removed it, the operation fails or reuploads/verifies original bytes; it cannot successfully register a dependency against a stale pin alone."
+    }
+  ],
+  "validation_and_limits": {
+    "performed": "Read-only inspection of current source, test contracts and deployment examples at the stated base, plus the parent's fresh issue #64 body. This JSON was parsed locally after writing. No implementation tests or provider qualification were run for this design-only increment.",
+    "not_claimed": [
+      "No fix is applied by this document. The existing collector still has its current behavior until the integration agent implements a gate or the full qualified protocol.",
+      "No global registry can discover unregistered/offline private clones without operator enrollment. Completeness is an explicit deployment prerequisite, not something inferred from an S3 listing or public GitHub API.",
+      "A durable root retains known dependencies, not private Git source availability or every uncommitted local file. Exact-commit coverage and recovery backups remain distinct concerns.",
+      "The proposed schema is a conservative working contract; an external bundle is chosen to avoid expanding provider permissions near RC. If later stored under a new private S3 prefix, s3.headers currently permits only sha256/ and released/sha256/ and must be deliberately extended along with IAM, collector reads and namespace-denial tests.",
+      "No claim of production-ready fencing, provider IAM propagation timing, or safety under a noncooperating privileged storage administrator is made. Recommendation: implement the shared-apply gate and leave it closed until a supported deployment demonstrates exclusion; current production behavior has not been changed here."
+    ],
+    "adjacent_observation": "The static generator example release-identity namespace drift discovered while inspecting custody is being handled separately by the parent/release reviewer as companion concern 11; it is not part of this retention design."
+  }
+}

@@ -1,0 +1,230 @@
+diff --git a/src/guavajam/trusted_git.py b/src/guavajam/trusted_git.py
+index d0a6e61365505f2d31436ec2143ad302b274057c..aa0acc5ccc588ef94bdbd5e938d73cf8f01fee12 100644
+--- a/src/guavajam/trusted_git.py
++++ b/src/guavajam/trusted_git.py
+@@ -7,6 +7,58 @@ import subprocess
+ from .asset_policy import AssetError
+ 
+ 
++def signature_format(repo, revision):
++    """Inspect a bounded raw commit before Git can dispatch to any verifier.
++
++    Git's gpg.format selects the signing default, not the verification backend.
++    A caller's SSH policy must never fall through to ambient OpenPGP/X.509 trust.
++    """
++    prefix = ['git', '--no-replace-objects', '-c', 'core.hooksPath=/dev/null']
++    options = dict(cwd=repo, capture_output=True, timeout=30, check=False,
++                   env={**os.environ, 'GIT_GRAFT_FILE': os.devnull})
++    try:
++        info = subprocess.run([*prefix, 'cat-file', '--batch-check=%(objecttype) %(objectsize)'],
++                              input=(revision + '\n').encode('ascii'), **options)
++        match = re.fullmatch(rb'commit ([0-9]+)\n', info.stdout)
++        if info.returncode or not match or len(info.stderr) > 65536:
++            raise AssetError('signature verification requires a readable commit object')
++        size = int(match[1])
++        if size > 65536:
++            raise AssetError('signature commit exceeds 64 KiB')
++        result = subprocess.run([*prefix, 'cat-file', 'commit', revision], **options)
++    except (OSError, subprocess.TimeoutExpired) as exc:
++        raise AssetError('signature object inspection unavailable') from exc
++    if result.returncode or len(result.stdout) != size or len(result.stderr) > 65536:
++        raise AssetError('signature commit object could not be read exactly')
++    header, separator, _ = result.stdout.partition(b'\n\n')
++    if not separator:
++        raise AssetError('invalid signature commit header')
++    signatures, collecting = [], False
++    for line in header.split(b'\n'):
++        if line.startswith(b' '):
++            if collecting:
++                signatures[-1] += b'\n' + line[1:]
++            continue
++        name, _, value = line.partition(b' ')
++        collecting = name == b'gpgsig'
++        if name.startswith(b'gpgsig'):
++            if not collecting:
++                raise AssetError('unsupported commit signature header')
++            signatures.append(value)
++    if len(signatures) != 1:
++        raise AssetError('require exactly one supported commit signature')
++    armor = signatures[0].splitlines()
++    formats = {
++        b'-----BEGIN SSH SIGNATURE-----': ('ssh', b'-----END SSH SIGNATURE-----'),
++        b'-----BEGIN PGP SIGNATURE-----': ('openpgp', b'-----END PGP SIGNATURE-----'),
++    }
++    selected = formats.get(armor[0]) if armor else None
++    if (selected is None or armor[-1] != selected[1]
++            or sum(line.startswith(b'-----BEGIN ') for line in armor) != 1):
++        raise AssetError('unsupported or ambiguous commit signature format')
++    return selected[0]
++
++
+ def verifier_arguments(repo,format):
+     name='gpg' if format=='openpgp' else 'ssh-keygen'
+     located=shutil.which(name)
+@@ -24,6 +76,9 @@ def verify_signature(repo, revision, *, fingerprints=(), allowed_signers=None):
+         raise AssetError('signature verification requires a full lowercase commit SHA-1')
+     if bool(fingerprints) == bool(allowed_signers):
+         raise AssetError('provide exactly one independent external GPG or SSH trust policy')
++    expected_format = 'openpgp' if fingerprints else 'ssh'
++    if signature_format(repo, revision) != expected_format:
++        raise AssetError('commit signature format does not match the independent trust policy')
+     if fingerprints:
+         trusted = {value.upper() for value in fingerprints}
+         if any(not re.fullmatch(r'(?:[0-9A-F]{40}|[0-9A-F]{64})', value) for value in trusted):
+diff --git a/tests/fixtures/signatures/openpgp-commit.json b/tests/fixtures/signatures/openpgp-commit.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c36b9f447f84153c5821cdc825b37cd5939dcce
+--- /dev/null
++++ b/tests/fixtures/signatures/openpgp-commit.json
+@@ -0,0 +1,5 @@
++{
++  "commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
++  "encoding": "base64",
++  "data": "dHJlZSAwNDI1NWVhYTNjNzFlYThmNmRjZjAxZjMzZGE1NGEyNmU3NWM0MmUxCnBhcmVudCA4ZmMwZDQyMjcxOTBlMzJkZjJmZjg3MDQyODg4OGQzMGQ2MmY0YWU2CnBhcmVudCAxYzEzNjUxNGMyMjM4MjYxYTA2MmUzODIxZWI2NDQ2ODMzMjk2OTczCmF1dGhvciBOYXNoIFNwZW5jZSA8bmFzaHNwZW5jZUBnbWFpbC5jb20+IDE3OTU0NDQ5NDggLTA4MDAKY29tbWl0dGVyIEdpdEh1YiA8bm9yZXBseUBnaXRodWIuY29tPiAxNzk1NDQ0OTQ4IC0wODAwCmdwZ3NpZyAtLS0tLUJFR0lOIFBHUCBTSUdOQVRVUkUtLS0tLQogCiB3c0ZjQkFBQkNBQVFCUUpyQkZEVUNSQzFhUTd1dTVVaGxBQUFQMWtRQUF4SVJtRm9oWlFtWTVHeE5vOXhXYjdkCiAvZDFhMm5zSUVyWkdxeFpnZDFtRHpucTRIZWgwbDFEdnh1NjRXVjlDMFMrY1hWVTc3NkNQYUxKMGtaVDdTSFdGCiArc1UySkIzbXIwY09zdzA4M29RNXQ5ZUZDOXB1NGIyY2xJRFFremVoeDVqd2c5aisvYjNublN1bzRGQlpDejg2CiB5b0dJQTRjZFBDdnRZRkZsWjFiTEJXYitpTFJsTlVVSW5PaUlnQ3BNcEVtVC9qRFQzYXZlaU5vTnRBaDRja2JNCiBhMmY4ZlZHUjhmM3E4aGQ2M2VGMWg0WHFOQVhnRytCZC90M1JZbDVKS0dQUnFDWmYrSFgzNWJ2TXdzVHNUeDRXCiA5Z0Q3NFM5SUoydVlrVHBlSnIyV3V5RFgxZVpvUkhPQmlrM0VTaEVVWTJ2OEhmVjB0OUhIOEZFZlk1cTBCSG5WCiBDalpRZWRnMEZJaS81YlBscnRNZGtZZnhudEpWNHpCTGtZbHFzem9WUDZZdkNpRWdia1QxR25JUUNhS3lSMmpiCiBmWEpGN2FMeXkwYWh2bEtTVXVLYzVTcjc0RVNmNnFwQzhPZC9vNXYrajFRMDVPam1OUlllYXdBcm5OUjdaK1k5CiBINWgvL2NhVTByeS9GZGhMd3N5RkZiY1hRL2pxUS9hV1hRVXF1Y0xodFM5a2tSMW1kQlNMUHRpaCtEcE1MQkF2CiBZbGhQNUhIWE8ySG1qTlJldnBJMEpjZ2RUV3lxTDRVQTJRN1ROSmxPT1FBc3ZYUHJXV013b1U3Y3F6eGJKLy9SCiBXdk1JblQ5YytycGYranErZWJYcTZBMnRJcWZnbStWdGxwK1UvWW1Td1hIY1owU21vSXdXaFFNOGkzN2k1MFFDCiBCMVEvN2lqL1dQelljVG5HK3pBTgogPUFVMkEKIC0tLS0tRU5EIFBHUCBTSUdOQVRVUkUtLS0tLQogCgpNZXJnZSBwdWxsIHJlcXVlc3QgIzExMSBmcm9tIG5hc2hzcGVuY2UvZml4L3N1cHBvcnRpbmctZG9jdW1lbnQtdG9vbHMKCkNvbXBsZXRlIGRvY3VtZW50IHRvb2xzIGFuZCBsb2NhbCBjb2xsZWN0aW9uIGZlZWRz"
++}
+diff --git a/tests/fixtures/signatures/openpgp-public-key.asc b/tests/fixtures/signatures/openpgp-public-key.asc
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc77d7ee7d48a86384e5977f78b9fcecb828e8d0
+--- /dev/null
++++ b/tests/fixtures/signatures/openpgp-public-key.asc
+@@ -0,0 +1,28 @@
++-----BEGIN PGP PUBLIC KEY BLOCK-----
++
++mQINBGWmxXYBEACyN+4viFQM6QQoKr0A2W0rGdMobTJwOZso2QPpewbyBsuL3rNW
++5OmHrWwXAhPKNqUIyOzdq8MoSxoTTuqLksoahixEL/X2nyhOBxR9GkYz/oI9R3nY
++cLRaFQoSJoVfOt61opkLUzbWAehpbgT8EKln8JsENq0+0nDlWQi0h2Q9oGmqlgVz
++skwmVZ8Leyv4Mg7hN6swyZ7moZfkkpD5+U7Z2XVurCzkSSfg4zb2lMRLJos2eCAc
++749ECsX0t7OBftF+YqgjIXixXsm2RrUqvU47OkOtZeAhvAYenbC3pr9Fha5NxoBU
++Ea+11MK9W6OcRhwvxVCUrMUR6FTSZyC//VpXTTtrRlOqpU5wGMbP3zpn9geqOXCl
++8rF7+1gAPG/o+QFQTBsVEruwi4JWogiQuQyOwAIlFe/7dvaxWZGpv/yW2+L3guL7
++xaHKFVGsayhlitQQ5Xa+P1iSgKSXDyReCbWotfqAempPySI25LHh3ScXI6NgdHSr
++SBaFojwAfgxbPTEQ6adIsKHCQofrnLrNa3UOeGDGiOOK0aYV3jiEDGAouatkNf2q
++85Eosj1f9laCqAH3YLJD7dcSne1iChK5qRTByMvIyeSD0NbNnVMFOGpXySyWtKb2
++ldpu8AWBQJsJs9FmYBcWAGBA2pp+IxaCn6rBIHIsUVFRN8OVZKsEsBkWywARAQAB
++tBtHaXRIdWIgPG5vcmVwbHlAZ2l0aHViLmNvbT6JAk4EEwEKADgWIQSWhHmhr/kn
++430aVmu1aQ7uu5UhlAUCZabFdgIbAwULCQgHAgYVCgkICwIEFgIDAQIeAQIXgAAK
++CRC1aQ7uu5UhlIMuEAClvVwC+Neoiq0AdixJZsagKHpx1QrMJWrtMRi4eXVTTaeX
+++P1unhC/AmSO4Xxd3uRoejHvfWh4F0gitUJ8XKgiejnmuGcq7Dbt5OoO1JuXGlW2
++BQ+MiGoYVw2B0sOhWDNrIBWOO/WL4LykcGnAtrRXwoS0Wx4MCydztXQY5lcnCWaW
++8rvu7WmduoOikH4HI97rqN5896dc4iBKSx8LZf+46DRCCD/5SfACplBz4hs5zen8
++TL8zd+zxjFrXbzota0jSDEGK9WGO4z55S2xScC6zv6v3Bj1OR8Bs5aodGtmamHZ7
++sE9w0RJoCfNx+9cR/rE82SrOaBpVU7urLe4lg7zaaNhqDdNV8ymuXGmIJarDgrme
++iB5bHS+dLFzLUkTgot4RFlPa9bFiJuJN6Tc9tMu5RJQ9l/zKmxDHIKWsAle5R65u
++zEq04LugTQBdEorGxfQCsF2ga9ncKTDMiAThWTvZpOP3NJ/athZRmOBpG4B9iR6r
++pRU8F/+MokG4fIMwnvtOhWQFiEzdTkJ7U5JAkPtTAmT3/mznwtPEU7DrFWSGAdqg
++IMOlxNCBeGvjwLR0qGH7cB9qHDGNoDLkjaUFpu5tPv4/ivkQaHlHJxjT0ILM6jet
++CAzKpKh48rm65tmrJX6KVpj0r2kKMscFf7s7XaPlCNCFds/YA+0puPbzJKWKfA==
++=NRlX
++-----END PGP PUBLIC KEY BLOCK-----
+diff --git a/tests/guavajam/test_signature_family.py b/tests/guavajam/test_signature_family.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..5b3eef0c2a7872a52c382a48bcd7398e799f2b4e
+--- /dev/null
++++ b/tests/guavajam/test_signature_family.py
+@@ -0,0 +1,106 @@
++"""Bind the selected publisher policy to the signature Git actually verifies."""
++import base64
++import json
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++import unittest
++from unittest.mock import patch
++
++from guavajam.asset_policy import AssetError
++from guavajam.trusted_git import verify_signature
++from guavajam_test_support.discovery_fixture import Publisher
++
++
++FIXTURES = Path(__file__).resolve().parents[1] / 'fixtures/signatures'
++GPG_FINGERPRINT = '968479A1AFF927E37D1A566BB5690EEEBB952194'
++
++
++def openpgp_commit():
++    record = json.loads((FIXTURES / 'openpgp-commit.json').read_text())
++    return base64.b64decode(record['data'], validate=True)
++
++
++class SignatureFamilyTests(unittest.TestCase):
++    def setUp(self):
++        self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
++        self.publisher = Publisher(self.root)
++        self.repo = self.publisher.repo
++
++    def object(self, raw):
++        return subprocess.check_output(['git', 'hash-object', '-w', '-t', 'commit', '--stdin'],
++                                       cwd=self.repo, input=raw).decode().strip()
++
++    def no_verifier(self, revision, **trust):
++        original = subprocess.run
++        verification = []
++        def run(command, **kwargs):
++            if 'verify-commit' in command:
++                verification.append(command)
++            return original(command, **kwargs)
++        with patch('guavajam.trusted_git.subprocess.run', side_effect=run):
++            with self.assertRaises(AssetError):
++                verify_signature(self.repo, revision, **trust)
++        self.assertEqual([], verification, 'reject incompatible source before any verifier backend runs')
++
++    def test_actual_ssh_signature_requires_the_ssh_policy(self):
++        revision = self.publisher.revisions[-1]
++        self.assertEqual('external-ssh-allowed-signers',
++                         verify_signature(self.repo, revision, **self.publisher.trust))
++        self.no_verifier(revision, fingerprints=[GPG_FINGERPRINT])
++
++    def test_openpgp_signature_is_rejected_before_ssh_verification_dispatch(self):
++        # Public fixture: guavajam's GitHub-signed main commit 54fce07. No signing
++        # secrets, network requests, or reachable source history are required.
++        revision = self.object(openpgp_commit())
++        self.no_verifier(revision, **self.publisher.trust)
++
++    @unittest.skipUnless(shutil.which('gpg'), 'OpenPGP verifier is not installed')
++    def test_ambient_gpg_trust_cannot_satisfy_an_unrelated_ssh_policy(self):
++        revision = self.object(openpgp_commit())
++        home = self.root / 'gpg'; home.mkdir(mode=0o700)
++        env = {**os.environ, 'GNUPGHOME': str(home), 'GIT_CONFIG_GLOBAL': os.devnull,
++               'GIT_CONFIG_SYSTEM': os.devnull}
++        # Some containers cannot launch gpg-agent; importing this public key can
++        # still succeed. Assert the actual key is present and verify the real
++        # signature, instead of skipping the authorization test on that warning.
++        subprocess.run(['gpg', '--batch', '--no-autostart', '--import'],
++                       input=(FIXTURES / 'openpgp-public-key.asc').read_bytes(), env=env,
++                       capture_output=True, timeout=30, check=False)
++        keys = subprocess.run(['gpg', '--batch', '--with-colons', '--list-keys', GPG_FINGERPRINT],
++                              env=env, capture_output=True, timeout=30, check=True)
++        self.assertIn(GPG_FINGERPRINT.encode(), keys.stdout)
++        subprocess.run(['gpg', '--batch', '--import-ownertrust'], env=env,
++                       input=(GPG_FINGERPRINT + ':6:\n').encode(),
++                       capture_output=True, timeout=30, check=True)
++        with patch.dict(os.environ, env):
++            self.assertEqual(GPG_FINGERPRINT,
++                             verify_signature(self.repo, revision, fingerprints=[GPG_FINGERPRINT]))
++            with self.assertRaises(AssetError):
++                verify_signature(self.repo, revision, **self.publisher.trust)
++
++    def test_unknown_duplicate_and_oversized_signatures_do_not_dispatch(self):
++        raw = openpgp_commit()
++        header, message = raw.split(b'\n\n', 1)
++        candidates = {
++            'unknown family': raw.replace(b'PGP SIGNATURE', b'SIGNED MESSAGE'),
++            'duplicate header': header + b'\ngpgsig -----BEGIN SSH SIGNATURE-----\n '
++                                b'-----END SSH SIGNATURE-----\n\n' + message,
++            'unselected alternate header': raw.replace(b'\ngpgsig ', b'\ngpgsig-sha256 '),
++            'oversized commit': raw + b'x' * 65536,
++        }
++        for name, candidate in candidates.items():
++            with self.subTest(case=name):
++                self.no_verifier(self.object(candidate), **self.publisher.trust)
++
++    def test_matching_armor_still_requires_a_valid_signature(self):
++        raw = subprocess.check_output(['git', 'cat-file', 'commit', self.publisher.revisions[-1]], cwd=self.repo)
++        changed = self.object(raw + b'Changed after signing.\n')
++        with self.assertRaises(AssetError):
++            verify_signature(self.repo, changed, **self.publisher.trust)
++
++
++if __name__ == '__main__':
++    unittest.main()

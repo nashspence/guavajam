@@ -1,0 +1,201 @@
+{
+  "kind": "handoff",
+  "issue": "https://github.com/nashspence/guavajam/issues/112",
+  "purpose": "Pre-v1 stabilization recommendations and proposed implementations for all ten reviewed concerns plus the newly discovered release-credential example mismatch; seven tested independent reference patches and four detailed implementation designs.",
+  "producer": [
+    "ChatGPT repository review and reference implementation team"
+  ],
+  "requester": "nashspence",
+  "first_step": "Read owning issue #112 and .reference/implementation-plan.json, compare current main against base 54fce07b619628a5e92be946be4b189873ddf1a0, and select concerns for independent evaluation. Verify .reference/patches.json with .reference/checks/verify.py, then extract selected patches into a separate integration worktree. Do not merge the reference payload as implementation. Record disposition in the owning issue against the immutable published handoff SHA.",
+  "source": {
+    "repository": "nashspence/guavajam",
+    "base": {
+      "ref": "main",
+      "commit": "54fce07b619628a5e92be946be4b189873ddf1a0"
+    },
+    "work_state": "patches"
+  },
+  "artifacts": [
+    ".reference/checks/integrity.json",
+    ".reference/checks/results.json",
+    ".reference/checks/verify.py",
+    ".reference/designs/private-retention.json",
+    ".reference/designs/release.json",
+    ".reference/implementation-plan.json",
+    ".reference/integration-review.json",
+    ".reference/patches.json",
+    ".reference/patches/01-signature-family.patch",
+    ".reference/patches/02-uri-parity.patch",
+    ".reference/patches/04-preview-rollback.patch",
+    ".reference/patches/05-extractor-custody.patch",
+    ".reference/patches/06-renderer-inputs.patch",
+    ".reference/patches/07-bootstrap-pin.patch",
+    ".reference/patches/11-release-prefix.patch"
+  ],
+  "checks": [
+    {
+      "command": "python tools/run_tests.py guavajam",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "329 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python tools/run_tests.py a-guavajam-static-website-generator",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "170 tests run; 1 skipped. Generator OpenPGP signing-agent test skipped because the agent could not start in this environment; the new core public-key OpenPGP verification regression ran and passed."
+    },
+    {
+      "command": "python tools/run_tests.py a-chatgpt-conversation-archive-gfm-extractor",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "38 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python -m unittest discover -s tests/repository -v",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "19 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python -m unittest discover -s tests/deployment -p test_configuration.py -v",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "12 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "node --test tests/guavajam/test_worker.mjs tests/guavajam/test_gateway_server.mjs tests/guavajam/test_private_preview.mjs some-implementations/a-guavajam-static-website-generator/tests/test_download_transport.mjs some-implementations/a-chatgpt-conversation-archiver-browser-extension/tests/test_chatgpt_capture.mjs",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "64 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python -m unittest discover -s some-implementations/a-chatgpt-conversation-archiver-browser-extension/tests -p 'test_*.py' -v",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "1 tests run; 0 skipped. Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python tools/check_boundaries.py",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "b9e0d3bd2e596eb4f8a9232aa807be69d56f9ebd"
+      },
+      "environment": "Linux; Python 3.12.14; Node 24.22.3; Git 2.56.1; checksum-verified Pandoc 3.12.1; uv.lock dependencies; PYTHONPATH selects the combined detached evaluation worktree.",
+      "notes": "Exit 0; source explicitly imported from the combined evaluation worktree."
+    },
+    {
+      "command": "python -m unittest discover -s tests/deployment -p test_configuration.py -v",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "notes": "13 tests run; 0 skipped. Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    },
+    {
+      "command": "python -m unittest discover -s tests/repository -v",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "notes": "19 tests run; 0 skipped. Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    },
+    {
+      "command": "git diff 54fce07b619628a5e92be946be4b189873ddf1a0 --check",
+      "result": "passed",
+      "source": {
+        "kind": "tree",
+        "id": "dc380507a62accd365aafa95244b5cfc3e439a3a"
+      },
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; explicit combined worktree PYTHONPATH; evaluation HEAD contains all seven patches.",
+      "notes": "Final seven-patch tree; after the release identity example/configuration-only addition, the relevant deployment/repository suites and diff check were rerun. Earlier package/Node results retain their six-patch source identity."
+    },
+    {
+      "command": "python .reference/checks/verify.py",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Reference-only handoff based on 54fce07b619628a5e92be946be4b189873ddf1a0; seven immutable patch hashes and independently tested trees are enumerated in .reference/patches.json."
+      },
+      "environment": "Linux; Python 3.12.14; Git 2.56.1; temporary indexes; no source checkout modification",
+      "notes": "Patch byte identities, independent application trees and combined tree dc380507a62accd365aafa95244b5cfc3e439a3a matched."
+    },
+    {
+      "command": "python <proffer@2ce5e15c3191fcdc2be70213c0170f57c852a883>/check.py .reference/proffer.json",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "This reference-only handoff record and its listed artifacts, before publication; no publication/disposition record is embedded."
+      },
+      "environment": "Linux; Python 3.12.14; jsonschema 4.26.0; pinned Proffer schema and checker",
+      "notes": "Record validation only; not verification of attestations or consumer acceptance."
+    },
+    {
+      "command": "Full browser qualification of the candidate integration commit",
+      "result": "not-run",
+      "reason": "Local source changes received relevant Python/Node regressions; rerun qualified browser CI on the accepted integration SHA."
+    },
+    {
+      "command": "Compose/local S3 lifecycle and live-provider rehearsal of candidate patches",
+      "result": "not-run",
+      "reason": "Deployment configuration passed; Docker/provider execution was not repeated and no live credentials or bucket mutations were used."
+    },
+    {
+      "command": "Fresh installed wheel/sdist/archive-to-GFM qualification for the combined candidate",
+      "result": "not-run",
+      "reason": "Baseline distribution isolation already passed; this handoff source-tree evaluation does not claim new installed-artifact qualification."
+    },
+    {
+      "command": "Native Windows checkout/output-custody qualification",
+      "result": "not-run",
+      "reason": "Autocrlf modes were tested using Linux Git. Platform-specific diagnostic handling still needs qualification."
+    },
+    {
+      "command": "RC version mapping, private-root/fencing protocol, repository protection and frozen compatibility acceptance",
+      "result": "not-run",
+      "reason": "These are implementation designs or operational decisions, not implemented candidate code."
+    }
+  ],
+  "limitations": [
+    "The published branch carries only reference artifacts; production/runtime source remains at the pinned base. Tests exercised separately reconstructed candidate trees, not runtime changes on the handoff branch.",
+    "Source checks on the six-patch tree and final seven-patch configuration/repository checks retain distinct exact tree identities. No fresh full browser, Compose/live-provider or installed-distribution qualification is claimed.",
+    "Generator OpenPGP signing-agent test was skipped because gpg-agent could not start; the new core offline public-key OpenPGP regression passed. Host Python/Node patch versions differ from the pinned mise baseline.",
+    "The mailto/history defect has a reference fix; credential-bearing HTTPS source/renderer policy remains an explicit unresolved decision. Signature armor and direct-helper size restrictions need historical-compatibility review.",
+    "Private-root retention/fencing, RC version mapping, repository protection settings and the frozen v1 corpus are design proposals. No corresponding production gate, infrastructure change, release, or compatibility promise has been implemented by this handoff.",
+    "Existing issue #64 and draft PR #79 remain implementation context. Owner-deferred spoken screen-reader qualification in #9 is not promoted to a blocker.",
+    "Proffer contract/schema/checker inspected at 2ce5e15c3191fcdc2be70213c0170f57c852a883. Publication and consumer disposition records belong in issue #112, outside this commit."
+  ]
+}
