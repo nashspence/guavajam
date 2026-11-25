@@ -1,0 +1,80 @@
+{
+  "kind": "handoff",
+  "issue": "https://github.com/nashspence/guavajam/issues/113",
+  "purpose": "Refine #113 after maintainer's scope and integrated Versions-search UI calibration; supply real-corpus scoped native prototypes, a 50-edition passage-only DB witness, parity checks and offline DOM witness. Preserve earlier source/build/metadata/normalization/evidence requirements.",
+  "producer": [
+    "ChatGPT"
+  ],
+  "requester": "nashspence",
+  "first_step": "Read the amended owning issue and scope-revision/design.md. Verify archive hashes, reproduce selected experiments against the retained parent corpus, and review scope decisions. Adopt/adapt in separate integration worktree; keep all production gates from #113 and record consumer disposition. Do not merge reference-only changes into main.",
+  "source": {
+    "repository": "nashspence/guavajam",
+    "base": {
+      "ref": "main",
+      "commit": "54fce07b619628a5e92be946be4b189873ddf1a0"
+    },
+    "work_state": "unchanged"
+  },
+  "supersedes": {
+    "url": "https://github.com/nashspence/guavajam/blob/1f0e02fa8b38f9e355297ad59247e17344b1b7ea/.reference/proffer.json",
+    "commit": "1f0e02fa8b38f9e355297ad59247e17344b1b7ea"
+  },
+  "artifacts": [
+    ".reference/scope-revision/design.md",
+    ".reference/scope-revision/native.tar.xz",
+    ".reference/scope-revision/ui.tar.xz"
+  ],
+  "checks": [
+    {
+      "command": "python scopes-initial.py CORPUS.gz scratch/scoped; python parity.py scratch/scoped scratch/parity.json",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Retained corpus at parent handoff; gzip SHA256 87e077b393cf3c482b30f072573fd90395aee7bd9fed8d0c278e43b086343b63. Native archive SHA256 245a90484a5dd1d759c132c66a72d2dd65ac446b57a6c7315ff9f984873959cf. Initial script reconstructed by undoing subsequent history-50 branch/range insertion."
+      },
+      "environment": "Linux Python 3.13.5 SQLite 3.46.1",
+      "notes": "51 native cases, complete 36,066 passage field parity, 36,066 collection anchored evidence rows, 35,690 facet memberships per comparison, 5,949 title/abstract rows; immutable edition rebuild identical. Research schema only."
+    },
+    {
+      "command": "python scopes.py CORPUS.gz scratch/long --history-50",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Same retained corpus and native archive; script SHA256 e1418fab17e92db87495ae09679a577c8d55bdcd128d8c55e5ad21c52b9c670d"
+      },
+      "environment": "Linux Python 3.13.5 SQLite 3.46.1",
+      "notes": "1,803,300 passage occurrences; FTS external-content/relational integrity, 7 query assertions, 50 distinct occurrences across 3 result pages. Raw 1,187,102,720 bytes; gzip9 167,779,751 bytes."
+    },
+    {
+      "command": "python routing.py scratch/routing.json /usr/bin/chromium",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "UI archive SHA256 d7cf1f996c6eb350a26ee7261b7b60fb330a66127298ecb148d986e56dbaeb76"
+      },
+      "environment": "Linux Python 3.13.5, Playwright 1.57.0, Chromium 144.0.7559.96",
+      "notes": "12 offline DOM/state checks using in-page fetch and URL-history doubles. No real HTTP transport, actual browser navigation/abort, production search UI or WASM."
+    },
+    {
+      "command": "Retrieve pinned SQLite WASM and run browser HTTP witness",
+      "result": "failed",
+      "source": {
+        "kind": "commit",
+        "id": "54fce07b619628a5e92be946be4b189873ddf1a0"
+      },
+      "environment": "Container network DNS EAI_AGAIN; Chromium administrator blocks localhost and virtual HTTP navigation",
+      "notes": "No new WASM or actual network timing/qualification claimed. Prior reference browser measurements retained."
+    },
+    {
+      "command": "Complete production scope integration, signed full-corpus rendering and 50-edition browser/VFS/multi-browser qualification",
+      "result": "not-run",
+      "reason": "Reference experiment only; environment restrictions and integration gates listed in design. No runtime implementation, deployment or release performed."
+    }
+  ],
+  "limitations": [
+    "Supersedes the scope and delivery choices only; original Proffer evidence and other requirements remain relevant. No consumer acceptance implied.",
+    "Modeled edition facts, 5% seeded churn, synthetic witnesses and small other work; simplified citation identity tuples rather than real signed-source/citation JSON parity.",
+    "Native count and rank page observations omit excerpt/presentation, browser and transfer; no p95 or production-equivalent size claim.",
+    "No fresh pinned WASM, real browser HTTP or complete history VFS qualification. Offline witness only. Full production release qualification remains outstanding."
+  ]
+}
