@@ -1,0 +1,26 @@
+{
+  "measurements": [
+    {
+      "supporting_documents": 128,
+      "manifest_entries": 387,
+      "cache_inventory_bytes": 39680,
+      "one_mib_limit": 1048576,
+      "result": "accepted"
+    },
+    {
+      "supporting_documents": 4000,
+      "manifest_entries": 12003,
+      "cache_inventory_bytes": 1232256,
+      "one_mib_limit": 1048576,
+      "result": "corrupt view cache; remove this private cache entry and retry; live site was not changed"
+    },
+    {
+      "supporting_documents": 16000,
+      "manifest_entries": 48003,
+      "cache_inventory_bytes": 4928256,
+      "one_mib_limit": 1048576,
+      "result": "corrupt view cache; remove this private cache entry and retry; live site was not changed"
+    }
+  ],
+  "method": "Synthetic output under the real renderer naming convention, production cache write/read path. No source validation or full-render claim."
+}

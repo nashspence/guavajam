@@ -1,0 +1,194 @@
+{
+  "sha": "2ce5e15c3191fcdc2be70213c0170f57c852a883",
+  "url": "https://api.github.com/repos/nashspence/proffer/git/trees/2ce5e15c3191fcdc2be70213c0170f57c852a883",
+  "tree": [
+    {
+      "path": ".gitattributes",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "011ac8d5c6d6db616216bd4ddd625162f12eb12e",
+      "size": 49,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/011ac8d5c6d6db616216bd4ddd625162f12eb12e"
+    },
+    {
+      "path": ".github",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0821ee8fb3537c8664e2f0a03948df83f8f7060d",
+      "url": "https://api.github.com/repos/nashspence/proffer/git/trees/0821ee8fb3537c8664e2f0a03948df83f8f7060d"
+    },
+    {
+      "path": ".github/workflows",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "c0c23c9b10e471058932a38140ca9c9d79696406",
+      "url": "https://api.github.com/repos/nashspence/proffer/git/trees/c0c23c9b10e471058932a38140ca9c9d79696406"
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cb738d2e07614ec07bf935323995f83de943ee18",
+      "size": 409,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/cb738d2e07614ec07bf935323995f83de943ee18"
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8dcb79f90def553507a1fdb64a83f8d16e4d7a72",
+      "size": 33,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/8dcb79f90def553507a1fdb64a83f8d16e4d7a72"
+    },
+    {
+      "path": "AGENTS.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d59b766ae5220e935408654f09b85fd01911dae0",
+      "size": 397,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/d59b766ae5220e935408654f09b85fd01911dae0"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6653d490732aea3908e661a23082a6d55d8a0fdd",
+      "size": 1067,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/6653d490732aea3908e661a23082a6d55d8a0fdd"
+    },
+    {
+      "path": "Makefile",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48d2a7a63b7e49d9c17cd05aba147a4cfa4a601e",
+      "size": 261,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/48d2a7a63b7e49d9c17cd05aba147a4cfa4a601e"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1dc57edebc575f1bcce5d82da3d96c5ddc9f6098",
+      "size": 507,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/1dc57edebc575f1bcce5d82da3d96c5ddc9f6098"
+    },
+    {
+      "path": "check.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "186cb1b4e40bad793a4ad6901346638c79c68696",
+      "size": 1483,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/186cb1b4e40bad793a4ad6901346638c79c68696"
+    },
+    {
+      "path": "requirements-dev.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ec38a0f6375f4015e96264d325fbd20cc27004d6",
+      "size": 20,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/ec38a0f6375f4015e96264d325fbd20cc27004d6"
+    },
+    {
+      "path": "schema",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "cf6ebcc3ffc31f7fa2b4985da3bde0baa4b3a649",
+      "url": "https://api.github.com/repos/nashspence/proffer/git/trees/cf6ebcc3ffc31f7fa2b4985da3bde0baa4b3a649"
+    },
+    {
+      "path": "schema/proffer.schema.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f20634f142b92e62d1fc7a9e13961f0f402f5d84",
+      "size": 8557,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/f20634f142b92e62d1fc7a9e13961f0f402f5d84"
+    },
+    {
+      "path": "tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2d04dc2ab9ecc016b8b196656d4402ec20a72acf",
+      "url": "https://api.github.com/repos/nashspence/proffer/git/trees/2d04dc2ab9ecc016b8b196656d4402ec20a72acf"
+    },
+    {
+      "path": "tests/fixtures",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b9d203c2d566ed59c4ca3564de702ec0a119cddc",
+      "url": "https://api.github.com/repos/nashspence/proffer/git/trees/b9d203c2d566ed59c4ca3564de702ec0a119cddc"
+    },
+    {
+      "path": "tests/fixtures/disposition-deferred.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4ccc0a737d3904ecc11123d7e77633ba5ff29d5c",
+      "size": 434,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/4ccc0a737d3904ecc11123d7e77633ba5ff29d5c"
+    },
+    {
+      "path": "tests/fixtures/disposition-partial.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "74655149315ba049bf09a328d93b0e03be3e6e7c",
+      "size": 851,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/74655149315ba049bf09a328d93b0e03be3e6e7c"
+    },
+    {
+      "path": "tests/fixtures/disposition-rejected.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e863a2307bf59eb79d5b6cb7132c5c5c2d373098",
+      "size": 392,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/e863a2307bf59eb79d5b6cb7132c5c5c2d373098"
+    },
+    {
+      "path": "tests/fixtures/handoff-edited.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d1e5f120146ab85f621f2101caf75199946f67da",
+      "size": 865,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/d1e5f120146ab85f621f2101caf75199946f67da"
+    },
+    {
+      "path": "tests/fixtures/handoff-inspected-not-tested.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cdfbc9619d7871eaee31117613375e7cf3e51eed",
+      "size": 1042,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/cdfbc9619d7871eaee31117613375e7cf3e51eed"
+    },
+    {
+      "path": "tests/fixtures/handoff-standalone.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b5ab51f98d331ec68022394d26772c13751dfb42",
+      "size": 630,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/b5ab51f98d331ec68022394d26772c13751dfb42"
+    },
+    {
+      "path": "tests/fixtures/publication-exact.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a982bd7fe2f86534505d20887f101c1e57022f64",
+      "size": 488,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/a982bd7fe2f86534505d20887f101c1e57022f64"
+    },
+    {
+      "path": "tests/fixtures/publication-reconstructed.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "03838262be1948ee5ae507626ce121b642934b49",
+      "size": 486,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/03838262be1948ee5ae507626ce121b642934b49"
+    },
+    {
+      "path": "tests/test_contract.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "778135dc685443688388995277af013cef29d6b0",
+      "size": 2152,
+      "url": "https://api.github.com/repos/nashspence/proffer/git/blobs/778135dc685443688388995277af013cef29d6b0"
+    }
+  ],
+  "truncated": false
+}

@@ -1,0 +1,828 @@
+{
+  "database": "/workspace/scratch/2cede18208f4/results/storage/latest/compact.sqlite",
+  "database_bytes": 63221760,
+  "database_sha256": "6886ca1be17f2dab5cdf6d1190cefad3553dcb75271f55e7fe983f1c23675d2f",
+  "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+  "apsw": "3.54.1.0",
+  "sqlite": "3.54.1",
+  "zlib": "1.3.1",
+  "method": "Observed SQLite 3.54.1 xRead requests; fresh 8 MiB SQLite cache, mmap 0, immutable; count then page. Independently gzip9-compressed 256 KiB / 1 MiB / 4 MiB physical chunks; 8 / 32 MiB decoded chunk LRU. The first model charges network for every decoded miss; a second model adds an independently bounded 8 / 32 MiB compressed-object LRU. Conditional serial 40 ms / request + 10 Mbps compressed payload excludes decompression, integrity, manifest, HTTP headers, runtime, and SQLite CPU; not browser qualification.",
+  "cases": [
+    {
+      "kind": "passages",
+      "term": "contract",
+      "edition": "all",
+      "baseline_optimized_exact_count_and_page_equal": true,
+      "xread_calls": 10835,
+      "xread_requested_bytes": 44376164,
+      "xread_calls_by_phase": {
+        "open": 1,
+        "count": 5301,
+        "page": 5533
+      },
+      "xread_bytes_by_phase": {
+        "open": 100,
+        "count": 21712896,
+        "page": 22663168
+      },
+      "unique_4k_pages": 2818,
+      "unique_4k_page_bytes": 11542528,
+      "range_models": [
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 56,
+          "cold_unique_bytes": 14462976,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 13.8103808,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 187,
+          "lru_transfer_bytes": 48586752,
+          "lru_serial_40ms_10mbps_seconds": 46.34940160000001,
+          "unique_gzip_bytes": 2332130,
+          "lru_gzip_transfer_bytes": 7258138,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 4.105704,
+          "gzip_lru_serial_40ms_10mbps_seconds": 13.286510400000001,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 2332130,
+              "network_requests": 56,
+              "gzip_network_bytes": 2332130,
+              "conditional_serial_40ms_10mbps_seconds": 4.105704,
+              "decoded_cache_misses": 187,
+              "decompressed_bytes_including_repeats": 48586752
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 2332130,
+              "network_requests": 56,
+              "gzip_network_bytes": 2332130,
+              "conditional_serial_40ms_10mbps_seconds": 4.105704,
+              "decoded_cache_misses": 187,
+              "decompressed_bytes_including_repeats": 48586752
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 20,
+          "cold_unique_bytes": 20230144,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 16.9841152,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 70,
+          "lru_transfer_bytes": 71176192,
+          "lru_serial_40ms_10mbps_seconds": 59.7409536,
+          "unique_gzip_bytes": 3430629,
+          "lru_gzip_transfer_bytes": 11929028,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.5445032000000003,
+          "gzip_lru_serial_40ms_10mbps_seconds": 12.3432224,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3430629,
+              "network_requests": 20,
+              "gzip_network_bytes": 3430629,
+              "conditional_serial_40ms_10mbps_seconds": 3.5445032000000003,
+              "decoded_cache_misses": 70,
+              "decompressed_bytes_including_repeats": 71176192
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3430629,
+              "network_requests": 20,
+              "gzip_network_bytes": 3430629,
+              "conditional_serial_40ms_10mbps_seconds": 3.5445032000000003,
+              "decoded_cache_misses": 70,
+              "decompressed_bytes_including_repeats": 71176192
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 10,
+          "cold_unique_bytes": 38055936,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 30.844748799999998,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 5024,
+          "lru_transfer_bytes": 20784537600,
+          "lru_serial_40ms_10mbps_seconds": 16828.590079999998,
+          "unique_gzip_bytes": 7821372,
+          "lru_gzip_transfer_bytes": 4376600550,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 6.6570976,
+          "gzip_lru_serial_40ms_10mbps_seconds": 3702.24044,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 7821372,
+              "network_requests": 10,
+              "gzip_network_bytes": 7821372,
+              "conditional_serial_40ms_10mbps_seconds": 6.6570976,
+              "decoded_cache_misses": 5024,
+              "decompressed_bytes_including_repeats": 20784537600
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 7821372,
+              "network_requests": 10,
+              "gzip_network_bytes": 7821372,
+              "conditional_serial_40ms_10mbps_seconds": 6.6570976,
+              "decoded_cache_misses": 5024,
+              "decompressed_bytes_including_repeats": 20784537600
+            }
+          ]
+        },
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 56,
+          "cold_unique_bytes": 14462976,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 13.8103808,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 56,
+          "lru_transfer_bytes": 14462976,
+          "lru_serial_40ms_10mbps_seconds": 13.8103808,
+          "unique_gzip_bytes": 2332130,
+          "lru_gzip_transfer_bytes": 2332130,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 4.105704,
+          "gzip_lru_serial_40ms_10mbps_seconds": 4.105704,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 2332130,
+              "network_requests": 56,
+              "gzip_network_bytes": 2332130,
+              "conditional_serial_40ms_10mbps_seconds": 4.105704,
+              "decoded_cache_misses": 56,
+              "decompressed_bytes_including_repeats": 14462976
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 2332130,
+              "network_requests": 56,
+              "gzip_network_bytes": 2332130,
+              "conditional_serial_40ms_10mbps_seconds": 4.105704,
+              "decoded_cache_misses": 56,
+              "decompressed_bytes_including_repeats": 14462976
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 20,
+          "cold_unique_bytes": 20230144,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 16.9841152,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 20,
+          "lru_transfer_bytes": 20230144,
+          "lru_serial_40ms_10mbps_seconds": 16.9841152,
+          "unique_gzip_bytes": 3430629,
+          "lru_gzip_transfer_bytes": 3430629,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.5445032000000003,
+          "gzip_lru_serial_40ms_10mbps_seconds": 3.5445032000000003,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3430629,
+              "network_requests": 20,
+              "gzip_network_bytes": 3430629,
+              "conditional_serial_40ms_10mbps_seconds": 3.5445032000000003,
+              "decoded_cache_misses": 20,
+              "decompressed_bytes_including_repeats": 20230144
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3430629,
+              "network_requests": 20,
+              "gzip_network_bytes": 3430629,
+              "conditional_serial_40ms_10mbps_seconds": 3.5445032000000003,
+              "decoded_cache_misses": 20,
+              "decompressed_bytes_including_repeats": 20230144
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 10,
+          "cold_unique_bytes": 38055936,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 30.844748799999998,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 11,
+          "lru_transfer_bytes": 38363136,
+          "lru_serial_40ms_10mbps_seconds": 31.1305088,
+          "unique_gzip_bytes": 7821372,
+          "lru_gzip_transfer_bytes": 7911049,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 6.6570976,
+          "gzip_lru_serial_40ms_10mbps_seconds": 6.7688392,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 7821372,
+              "network_requests": 10,
+              "gzip_network_bytes": 7821372,
+              "conditional_serial_40ms_10mbps_seconds": 6.6570976,
+              "decoded_cache_misses": 11,
+              "decompressed_bytes_including_repeats": 38363136
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 7821372,
+              "network_requests": 10,
+              "gzip_network_bytes": 7821372,
+              "conditional_serial_40ms_10mbps_seconds": 6.6570976,
+              "decoded_cache_misses": 11,
+              "decompressed_bytes_including_repeats": 38363136
+            }
+          ]
+        }
+      ],
+      "mode": "optimized",
+      "count": 36063,
+      "page_rows": 20,
+      "native_traced_seconds": {
+        "count": 0.05799625500003458,
+        "page": 0.20375383400005376
+      },
+      "result_sha256": "3110bb5707626379f8cbb1af9b1e3a55d09673fda6bc3d48c405d77ec927978c"
+    },
+    {
+      "kind": "passages",
+      "term": "transaction",
+      "edition": "all",
+      "baseline_optimized_exact_count_and_page_equal": true,
+      "xread_calls": 242,
+      "xread_requested_bytes": 987236,
+      "xread_calls_by_phase": {
+        "open": 1,
+        "count": 206,
+        "page": 35
+      },
+      "xread_bytes_by_phase": {
+        "open": 100,
+        "count": 843776,
+        "page": 143360
+      },
+      "unique_4k_pages": 241,
+      "unique_4k_page_bytes": 987136,
+      "range_models": [
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 33,
+          "cold_unique_bytes": 8433664,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 8.066931199999999,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 33,
+          "lru_transfer_bytes": 8433664,
+          "lru_serial_40ms_10mbps_seconds": 8.066931199999999,
+          "unique_gzip_bytes": 1583820,
+          "lru_gzip_transfer_bytes": 1583820,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 2.587056,
+          "gzip_lru_serial_40ms_10mbps_seconds": 2.587056,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 1583820,
+              "network_requests": 33,
+              "gzip_network_bytes": 1583820,
+              "conditional_serial_40ms_10mbps_seconds": 2.587056,
+              "decoded_cache_misses": 33,
+              "decompressed_bytes_including_repeats": 8433664
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 1583820,
+              "network_requests": 33,
+              "gzip_network_bytes": 1583820,
+              "conditional_serial_40ms_10mbps_seconds": 2.587056,
+              "decoded_cache_misses": 33,
+              "decompressed_bytes_including_repeats": 8433664
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 21,
+          "cold_unique_bytes": 21278720,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 17.862976,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 24,
+          "lru_transfer_bytes": 23683072,
+          "lru_serial_40ms_10mbps_seconds": 19.9064576,
+          "unique_gzip_bytes": 3597380,
+          "lru_gzip_transfer_bytes": 3988501,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.717904,
+          "gzip_lru_serial_40ms_10mbps_seconds": 4.1508008,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3597380,
+              "network_requests": 21,
+              "gzip_network_bytes": 3597380,
+              "conditional_serial_40ms_10mbps_seconds": 3.717904,
+              "decoded_cache_misses": 24,
+              "decompressed_bytes_including_repeats": 23683072
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3597380,
+              "network_requests": 21,
+              "gzip_network_bytes": 3597380,
+              "conditional_serial_40ms_10mbps_seconds": 3.717904,
+              "decoded_cache_misses": 24,
+              "decompressed_bytes_including_repeats": 23683072
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 10,
+          "cold_unique_bytes": 38055936,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 30.844748799999998,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 99,
+          "lru_transfer_bytes": 407461888,
+          "lru_serial_40ms_10mbps_seconds": 329.92951039999997,
+          "unique_gzip_bytes": 7942517,
+          "lru_gzip_transfer_bytes": 89157068,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 6.7540136,
+          "gzip_lru_serial_40ms_10mbps_seconds": 75.2856544,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 7942517,
+              "network_requests": 10,
+              "gzip_network_bytes": 7942517,
+              "conditional_serial_40ms_10mbps_seconds": 6.7540136,
+              "decoded_cache_misses": 99,
+              "decompressed_bytes_including_repeats": 407461888
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 7942517,
+              "network_requests": 10,
+              "gzip_network_bytes": 7942517,
+              "conditional_serial_40ms_10mbps_seconds": 6.7540136,
+              "decoded_cache_misses": 99,
+              "decompressed_bytes_including_repeats": 407461888
+            }
+          ]
+        },
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 33,
+          "cold_unique_bytes": 8433664,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 8.066931199999999,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 33,
+          "lru_transfer_bytes": 8433664,
+          "lru_serial_40ms_10mbps_seconds": 8.066931199999999,
+          "unique_gzip_bytes": 1583820,
+          "lru_gzip_transfer_bytes": 1583820,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 2.587056,
+          "gzip_lru_serial_40ms_10mbps_seconds": 2.587056,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 1583820,
+              "network_requests": 33,
+              "gzip_network_bytes": 1583820,
+              "conditional_serial_40ms_10mbps_seconds": 2.587056,
+              "decoded_cache_misses": 33,
+              "decompressed_bytes_including_repeats": 8433664
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 1583820,
+              "network_requests": 33,
+              "gzip_network_bytes": 1583820,
+              "conditional_serial_40ms_10mbps_seconds": 2.587056,
+              "decoded_cache_misses": 33,
+              "decompressed_bytes_including_repeats": 8433664
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 21,
+          "cold_unique_bytes": 21278720,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 17.862976,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 21,
+          "lru_transfer_bytes": 21278720,
+          "lru_serial_40ms_10mbps_seconds": 17.862976,
+          "unique_gzip_bytes": 3597380,
+          "lru_gzip_transfer_bytes": 3597380,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.717904,
+          "gzip_lru_serial_40ms_10mbps_seconds": 3.717904,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3597380,
+              "network_requests": 21,
+              "gzip_network_bytes": 3597380,
+              "conditional_serial_40ms_10mbps_seconds": 3.717904,
+              "decoded_cache_misses": 21,
+              "decompressed_bytes_including_repeats": 21278720
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3597380,
+              "network_requests": 21,
+              "gzip_network_bytes": 3597380,
+              "conditional_serial_40ms_10mbps_seconds": 3.717904,
+              "decoded_cache_misses": 21,
+              "decompressed_bytes_including_repeats": 21278720
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 10,
+          "cold_unique_bytes": 38055936,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 30.844748799999998,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 10,
+          "lru_transfer_bytes": 38055936,
+          "lru_serial_40ms_10mbps_seconds": 30.844748799999998,
+          "unique_gzip_bytes": 7942517,
+          "lru_gzip_transfer_bytes": 7942517,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 6.7540136,
+          "gzip_lru_serial_40ms_10mbps_seconds": 6.7540136,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 7942517,
+              "network_requests": 10,
+              "gzip_network_bytes": 7942517,
+              "conditional_serial_40ms_10mbps_seconds": 6.7540136,
+              "decoded_cache_misses": 10,
+              "decompressed_bytes_including_repeats": 38055936
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 7942517,
+              "network_requests": 10,
+              "gzip_network_bytes": 7942517,
+              "conditional_serial_40ms_10mbps_seconds": 6.7540136,
+              "decoded_cache_misses": 10,
+              "decompressed_bytes_including_repeats": 38055936
+            }
+          ]
+        }
+      ],
+      "mode": "optimized",
+      "count": 408,
+      "page_rows": 20,
+      "native_traced_seconds": {
+        "count": 0.002260411999941425,
+        "page": 0.004729537999992317
+      },
+      "result_sha256": "c1f19f074f0d28388eb62f4632311777625f1384c43a72fac84895dc0b1ec913"
+    },
+    {
+      "kind": "passages",
+      "term": "absentmatchingwordxyz",
+      "edition": "all",
+      "baseline_optimized_exact_count_and_page_equal": true,
+      "xread_calls": 19,
+      "xread_requested_bytes": 73828,
+      "xread_calls_by_phase": {
+        "open": 1,
+        "count": 18
+      },
+      "xread_bytes_by_phase": {
+        "open": 100,
+        "count": 73728
+      },
+      "unique_4k_pages": 18,
+      "unique_4k_page_bytes": 73728,
+      "range_models": [
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 6,
+          "cold_unique_bytes": 1355776,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 1.3246208,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 6,
+          "lru_transfer_bytes": 1355776,
+          "lru_serial_40ms_10mbps_seconds": 1.3246208,
+          "unique_gzip_bytes": 331757,
+          "lru_gzip_transfer_bytes": 331757,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 0.5054056,
+          "gzip_lru_serial_40ms_10mbps_seconds": 0.5054056,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 331757,
+              "network_requests": 6,
+              "gzip_network_bytes": 331757,
+              "conditional_serial_40ms_10mbps_seconds": 0.5054056,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 1355776
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 331757,
+              "network_requests": 6,
+              "gzip_network_bytes": 331757,
+              "conditional_serial_40ms_10mbps_seconds": 0.5054056,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 1355776
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 6,
+          "cold_unique_bytes": 5550080,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 4.680064,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 6,
+          "lru_transfer_bytes": 5550080,
+          "lru_serial_40ms_10mbps_seconds": 4.680064,
+          "unique_gzip_bytes": 1086307,
+          "lru_gzip_transfer_bytes": 1086307,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 1.1090456,
+          "gzip_lru_serial_40ms_10mbps_seconds": 1.1090456,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 1086307,
+              "network_requests": 6,
+              "gzip_network_bytes": 1086307,
+              "conditional_serial_40ms_10mbps_seconds": 1.1090456,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 5550080
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 1086307,
+              "network_requests": 6,
+              "gzip_network_bytes": 1086307,
+              "conditional_serial_40ms_10mbps_seconds": 1.1090456,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 5550080
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 5,
+          "cold_unique_bytes": 17084416,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 13.8675328,
+          "remote_cache_bytes": 8388608,
+          "lru_requests": 7,
+          "lru_transfer_bytes": 25473024,
+          "lru_serial_40ms_10mbps_seconds": 20.6584192,
+          "unique_gzip_bytes": 3690341,
+          "lru_gzip_transfer_bytes": 5339178,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.1522728,
+          "gzip_lru_serial_40ms_10mbps_seconds": 4.5513424,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3690341,
+              "network_requests": 5,
+              "gzip_network_bytes": 3690341,
+              "conditional_serial_40ms_10mbps_seconds": 3.1522728,
+              "decoded_cache_misses": 7,
+              "decompressed_bytes_including_repeats": 25473024
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3690341,
+              "network_requests": 5,
+              "gzip_network_bytes": 3690341,
+              "conditional_serial_40ms_10mbps_seconds": 3.1522728,
+              "decoded_cache_misses": 7,
+              "decompressed_bytes_including_repeats": 25473024
+            }
+          ]
+        },
+        {
+          "block_bytes": 262144,
+          "unique_blocks": 6,
+          "cold_unique_bytes": 1355776,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 1.3246208,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 6,
+          "lru_transfer_bytes": 1355776,
+          "lru_serial_40ms_10mbps_seconds": 1.3246208,
+          "unique_gzip_bytes": 331757,
+          "lru_gzip_transfer_bytes": 331757,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 0.5054056,
+          "gzip_lru_serial_40ms_10mbps_seconds": 0.5054056,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 331757,
+              "network_requests": 6,
+              "gzip_network_bytes": 331757,
+              "conditional_serial_40ms_10mbps_seconds": 0.5054056,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 1355776
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 331757,
+              "network_requests": 6,
+              "gzip_network_bytes": 331757,
+              "conditional_serial_40ms_10mbps_seconds": 0.5054056,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 1355776
+            }
+          ]
+        },
+        {
+          "block_bytes": 1048576,
+          "unique_blocks": 6,
+          "cold_unique_bytes": 5550080,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 4.680064,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 6,
+          "lru_transfer_bytes": 5550080,
+          "lru_serial_40ms_10mbps_seconds": 4.680064,
+          "unique_gzip_bytes": 1086307,
+          "lru_gzip_transfer_bytes": 1086307,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 1.1090456,
+          "gzip_lru_serial_40ms_10mbps_seconds": 1.1090456,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 1086307,
+              "network_requests": 6,
+              "gzip_network_bytes": 1086307,
+              "conditional_serial_40ms_10mbps_seconds": 1.1090456,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 5550080
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 1086307,
+              "network_requests": 6,
+              "gzip_network_bytes": 1086307,
+              "conditional_serial_40ms_10mbps_seconds": 1.1090456,
+              "decoded_cache_misses": 6,
+              "decompressed_bytes_including_repeats": 5550080
+            }
+          ]
+        },
+        {
+          "block_bytes": 4194304,
+          "unique_blocks": 5,
+          "cold_unique_bytes": 17084416,
+          "unlimited_cache_serial_40ms_10mbps_seconds": 13.8675328,
+          "remote_cache_bytes": 33554432,
+          "lru_requests": 5,
+          "lru_transfer_bytes": 17084416,
+          "lru_serial_40ms_10mbps_seconds": 13.8675328,
+          "unique_gzip_bytes": 3690341,
+          "lru_gzip_transfer_bytes": 3690341,
+          "gzip_unlimited_cache_serial_40ms_10mbps_seconds": 3.1522728,
+          "gzip_lru_serial_40ms_10mbps_seconds": 3.1522728,
+          "with_separate_compressed_object_cache": [
+            {
+              "compressed_cache_budget_bytes": 8388608,
+              "compressed_cache_final_bytes": 3690341,
+              "network_requests": 5,
+              "gzip_network_bytes": 3690341,
+              "conditional_serial_40ms_10mbps_seconds": 3.1522728,
+              "decoded_cache_misses": 5,
+              "decompressed_bytes_including_repeats": 17084416
+            },
+            {
+              "compressed_cache_budget_bytes": 33554432,
+              "compressed_cache_final_bytes": 3690341,
+              "network_requests": 5,
+              "gzip_network_bytes": 3690341,
+              "conditional_serial_40ms_10mbps_seconds": 3.1522728,
+              "decoded_cache_misses": 5,
+              "decompressed_bytes_including_repeats": 17084416
+            }
+          ]
+        }
+      ],
+      "mode": "optimized",
+      "count": 0,
+      "page_rows": 0,
+      "native_traced_seconds": {
+        "count": 0.0007246219997796288,
+        "page": 0.0015191510001386632
+      },
+      "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+    }
+  ],
+  "verified_whole_gzip_bytes": 10540265,
+  "whole_gzip_40ms_10mbps_seconds": 8.472211999999999,
+  "compressed_chunk_sizes": {
+    "262144": {
+      "0": 69368,
+      "1": 67791,
+      "2": 70857,
+      "3": 67157,
+      "4": 67670,
+      "5": 68025,
+      "6": 66888,
+      "7": 68228,
+      "8": 84690,
+      "85": 54400,
+      "88": 36765,
+      "89": 28602,
+      "91": 23927,
+      "92": 37092,
+      "94": 32329,
+      "110": 67074,
+      "113": 65373,
+      "114": 66411,
+      "117": 68041,
+      "118": 61432,
+      "120": 61120,
+      "124": 58403,
+      "133": 120094,
+      "134": 96682,
+      "135": 20338,
+      "136": 19265,
+      "137": 20918,
+      "138": 20709,
+      "139": 20624,
+      "140": 20710,
+      "141": 20584,
+      "142": 25669,
+      "143": 20083,
+      "144": 20647,
+      "145": 20734,
+      "146": 21176,
+      "147": 57192,
+      "148": 56548,
+      "149": 25315,
+      "150": 19201,
+      "151": 23123,
+      "152": 19185,
+      "153": 24510,
+      "154": 27206,
+      "155": 25204,
+      "156": 27059,
+      "157": 38267,
+      "158": 31570,
+      "159": 29310,
+      "160": 29242,
+      "161": 22160,
+      "162": 22198,
+      "163": 22203,
+      "164": 23427,
+      "165": 27763,
+      "166": 24717,
+      "167": 50049,
+      "189": 66092,
+      "194": 19232,
+      "198": 73528,
+      "205": 10217,
+      "206": 3863,
+      "235": 43235,
+      "236": 36424,
+      "238": 68985,
+      "239": 89342,
+      "240": 76502,
+      "241": 14195
+    },
+    "1048576": {
+      "0": 274116,
+      "1": 269663,
+      "2": 266802,
+      "21": 102096,
+      "22": 96313,
+      "23": 122003,
+      "27": 225377,
+      "28": 265778,
+      "29": 253881,
+      "30": 245602,
+      "31": 388043,
+      "33": 383372,
+      "34": 80378,
+      "35": 86323,
+      "36": 118641,
+      "37": 124393,
+      "38": 95205,
+      "39": 125563,
+      "40": 95225,
+      "41": 125364,
+      "47": 183408,
+      "48": 70659,
+      "49": 253326,
+      "51": 81683,
+      "58": 177698,
+      "59": 215121,
+      "60": 89677
+    },
+    "4194304": {
+      "0": 1047157,
+      "5": 514743,
+      "6": 393598,
+      "7": 1151434,
+      "8": 1134881,
+      "9": 462912,
+      "10": 988206,
+      "11": 1211421,
+      "12": 601680,
+      "14": 740406,
+      "15": 89677
+    }
+  }
+}

@@ -1,0 +1,134 @@
+[
+  {
+    "label": "real directory broad title or abstract",
+    "kind": "documents",
+    "term": "riverhog",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 3203,
+    "actual_nav_count": 3203
+  },
+  {
+    "label": "real directory latest second page",
+    "kind": "documents",
+    "term": "riverhog",
+    "edition": "latest",
+    "document": "",
+    "sort": "title",
+    "page": 2,
+    "old_fixture_count": 3203,
+    "actual_nav_count": 3203
+  },
+  {
+    "label": "passages broad all fields",
+    "kind": "passages",
+    "term": "contract",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 36063,
+    "actual_nav_count": 36063
+  },
+  {
+    "label": "passages latest publication order",
+    "kind": "passages",
+    "term": "contract",
+    "edition": "latest",
+    "document": "",
+    "sort": "publication",
+    "page": 1,
+    "old_fixture_count": 36063,
+    "actual_nav_count": 36063
+  },
+  {
+    "label": "passages mixed body and edition provenance",
+    "kind": "passages",
+    "term": "transaction v1",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 408,
+    "actual_nav_count": 408
+  },
+  {
+    "label": "passages absent term",
+    "kind": "passages",
+    "term": "absentmatchingwordxyz",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 0,
+    "actual_nav_count": 0
+  },
+  {
+    "label": "versions winner evidence",
+    "kind": "versions",
+    "term": "contract",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 1,
+    "actual_nav_count": 1
+  },
+  {
+    "label": "collection winner evidence",
+    "kind": "collection",
+    "term": "contract",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 1,
+    "actual_nav_count": 1
+  },
+  {
+    "label": "versions mixed body and provenance",
+    "kind": "versions",
+    "term": "transaction v1",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 1,
+    "actual_nav_count": 1
+  },
+  {
+    "label": "largest passage body exact document",
+    "kind": "passages",
+    "term": "terms",
+    "edition": "all",
+    "document": "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 1,
+    "actual_nav_count": 1
+  },
+  {
+    "label": "largest document body version result",
+    "kind": "versions",
+    "term": "terms",
+    "edition": "all",
+    "document": "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 1,
+    "actual_nav_count": 1
+  },
+  {
+    "label": "documents absent term",
+    "kind": "documents",
+    "term": "absentmatchingwordxyz",
+    "edition": "all",
+    "document": "",
+    "sort": "relevance",
+    "page": 1,
+    "old_fixture_count": 0,
+    "actual_nav_count": 0
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "kind": "disposition",
+  "issue": "https://github.com/example/target/issues/42",
+  "handoff": {
+    "url": "https://github.com/example/target/blob/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/.reference/proffer.json",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "consumer": "maintainer",
+  "outcome": "partial",
+  "reason": "Reused only the test fixture.",
+  "used": [
+    "tests/test_scheduler.py"
+  ],
+  "integration": {
+    "url": "https://github.com/example/target/commit/dddddddddddddddddddddddddddddddddddddddd",
+    "commit": "dddddddddddddddddddddddddddddddddddddddd"
+  },
+  "checks": [
+    {
+      "command": "python -m pytest -q",
+      "result": "passed",
+      "source": {
+        "kind": "commit",
+        "id": "dddddddddddddddddddddddddddddddddddddddd"
+      },
+      "environment": "Python 3.12, Linux"
+    }
+  ]
+}

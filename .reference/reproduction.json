@@ -1,0 +1,45 @@
+{
+  "purpose": "Reproduce the research in a separate scratch workspace while retaining immutable original receipts.",
+  "tested_base": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "environment": {
+    "storage_and_primary_native_queries": "GuavaJam Python 3.12.12, SQLite 3.50.4, locked workspace dependencies",
+    "native_trace": "APSW 3.54.1.0 / SQLite 3.54.1",
+    "browser": "Chromium 158.0.8127.88; Playwright 1.64.1; @sqlite.org/sqlite-wasm 3.54.1-build1",
+    "node_observed": "24.22.3; repository pin24.10.0 not exercised",
+    "pandoc": "3.12.1 for source parsing; not needed when reusing retained NAV fixture",
+    "proffer_validator": "Python 3.12.14 / jsonschema 4.26.0; pinned schema/checker in tooling/proffer"
+  },
+  "setup": [
+    "Read guides/corpus.json and guides/transport.json for exact pinned setup. Use a separate clean GuavaJam checkout at the tested base, not the reference commit.",
+    "Install GuavaJam locked Python dependencies and npm ci dependencies in that separate checkout. Install Chromium explicitly and pass its absolute executable path.",
+    "For chunks, run npm ci --prefix <reference>/experiments/range-http --ignore-scripts --no-audit --no-fund. The lockfile pins sqlite-wasm-http 1.2.0 and fflate 0.8.2.",
+    "Keep generated DBs and new measurements outside the reference payload. Retained gzip corpus avoids regenerating the Riverhog native atlas."
+  ],
+  "primary_commands": [
+    "python <reference>/verify.py",
+    "python <reference>/tooling/proffer/check.py <reference>/proffer.json",
+    "<guavajam>/.venv/bin/python <reference>/reproduce.py --guavajam <guavajam> --output <scratch> --python <guavajam>/.venv/bin/python --phase storage --editions 1",
+    "<guavajam>/.venv/bin/python <reference>/reproduce.py --guavajam <guavajam> --output <scratch> --python <guavajam>/.venv/bin/python --phase verify --editions 1",
+    "<guavajam>/.venv/bin/python <reference>/reproduce.py --guavajam <guavajam> --output <scratch> --python <guavajam>/.venv/bin/python --chrome <chrome> --phase browser --editions 1",
+    "<guavajam>/.venv/bin/python <reference>/reproduce.py --guavajam <guavajam> --output <scratch> --python <guavajam>/.venv/bin/python --chrome <chrome> --phase chunks --editions 1",
+    "Repeat storage and chunks with --editions 5, using the same scratch root or a new one. The original five-edition experiment did not run the full 38-case query matrix or complete production-worker matrix."
+  ],
+  "additional_guides": [
+    "guides/corpus.json",
+    "guides/limits.json",
+    "guides/search.json",
+    "guides/transport.json",
+    "guides/proffer.json"
+  ],
+  "runner_status": "reproduce.py is publication-time orchestration of the retained, measured scripts. Its dry-run CLI was checked; it was not the command used for the original experiments. Recorded commands and raw receipts remain the evidence of those runs.",
+  "comparability": [
+    "Use exact input/source/harness hashes to establish identity. SQLite/zlib/Node versions can change binary output or timings; do not silently relabel a different build as the retained fixture.",
+    "A reproduced run writes new results. Never overwrite or reinterpret original shared-host measurements as stable p95 estimates.",
+    "Current and five-edition storage layouts have all field/occurrence integrity checks; source fidelity and the complete query/worker matrices were run for the current fixture. Five-edition browser cases were broad/selective/negative first-page searches.",
+    "Evidence-window excerpts intentionally differ; matching, rank, source occurrence and citation do not. See guides/search.json for the separate evidence commands.",
+    "Fifty-edition observations are text-payload sensitivity only. No 50-edition FTS/browser qualification is claimed.",
+    "Older native-heading supplemental receipts have different corpus/layout hashes and are labeled separately. Their files are not interchangeable with the final production-NAV fixture.",
+    "The source/build streaming patch is an independent prototype. The storage builder retains the corpus and converts an intermediate baseline DB; it is not the proposed bounded production builder."
+  ],
+  "runner_browser_scope": "The browser convenience phase runs three transport cases. For one edition it also runs the 15-message unchanged-worker matrix across three layouts and the directory transport cases. For five editions it skips the full production-worker matrix because baseline/compact exceed the unchanged 256 MiB load bound; a single remaining layout cannot establish cross-layout parity."
+}

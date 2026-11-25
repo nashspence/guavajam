@@ -1,0 +1,90 @@
+{
+  "browser": "158.0.8127.88",
+  "playwright": "1.64.1",
+  "wasmPackage": "3.54.1-build1",
+  "scope": "Cold local HTTP load with unchanged production stream loader; three warm timing repetitions; Production GuavaJam supporting parser and NAV corpus with exact GFM source digests; modeled benchmark edition and citation context",
+  "semantics": "Primary matching/ranking/citation unchanged; source-exact bounded evidence intentionally chooses a different excerpt",
+  "databaseRawBytes": 71270400,
+  "databaseGzipBytes": 12515061,
+  "databaseNetworkBytes": 12515061,
+  "phase": "complete",
+  "ok": true,
+  "sqliteVersion": "3.54.1",
+  "cases": [
+    {
+      "label": "large passages evidence",
+      "kind": "passages",
+      "term": "terms",
+      "recordId": 8015,
+      "bodyId": 10184,
+      "originalPageAndCitationUnchanged": true,
+      "sourceExactHighlightedEvidence": true,
+      "full_evidence": {
+        "medianMs": 563.5,
+        "samples": [
+          491.69999999925494,
+          563.5,
+          605.7000000001863
+        ],
+        "heapBytes": 86638592
+      },
+      "window_evidence": {
+        "medianMs": 7.599999999627471,
+        "samples": [
+          2.1000000005587935,
+          7.599999999627471,
+          12.700000000186265
+        ],
+        "heapBytes": 86638592
+      }
+    },
+    {
+      "label": "large versions evidence",
+      "kind": "versions",
+      "term": "terms",
+      "recordId": 1024,
+      "bodyId": 1024,
+      "originalPageAndCitationUnchanged": true,
+      "sourceExactHighlightedEvidence": true,
+      "full_evidence": {
+        "medianMs": 701.2999999998137,
+        "samples": [
+          680.7000000001863,
+          701.2999999998137,
+          782.5
+        ],
+        "heapBytes": 86638592
+      },
+      "window_evidence": {
+        "medianMs": 3.300000000745058,
+        "samples": [
+          2.099999999627471,
+          3.300000000745058,
+          3.3999999994412065
+        ],
+        "heapBytes": 86638592
+      }
+    }
+  ],
+  "metrics": {
+    "headersMs": 2.900000000372529,
+    "responseBytes": 12515061,
+    "decodedBytes": 71270400,
+    "largestChunkBytes": 65536,
+    "jsFullBufferBytes": 0,
+    "copyMs": 47.19999999180436,
+    "cache": "force-cache",
+    "streamMs": 272.29999999981374,
+    "deserializeMs": 11.299999999813735,
+    "totalMs": 293.5,
+    "allocatedBytes": 71270420,
+    "wasmHeapBytes": 72155136,
+    "transferredBytes": 12515061,
+    "contentLength": 12515061,
+    "moduleMs": 49.30000000074506,
+    "heapAfterQueries": 86638592
+  },
+  "elapsedMs": 6721.9000000003725,
+  "readyMs": 384.70000000018626,
+  "roundTripMs": 6763.5
+}

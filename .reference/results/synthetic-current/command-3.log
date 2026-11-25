@@ -1,0 +1,1 @@
+{"output": "results/synthetic-current-work/query-pipeline.json", "cases": 38, "parity": true, "largest_baseline_ms": 291.5979099998367, "largest_optimized_ms": 49.327691000144114}

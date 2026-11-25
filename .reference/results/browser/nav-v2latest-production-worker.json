@@ -1,0 +1,710 @@
+{
+  "browser": "158.0.8127.88",
+  "wasmPackage": "3.54.1-build1",
+  "worker": "unchanged search-worker.js at GuavaJam54fce07",
+  "scope": "complete production-worker messages including exact-source anchor targeting and display highlights; no DOM or signed-source rendering",
+  "cases": [
+    {
+      "variant": "baseline",
+      "name": "work.4b4b1957deb8294a13ea18b5f7f49b0c3523c84fa89739ac10b6e014973b8c4d.sqlite.gz",
+      "rawBytes": 136658944,
+      "gzipBytes": 12475062,
+      "loadMs": 2093.7999999998137,
+      "checks": [
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 742,
+          "rows": 20,
+          "ms": 290.40000000037253,
+          "identical": true,
+          "canonicalResponseSha256": "a529a4eb987fc7f934ac36fb19c4224f8f3275e2ecf1146ba0153584c520ac82"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 5,
+          "rows": 5,
+          "ms": 5,
+          "identical": true,
+          "canonicalResponseSha256": "6f92352c360896624e703dcb76af9c4b6ae21d0a65338e8c693a6a857808a770"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 2.7999999998137355,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 3.400000000372529,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 5438.299999999814,
+          "identical": true,
+          "canonicalResponseSha256": "e405a03ef29006c0bd7fe32ce4f2eb430c1e2e41d853967d2c1a834d67fddd5a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 408,
+          "rows": 20,
+          "ms": 195.69999999925494,
+          "identical": true,
+          "canonicalResponseSha256": "5d1eb37b7f453cf5af595d2187a5d3c9b29eaab9f473d2784baa854692e1b230"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 5150.100000000559,
+          "identical": true,
+          "canonicalResponseSha256": "193dd7b23cf65e8b2523585fadcf35202b52bcb334d8059405fef23829447e67"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 2.2999999998137355,
+          "identical": true,
+          "canonicalResponseSha256": "2619f7e1eef87c43bbde4f73e32e14bfc50e621c9d113112a31f7ea5431b0b68"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 1321.2000000001863,
+          "identical": true,
+          "canonicalResponseSha256": "88b9f3313ac01c1d3ca0ae93ac1710acb3bffc5d8115fa7d9b025db791d65223"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 66.70000000018626,
+          "identical": true,
+          "canonicalResponseSha256": "49ee1fa6e5cec282e7812cbfe2b8f89676be0502aa212763287703081bd70a58"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 515,
+          "identical": true,
+          "canonicalResponseSha256": "dcfedfb453c128d4538e67086e57f13da1c4f784416a1afec9d58966eeb5f9e1"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 2,
+          "identical": true,
+          "canonicalResponseSha256": "1c8a4259c67be4b1b58b40589d4ab892791923e0f5fa0c19d838c48d6e91979a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "latest",
+            "sort": "publication",
+            "page": 2
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 1394.2999999998137,
+          "identical": true,
+          "canonicalResponseSha256": "47f5e68f1d741b311cf1883781e254626264e31426f7b49ee18c98ca89b59502"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction v1",
+            "edition": "all",
+            "sort": "oldest",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 81.70000000018626,
+          "identical": true,
+          "canonicalResponseSha256": "c18db635685868f427579e4c55d1648fc003cf6a8f73336c605b7ebbd24d6f0a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "",
+            "edition": "latest",
+            "sort": "title",
+            "page": 1
+          },
+          "total": 5947,
+          "rows": 20,
+          "ms": 9.600000000558794,
+          "identical": true,
+          "canonicalResponseSha256": "13dbd46719f4913a7633a96420930f85afdb123b087669d4477772a319aa0997"
+        }
+      ]
+    },
+    {
+      "variant": "compact",
+      "name": "work.97dbfeac13fbeb8512aadc687a6f7c03f63c630676bf29ac67154b1d7ce5a156.sqlite.gz",
+      "rawBytes": 68599808,
+      "gzipBytes": 11376459,
+      "loadMs": 457.29999999981374,
+      "checks": [
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 742,
+          "rows": 20,
+          "ms": 73.5,
+          "identical": true,
+          "canonicalResponseSha256": "a529a4eb987fc7f934ac36fb19c4224f8f3275e2ecf1146ba0153584c520ac82"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 5,
+          "rows": 5,
+          "ms": 44.40000000037253,
+          "identical": true,
+          "canonicalResponseSha256": "6f92352c360896624e703dcb76af9c4b6ae21d0a65338e8c693a6a857808a770"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 3.7999999998137355,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 1.400000000372529,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 2368.2000000001863,
+          "identical": true,
+          "canonicalResponseSha256": "e405a03ef29006c0bd7fe32ce4f2eb430c1e2e41d853967d2c1a834d67fddd5a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 408,
+          "rows": 20,
+          "ms": 74,
+          "identical": true,
+          "canonicalResponseSha256": "5d1eb37b7f453cf5af595d2187a5d3c9b29eaab9f473d2784baa854692e1b230"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 2278.7999999998137,
+          "identical": true,
+          "canonicalResponseSha256": "193dd7b23cf65e8b2523585fadcf35202b52bcb334d8059405fef23829447e67"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 3.7000000001862645,
+          "identical": true,
+          "canonicalResponseSha256": "2619f7e1eef87c43bbde4f73e32e14bfc50e621c9d113112a31f7ea5431b0b68"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 1092.4000000003725,
+          "identical": true,
+          "canonicalResponseSha256": "88b9f3313ac01c1d3ca0ae93ac1710acb3bffc5d8115fa7d9b025db791d65223"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 368.79999999981374,
+          "identical": true,
+          "canonicalResponseSha256": "49ee1fa6e5cec282e7812cbfe2b8f89676be0502aa212763287703081bd70a58"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 1271.7999999998137,
+          "identical": true,
+          "canonicalResponseSha256": "dcfedfb453c128d4538e67086e57f13da1c4f784416a1afec9d58966eeb5f9e1"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 2.800000000745058,
+          "identical": true,
+          "canonicalResponseSha256": "1c8a4259c67be4b1b58b40589d4ab892791923e0f5fa0c19d838c48d6e91979a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "latest",
+            "sort": "publication",
+            "page": 2
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 3845.7999999998137,
+          "identical": true,
+          "canonicalResponseSha256": "47f5e68f1d741b311cf1883781e254626264e31426f7b49ee18c98ca89b59502"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction v1",
+            "edition": "all",
+            "sort": "oldest",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 198.90000000037253,
+          "identical": true,
+          "canonicalResponseSha256": "c18db635685868f427579e4c55d1648fc003cf6a8f73336c605b7ebbd24d6f0a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "",
+            "edition": "latest",
+            "sort": "title",
+            "page": 1
+          },
+          "total": 5947,
+          "rows": 20,
+          "ms": 9.200000000186265,
+          "identical": true,
+          "canonicalResponseSha256": "13dbd46719f4913a7633a96420930f85afdb123b087669d4477772a319aa0997"
+        }
+      ]
+    },
+    {
+      "variant": "segmented",
+      "name": "work.c097cf67c662aa05d3fe5805d7124b0b5fe4e89b5d24a9c6ee76db6f030b8967.sqlite.gz",
+      "rawBytes": 52248576,
+      "gzipBytes": 9646747,
+      "loadMs": 927.2000000001863,
+      "checks": [
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 742,
+          "rows": 20,
+          "ms": 134.5,
+          "identical": true,
+          "canonicalResponseSha256": "a529a4eb987fc7f934ac36fb19c4224f8f3275e2ecf1146ba0153584c520ac82"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 5,
+          "rows": 5,
+          "ms": 7.099999999627471,
+          "identical": true,
+          "canonicalResponseSha256": "6f92352c360896624e703dcb76af9c4b6ae21d0a65338e8c693a6a857808a770"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 2.6000000005587935,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 3.2000000001862645,
+          "identical": true,
+          "canonicalResponseSha256": "b7b03e2a276be22509c9fa9de7a348007ee620e8484ad9f9cedd4d22d30ce2e2"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 3148.5999999996275,
+          "identical": true,
+          "canonicalResponseSha256": "e405a03ef29006c0bd7fe32ce4f2eb430c1e2e41d853967d2c1a834d67fddd5a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 408,
+          "rows": 20,
+          "ms": 106.59999999962747,
+          "identical": true,
+          "canonicalResponseSha256": "5d1eb37b7f453cf5af595d2187a5d3c9b29eaab9f473d2784baa854692e1b230"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 2756.5,
+          "identical": true,
+          "canonicalResponseSha256": "193dd7b23cf65e8b2523585fadcf35202b52bcb334d8059405fef23829447e67"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 4.6000000005587935,
+          "identical": true,
+          "canonicalResponseSha256": "2619f7e1eef87c43bbde4f73e32e14bfc50e621c9d113112a31f7ea5431b0b68"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "contract",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 1359.5,
+          "identical": true,
+          "canonicalResponseSha256": "88b9f3313ac01c1d3ca0ae93ac1710acb3bffc5d8115fa7d9b025db791d65223"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 132.5,
+          "identical": true,
+          "canonicalResponseSha256": "49ee1fa6e5cec282e7812cbfe2b8f89676be0502aa212763287703081bd70a58"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "Café",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 1124.199999999255,
+          "identical": true,
+          "canonicalResponseSha256": "dcfedfb453c128d4538e67086e57f13da1c4f784416a1afec9d58966eeb5f9e1"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "sort": "relevance",
+            "page": 1
+          },
+          "total": 0,
+          "rows": 0,
+          "ms": 3.2000000001862645,
+          "identical": true,
+          "canonicalResponseSha256": "1c8a4259c67be4b1b58b40589d4ab892791923e0f5fa0c19d838c48d6e91979a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "passages",
+            "term": "contract",
+            "edition": "latest",
+            "sort": "publication",
+            "page": 2
+          },
+          "total": 36063,
+          "rows": 20,
+          "ms": 2909.399999999441,
+          "identical": true,
+          "canonicalResponseSha256": "47f5e68f1d741b311cf1883781e254626264e31426f7b49ee18c98ca89b59502"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "editions",
+            "term": "transaction v1",
+            "edition": "all",
+            "sort": "oldest",
+            "page": 1
+          },
+          "total": 1,
+          "rows": 1,
+          "ms": 164.09999999962747,
+          "identical": true,
+          "canonicalResponseSha256": "c18db635685868f427579e4c55d1648fc003cf6a8f73336c605b7ebbd24d6f0a"
+        },
+        {
+          "query": {
+            "action": "search",
+            "kind": "documents",
+            "term": "",
+            "edition": "latest",
+            "sort": "title",
+            "page": 1
+          },
+          "total": 5947,
+          "rows": 20,
+          "ms": 14.200000000186265,
+          "identical": true,
+          "canonicalResponseSha256": "13dbd46719f4913a7633a96420930f85afdb123b087669d4477772a319aa0997"
+        }
+      ]
+    }
+  ]
+}

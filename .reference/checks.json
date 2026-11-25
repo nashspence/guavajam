@@ -1,0 +1,140 @@
+{
+  "checks": [
+    {
+      "command": "python scripts/contract_candidate.py generate --source-sha be483fd6d567616d5fcd355202d61f1e682efe75 --output <candidate>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/corpus/generation-measurement.json SHA256 4da2d74bf8b5d81b9a3583e8348fa5e9952647304f281a2577ef37f6a2087cbf; experiments/extract_riverhog_corpus.py SHA256 105eed4792f8051c43a632d7c6bb7291e8e95dee487a4e607ca3a6d8289f23e7. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; Riverhog Python 3.12.3 / uv 0.11.24 / locked 192-package workspace",
+      "notes": "Maintained Riverhog native atlas generation exited 0; 763.33 seconds and 922,028 KiB peak child RSS. Receipt is producer-generation evidence, not GuavaJam throughput. Complete closure has 5,947 contract elements."
+    },
+    {
+      "command": "python experiments/guavajam_corpus_adapter.py <guavajam> <pandoc> <native-documents.jsonl> <output>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/guavajam_corpus_adapter.py SHA256 a3ee77309560f0e13ca6d21ca2d4481561fba041d08198ed93aab4ed729c21b0; experiments/corpus/guavajam-navigation-manifest.json SHA256 225f871922d54de0e23c3085187d47e938c781ed5913904e42604971f38cbe91. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations; actual Pandoc 3.12.1",
+      "notes": "All 5,947 supporting files passed unmodified per-file parser; 36,063 actual navigation passages including metadata; all native text chunks retained. Full signed-source validation/rendering was not performed."
+    },
+    {
+      "command": "python experiments/limits/test_bounded_snapshot.py; python experiments/limits/measure_snapshots.py; python experiments/limits/measure_guards.py; python experiments/limits/measure_guards.py --worker candidate --case 4000-documents; python experiments/limits/cache_inventory_probe.py",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/limits/bounded_snapshot.py SHA256 28e47323074d404198eea4816ad8bc4ba5432d6c1fd9a5ff25c853718149dde1; experiments/limits/test_bounded_snapshot.py SHA256 fcabd0914c0ae340fee83aca2eb08b8b28f8bf3345ab718b6e905073e58b5f7e; experiments/limits/aggregate-guard-only.patch SHA256 7d3b2363ad107a520b097d2173160263d021111b9a9f1486b3462bb119499c81; experiments/limits/snapshot-correctness.json SHA256 73ed78c2390f5620db33d7c200118cb3b5f8303c58c2f1d6f3d32b8d61b4daf7; experiments/limits/snapshot-results.json SHA256 21a0672a059ac6d5351b0ef29aca3bbc2df2482fdc9a4c841c514d7c91ee9a2d; experiments/limits/guard-results.json SHA256 2682ea25bbe16d6da65979e3cecce5d38b14f592d54d56276c858ce27ab0b2ea; experiments/limits/guard-4000.json SHA256 85c07841d5b84d012635e911c52783f6eaaa828c8b50c60d36b4d121bf66ed6f; experiments/limits/cache-inventory-results.json SHA256 5eae0e83105684ca10bc7358c0b5ac73bc9c0ba5292bb1e5c0218b34f9ae24d7. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations; Git 2.56.1/Pandoc 3.12.1",
+      "notes": "14 targeted snapshot cases and 6 existing contracts passed; byte/order equality across 4,000/16,000 files and 260 MiB. Aggregate-only candidate validates 4,000 documents and 105 MiB supporting input while retaining individual/malformed rejections. Synthetic rendered-file inventory demonstrates independent CACHE limit, not a complete render."
+    },
+    {
+      "command": "python experiments/storage_matrix.py --guavajam <base> --corpus <retained-nav-jsonl> --output <fresh-output> --editions <1 or5> --change-rate 0.05 --metadata-mode edition --variants baseline,compact,segmented; python experiments/directory_partition.py <baseline.sqlite> <directory.sqlite>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/storage_matrix.py SHA256 85aa8907ac85501d985664a3d7f9bd6e533d9b3379a13a5c933c04d954eca5f3; experiments/directory_partition.py SHA256 8668eed848807d9e0df09458d9b2b6a8092fb02d73b4219ad6f60baa16437715; results/storage/nav-v2latest/report.json SHA256 633b884f27ae12c7438dd5ff47695ac3f241ed9137c0192867d95624c04978fa; results/storage/nav-v2five/report.json SHA256 8b47265c5510b04f6d5f358cdaa0742eafd14eabc1d7daf09132f612e6a84a8f. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations",
+      "notes": "Both primary corpora built; complete relational/integrity, external-content FTS integrity and six-field/occurrence/citation equivalence assertions passed. Directory preserves all original document rows/FTS/facets. Offline builder retains corpus/intermediate DB; not proposed streaming production implementation."
+    },
+    {
+      "command": "python experiments/verify_navigation_indexes.py <nav-v2latest> <retained-nav-jsonl> <browser-case-selection> --repetitions 1",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/verify_navigation_indexes.py SHA256 474a4bf70996e29ee718d384571432201dc0d0e7277e5bb53dc486544ecf7bf5; experiments/query_pipeline.py SHA256 cecb995c9f0758e8e81d2a113887a9c965b04cd2590c3bca5878340be0e33a5d; experiments/metadata_facets.py SHA256 13038e42d408d74f95da2d55c63b0c0345c5442697497562cac2ccc4338e208a; results/storage/nav-v2latest/verification-summary.json SHA256 f0581a5c4e70c3734978e46c3231c74e9904ab5a08d96da618365bab82ad336a. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations",
+      "notes": "All 5,947 source digests/full document texts and 36,063 navigation anchors plus metadata exact; 38 query cases per baseline/compact/segmented layout; 26 literal facet cases. Count/order/score/excerpts/parsed-citation parity. Full 38-case matrix not run on five-edition fixture."
+    },
+    {
+      "command": "python experiments/semantic_probes.py; python experiments/query_pipeline.py --repetitions 1 --output <fresh-query-report> --cases-output <fresh-cases>; python experiments/metadata_facets.py --repetitions 1 --output <fresh-facet-report>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/semantic_probes.py SHA256 749e81a0b2a9ef872d97da23ea4eb1477a860f96d5bf292b88f4517d4f67d72e; experiments/query_pipeline.py SHA256 cecb995c9f0758e8e81d2a113887a9c965b04cd2590c3bca5878340be0e33a5d; experiments/metadata_facets.py SHA256 13038e42d408d74f95da2d55c63b0c0345c5442697497562cac2ccc4338e208a; results/synthetic-current/receipt.json SHA256 6b3af398c2b0c7fed941783f047572acaa5c07169fa72f992cddff9d8e362c2f. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Supplemental synthetic probes: host Python 3.12.14 / SQLite 3.53.1; exact environment retained in individual receipts",
+      "notes": "Fresh correctness rerun against final frozen scripts: 14 semantic queries, 38 query cases on 3,600 documents/10,800 passages, and 28 original-JSON facet cases on 20,000 documents/60,000 passages. Exact commands, script hashes and runtime in results/synthetic-current. One timing repetition; these establish current-source correctness provenance rather than replacing original benchmark measurements. Older 36-case receipt remains separate."
+    },
+    {
+      "command": "node experiments/production_worker_parity.mjs <guavajam> <chrome> <nav-v2latest> <report> baseline,compact,segmented",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/production_worker_parity.mjs SHA256 dced04988f5575a17e9b8079cdb244f42a23c22cf94e8593afabb8e75a6475a3; results/browser/nav-v2latest-production-worker.json SHA256 79bb03ac7303782c29af94e5767e6a4ef0235e8fc1a6f1996a6518c68236c591. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; Node 24.22.3, Playwright 1.64.1, Chromium 158.0.8127.88, @sqlite.org/sqlite-wasm3.54.1-build1; explicit runtime deviations recorded",
+      "notes": "15 complete unchanged-production-worker responses per layout matched, including anchor targeting and display highlights. Canonical parsed JSON and floating-score normalization as recorded. No rendered DOM/browser journey or release qualification."
+    },
+    {
+      "command": "node experiments/browser_matrix.mjs <guavajam> <chrome> <nav-v2latest> <transport-cases.json> <output> baseline,segmented controlled 1; repeated segmented alone; directory equivalent",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/browser_matrix.mjs SHA256 7e8502011798fdaa3f36ebdfd4e7ff9b05c757f46d584bfaa667069413feee55; experiments/browser_worker.mjs SHA256 b61b8e294e834c6902d58fe483152c0c6177ce89402a586e6af45fc870d1545f; results/browser/nav-v2latest/report.json SHA256 04e3b5a1f8199b5c6ec73569c27f65fa080d145c170820dedd039175a35c616a; results/browser/nav-v2latest-isolated/report.json SHA256 3c75eafe0d72018ba37b90b2daba79c571686f6ad527d4b477d10f372f71ace4; results/browser/nav-v2directory/report.json SHA256 d1caadaa749edae86eb7d810cf140a7c6cf20d157afda0a2baf1f41ece4da2dd. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; Node 24.22.3, Playwright 1.64.1, Chromium 158.0.8127.88, @sqlite.org/sqlite-wasm3.54.1-build1; explicit runtime deviations recorded",
+      "notes": "Actual controlled HTTP cold/warm downloads with unmodified production stream loader; pinned WASM SQL parity.40 ms per response and nominal 10 Mbit/s per response, not shared-bandwidth mobile emulation. Original contended measurements and isolated repeat both retained; WASM heap is not total process memory."
+    },
+    {
+      "command": "python experiments/evidence_windows.py --source <compact.sqlite> --output <evidence.sqlite> --cases <query-cases.json> --report <evidence-windows.json>; node experiments/evidence_browser.mjs <guavajam> <chrome> <evidence.sqlite> <evidence-browser-cases.json> <report>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/evidence_windows.py SHA256 63f63bb70feb60d75a1c2b5669770c005d982138d018a2c562db91facb0a16c5; experiments/evidence_browser.mjs SHA256 064a40c03935aef73a1bf0e936d22b7c51068ef2ba95de297f518e365b39c3e9; experiments/evidence_worker.mjs SHA256 df8f2ba0fcaea75f2e33bb485365d0ec2f9f266b14956bc66f734e1d1aedf2a1; results/browser/nav-v2-evidence-windows.json SHA256 522a3e76afa955dc7751eab54d327feed6ba5c12f42ae5503f308246786627c6. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations; Linux; Node 24.22.3, Playwright 1.64.1, Chromium 158.0.8127.88, @sqlite.org/sqlite-wasm3.54.1-build1; explicit runtime deviations recorded",
+      "notes": "Source-exact bounded evidence with primary occurrence matching/ranking/citation unchanged; native Unicode/deep-term/cross-window cases and 2 browser large-body cases. Timings measure body-excerpt generation after selecting the winning result. Excerpt choice intentionally differs. Three warm iterations per browser mode; no WAN evidence-window benchmark."
+    },
+    {
+      "command": "node experiments/range-http/run-chunks.mjs <guavajam> <chrome> <segmented.sqlite> <oracle-cases.json> <report> local,controlled transaction,absentmatchingwordxyz,contract; current isolated controlled repeat",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/range-http/run-chunks.mjs SHA256 4664a67ddf152cb4cf07b88c16b812f9a3d162531939c35e8c2663d3832c399d; experiments/range-http/worker-chunks.mjs SHA256 d16e5424f0312a89c20f8401b8defd1982c0018628f6cf809c2500e7e9525f60; experiments/export_range_cases.py SHA256 8c8ac7de85a56123bd540a10047aa470d5b85a37d15b87d33060e5d7368665ff; results/range/browser-chunks-nav-v2latest.json SHA256 fb59214c2482a967a1c254a32b0dc6ade91521e5cc52e404ee6288f36a5106e0; results/range/browser-chunks-nav-v2five.json SHA256 e4114f2b4ad7471ebe27530642c2f7556265a423f003ab8b6de28288b37442eb; results/range/browser-chunks-nav-v2latest-isolated.json SHA256 f19feea72b7ec30a1e0667d24c3ee8ebd8806bb9df6ced998c67e2ec1c9bd6ec. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; Node 24.22.3, Playwright 1.64.1, Chromium 158.0.8127.88, @sqlite.org/sqlite-wasm3.54.1-build1; explicit runtime deviations recorded; fflate 0.8.2 and mechanically adapted sqlite-wasm-http 1.2.0 scaffold",
+      "notes": "All 15 original/repeat browser samples pass native baseline SQL oracle; zero Range requests; 32 MiB decoded / 8 MiB compressed cache peaks bounded. Counts/order/normalized scores/excerpts/parsed citations pass. Worker validates lengths but not SHA256; cancellation/corruption/retry/total-memory/cross-browser/50-edition gates remain."
+    },
+    {
+      "command": "node experiments/range-http/run.mjs <guavajam> <chrome> <smoke-compact.sqlite> <smoke-cases> <report> local transaction original",
+      "result": "failed",
+      "source": {
+        "kind": "worktree",
+        "details": "Historical local smoke experiment: GuavaJam 54fce07b619628a5e92be946be4b189873ddf1a0; sqlite-wasm-http 1.2.0 original driver SHA256 663457fe6ab955f9332adb9f00309b5585ed628e7e67ba410df0bcf42401d063; only the bare lru-cache import was mapped to its unchanged ESM module. Native-heading compact smoke database 249856 bytes, SHA256 e97fdf698bdaaa2718773d4b45a289ba0ce7ec2443363b4defc0677ad48c327b. Exact negative receipt is results/range/browser-smoke.json. The final retained run.mjs exposes the corresponding original-mode invocation; it is not asserted to be byte-identical to the earlier harness."
+      },
+      "environment": "Linux; Node 24.22.3, Playwright 1.64.1, Chromium 158.0.8127.88, @sqlite.org/sqlite-wasm3.54.1-build1; explicit runtime deviations recorded",
+      "notes": "Retained negative compatibility result: unmodified third-party scaffold calls removed dbCtorHelper.setVfsPostOpenSql before database fetch. Later raw-Range/chunk experiments explicitly adapt that hook; not drop-in package compatibility."
+    },
+    {
+      "command": "python experiments/churn_sensitivity.py <retained-nav-jsonl> <report> --guavajam <base>",
+      "result": "passed",
+      "source": {
+        "kind": "worktree",
+        "details": "Independent experiment workspace; production GuavaJam base 54fce07b619628a5e92be946be4b189873ddf1a0; Riverhog base be483fd6d567616d5fcd355202d61f1e682efe75; retained production-NAV corpus SHA256 ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a. Frozen code/receipt identities: experiments/churn_sensitivity.py SHA256 06c818e12643234153117cab2b9a738bff0d9676ad5c1f232d72daad8cfb0257; experiments/corpus/churn-navigation-sensitivity.json SHA256 2c34db8324a3a1206be34bd594ddd8ab5109709e85631fb2e06f0ef9fbf713c2. Individual notes identify synthetic, historical and corpus scope. The reference payload itself is not production integration."
+      },
+      "environment": "Linux; GuavaJam Python 3.12.12 / SQLite 3.50.4 with locked dependencies; single shared-host observations",
+      "notes": "Deterministic 1/5/50-edition payload sensitivity, random/skewed/all-document changes and last/largest passage updates. Text-pool counts only; no 50-edition FTS/database/compression/browser result."
+    },
+    {
+      "command": "Complete signed-source publication, renderer/cache/catalog/NAV/VIEW/SITE update pipeline for 5,947 final-design documents",
+      "result": "not-run",
+      "reason": "Reference research isolates source loading, storage, SQL and browser worker transport. The complete final GFM/UI representation and streaming renderer/inventory integration remain implementation gates."
+    },
+    {
+      "command": "Full 50-edition FTS/browser/cross-browser/mobile/corruption/cancellation/process-memory qualification",
+      "result": "not-run",
+      "reason": "Only 1 and 5 editions have measured database/browser fixtures; 50 edition evidence is text-payload sensitivity. Chromium 158 was used; bundled pinned Chromium download was unavailable; Firefox/WebKit/mobile and adversarial VFS recovery are unqualified."
+    },
+    {
+      "command": "GuavaJam release checks, main merge, tag, deployment or Riverhog migration",
+      "result": "not-run",
+      "reason": "This publication supplies independently reviewable reference artifacts. No production integration or release is being performed."
+    }
+  ],
+  "interpretation": "Recorded experiment checks, not a claim that every dependency/version/release gate passed."
+}

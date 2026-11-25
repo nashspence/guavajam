@@ -1,0 +1,17 @@
+{
+  "database": "results/storage/nav-v2latest/baseline.sqlite",
+  "corpus_sha256": "ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a",
+  "documents_checked": 5947,
+  "anchors_checked": 36063,
+  "document_titles_abstracts_languages_exact": true,
+  "full_document_text_exact": true,
+  "all_anchor_text_title_kind_level_position_parent_scope_exact": true,
+  "all_metadata_memberships_equal_original_nav_corpus": true,
+  "source_sha256_matches_actual_markdown": true,
+  "modeled_source_digest_mismatches": 0,
+  "source_identity_scope": "Every first-edition document is checked against the real supporting-Markdown SHA-256 retained by the production parser fixture.",
+  "limitations": [
+    "This comparison checks initial-edition source-byte identity; later modeled editions are serialized by the benchmark builder, not claimed as real Riverhog release history.",
+    "Edition revisions, work-level fields, publication dates, and citation URLs remain explicitly modeled benchmark context, not signed publication artifacts."
+  ]
+}

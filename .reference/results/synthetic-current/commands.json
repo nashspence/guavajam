@@ -1,0 +1,77 @@
+[
+  {
+    "command": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "experiments/semantic_probes.py",
+      "--output",
+      "results/synthetic-current-work/semantic-probes.json"
+    ],
+    "cwd": "/workspace/scratch/2cede18208f4",
+    "exit_code": 0,
+    "elapsed_seconds": 0.08377711399953114,
+    "log": "results/synthetic-current-work/command-1.log",
+    "log_sha256": "1600eff8d09defa35f70a115aa1ae8f2615f7b62f342785843ce343020e31179"
+  },
+  {
+    "command": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-c",
+      "import sys; from pathlib import Path; sys.path.insert(0,\"experiments\"); from query_pipeline import synthetic_database; synthetic_database(Path(sys.argv[1]))",
+      "results/synthetic-current-work/query.sqlite"
+    ],
+    "cwd": "/workspace/scratch/2cede18208f4",
+    "exit_code": 0,
+    "elapsed_seconds": 1.1579221359997973,
+    "log": "results/synthetic-current-work/command-2.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "command": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "experiments/query_pipeline.py",
+      "--database",
+      "results/synthetic-current-work/query.sqlite",
+      "--output",
+      "results/synthetic-current-work/query-pipeline.json",
+      "--cases-output",
+      "results/synthetic-current-work/query-pipeline-cases.json",
+      "--repetitions",
+      "1"
+    ],
+    "cwd": "/workspace/scratch/2cede18208f4",
+    "exit_code": 0,
+    "elapsed_seconds": 6.574434373000258,
+    "log": "results/synthetic-current-work/command-3.log",
+    "log_sha256": "5fb1c902e081f7e4200c5d70615b1d52a4ee922caae4d4e35c65c11b73f6442d"
+  },
+  {
+    "command": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "-c",
+      "import sys; from pathlib import Path; sys.path.insert(0,\"experiments\"); from metadata_facets import synthetic_database; synthetic_database(Path(sys.argv[1]))",
+      "results/synthetic-current-work/metadata.sqlite"
+    ],
+    "cwd": "/workspace/scratch/2cede18208f4",
+    "exit_code": 0,
+    "elapsed_seconds": 1.0724447339998733,
+    "log": "results/synthetic-current-work/command-4.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "command": [
+      "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+      "experiments/metadata_facets.py",
+      "--database",
+      "results/synthetic-current-work/metadata.sqlite",
+      "--output",
+      "results/synthetic-current-work/metadata-facets.json",
+      "--repetitions",
+      "1"
+    ],
+    "cwd": "/workspace/scratch/2cede18208f4",
+    "exit_code": 0,
+    "elapsed_seconds": 5.5745827829996415,
+    "log": "results/synthetic-current-work/command-5.log",
+    "log_sha256": "4e60fd03e33e9435df623ce21fe59ab9e738de4326e4da437aa55582c8f78497"
+  }
+]

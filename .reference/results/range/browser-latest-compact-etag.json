@@ -1,0 +1,45 @@
+{
+  "browser": "158.0.8127.88",
+  "sqliteWasm": "3.54.1-build1",
+  "driver": "sqlite-wasm-http@1.2.0 synchronous HTTP VFS",
+  "driverOriginalSha256": "663457fe6ab955f9332adb9f00309b5585ed628e7e67ba410df0bcf42401d063",
+  "driverServedSha256": "900306ff81373288307dd865d160846b14c1dfa913b2dcff32d1db3fbf479396",
+  "driverAdapter": "Bare lru-cache import mapped; removed obsolete DB.dbCtorHelper.setVfsPostOpenSql registration. Wrapper explicitly sets journal_mode, busy_timeout and requested8MiBcache after open. HTTP read/cache logic unchanged; official GuavaJam SQLite runtime reused.",
+  "database": "/workspace/scratch/2cede18208f4/results/storage/latest/compact.sqlite",
+  "databaseBytes": 63221760,
+  "databaseSha256": "6886ca1be17f2dab5cdf6d1190cefad3553dcb75271f55e7fe983f1c23675d2f",
+  "rangeCacheValidator": "Strong SHA256ETag for immutable database URL",
+  "conditions": "Fresh browser context/worker per case; same-origin HTTP; no COOP/COEP required; immutable identity-encoded SQLite ranges;8MiB SQLite cache and8MiB VFS cache;controlled profile40ms before response+10Mbit/s per response;runtime assets gzip;120second worker deadline",
+  "samples": [
+    {
+      "profile": "controlled",
+      "term": "contract",
+      "phase": "complete",
+      "ok": true,
+      "moduleMs": 408.20000000018626,
+      "openedMs": 712.6000000000931,
+      "countMs": 15599.5,
+      "pageMs": 2480.899999999907,
+      "totalMs": 18802.80000000028,
+      "count": 36063,
+      "pageRows": 20,
+      "oracleEqual": true,
+      "sqliteVersion": "3.54.1",
+      "wasmHeapBytes": 12124160,
+      "sqliteCacheSetting": -8192,
+      "vfsCacheBytes": 8388608,
+      "opened": {
+        "phase": "opened",
+        "moduleMs": 408.20000000018626,
+        "openedMs": 712.6000000000931,
+        "sqliteVersion": "3.54.1"
+      },
+      "roundTripMs": 19059.900000000373,
+      "errors": [],
+      "dbRequests": 94,
+      "rangeRequests": 93,
+      "databaseNetworkBytes": 15450112,
+      "runtimeNetworkBytes": 600458
+    }
+  ]
+}

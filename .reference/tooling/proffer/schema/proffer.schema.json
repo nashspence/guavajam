@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/nashspence/proffer/main/schema/proffer.schema.json",
+  "title": "Proffer",
+  "description": "A reference handoff is input for evaluation, not authorization to integrate. Validation checks records, not the truth of their claims.",
+  "oneOf": [
+    { "$ref": "#/$defs/handoff" },
+    { "$ref": "#/$defs/publication" },
+    { "$ref": "#/$defs/disposition" }
+  ],
+  "$defs": {
+    "text": { "type": "string", "minLength": 1 },
+    "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+    "gitId": { "type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "revision": {
+      "type": "object",
+      "properties": {
+        "ref": { "$ref": "#/$defs/text" },
+        "commit": { "$ref": "#/$defs/gitId" }
+      },
+      "required": ["ref", "commit"],
+      "additionalProperties": false
+    },
+    "base": {
+      "oneOf": [
+        { "$ref": "#/$defs/revision" },
+        {
+          "type": "object",
+          "properties": { "none": { "$ref": "#/$defs/text" } },
+          "required": ["none"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "testedSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "commit" },
+            "id": { "$ref": "#/$defs/gitId" }
+          },
+          "required": ["kind", "id"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "tree" },
+            "id": { "$ref": "#/$defs/gitId" }
+          },
+          "required": ["kind", "id"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "worktree" },
+            "details": { "$ref": "#/$defs/text" }
+          },
+          "required": ["kind", "details"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "check": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "command": { "$ref": "#/$defs/text" },
+            "result": { "enum": ["passed", "failed"] },
+            "source": { "$ref": "#/$defs/testedSource" },
+            "environment": { "$ref": "#/$defs/text" },
+            "notes": { "$ref": "#/$defs/text" }
+          },
+          "required": ["command", "result", "source", "environment"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "command": { "$ref": "#/$defs/text" },
+            "result": { "const": "not-run" },
+            "reason": { "$ref": "#/$defs/text" }
+          },
+          "required": ["command", "result", "reason"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "published": {
+      "type": "object",
+      "properties": {
+        "url": { "$ref": "#/$defs/url" },
+        "commit": { "$ref": "#/$defs/gitId" }
+      },
+      "required": ["url", "commit"],
+      "additionalProperties": false
+    },
+    "companion": {
+      "type": "object",
+      "properties": {
+        "url": { "$ref": "#/$defs/url" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "required": ["url", "sha256"],
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "handoff" },
+        "issue": { "$ref": "#/$defs/url" },
+        "purpose": { "$ref": "#/$defs/text" },
+        "producer": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "requester": { "$ref": "#/$defs/text" },
+        "first_step": { "$ref": "#/$defs/text" },
+        "source": {
+          "type": "object",
+          "properties": {
+            "repository": { "$ref": "#/$defs/repository" },
+            "base": { "$ref": "#/$defs/base" },
+            "work_state": { "enum": ["unchanged", "edited", "patches", "standalone"] },
+            "later_inspected": { "$ref": "#/$defs/revision" }
+          },
+          "required": ["repository", "base", "work_state"],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": { "work_state": { "const": "standalone" } },
+                "required": ["work_state"]
+              },
+              "then": { "properties": { "base": { "required": ["none"] } } }
+            },
+            {
+              "if": {
+                "properties": { "work_state": { "not": { "const": "standalone" } } },
+                "required": ["work_state"]
+              },
+              "then": { "properties": { "base": { "required": ["ref", "commit"] } } }
+            }
+          ]
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+        "limitations": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "companions": { "type": "array", "items": { "$ref": "#/$defs/companion" } },
+        "supersedes": { "$ref": "#/$defs/published" }
+      },
+      "required": ["kind", "issue", "purpose", "producer", "requester", "first_step", "source", "artifacts"],
+      "additionalProperties": false
+    },
+    "supplied": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "commit" },
+            "id": { "$ref": "#/$defs/gitId" }
+          },
+          "required": ["kind", "id"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "const": "archive" },
+            "sha256": { "$ref": "#/$defs/sha256" },
+            "url": { "$ref": "#/$defs/url" }
+          },
+          "required": ["kind", "sha256"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "publication": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "publication" },
+        "issue": { "$ref": "#/$defs/url" },
+        "handoff": { "$ref": "#/$defs/published" },
+        "publisher": { "$ref": "#/$defs/text" },
+        "supplied": { "$ref": "#/$defs/supplied" },
+        "verification": {
+          "type": "object",
+          "properties": {
+            "method": { "enum": ["commit-identity", "tree-identity", "inventory"] },
+            "result": { "const": "matched" }
+          },
+          "required": ["method", "result"],
+          "additionalProperties": false
+        },
+        "companions": { "type": "array", "items": { "$ref": "#/$defs/companion" } }
+      },
+      "required": ["kind", "issue", "handoff", "publisher", "supplied", "verification"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "supplied": { "properties": { "kind": { "const": "archive" } }, "required": ["kind"] } },
+            "required": ["supplied"]
+          },
+          "then": { "properties": { "verification": { "properties": { "method": { "const": "inventory" } } } } }
+        }
+      ]
+    },
+    "disposition": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "disposition" },
+        "issue": { "$ref": "#/$defs/url" },
+        "handoff": { "$ref": "#/$defs/published" },
+        "consumer": { "$ref": "#/$defs/text" },
+        "outcome": { "enum": ["reused", "adapted", "reproduced", "partial", "deferred", "superseded", "rejected"] },
+        "reason": { "$ref": "#/$defs/text" },
+        "used": { "type": "array", "items": { "$ref": "#/$defs/text" } },
+        "integration": { "$ref": "#/$defs/published" },
+        "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+        "next_trigger": { "$ref": "#/$defs/text" },
+        "retained_at": { "$ref": "#/$defs/url" }
+      },
+      "required": ["kind", "issue", "handoff", "consumer", "outcome", "reason"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "enum": ["deferred", "superseded", "rejected"] } },
+            "required": ["outcome"]
+          },
+          "then": { "not": { "required": ["integration"] } }
+        }
+      ]
+    }
+  }
+}

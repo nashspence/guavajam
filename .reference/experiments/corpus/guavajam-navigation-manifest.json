@@ -1,0 +1,85 @@
+{
+  "kind": "research-valid-supporting-gfm-navigation-corpus",
+  "guavajam_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "python": "3.12.12",
+  "pandoc": "pandoc 3.12.1",
+  "workers": 4,
+  "input_corpus_sha256": "65e5b0170d06530d162992c36cc5d3daee146822d6b6fb92ce75ebd0b240e399",
+  "output": {
+    "file": "guavajam-documents.jsonl",
+    "bytes": 42815213,
+    "sha256": "ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a"
+  },
+  "documents": 5947,
+  "passages": 36063,
+  "source_markdown_bytes": 17996087,
+  "max_source_markdown_bytes": 1518306,
+  "navigation_document_text_bytes": 14117137,
+  "navigation_passage_text_bytes": 13800408,
+  "max_navigation_passage_text_bytes": 1027923,
+  "metadata_passage_text_bytes": 1053410,
+  "elapsed_supporting_parse_seconds": 52.97284343499996,
+  "checks": {
+    "all_current_supporting_blob_loaders_passed": true,
+    "all_native_chunk_text_roundtrips_exact": true,
+    "all_record_ids_match_complete_native_corpus": true,
+    "all_flat_passages_have_production_kind_level_scope": true
+  },
+  "layout_comparison_samples": [
+    {
+      "id": "versioning-tags:release:versioning-series:43d554907c",
+      "native_heading_chunks": 1,
+      "flat_document_text_bytes": 164,
+      "heading_document_text_bytes": 179,
+      "same_document_text": false,
+      "flat_passages": 2,
+      "heading_passages": 3,
+      "flat_passage_text_bytes": 144,
+      "heading_passage_text_bytes": 161,
+      "heading_source_bytes": 361
+    },
+    {
+      "id": "python:riverhog-client:riverhog-client-apiclient-restart-processing-claim:4214484336",
+      "native_heading_chunks": 1,
+      "flat_document_text_bytes": 506,
+      "heading_document_text_bytes": 506,
+      "same_document_text": true,
+      "flat_passages": 2,
+      "heading_passages": 3,
+      "flat_passage_text_bytes": 454,
+      "heading_passage_text_bytes": 716,
+      "heading_source_bytes": 716
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-owner-advance-growth-v1:0dcb27a484",
+      "native_heading_chunks": 8,
+      "flat_document_text_bytes": 1145912,
+      "heading_document_text_bytes": 1145912,
+      "same_document_text": true,
+      "flat_passages": 9,
+      "heading_passages": 16,
+      "flat_passage_text_bytes": 1145853,
+      "heading_passage_text_bytes": 2291387,
+      "heading_source_bytes": 1518597
+    },
+    {
+      "id": "configuration:stove0-server:stove0-server-configuration-stove0-docume-54bc5c97ac:b33400d8ab",
+      "native_heading_chunks": 419,
+      "flat_document_text_bytes": 81118,
+      "heading_document_text_bytes": 81118,
+      "same_document_text": true,
+      "flat_passages": 420,
+      "heading_passages": 839,
+      "flat_passage_text_bytes": 80641,
+      "heading_passage_text_bytes": 153031,
+      "heading_source_bytes": 119579
+    }
+  ],
+  "limitations": [
+    "Literal flat paragraphs preserve visible native text, not the final table/list/link presentation or original heading structure.",
+    "The production per-file supporting-source loader and navigation extractor ran. Whole-repository source validation still has its stock 128-document guard and was not claimed here.",
+    "No signed-publication, complete renderer, citation or browser qualification is implied.",
+    "Metadata includes explicitly modeled Label and Example version values. Software release semantics remain outside GuavaJam.",
+    "Alternative heading-plus-body GFM requires extra explicit block anchors and duplicates body text into section and block passage rows under current navigation semantics."
+  ]
+}

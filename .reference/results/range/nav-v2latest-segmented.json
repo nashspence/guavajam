@@ -1,0 +1,391 @@
+{
+  "database": "/workspace/scratch/2cede18208f4/results/storage/nav-v2latest/segmented.sqlite",
+  "database_bytes": 52248576,
+  "database_sha256": "fef466d55a0412200ed6caea77206e6a386a861d97029ab8a8b35b5ed95d4c6a",
+  "query_cases_path": "/workspace/scratch/2cede18208f4/results/range/nav-v2latest-query-cases.json",
+  "query_cases_sha256": "d3acf73bd81cacee91570345e0cba0a6bb3b6b4ffd438b3063138fe8009d1be6",
+  "trace_script_sha256": "77d0f4aba4d61b1b3dba7b8da8bbcf42eca0e50a983fbe7c81a3ba31768759b8",
+  "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+  "apsw": "3.54.1.0",
+  "sqlite": "3.54.1",
+  "method": {
+    "sqlite_page_cache_bytes": 8388608,
+    "sqlite_mmap_bytes": 0,
+    "sqlite_temp_store": "MEMORY",
+    "connection": "new read-only immutable connection per mode/case; count then page shares cache",
+    "remote_models": "identity-encoded byte ranges, aligned blocks; both unlimited-cache lower traffic and 8MiB remote LRU counted; 40ms per serial cache-miss request plus10Mbps payload time, no TLS/HTTP overhead/CPU/WASM/failed requests",
+    "interpretation": "Conditional serial demand-fetch transfer model, not observed browser or WAN latency. Parallel prefetch/coalescing, byte-range CDN support and an actual VFS may change requests. OS cache is uncontrolled but does not alter observed SQLite xRead demand."
+  },
+  "cases": [
+    {
+      "kind": "passages",
+      "term": "contract",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 23370,
+          "xread_requested_bytes": 95700390,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 11693,
+            "page": 11676
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 47884961,
+            "page": 47815329
+          },
+          "unique_4k_pages": 6936,
+          "unique_4k_page_bytes": 28409856,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 443,
+              "cold_unique_bytes": 28983296,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 40.9066368,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 1415,
+              "lru_transfer_bytes": 92585984,
+              "lru_serial_40ms_10mbps_seconds": 130.6687872
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 115,
+              "cold_unique_bytes": 29966336,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 28.5730688,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 478,
+              "lru_transfer_bytes": 124764160,
+              "lru_serial_40ms_10mbps_seconds": 118.93132800000001
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 32,
+              "cold_unique_bytes": 33374208,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 27.9793664,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 1052,
+              "lru_transfer_bytes": 1081114624,
+              "lru_serial_40ms_10mbps_seconds": 906.9716992
+            }
+          ],
+          "mode": "baseline",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 1.313318843000161,
+            "page": 1.157724166000662
+          },
+          "result_sha256": "375f10d23a31631f6f9936064b735d53e07c9a52563d5fec918dcdfb25af3078"
+        },
+        {
+          "xread_calls": 16288,
+          "xread_requested_bytes": 66711652,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 8030,
+            "page": 8257
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 32890880,
+            "page": 33820672
+          },
+          "unique_4k_pages": 3906,
+          "unique_4k_page_bytes": 15998976,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 259,
+              "cold_unique_bytes": 16924672,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 23.8997376,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 941,
+              "lru_transfer_bytes": 61571072,
+              "lru_serial_40ms_10mbps_seconds": 86.8968576
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 71,
+              "cold_unique_bytes": 18432000,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 17.5856,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 264,
+              "lru_transfer_bytes": 68845568,
+              "lru_serial_40ms_10mbps_seconds": 65.6364544
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 22,
+              "cold_unique_bytes": 22888448,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 19.1907584,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 125,
+              "lru_transfer_bytes": 129990656,
+              "lru_serial_40ms_10mbps_seconds": 108.9925248
+            }
+          ],
+          "mode": "optimized",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.106053571999837,
+            "page": 0.44259761800003616
+          },
+          "result_sha256": "375f10d23a31631f6f9936064b735d53e07c9a52563d5fec918dcdfb25af3078"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "transaction",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 1159,
+          "xread_requested_bytes": 4741136,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 799,
+            "page": 359
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 3271638,
+            "page": 1469398
+          },
+          "unique_4k_pages": 746,
+          "unique_4k_page_bytes": 3055616,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 98,
+              "cold_unique_bytes": 6373376,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 9.0187008,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 98,
+              "lru_transfer_bytes": 6373376,
+              "lru_serial_40ms_10mbps_seconds": 9.0187008
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 43,
+              "cold_unique_bytes": 11091968,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 10.593574400000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 50,
+              "lru_transfer_bytes": 12926976,
+              "lru_serial_40ms_10mbps_seconds": 12.3415808
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 22,
+              "cold_unique_bytes": 22888448,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 19.1907584,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 34,
+              "lru_transfer_bytes": 35110912,
+              "lru_serial_40ms_10mbps_seconds": 29.4487296
+            }
+          ],
+          "mode": "baseline",
+          "count": 408,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.23897605599995586,
+            "page": 0.07170165299976361
+          },
+          "result_sha256": "bff7751d027964bd9db481b3035e94bba34fb322e865dc81f4b1523fa85b69ea"
+        },
+        {
+          "xread_calls": 299,
+          "xread_requested_bytes": 1220708,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 264,
+            "page": 34
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 1081344,
+            "page": 139264
+          },
+          "unique_4k_pages": 298,
+          "unique_4k_page_bytes": 1220608,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 51,
+              "cold_unique_bytes": 3293184,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.6745472,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 51,
+              "lru_transfer_bytes": 3293184,
+              "lru_serial_40ms_10mbps_seconds": 4.6745472
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 30,
+              "cold_unique_bytes": 7684096,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 7.3472768,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 30,
+              "lru_transfer_bytes": 7684096,
+              "lru_serial_40ms_10mbps_seconds": 7.3472768
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 18,
+              "cold_unique_bytes": 18694144,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 15.6753152,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 21,
+              "lru_transfer_bytes": 21659648,
+              "lru_serial_40ms_10mbps_seconds": 18.1677184
+            }
+          ],
+          "mode": "optimized",
+          "count": 408,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.009295789000134391,
+            "page": 0.008946245000515773
+          },
+          "result_sha256": "bff7751d027964bd9db481b3035e94bba34fb322e865dc81f4b1523fa85b69ea"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "absentmatchingwordxyz",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 19,
+          "xread_requested_bytes": 73828,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 18
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 73728
+          },
+          "unique_4k_pages": 18,
+          "unique_4k_page_bytes": 73728,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 9,
+              "cold_unique_bytes": 540672,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.7925376,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 9,
+              "lru_transfer_bytes": 540672,
+              "lru_serial_40ms_10mbps_seconds": 0.7925376
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 7,
+              "cold_unique_bytes": 1654784,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.6038272,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 7,
+              "lru_transfer_bytes": 1654784,
+              "lru_serial_40ms_10mbps_seconds": 1.6038272
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 6111232,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 5.1289856,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 6111232,
+              "lru_serial_40ms_10mbps_seconds": 5.1289856
+            }
+          ],
+          "mode": "baseline",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.003083077000155754,
+            "page": 0.0018175109998992411
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        },
+        {
+          "xread_calls": 19,
+          "xread_requested_bytes": 73828,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 18
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 73728
+          },
+          "unique_4k_pages": 18,
+          "unique_4k_page_bytes": 73728,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 9,
+              "cold_unique_bytes": 540672,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.7925376,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 9,
+              "lru_transfer_bytes": 540672,
+              "lru_serial_40ms_10mbps_seconds": 0.7925376
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 7,
+              "cold_unique_bytes": 1654784,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.6038272,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 7,
+              "lru_transfer_bytes": 1654784,
+              "lru_serial_40ms_10mbps_seconds": 1.6038272
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 6111232,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 5.1289856,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 6111232,
+              "lru_serial_40ms_10mbps_seconds": 5.1289856
+            }
+          ],
+          "mode": "optimized",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.0012886429994978243,
+            "page": 0.0019866849997924874
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    }
+  ],
+  "verified_whole_gzip": {
+    "bytes": 9646747,
+    "sha256": "c097cf67c662aa05d3fe5805d7124b0b5fe4e89b5d24a9c6ee76db6f030b8967",
+    "one_request_40ms_10mbps_seconds": 7.7573976
+  }
+}

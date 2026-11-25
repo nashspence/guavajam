@@ -1,0 +1,17 @@
+{
+  "kind": "publication",
+  "issue": "https://github.com/example/target/issues/42",
+  "handoff": {
+    "url": "https://github.com/example/target/blob/cccccccccccccccccccccccccccccccccccccccc/.reference/proffer.json",
+    "commit": "cccccccccccccccccccccccccccccccccccccccc"
+  },
+  "publisher": "maintainer",
+  "supplied": {
+    "kind": "commit",
+    "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "verification": {
+    "method": "tree-identity",
+    "result": "matched"
+  }
+}

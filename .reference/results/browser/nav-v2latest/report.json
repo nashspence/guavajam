@@ -1,0 +1,506 @@
+{
+  "browser": "158.0.8127.88",
+  "playwright": "1.64.1",
+  "wasmPackage": "3.54.1-build1",
+  "scope": "Actual HTTP, immutable cache, production stream loader and query SQL in WASM; no DOM/mobile/Firefox/WebKit qualification",
+  "controlledNetwork": "40 ms before each response; 10 Mbit/s per response; runtime assets HTTP-gzip",
+  "samples": [
+    {
+      "variant": "baseline",
+      "relative": "work.4b4b1957deb8294a13ea18b5f7f49b0c3523c84fa89739ac10b6e014973b8c4d.sqlite.gz",
+      "rawBytes": 136658944,
+      "gzipBytes": 12475062,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "cold",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 36063,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1477.5,
+            "timings": [
+              1402,
+              1477.5,
+              1490.5999999996275
+            ]
+          },
+          "optimized": {
+            "medianMs": 176.6000000005588,
+            "timings": [
+              174.09999999962747,
+              176.6000000005588,
+              178.59999999962747
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 408,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 49.200000000186265,
+            "timings": [
+              45.299999999813735,
+              49.200000000186265,
+              56
+            ]
+          },
+          "optimized": {
+            "medianMs": 11.100000000558794,
+            "timings": [
+              6,
+              11.100000000558794,
+              11.799999999813735
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.2000000001862645,
+            "timings": [
+              1.1000000005587935,
+              1.2000000001862645,
+              1.599999999627471
+            ]
+          },
+          "optimized": {
+            "medianMs": 1.5,
+            "timings": [
+              1.2999999998137355,
+              1.5,
+              1.7000000001862645
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 95.29999999981374,
+        "responseBytes": 12475062,
+        "decodedBytes": 136658944,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 177.50000000093132,
+        "cache": "force-cache",
+        "streamMs": 9938,
+        "deserializeMs": 23.299999999813735,
+        "totalMs": 10062.799999999814,
+        "allocatedBytes": 136658964,
+        "wasmHeapBytes": 137560064,
+        "transferredBytes": 12475062,
+        "contentLength": 12475062,
+        "moduleMs": 423.90000000037253,
+        "heapAfterQueries": 198115328
+      },
+      "elapsedMs": 17504.200000000186,
+      "readyMs": 10756.299999999814,
+      "roundTripMs": 17772.599999999627,
+      "databaseNetworkBytes": 12475062,
+      "runtimeNetworkBytes": 590707
+    },
+    {
+      "variant": "baseline",
+      "relative": "work.4b4b1957deb8294a13ea18b5f7f49b0c3523c84fa89739ac10b6e014973b8c4d.sqlite.gz",
+      "rawBytes": 136658944,
+      "gzipBytes": 12475062,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "warm",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 36063,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1557.0999999996275,
+            "timings": [
+              1509.9000000003725,
+              1557.0999999996275,
+              1652.7999999998137
+            ]
+          },
+          "optimized": {
+            "medianMs": 169.20000000018626,
+            "timings": [
+              168.79999999981374,
+              169.20000000018626,
+              175.20000000018626
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 408,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 46.200000000186265,
+            "timings": [
+              43.89999999944121,
+              46.200000000186265,
+              48.799999999813735
+            ]
+          },
+          "optimized": {
+            "medianMs": 10.200000000186265,
+            "timings": [
+              6,
+              10.200000000186265,
+              10.5
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.2000000001862645,
+            "timings": [
+              1.099999999627471,
+              1.2000000001862645,
+              1.6000000005587935
+            ]
+          },
+          "optimized": {
+            "medianMs": 1.5,
+            "timings": [
+              1.400000000372529,
+              1.5,
+              1.599999999627471
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 96.59999999962747,
+        "responseBytes": 12475062,
+        "decodedBytes": 136658944,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 247.89999999385327,
+        "cache": "force-cache",
+        "streamMs": 10001.299999999814,
+        "deserializeMs": 16,
+        "totalMs": 10120.200000000186,
+        "allocatedBytes": 136658964,
+        "wasmHeapBytes": 137560064,
+        "transferredBytes": 12475062,
+        "contentLength": 12475062,
+        "moduleMs": 48.299999999813735,
+        "heapAfterQueries": 198115328
+      },
+      "elapsedMs": 17702.700000000186,
+      "readyMs": 10282.5,
+      "roundTripMs": 17816.60000000056,
+      "databaseNetworkBytes": 12475062,
+      "runtimeNetworkBytes": 0
+    },
+    {
+      "variant": "segmented",
+      "relative": "work.c097cf67c662aa05d3fe5805d7124b0b5fe4e89b5d24a9c6ee76db6f030b8967.sqlite.gz",
+      "rawBytes": 52248576,
+      "gzipBytes": 9646747,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "cold",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 36063,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1940.2999999998137,
+            "timings": [
+              1740.6000000005588,
+              1940.2999999998137,
+              2093.0999999996275
+            ]
+          },
+          "optimized": {
+            "medianMs": 645,
+            "timings": [
+              627.3000000007451,
+              645,
+              671.2999999998137
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 408,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 103.20000000018626,
+            "timings": [
+              100.70000000018626,
+              103.20000000018626,
+              108.3999999994412
+            ]
+          },
+          "optimized": {
+            "medianMs": 18.799999999813735,
+            "timings": [
+              14.599999999627471,
+              18.799999999813735,
+              21.800000000745058
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 4.099999999627471,
+            "timings": [
+              3.599999999627471,
+              4.099999999627471,
+              5.6000000005587935
+            ]
+          },
+          "optimized": {
+            "medianMs": 3.7999999998137355,
+            "timings": [
+              3.599999999627471,
+              3.7999999998137355,
+              5.2000000001862645
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 99.20000000018626,
+        "responseBytes": 9646747,
+        "decodedBytes": 52248576,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 515.0000000111759,
+        "cache": "force-cache",
+        "streamMs": 18260.200000000186,
+        "deserializeMs": 18.299999999813735,
+        "totalMs": 18385.700000000186,
+        "allocatedBytes": 52248596,
+        "wasmHeapBytes": 53149696,
+        "transferredBytes": 9646747,
+        "contentLength": 9646747,
+        "moduleMs": 460.29999999981374,
+        "heapAfterQueries": 110362624
+      },
+      "elapsedMs": 32131.099999999627,
+      "readyMs": 19098,
+      "roundTripMs": 32381.599999999627,
+      "databaseNetworkBytes": 9646747,
+      "runtimeNetworkBytes": 590707
+    },
+    {
+      "variant": "segmented",
+      "relative": "work.c097cf67c662aa05d3fe5805d7124b0b5fe4e89b5d24a9c6ee76db6f030b8967.sqlite.gz",
+      "rawBytes": 52248576,
+      "gzipBytes": 9646747,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "warm",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "passages",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 36063,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1635.4000000003725,
+            "timings": [
+              1593.2000000001863,
+              1635.4000000003725,
+              1697.199999999255
+            ]
+          },
+          "optimized": {
+            "medianMs": 359.40000000037253,
+            "timings": [
+              356.40000000037253,
+              359.40000000037253,
+              374.29999999981374
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 408,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 60.89999999944121,
+            "timings": [
+              58.299999999813735,
+              60.89999999944121,
+              67.59999999962747
+            ]
+          },
+          "optimized": {
+            "medianMs": 8.299999999813735,
+            "timings": [
+              8.100000000558794,
+              8.299999999813735,
+              10.399999999441206
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "passages",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.7999999998137355,
+            "timings": [
+              1.7999999998137355,
+              1.7999999998137355,
+              1.900000000372529
+            ]
+          },
+          "optimized": {
+            "medianMs": 2.3999999994412065,
+            "timings": [
+              2.099999999627471,
+              2.3999999994412065,
+              4
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 96.09999999962747,
+        "responseBytes": 9646747,
+        "decodedBytes": 52248576,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 89.89999999571592,
+        "cache": "force-cache",
+        "streamMs": 7730.700000000186,
+        "deserializeMs": 12.700000000186265,
+        "totalMs": 7843.799999999814,
+        "allocatedBytes": 52248596,
+        "wasmHeapBytes": 53149696,
+        "transferredBytes": 9646747,
+        "contentLength": 9646747,
+        "moduleMs": 44.299999999813735,
+        "heapAfterQueries": 110362624
+      },
+      "elapsedMs": 16453,
+      "readyMs": 7917.699999999255,
+      "roundTripMs": 16482.299999999814,
+      "databaseNetworkBytes": 9646747,
+      "runtimeNetworkBytes": 0
+    }
+  ],
+  "blocked": []
+}

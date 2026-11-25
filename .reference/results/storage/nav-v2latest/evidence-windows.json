@@ -1,0 +1,131 @@
+{
+  "python": "3.12.12",
+  "sqlite": "3.50.4",
+  "semantics": "Primary occurrence membership, ranking, field values and citation context unchanged; excerpt selection intentionally differs",
+  "source": "results/storage/nav-v2latest/compact.sqlite",
+  "source_description": "Production GuavaJam supporting parser and NAV corpus, exact GFM source digests; modeled benchmark edition and citation context",
+  "candidate": "results/storage/nav-v2latest/evidence.sqlite",
+  "build": {
+    "maximum_window_bytes": 8192,
+    "maximum_overlap_bytes": 1024,
+    "windows": 1873,
+    "indexed_window_bytes_with_overlap": 14270085,
+    "oversized_lexical_fallbacks": [],
+    "large_distinct_bodies": 252,
+    "large_distinct_body_bytes": 12614916,
+    "build_seconds": 1.2559456119997776
+  },
+  "storage": {
+    "source_raw_bytes": 68599808,
+    "candidate_raw_bytes": 71270400,
+    "incremental_raw_bytes": 2670592,
+    "source_gzip9_bytes": 11376459,
+    "candidate_gzip9_bytes": 12515061,
+    "incremental_gzip9_bytes": 1138602,
+    "candidate_gzip9_sha256": "88e7ee9865a48ade61ce638b533827175fcd017130e6199a5603edf27f329563"
+  },
+  "real_cases": [
+    {
+      "kind": "passages",
+      "term": "terms",
+      "document": "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+      "record_id": 8015,
+      "body_id": 10184,
+      "body_bytes": 1027923,
+      "original_membership_score_and_page_identity_unchanged": true,
+      "full_body_snippet_median_ms": 860.4592880001292,
+      "window_evidence_median_ms": 1.9088489998466684,
+      "timing_repetitions": 3,
+      "source_exact_window": true,
+      "highlighted_source_excerpt": true,
+      "window_start_byte": 781336,
+      "window_bytes": 8190,
+      "excerpt": ",1]],\"value\":2048}]},{\"op\":\"product\",\"terms\":[{\"op\":\"log2_ceil\",\"terms\":[{\"op\":\"sum\",\"terms\":[{\"name\":\"native_entry_admission_checkpoint_retained_rows\",\"op\":\"dimension\"},{\"op\":\"constant…"
+    },
+    {
+      "kind": "versions",
+      "term": "terms",
+      "document": "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+      "record_id": 1024,
+      "body_id": 1024,
+      "body_bytes": 1145912,
+      "original_membership_score_and_page_identity_unchanged": true,
+      "full_body_snippet_median_ms": 483.11793399989256,
+      "window_evidence_median_ms": 0.9989119998863316,
+      "timing_repetitions": 3,
+      "source_exact_window": true,
+      "highlighted_source_excerpt": true,
+      "window_start_byte": 896032,
+      "window_bytes": 8191,
+      "excerpt": ":\"product\",\"terms\":[{\"op\":\"log2_ceil\",\"terms\":[{\"op\":\"sum\",\"terms\":[{\"name\":\"native_entry_admission_checkpoint_retained_rows\",\"op\":\"dimension\"},{\"op\":\"constant\",\"unit\":[[\"count\",1]],\"value…"
+    }
+  ],
+  "synthetic": {
+    "build": {
+      "maximum_window_bytes": 8192,
+      "maximum_overlap_bytes": 1024,
+      "windows": 15,
+      "indexed_window_bytes_with_overlap": 113708,
+      "oversized_lexical_fallbacks": [
+        {
+          "body_id": 4,
+          "reason": "unbroken lexical span exceeds evidence-window byte budget"
+        }
+      ],
+      "large_distinct_bodies": 4,
+      "large_distinct_body_bytes": 121444,
+      "build_seconds": 0.004666868999265716
+    },
+    "cases": [
+      {
+        "name": "terms in different windows",
+        "full_occurrence_match": true,
+        "source_exact_window": true,
+        "highlighted_source_excerpt": true,
+        "window_start_byte": 14343,
+        "window_bytes": 5468,
+        "excerpt": "…ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary omega"
+      },
+      {
+        "name": "deep exact source hit",
+        "full_occurrence_match": true,
+        "source_exact_window": true,
+        "highlighted_source_excerpt": true,
+        "window_start_byte": 43008,
+        "window_bytes": 8185,
+        "excerpt": "…padding padding padding padding padding padding padding padding padding padding padding uniquedeepneedle padding padding padding padding padding padding padding padding padding padding padding padding…"
+      },
+      {
+        "name": "Unicode source spelling",
+        "full_occurrence_match": true,
+        "source_exact_window": true,
+        "highlighted_source_excerpt": true,
+        "window_start_byte": 14336,
+        "window_bytes": 8190,
+        "excerpt": "…context context context context context context context context context context context Café context context context context context context context context context context context context…"
+      },
+      {
+        "name": "oversized lexical unit",
+        "full_occurrence_match": true,
+        "explicit_original_snippet_fallback": true,
+        "reason": "unbroken lexical span exceeds evidence-window byte budget"
+      },
+      {
+        "name": "mixed author and body terms",
+        "full_occurrence_match": true,
+        "source_exact_window": true,
+        "highlighted_source_excerpt": true,
+        "window_start_byte": 0,
+        "window_bytes": 8187,
+        "excerpt": "alpha ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary ordinary…"
+      }
+    ]
+  },
+  "elapsed_seconds": 48.19050207700002,
+  "limitations": [
+    "Single current corpus and native engine; qualify browser separately.",
+    "Safe ASCII boundary policy may fall back for long unbroken Unicode or ASCII text.",
+    "Original full-body FTS still determines all terms, rank, field matching and occurrence identity.",
+    "Window OR evidence proves at least one highlighted query term; it does not claim every AND term occurs in one window."
+  ]
+}

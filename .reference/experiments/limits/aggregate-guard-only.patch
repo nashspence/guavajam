@@ -1,0 +1,29 @@
+--- a/src/guavajam/validate_sources.py
++++ b/src/guavajam/validate_sources.py
+@@ -639,8 +639,6 @@
+     if Path('content/manuscript.md') not in manuscripts:
+         errors.append(issue(Path('content'), 'work directory requires manuscript.md'))
+     supporting = [relative for relative in tracked if record_path(relative)]
+-    if len(supporting) > 128 or sum((root / relative).stat().st_size for relative in supporting if (root / relative).is_file()) > 100 * 1024 * 1024:
+-        errors.append(issue(Path('content'), 'supporting inventory exceeds 128 documents or 100 MiB'))
+     errors.extend(validate_assets(root,tracked))
+     return sorted(set(errors))
+ 
+--- a/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py
++++ b/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/renderer.py
+@@ -265,7 +265,6 @@
+ def _raw_git_list(repo, sha, prefix):
+     result = process(['git', '--no-replace-objects', 'ls-tree', '-r', '-z', '--name-only', sha, '--', prefix],cwd=repo)
+     paths = [x.decode('utf-8', 'strict') for x in result.split(b'\x00') if x]
+-    if len(paths) > 128: raise RenderError('too many supporting documents')
+     return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
+ 
+ 
+@@ -302,7 +301,6 @@
+     supporting={};total_source=0
+     for path in supporting_paths:
+         raw=git_blob(repo,sha,path);total_source+=len(raw)
+-        if total_source>100*1024*1024:raise RenderError('supporting source inventory exceeds 100 MiB')
+         _,positions=parse_gfm_record(raw.decode('utf-8'),policy=AssetPolicy(origin) if origin else None);supporting[path]=set(positions)
+     from guavajam.validate_sources import validate_front_matter, inspect_manuscript_syntax
+     _, body, line, _ = validate_front_matter(Path(manuscript), source.decode('utf-8'))

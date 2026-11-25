@@ -1,0 +1,4639 @@
+{
+  "database": "results/synthetic-current-work/metadata.sqlite",
+  "python": "3.12.14",
+  "sqlite": "3.53.1",
+  "json_comparator_source": "original synthetic JSON",
+  "cases": [
+    {
+      "name": "broad-equality",
+      "filters": {
+        "Kind": [
+          "method"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 7.492648000152258,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 11.20934299979126,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 28.80115100015246,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 13330,
+      "sha256_of_ordered_ids": "5139844c14c3a0c13938b0c4eea443bf89290b39e66b4b8b59a836ce32226ca2",
+      "first_ids": [
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11,
+        12,
+        14,
+        15,
+        17,
+        18,
+        20,
+        21,
+        23,
+        24,
+        26,
+        27,
+        29,
+        30
+      ],
+      "identical": true
+    },
+    {
+      "name": "broad-equality",
+      "filters": {
+        "Kind": [
+          "method"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 15.565808999781439,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 29.908688999967126,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 75.75074699980178,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 39990,
+      "sha256_of_ordered_ids": "e6f409940a63a1bf5eaf2d93861f375c8cbd08bc0bfa8130a7ac151e942cafa0",
+      "first_ids": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        31,
+        32
+      ],
+      "identical": true
+    },
+    {
+      "name": "or-within-field",
+      "filters": {
+        "Kind": [
+          "method",
+          "type"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 12.680411000474123,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              55,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              37,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              51,
+              8,
+              59,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 12.910080999972706,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              55,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              34,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 21.336250999411277,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 20000,
+      "sha256_of_ordered_ids": "f6351f5ead9a700e34275480b3856ea738122a7c57bdeb744a631251c069587a",
+      "first_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "identical": true
+    },
+    {
+      "name": "or-within-field",
+      "filters": {
+        "Kind": [
+          "method",
+          "type"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 21.323099000255752,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              55,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              38,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              52,
+              9,
+              59,
+              "SCAN selected"
+            ],
+            [
+              64,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              78,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 40.95862899976055,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              55,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              38,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 68.95785600045201,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 60000,
+      "sha256_of_ordered_ids": "67235281ebbe500c400cb9fd79407125d547975f9fffe671917e0a8000df7dd3",
+      "first_ids": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "identical": true
+    },
+    {
+      "name": "and-across-fields",
+      "filters": {
+        "Boundary": [
+          ""
+        ],
+        "Component": [
+          "c000"
+        ],
+        "Element ID": [
+          "element:00000"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.1788990002751234,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              14,
+              11,
+              0,
+              "MERGE (INTERSECT)"
+            ],
+            [
+              16,
+              14,
+              0,
+              "LEFT"
+            ],
+            [
+              18,
+              16,
+              0,
+              "MERGE (INTERSECT)"
+            ],
+            [
+              20,
+              18,
+              0,
+              "LEFT"
+            ],
+            [
+              24,
+              20,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              32,
+              20,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              41,
+              18,
+              0,
+              "RIGHT"
+            ],
+            [
+              45,
+              41,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              53,
+              41,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              78,
+              14,
+              0,
+              "RIGHT"
+            ],
+            [
+              82,
+              78,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              90,
+              78,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              117,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 29.523438999603968,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ],
+            [
+              30,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              35,
+              30,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              43,
+              30,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ],
+            [
+              53,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              58,
+              53,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              66,
+              53,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 42.73426399959135,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              37,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              43,
+              37,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              46,
+              37,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              53,
+              37,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              67,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              73,
+              67,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              76,
+              67,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              83,
+              67,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5,
+      "sha256_of_ordered_ids": "a7018d0436c5440cd346e6a1bbea5c9b185490c0660466ab2c07fc65e79db00d",
+      "first_ids": [
+        1,
+        4001,
+        8001,
+        12001,
+        16001
+      ],
+      "identical": true
+    },
+    {
+      "name": "and-across-fields",
+      "filters": {
+        "Boundary": [
+          ""
+        ],
+        "Component": [
+          "c000"
+        ],
+        "Element ID": [
+          "element:00000"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.3095989995927084,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 4"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              12,
+              0,
+              "MERGE (INTERSECT)"
+            ],
+            [
+              17,
+              15,
+              0,
+              "LEFT"
+            ],
+            [
+              19,
+              17,
+              0,
+              "MERGE (INTERSECT)"
+            ],
+            [
+              21,
+              19,
+              0,
+              "LEFT"
+            ],
+            [
+              25,
+              21,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              33,
+              21,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              42,
+              19,
+              0,
+              "RIGHT"
+            ],
+            [
+              46,
+              42,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              54,
+              42,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              79,
+              15,
+              0,
+              "RIGHT"
+            ],
+            [
+              83,
+              79,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              91,
+              79,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              118,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              130,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              144,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 61.13123099930817,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ],
+            [
+              34,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              39,
+              34,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              47,
+              34,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ],
+            [
+              57,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              62,
+              57,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              70,
+              57,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 124.27767200006201,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              41,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 2"
+            ],
+            [
+              47,
+              41,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              50,
+              41,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              57,
+              41,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              71,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 3"
+            ],
+            [
+              77,
+              71,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              80,
+              71,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              87,
+              71,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15,
+      "sha256_of_ordered_ids": "80ce921525ec8be36837fbb7eb8714893b3eaa60dbaa3e39a2d562b84689dd84",
+      "first_ids": [
+        1,
+        2,
+        3,
+        12001,
+        12002,
+        12003,
+        24001,
+        24002,
+        24003,
+        36001,
+        36002,
+        36003,
+        48001,
+        48002,
+        48003
+      ],
+      "identical": true
+    },
+    {
+      "name": "high-cardinality-exact",
+      "filters": {
+        "Element ID": [
+          "element:00000"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.031026999749883544,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 21.367700999689987,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 58.412233000126434,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5,
+      "sha256_of_ordered_ids": "a7018d0436c5440cd346e6a1bbea5c9b185490c0660466ab2c07fc65e79db00d",
+      "first_ids": [
+        1,
+        4001,
+        8001,
+        12001,
+        16001
+      ],
+      "identical": true
+    },
+    {
+      "name": "high-cardinality-exact",
+      "filters": {
+        "Element ID": [
+          "element:00000"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.10595599997031968,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 65.72732999939035,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 159.2529170002308,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15,
+      "sha256_of_ordered_ids": "80ce921525ec8be36837fbb7eb8714893b3eaa60dbaa3e39a2d562b84689dd84",
+      "first_ids": [
+        1,
+        2,
+        3,
+        12001,
+        12002,
+        12003,
+        24001,
+        24002,
+        24003,
+        36001,
+        36002,
+        36003,
+        48001,
+        48002,
+        48003
+      ],
+      "identical": true
+    },
+    {
+      "name": "missing-field",
+      "filters": {
+        "Missing field example": [
+          "anything"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.041451000470260624,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 8.962758000052418,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 41.28568200030713,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 0,
+      "sha256_of_ordered_ids": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "first_ids": [],
+      "identical": true
+    },
+    {
+      "name": "missing-field",
+      "filters": {
+        "Missing field example": [
+          "anything"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.027400000362831634,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 31.378120000226772,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 123.23035300050833,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 0,
+      "sha256_of_ordered_ids": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "first_ids": [],
+      "identical": true
+    },
+    {
+      "name": "missing-value",
+      "filters": {
+        "Kind": [
+          "absent matching value example"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.02067400055238977,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.873037000237673,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 54.76084100064327,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 0,
+      "sha256_of_ordered_ids": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "first_ids": [],
+      "identical": true
+    },
+    {
+      "name": "missing-value",
+      "filters": {
+        "Kind": [
+          "absent matching value example"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.027883000257133972,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 31.933191000462102,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 158.91308699974616,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 0,
+      "sha256_of_ordered_ids": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "first_ids": [],
+      "identical": true
+    },
+    {
+      "name": "duplicate-selected-values",
+      "filters": {
+        "Kind": [
+          "method",
+          "method"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 7.853738000449084,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 11.122830999738653,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 22.01773700016929,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 13330,
+      "sha256_of_ordered_ids": "5139844c14c3a0c13938b0c4eea443bf89290b39e66b4b8b59a836ce32226ca2",
+      "first_ids": [
+        2,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11,
+        12,
+        14,
+        15,
+        17,
+        18,
+        20,
+        21,
+        23,
+        24,
+        26,
+        27,
+        29,
+        30
+      ],
+      "identical": true
+    },
+    {
+      "name": "duplicate-selected-values",
+      "filters": {
+        "Kind": [
+          "method",
+          "method"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 15.118985999833967,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 29.251585000565683,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 68.99213999986387,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 39990,
+      "sha256_of_ordered_ids": "e6f409940a63a1bf5eaf2d93861f375c8cbd08bc0bfa8130a7ac151e942cafa0",
+      "first_ids": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        31,
+        32
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'Café'",
+      "filters": {
+        "Label": [
+          "Café"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 3.1444189999092487,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.22737900075299,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 30.228764000639785,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5000,
+      "sha256_of_ordered_ids": "d87bffffeaf6e2c8cdaf29701f7f74758876d2f0b9026cff554c2c67672bc72c",
+      "first_ids": [
+        1,
+        5,
+        9,
+        13,
+        17,
+        21,
+        25,
+        29,
+        33,
+        37,
+        41,
+        45,
+        49,
+        53,
+        57,
+        61,
+        65,
+        69,
+        73,
+        77
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'Café'",
+      "filters": {
+        "Label": [
+          "Café"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 6.441279000682698,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 31.86156599986134,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 97.23638700052106,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15000,
+      "sha256_of_ordered_ids": "aea079cf4e37febe0640af391e8e675854179bf654642621880db1614d37d7c5",
+      "first_ids": [
+        1,
+        2,
+        3,
+        13,
+        14,
+        15,
+        25,
+        26,
+        27,
+        37,
+        38,
+        39,
+        49,
+        50,
+        51,
+        61,
+        62,
+        63,
+        73,
+        74
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'café'",
+      "filters": {
+        "Label": [
+          "café"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 3.048380999643996,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.097760999997263,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 27.461644999675627,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5000,
+      "sha256_of_ordered_ids": "55986f3bdf72ffd792377b52dd25dc7b61dd0151d2799d56bd0a1153e5976e3c",
+      "first_ids": [
+        2,
+        6,
+        10,
+        14,
+        18,
+        22,
+        26,
+        30,
+        34,
+        38,
+        42,
+        46,
+        50,
+        54,
+        58,
+        62,
+        66,
+        70,
+        74,
+        78
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'café'",
+      "filters": {
+        "Label": [
+          "café"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 5.8804310001505655,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 33.2029639994289,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 83.47152099941013,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15000,
+      "sha256_of_ordered_ids": "46458a1c74abd48c256a0d9eb21a915965c6909726950c094644e6495295812a",
+      "first_ids": [
+        4,
+        5,
+        6,
+        16,
+        17,
+        18,
+        28,
+        29,
+        30,
+        40,
+        41,
+        42,
+        52,
+        53,
+        54,
+        64,
+        65,
+        66,
+        76,
+        77
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'Cafe'",
+      "filters": {
+        "Label": [
+          "Cafe"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 3.1052700005602674,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.126240000317921,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 31.145591000495187,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5000,
+      "sha256_of_ordered_ids": "e6a906f0b367180f93cd678adc22ba84c3dea26fdf508bb48fa4e38c6fff2ef6",
+      "first_ids": [
+        3,
+        7,
+        11,
+        15,
+        19,
+        23,
+        27,
+        31,
+        35,
+        39,
+        43,
+        47,
+        51,
+        55,
+        59,
+        63,
+        67,
+        71,
+        75,
+        79
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Label-'Cafe'",
+      "filters": {
+        "Label": [
+          "Cafe"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 5.647496999699797,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 32.077385999400576,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 87.53511299983074,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15000,
+      "sha256_of_ordered_ids": "9397f737bef8f03b560f60c31c065240bae1b3be2ead6b439713c146cfa1e3a6",
+      "first_ids": [
+        7,
+        8,
+        9,
+        19,
+        20,
+        21,
+        31,
+        32,
+        33,
+        43,
+        44,
+        45,
+        55,
+        56,
+        57,
+        67,
+        68,
+        69,
+        79,
+        80
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Numeric-'1'",
+      "filters": {
+        "Numeric": [
+          "1"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 5.919664000430203,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.2395889998661,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 26.903822000349464,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 10000,
+      "sha256_of_ordered_ids": "a98c58679398f12557365c3ca19fbfefc5e70237f44d8451ba4f9c5a647cb757",
+      "first_ids": [
+        2,
+        4,
+        6,
+        8,
+        10,
+        12,
+        14,
+        16,
+        18,
+        20,
+        22,
+        24,
+        26,
+        28,
+        30,
+        32,
+        34,
+        36,
+        38,
+        40
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Numeric-'1'",
+      "filters": {
+        "Numeric": [
+          "1"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 11.80551600009494,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 30.997972000477603,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 76.22680399981618,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 30000,
+      "sha256_of_ordered_ids": "631cfbcbb9a3cd4dadd94536eee0cc469c34ba3b06c42d51a8c906405e969949",
+      "first_ids": [
+        4,
+        5,
+        6,
+        10,
+        11,
+        12,
+        16,
+        17,
+        18,
+        22,
+        23,
+        24,
+        28,
+        29,
+        30,
+        34,
+        35,
+        36,
+        40,
+        41
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Numeric-'1.0'",
+      "filters": {
+        "Numeric": [
+          "1.0"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 5.976866999844788,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 10.010726000473369,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 32.744668000304955,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 10000,
+      "sha256_of_ordered_ids": "a822dfe3292a3c0f7f5e052561ecfbb8e5b3baa0751f23249df3d3f7b1ff3d27",
+      "first_ids": [
+        1,
+        3,
+        5,
+        7,
+        9,
+        11,
+        13,
+        15,
+        17,
+        19,
+        21,
+        23,
+        25,
+        27,
+        29,
+        31,
+        33,
+        35,
+        37,
+        39
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Numeric-'1.0'",
+      "filters": {
+        "Numeric": [
+          "1.0"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 12.031567999656545,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 32.17319899977156,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 80.5182940002851,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 30000,
+      "sha256_of_ordered_ids": "e6718ac5a08ee83edd7f05921c2b02bd0bc9c0ce84b15e7d4ae6b23f4c89ce17",
+      "first_ids": [
+        1,
+        2,
+        3,
+        7,
+        8,
+        9,
+        13,
+        14,
+        15,
+        19,
+        20,
+        21,
+        25,
+        26,
+        27,
+        31,
+        32,
+        33,
+        37,
+        38
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Boundary-''",
+      "filters": {
+        "Boundary": [
+          ""
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.03136000032100128,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 19.059639000261086,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 42.59489400010352,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5,
+      "sha256_of_ordered_ids": "a7018d0436c5440cd346e6a1bbea5c9b185490c0660466ab2c07fc65e79db00d",
+      "first_ids": [
+        1,
+        4001,
+        8001,
+        12001,
+        16001
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Boundary-''",
+      "filters": {
+        "Boundary": [
+          ""
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.04678000004787464,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 60.885507999955735,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 133.212063999963,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15,
+      "sha256_of_ordered_ids": "80ce921525ec8be36837fbb7eb8714893b3eaa60dbaa3e39a2d562b84689dd84",
+      "first_ids": [
+        1,
+        2,
+        3,
+        12001,
+        12002,
+        12003,
+        24001,
+        24002,
+        24003,
+        36001,
+        36002,
+        36003,
+        48001,
+        48002,
+        48003
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Odd-\"x' OR 1=1 --\"",
+      "filters": {
+        "Odd": [
+          "x' OR 1=1 --"
+        ]
+      },
+      "term": null,
+      "kind": "documents",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.033647000236669555,
+          "plan": [
+            [
+              4,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              8,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              11,
+              8,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              15,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              23,
+              11,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              35,
+              8,
+              49,
+              "SCAN selected"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 22.715156999765895,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              12,
+              7,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              20,
+              7,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 45.51226700004918,
+          "plan": [
+            [
+              4,
+              0,
+              216,
+              "SCAN d"
+            ],
+            [
+              7,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              13,
+              7,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              16,
+              7,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              23,
+              7,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 5,
+      "sha256_of_ordered_ids": "3ae4850ee89d8563b1bf420d5ceed8feabb22112f5bf4f84a90a36b20efd05ac",
+      "first_ids": [
+        3,
+        4003,
+        8003,
+        12003,
+        16003
+      ],
+      "identical": true
+    },
+    {
+      "name": "literal-Odd-\"x' OR 1=1 --\"",
+      "filters": {
+        "Odd": [
+          "x' OR 1=1 --"
+        ]
+      },
+      "term": null,
+      "kind": "passages",
+      "modes": {
+        "indexed": {
+          "count_and_first_page_median_ms": 0.04631199954019394,
+          "plan": [
+            [
+              5,
+              0,
+              91,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              9,
+              0,
+              0,
+              "LIST SUBQUERY 2"
+            ],
+            [
+              12,
+              9,
+              0,
+              "MATERIALIZE selected"
+            ],
+            [
+              16,
+              12,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              12,
+              55,
+              "SEARCH df USING COVERING INDEX facets_by_value (facet_id=?)"
+            ],
+            [
+              36,
+              9,
+              49,
+              "SCAN selected"
+            ],
+            [
+              48,
+              0,
+              56,
+              "SEARCH p USING COVERING INDEX passages_by_document (document_id=?)"
+            ],
+            [
+              62,
+              0,
+              0,
+              "USE TEMP B-TREE FOR ORDER BY"
+            ]
+          ]
+        },
+        "correlated": {
+          "count_and_first_page_median_ms": 70.9736859998884,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              16,
+              11,
+              45,
+              "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value=?)"
+            ],
+            [
+              24,
+              11,
+              45,
+              "SEARCH df USING PRIMARY KEY (document_id=? AND facet_id=?)"
+            ]
+          ]
+        },
+        "json": {
+          "count_and_first_page_median_ms": 133.54357099979097,
+          "plan": [
+            [
+              5,
+              0,
+              216,
+              "SCAN p"
+            ],
+            [
+              7,
+              0,
+              45,
+              "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              11,
+              0,
+              0,
+              "CORRELATED SCALAR SUBQUERY 1"
+            ],
+            [
+              17,
+              11,
+              45,
+              "SEARCH j USING INTEGER PRIMARY KEY (rowid=?)"
+            ],
+            [
+              20,
+              11,
+              0,
+              "SCAN k VIRTUAL TABLE INDEX 1:"
+            ],
+            [
+              27,
+              11,
+              0,
+              "SCAN item VIRTUAL TABLE INDEX 1:"
+            ]
+          ]
+        }
+      },
+      "count": 15,
+      "sha256_of_ordered_ids": "bf575cb046936610de250864cf190d63cbd8a5430c27aed404ab427edaa49a41",
+      "first_ids": [
+        7,
+        8,
+        9,
+        12007,
+        12008,
+        12009,
+        24007,
+        24008,
+        24009,
+        36007,
+        36008,
+        36009,
+        48007,
+        48008,
+        48009
+      ],
+      "identical": true
+    }
+  ],
+  "bounded_high_cardinality_options": {
+    "field": "Element ID",
+    "distinct_values": 4000,
+    "page_size": 50,
+    "edition_id": 5,
+    "first": {
+      "values": [
+        "element:00000",
+        "element:00001",
+        "element:00002",
+        "element:00003",
+        "element:00004",
+        "element:00005",
+        "element:00006",
+        "element:00007",
+        "element:00008",
+        "element:00009",
+        "element:00010",
+        "element:00011",
+        "element:00012",
+        "element:00013",
+        "element:00014",
+        "element:00015",
+        "element:00016",
+        "element:00017",
+        "element:00018",
+        "element:00019",
+        "element:00020",
+        "element:00021",
+        "element:00022",
+        "element:00023",
+        "element:00024",
+        "element:00025",
+        "element:00026",
+        "element:00027",
+        "element:00028",
+        "element:00029",
+        "element:00030",
+        "element:00031",
+        "element:00032",
+        "element:00033",
+        "element:00034",
+        "element:00035",
+        "element:00036",
+        "element:00037",
+        "element:00038",
+        "element:00039",
+        "element:00040",
+        "element:00041",
+        "element:00042",
+        "element:00043",
+        "element:00044",
+        "element:00045",
+        "element:00046",
+        "element:00047",
+        "element:00048",
+        "element:00049"
+      ],
+      "has_more": true,
+      "next_cursor": "element:00049",
+      "ms": 1.8893729993578745,
+      "plan": [
+        [
+          4,
+          0,
+          56,
+          "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=?)"
+        ],
+        [
+          11,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          16,
+          11,
+          55,
+          "SEARCH f USING COVERING INDEX facets_by_value (facet_id=?)"
+        ],
+        [
+          20,
+          11,
+          45,
+          "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+        ]
+      ]
+    },
+    "second": {
+      "values": [
+        "element:00050",
+        "element:00051",
+        "element:00052",
+        "element:00053",
+        "element:00054",
+        "element:00055",
+        "element:00056",
+        "element:00057",
+        "element:00058",
+        "element:00059",
+        "element:00060",
+        "element:00061",
+        "element:00062",
+        "element:00063",
+        "element:00064",
+        "element:00065",
+        "element:00066",
+        "element:00067",
+        "element:00068",
+        "element:00069",
+        "element:00070",
+        "element:00071",
+        "element:00072",
+        "element:00073",
+        "element:00074",
+        "element:00075",
+        "element:00076",
+        "element:00077",
+        "element:00078",
+        "element:00079",
+        "element:00080",
+        "element:00081",
+        "element:00082",
+        "element:00083",
+        "element:00084",
+        "element:00085",
+        "element:00086",
+        "element:00087",
+        "element:00088",
+        "element:00089",
+        "element:00090",
+        "element:00091",
+        "element:00092",
+        "element:00093",
+        "element:00094",
+        "element:00095",
+        "element:00096",
+        "element:00097",
+        "element:00098",
+        "element:00099"
+      ],
+      "has_more": true,
+      "next_cursor": "element:00099",
+      "ms": 0.43349499992473284,
+      "plan": [
+        [
+          4,
+          0,
+          48,
+          "SEARCH v USING COVERING INDEX sqlite_autoindex_facet_values_1 (name=? AND value>?)"
+        ],
+        [
+          13,
+          0,
+          0,
+          "CORRELATED SCALAR SUBQUERY 1"
+        ],
+        [
+          18,
+          13,
+          55,
+          "SEARCH f USING COVERING INDEX facets_by_value (facet_id=?)"
+        ],
+        [
+          22,
+          13,
+          45,
+          "SEARCH d USING INTEGER PRIMARY KEY (rowid=?)"
+        ]
+      ]
+    }
+  },
+  "boundary_semantics": {
+    "empty_string_matches": 5,
+    "empty_list_documents": 5,
+    "empty_list_not_coerced_to_blank": true,
+    "original_json_preserves_missing_vs_declared_empty": true,
+    "empty_string_is_offered_as_literal_option": true
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "kind": "handoff",
+  "issue": "https://github.com/example/target/issues/42",
+  "purpose": "Evaluate a proposed scheduler.",
+  "producer": [
+    "agent:example"
+  ],
+  "requester": "maintainer",
+  "first_step": "Inspect tests/test_scheduler.py before considering the implementation.",
+  "source": {
+    "repository": "example/target",
+    "base": {
+      "ref": "main",
+      "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "work_state": "edited"
+  },
+  "artifacts": [
+    "src/scheduler.py",
+    "tests/test_scheduler.py"
+  ],
+  "checks": [
+    {
+      "command": "python -m pytest -q",
+      "result": "passed",
+      "source": {
+        "kind": "commit",
+        "id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "environment": "Python 3.12, Linux"
+    }
+  ],
+  "limitations": [
+    "No target-repository integration run."
+  ]
+}

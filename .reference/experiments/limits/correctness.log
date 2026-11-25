@@ -1,0 +1,30 @@
+test_batch_wrong_identity_kind_missing_and_framing (__main__.SnapshotFailures.test_batch_wrong_identity_kind_missing_and_framing) ... ok
+test_executable_stored_as_data (__main__.SnapshotFailures.test_executable_stored_as_data) ... ok
+test_gitlink (__main__.SnapshotFailures.test_gitlink) ... ok
+test_individual_and_operator_budgets (__main__.SnapshotFailures.test_individual_and_operator_budgets) ... ok
+test_invalid_exact_revision (__main__.SnapshotFailures.test_invalid_exact_revision) ... ok
+test_raw_selected_blob_filters_attributes_replacements_and_untracked (__main__.SnapshotFailures.test_raw_selected_blob_filters_attributes_replacements_and_untracked) ... ok
+test_real_20_mib_item_budget_retained (__main__.SnapshotFailures.test_real_20_mib_item_budget_retained) ... ok
+test_symlink (__main__.SnapshotFailures.test_symlink) ... ok
+test_nonzero_exit_is_rejected (__main__.StreamFailures.test_nonzero_exit_is_rejected) ... ok
+test_oversized_header (__main__.StreamFailures.test_oversized_header) ... ok
+test_path_and_entry_rejection (__main__.StreamFailures.test_path_and_entry_rejection) ... ok
+test_stalled_child_hits_deadline_and_is_reaped (__main__.StreamFailures.test_stalled_child_hits_deadline_and_is_reaped) ... ok
+test_truncated_body (__main__.StreamFailures.test_truncated_body) ... ok
+test_truncated_header (__main__.StreamFailures.test_truncated_header) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 1.020s
+
+OK
+test_archive_bundle_excludes_unrelated_private_branch_and_preserves_source_refs (original_snapshot_tests.SourceSnapshotTests.test_archive_bundle_excludes_unrelated_private_branch_and_preserves_source_refs) ... ok
+test_executable_supplement_is_preserved_as_data (original_snapshot_tests.SourceSnapshotTests.test_executable_supplement_is_preserved_as_data) ... ok
+test_git_attributes_do_not_remove_or_rewrite_signed_source (original_snapshot_tests.SourceSnapshotTests.test_git_attributes_do_not_remove_or_rewrite_signed_source) ... ok
+test_snapshot_excludes_infrastructure_untracked_files_and_external_symlinks (original_snapshot_tests.SourceSnapshotTests.test_snapshot_excludes_infrastructure_untracked_files_and_external_symlinks) ... ok
+test_source_submodule_is_not_a_self_contained_source_blob (original_snapshot_tests.SourceSnapshotTests.test_source_submodule_is_not_a_self_contained_source_blob) ... ok
+test_source_symlink_cannot_include_bytes_outside_content (original_snapshot_tests.SourceSnapshotTests.test_source_symlink_cannot_include_bytes_outside_content) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.253s
+
+OK

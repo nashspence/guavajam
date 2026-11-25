@@ -1,0 +1,21 @@
+{
+  "purpose": "Current frozen-source synthetic correctness rerun; one timing repetition is diagnostic, not a performance distribution",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "python_executable": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+  "sqlite": "3.53.1",
+  "scripts": {
+    "experiments/semantic_probes.py": {
+      "sha256": "749e81a0b2a9ef872d97da23ea4eb1477a860f96d5bf292b88f4517d4f67d72e",
+      "bytes": 9716
+    },
+    "experiments/query_pipeline.py": {
+      "sha256": "cecb995c9f0758e8e81d2a113887a9c965b04cd2590c3bca5878340be0e33a5d",
+      "bytes": 21982
+    },
+    "experiments/metadata_facets.py": {
+      "sha256": "13038e42d408d74f95da2d55c63b0c0345c5442697497562cac2ccc4338e208a",
+      "bytes": 13117
+    }
+  },
+  "old_receipts_modified": false
+}

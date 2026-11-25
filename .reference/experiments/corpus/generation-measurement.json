@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/workspace/scratch/2cede18208f4/experiments/riverhog-venv/bin/python",
+    "scripts/contract_candidate.py",
+    "generate",
+    "--source-sha",
+    "be483fd6d567616d5fcd355202d61f1e682efe75",
+    "--output",
+    "/workspace/scratch/2cede18208f4/experiments/corpus/candidate"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 763.3342384780003,
+  "max_rss_kib": 922028
+}

@@ -1,0 +1,44 @@
+{
+  "browser": "158.0.8127.88",
+  "sqliteWasm": "3.54.1-build1",
+  "driver": "sqlite-wasm-http@1.2.0 synchronous HTTP VFS",
+  "driverOriginalSha256": "663457fe6ab955f9332adb9f00309b5585ed628e7e67ba410df0bcf42401d063",
+  "driverServedSha256": "900306ff81373288307dd865d160846b14c1dfa913b2dcff32d1db3fbf479396",
+  "driverAdapter": "Bare lru-cache import mapped; removed obsolete DB.dbCtorHelper.setVfsPostOpenSql registration. Wrapper explicitly sets journal_mode, busy_timeout and requested8MiBcache after open. HTTP read/cache logic unchanged; official GuavaJam SQLite runtime reused.",
+  "database": "/workspace/scratch/2cede18208f4/results/storage/smoke/compact.sqlite",
+  "databaseBytes": 249856,
+  "databaseSha256": "e97fdf698bdaaa2718773d4b45a289ba0ce7ec2443363b4defc0677ad48c327b",
+  "conditions": "Fresh browser context/worker per case; same-origin HTTP; no COOP/COEP required; immutable identity-encoded SQLite ranges;8MiB SQLite cache and8MiB VFS cache;controlled profile40ms before response+10Mbit/s per response;runtime assets gzip;120second worker deadline",
+  "samples": [
+    {
+      "profile": "local",
+      "term": "transaction",
+      "phase": "complete",
+      "ok": true,
+      "moduleMs": 47.200000000186265,
+      "openedMs": 83.79999999981374,
+      "countMs": 50.200000000186265,
+      "pageMs": 26.799999999813735,
+      "totalMs": 169.79999999981374,
+      "count": 12,
+      "pageRows": 12,
+      "oracleEqual": true,
+      "sqliteVersion": "3.54.1",
+      "wasmHeapBytes": 8388608,
+      "sqliteCacheSetting": -8192,
+      "vfsCacheBytes": 8388608,
+      "opened": {
+        "phase": "opened",
+        "moduleMs": 47.200000000186265,
+        "openedMs": 83.79999999981374,
+        "sqliteVersion": "3.54.1"
+      },
+      "roundTripMs": 198.3000000002794,
+      "errors": [],
+      "dbRequests": 21,
+      "rangeRequests": 20,
+      "databaseNetworkBytes": 95232,
+      "runtimeNetworkBytes": 600458
+    }
+  ]
+}

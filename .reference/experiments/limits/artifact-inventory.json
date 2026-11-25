@@ -1,0 +1,77 @@
+{
+  "base_repository": "nashspence/guavajam",
+  "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 10428,
+      "sha256": "44737d7d1c9a480c8d7ffc427aca938dd1d64062203e2f9826bf7dda4fae99dc"
+    },
+    {
+      "path": "bounded_snapshot.py",
+      "bytes": 7653,
+      "sha256": "28e47323074d404198eea4816ad8bc4ba5432d6c1fd9a5ff25c853718149dde1"
+    },
+    {
+      "path": "prepare_candidate.py",
+      "bytes": 1940,
+      "sha256": "f7db0a4617b51e4717fa65a083ef75e9d9e9e2934f2549c3ce6e958f29077dce"
+    },
+    {
+      "path": "measure_snapshots.py",
+      "bytes": 5248,
+      "sha256": "294d0dcb1ed054d5be12e6e720a7395323a2e681c381cacba3cc9591d1a48d80"
+    },
+    {
+      "path": "measure_guards.py",
+      "bytes": 4905,
+      "sha256": "1e54f66d40794b010133ce23ef98bb6498604fc1c22e04495bf663da65e1f736"
+    },
+    {
+      "path": "test_bounded_snapshot.py",
+      "bytes": 10237,
+      "sha256": "fcabd0914c0ae340fee83aca2eb08b8b28f8bf3345ab718b6e905073e58b5f7e"
+    },
+    {
+      "path": "cache_inventory_probe.py",
+      "bytes": 2646,
+      "sha256": "3a6c7191aaedf4a327821303b52161543076d87a6bb45044e39a750b97be2099"
+    },
+    {
+      "path": "aggregate-guard-only.patch",
+      "bytes": 1885,
+      "sha256": "7d3b2363ad107a520b097d2173160263d021111b9a9f1486b3462bb119499c81"
+    },
+    {
+      "path": "snapshot-results.json",
+      "bytes": 6663,
+      "sha256": "21a0672a059ac6d5351b0ef29aca3bbc2df2482fdc9a4c841c514d7c91ee9a2d"
+    },
+    {
+      "path": "snapshot-correctness.json",
+      "bytes": 393,
+      "sha256": "73ed78c2390f5620db33d7c200118cb3b5f8303c58c2f1d6f3d32b8d61b4daf7"
+    },
+    {
+      "path": "guard-results.json",
+      "bytes": 7768,
+      "sha256": "2682ea25bbe16d6da65979e3cecce5d38b14f592d54d56276c858ce27ab0b2ea"
+    },
+    {
+      "path": "guard-4000.json",
+      "bytes": 418,
+      "sha256": "85c07841d5b84d012635e911c52783f6eaaa828c8b50c60d36b4d121bf66ed6f"
+    },
+    {
+      "path": "cache-inventory-results.json",
+      "bytes": 878,
+      "sha256": "5eae0e83105684ca10bc7358c0b5ac73bc9c0ba5292bb1e5c0218b34f9ae24d7"
+    }
+  ],
+  "not_run": [
+    "Complete signed large-work render and installed artifacts",
+    "Cache reuse with real full rendered large-work output (synthetic cache-output probe was run)",
+    "Cross-platform and hostile concurrent filesystem qualification",
+    "Disk-full and whole-generation cancellation recovery"
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "measurements": [
+    {
+      "mode": "stock",
+      "case": "129-documents",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 11784,
+      "validation_seconds": 1.1632256729999426,
+      "errors": [
+        "content: supporting inventory exceeds 128 documents or 100 MiB"
+      ],
+      "supporting_documents": 129,
+      "renderer_error": "too many supporting documents",
+      "peak_rss_kib": 25072
+    },
+    {
+      "mode": "candidate",
+      "case": "129-documents",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 11784,
+      "validation_seconds": 0.946549918999608,
+      "errors": [],
+      "supporting_documents": 129,
+      "renderer_enumerated": 129,
+      "peak_rss_kib": 25224
+    },
+    {
+      "mode": "stock",
+      "case": "over-100mib",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 110102137,
+      "validation_seconds": 45.82888534700032,
+      "errors": [
+        "content: supporting inventory exceeds 128 documents or 100 MiB"
+      ],
+      "supporting_documents": 21,
+      "peak_rss_kib": 171548
+    },
+    {
+      "mode": "candidate",
+      "case": "over-100mib",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 110102137,
+      "validation_seconds": 36.390757202999794,
+      "errors": [],
+      "supporting_documents": 21,
+      "peak_rss_kib": 171372
+    },
+    {
+      "mode": "stock",
+      "case": "unanchored",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 199,
+      "validation_seconds": 0.025133341000127984,
+      "errors": [
+        "content/supporting/page-00000.md: every top-level supporting content block requires its own explicit anchor"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 22904
+    },
+    {
+      "mode": "candidate",
+      "case": "unanchored",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 199,
+      "validation_seconds": 0.02874525800007177,
+      "errors": [
+        "content/supporting/page-00000.md: every top-level supporting content block requires its own explicit anchor"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 23096
+    },
+    {
+      "mode": "stock",
+      "case": "bad-metadata",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 248,
+      "validation_seconds": 0.020536386000003404,
+      "errors": [
+        "content/supporting/page-00000.md: supporting metadata permits literal text or lists of text only"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 22904
+    },
+    {
+      "mode": "candidate",
+      "case": "bad-metadata",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 248,
+      "validation_seconds": 0.02508353699977306,
+      "errors": [
+        "content/supporting/page-00000.md: supporting metadata permits literal text or lists of text only"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 23096
+    },
+    {
+      "mode": "stock",
+      "case": "bad-local-link",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 231,
+      "validation_seconds": 0.029540096999880916,
+      "errors": [
+        "content/supporting/page-00000.md: supporting links require an explicit local fragment, HTTPS or mailto URL"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 23032
+    },
+    {
+      "mode": "candidate",
+      "case": "bad-local-link",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 231,
+      "validation_seconds": 0.041433197999594995,
+      "errors": [
+        "content/supporting/page-00000.md: supporting links require an explicit local fragment, HTTPS or mailto URL"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 23096
+    },
+    {
+      "mode": "stock",
+      "case": "oversized-item",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 8388764,
+      "validation_seconds": 0.8598949540000831,
+      "errors": [
+        "content/supporting/page-00000.md: exactly one final newline required",
+        "content/supporting/page-00000.md: supporting GFM requires a regular file of at most 8 MiB"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 39396
+    },
+    {
+      "mode": "candidate",
+      "case": "oversized-item",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 8388764,
+      "validation_seconds": 0.9221918789999108,
+      "errors": [
+        "content/supporting/page-00000.md: exactly one final newline required",
+        "content/supporting/page-00000.md: supporting GFM requires a regular file of at most 8 MiB"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 39348
+    },
+    {
+      "mode": "stock",
+      "case": "symlink",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/repos/guavajam/src/guavajam/validate_sources.py",
+      "source_bytes": 310,
+      "validation_seconds": 0.020980108000003383,
+      "errors": [
+        "content/supporting/page-00000.md: symlinks are prohibited"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 23032
+    },
+    {
+      "mode": "candidate",
+      "case": "symlink",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "pandoc": "pandoc 3.12.1",
+      "source_module": "/workspace/scratch/2cede18208f4/experiments/limits/candidate/src/guavajam/validate_sources.py",
+      "source_bytes": 310,
+      "validation_seconds": 0.024473187000239705,
+      "errors": [
+        "content/supporting/page-00000.md: symlinks are prohibited"
+      ],
+      "supporting_documents": 1,
+      "peak_rss_kib": 22968
+    }
+  ]
+}

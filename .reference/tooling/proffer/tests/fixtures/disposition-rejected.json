@@ -1,0 +1,11 @@
+{
+  "kind": "disposition",
+  "issue": "https://github.com/example/target/issues/42",
+  "handoff": {
+    "url": "https://github.com/example/target/blob/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/.reference/proffer.json",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "consumer": "maintainer",
+  "outcome": "rejected",
+  "reason": "Dependency is outside the accepted design."
+}

@@ -1,0 +1,258 @@
+{
+  "browser": "158.0.8127.88",
+  "playwright": "1.64.1",
+  "wasmPackage": "3.54.1-build1",
+  "scope": "Actual HTTP, immutable cache, production stream loader and query SQL in WASM; no DOM/mobile/Firefox/WebKit qualification",
+  "controlledNetwork": "40 ms before each response; 10 Mbit/s per response; runtime assets HTTP-gzip",
+  "samples": [
+    {
+      "variant": "directory",
+      "relative": "work.58fe116584da45ea4b4936b046af0beaf152a37311981e6bed2c72864ef41c8a.sqlite.gz",
+      "rawBytes": 4657152,
+      "gzipBytes": 1188302,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "cold",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "documents",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 742,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 37.200000000186265,
+            "timings": [
+              23.799999999813735,
+              37.200000000186265,
+              38.90000000037253
+            ]
+          },
+          "optimized": {
+            "medianMs": 5.800000000745058,
+            "timings": [
+              5.3999999994412065,
+              5.800000000745058,
+              6.5
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "documents",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 5,
+          "rows": 5,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.900000000372529,
+            "timings": [
+              1.2999999998137355,
+              1.900000000372529,
+              2.099999999627471
+            ]
+          },
+          "optimized": {
+            "medianMs": 3.2999999998137355,
+            "timings": [
+              2.5,
+              3.2999999998137355,
+              4.7999999998137355
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "documents",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.900000000372529,
+            "timings": [
+              1.8999999994412065,
+              1.900000000372529,
+              2.5
+            ]
+          },
+          "optimized": {
+            "medianMs": 2.099999999627471,
+            "timings": [
+              0.900000000372529,
+              2.099999999627471,
+              2.5
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 96.40000000037253,
+        "responseBytes": 1188302,
+        "decodedBytes": 4657152,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 15.799999999813735,
+        "cache": "force-cache",
+        "streamMs": 893.8999999994412,
+        "deserializeMs": 12.199999999254942,
+        "totalMs": 1009.2999999998137,
+        "allocatedBytes": 4657172,
+        "wasmHeapBytes": 8388608,
+        "transferredBytes": 1188302,
+        "contentLength": 1188302,
+        "moduleMs": 419.6000000005588,
+        "heapAfterQueries": 8388608
+      },
+      "elapsedMs": 1688.6000000005588,
+      "readyMs": 1699.5,
+      "roundTripMs": 1958.6000000005588,
+      "databaseNetworkBytes": 1188302,
+      "runtimeNetworkBytes": 590707
+    },
+    {
+      "variant": "directory",
+      "relative": "work.58fe116584da45ea4b4936b046af0beaf152a37311981e6bed2c72864ef41c8a.sqlite.gz",
+      "rawBytes": 4657152,
+      "gzipBytes": 1188302,
+      "profile": "controlled",
+      "repetition": 0,
+      "temperature": "warm",
+      "phase": "complete",
+      "ok": true,
+      "queries": [
+        {
+          "params": {
+            "kind": "documents",
+            "term": "contract",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 742,
+          "rows": 20,
+          "identical": true,
+          "baseline": {
+            "medianMs": 22.299999999813735,
+            "timings": [
+              20.200000000186265,
+              22.299999999813735,
+              36.60000000055879
+            ]
+          },
+          "optimized": {
+            "medianMs": 10.700000000186265,
+            "timings": [
+              9.700000000186265,
+              10.700000000186265,
+              12
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "documents",
+            "term": "transaction",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 5,
+          "rows": 5,
+          "identical": true,
+          "baseline": {
+            "medianMs": 2.6000000005587935,
+            "timings": [
+              2.2999999998137355,
+              2.6000000005587935,
+              4.5
+            ]
+          },
+          "optimized": {
+            "medianMs": 3.6000000005587935,
+            "timings": [
+              2.2999999998137355,
+              3.6000000005587935,
+              5.599999999627471
+            ]
+          }
+        },
+        {
+          "params": {
+            "kind": "documents",
+            "term": "absentmatchingwordxyz",
+            "edition": "all",
+            "document": "",
+            "sort": "relevance",
+            "page": 1
+          },
+          "count": 0,
+          "rows": 0,
+          "identical": true,
+          "baseline": {
+            "medianMs": 1.8999999994412065,
+            "timings": [
+              1.400000000372529,
+              1.8999999994412065,
+              2
+            ]
+          },
+          "optimized": {
+            "medianMs": 2.599999999627471,
+            "timings": [
+              2.2000000001862645,
+              2.599999999627471,
+              2.7000000001862645
+            ]
+          }
+        }
+      ],
+      "sqliteVersion": "3.54.1",
+      "metrics": {
+        "headersMs": 1.7000000001862645,
+        "responseBytes": 1188302,
+        "decodedBytes": 4657152,
+        "largestChunkBytes": 65536,
+        "jsFullBufferBytes": 0,
+        "copyMs": 2.5,
+        "cache": "force-cache",
+        "streamMs": 17.59999999962747,
+        "deserializeMs": 11.200000000186265,
+        "totalMs": 37,
+        "allocatedBytes": 4657172,
+        "wasmHeapBytes": 8388608,
+        "transferredBytes": 1188302,
+        "contentLength": 1188302,
+        "moduleMs": 46.19999999925494,
+        "heapAfterQueries": 8388608
+      },
+      "elapsedMs": 321.69999999925494,
+      "readyMs": 111.79999999981374,
+      "roundTripMs": 350,
+      "databaseNetworkBytes": 0,
+      "runtimeNetworkBytes": 0
+    }
+  ],
+  "blocked": []
+}

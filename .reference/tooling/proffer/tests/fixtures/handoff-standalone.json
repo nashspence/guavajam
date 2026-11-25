@@ -1,0 +1,27 @@
+{
+  "kind": "handoff",
+  "issue": "https://github.com/example/target/issues/42",
+  "purpose": "Explore a standalone fixture.",
+  "producer": [
+    "human:example"
+  ],
+  "requester": "self-initiated",
+  "first_step": "Read experiments/fixture.py.",
+  "source": {
+    "repository": "example/target",
+    "base": {
+      "none": "Standalone experiment with no checked-out target revision."
+    },
+    "work_state": "standalone"
+  },
+  "artifacts": [
+    "experiments/fixture.py"
+  ],
+  "checks": [
+    {
+      "command": "python experiments/fixture.py",
+      "result": "not-run",
+      "reason": "Runtime unavailable."
+    }
+  ]
+}

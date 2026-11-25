@@ -1,0 +1,12 @@
+{
+  "kind": "disposition",
+  "issue": "https://github.com/example/target/issues/42",
+  "handoff": {
+    "url": "https://github.com/example/target/blob/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/.reference/proffer.json",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "consumer": "maintainer",
+  "outcome": "deferred",
+  "reason": "Awaiting a local design decision.",
+  "next_trigger": "Decision in the owning issue."
+}

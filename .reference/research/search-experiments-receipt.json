@@ -1,0 +1,82 @@
+{
+  "state": "Final agent-owned scripts frozen after primary NAV v2 browser and native checks",
+  "primary_corpus": "results/storage/nav-v2latest",
+  "primary_source_fidelity_receipt": "results/storage/nav-v2latest/source-fidelity.json",
+  "files": [
+    {
+      "path": "experiments/semantic_probes.py",
+      "bytes": 9716,
+      "sha256": "749e81a0b2a9ef872d97da23ea4eb1477a860f96d5bf292b88f4517d4f67d72e"
+    },
+    {
+      "path": "experiments/query_pipeline.py",
+      "bytes": 21982,
+      "sha256": "cecb995c9f0758e8e81d2a113887a9c965b04cd2590c3bca5878340be0e33a5d"
+    },
+    {
+      "path": "experiments/metadata_facets.py",
+      "bytes": 13117,
+      "sha256": "13038e42d408d74f95da2d55c63b0c0345c5442697497562cac2ccc4338e208a"
+    },
+    {
+      "path": "experiments/evidence_windows.py",
+      "bytes": 15609,
+      "sha256": "63f63bb70feb60d75a1c2b5669770c005d982138d018a2c562db91facb0a16c5"
+    },
+    {
+      "path": "experiments/evidence_browser.mjs",
+      "bytes": 4609,
+      "sha256": "064a40c03935aef73a1bf0e936d22b7c51068ef2ba95de297f518e365b39c3e9"
+    },
+    {
+      "path": "experiments/evidence_worker.mjs",
+      "bytes": 3399,
+      "sha256": "df8f2ba0fcaea75f2e33bb485365d0ec2f9f266b14956bc66f734e1d1aedf2a1"
+    },
+    {
+      "path": "research/search-architecture.md",
+      "bytes": 17603,
+      "sha256": "ceba5ef36c657ae5da0fc3306f59f761afacbf80156eb9bc25c642131e981386"
+    },
+    {
+      "path": "experiments/semantic-probes.json",
+      "bytes": 8049,
+      "sha256": "c538272655d3edef985f5b152e5f25160264f17809bd05e8d9a99f69d05500ba"
+    },
+    {
+      "path": "experiments/query-pipeline.json",
+      "bytes": 11121,
+      "sha256": "3277ca09f62ee5cc3bd10164aeec917d1042914c45ff330a36aa8eb5ba57bad4"
+    },
+    {
+      "path": "experiments/metadata-facets.json",
+      "bytes": 102120,
+      "sha256": "7cc4055b1d56e42cbcc7d6b4e3ac84cffd3515440a01a0385984568a65050c9d"
+    },
+    {
+      "path": "results/storage/nav-v2latest/metadata-facets.json",
+      "bytes": 108070,
+      "sha256": "04d3b5e85ea85a8282b9ca1e9d171da7daa2e4e888d2db6f79f6dfc1fa07c92c"
+    },
+    {
+      "path": "results/storage/nav-v2latest/evidence-windows.json",
+      "bytes": 5901,
+      "sha256": "cd0da595e8e36683ff767276b763537241e5b40f21dd0cfda7a9a10be3597891"
+    },
+    {
+      "path": "results/storage/nav-v2latest/evidence-browser-cases.json",
+      "bytes": 13528,
+      "sha256": "aec2b470f85d94ffd799c62300511c1e25c759765e2467063cbbe99390afc467"
+    },
+    {
+      "path": "results/browser/nav-v2-evidence-windows.json",
+      "bytes": 2619,
+      "sha256": "522a3e76afa955dc7751eab54d327feed6ba5c12f42ae5503f308246786627c6"
+    }
+  ],
+  "limitations": [
+    "Synthetic and heading-based earlier reports remain supplemental.",
+    "Primary edition and citation context is modeled, not a signed publication.",
+    "Window evidence intentionally changes excerpt selection, retaining full occurrence matching, ranking and citation identity."
+  ]
+}

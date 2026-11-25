@@ -1,0 +1,1699 @@
+{
+  "kind": "research-text-payload-churn-sensitivity",
+  "python": "3.12.12",
+  "corpus_sha256": "ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a",
+  "documents": 5947,
+  "input_kind": "actual-production-navigation",
+  "native_passages": 30116,
+  "checkpoints": [
+    1,
+    5,
+    50
+  ],
+  "random_seed": 729,
+  "policy": {
+    "selection": "random_5_percent samples round(N*0.05) document identities independently each update; largest_5_percent repeatedly changes the same initial largest round(N*0.05) bodies; all changes every document.",
+    "passage_change": "Both last-passage (matching storage_matrix.py) and largest-passage sensitivity are reported. The selected original passage gets a unique edition-number marker appended; later changes replace the prior marker rather than accumulate history.",
+    "metadata": "none: content only (including document title for NAV input). stable: literal Authority, Interface, Element ID and Label. edition: additionally Example version vN, changing every edition. Visible metadata is one extra passage. NAV input uses exact production metadata_block/source_text and exact title/metadata/content order; heading input retains the earlier colon/semicolon presentation model.",
+    "identity": "Exact UTF-8 body strings deduplicated by SHA-256; payload bytes exclude hashes, keys, references, SQLite pages, FTS postings/docsize, ranking fields, citation data, frontmatter syntax, compression and source-GFM segmentation overhead.",
+    "source_changes": "Count is a consequence of modeled body/metadata changes with other source fields fixed; it is not an exact serialized source-file size or hash measurement.",
+    "limits": "Synthetic editions of actual production supporting-GFM/navigation text, not real Riverhog release history, database-size estimates, or browser qualification. Flat literal paragraphs are a text-preserving benchmark adapter, not final table/link presentation."
+  },
+  "scenarios": [
+    {
+      "scenario": "random_5_percent",
+      "changed_passage": "last",
+      "documents_changed_each_update": 297,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 1120,
+          "native_document_pool": {
+            "unique_strings": 7108,
+            "unique_utf8_bytes": 15778911
+          },
+          "native_passage_pool": {
+            "unique_strings": 13515,
+            "unique_utf8_bytes": 9293039
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 20623,
+            "unique_utf8_bytes": 25071950
+          },
+          "native_document_occurrence_bytes": 65380324,
+          "native_passage_occurrence_bytes": 63826414,
+          "changed_document_payload_bytes_across_updates": 2733404,
+          "changed_selected_passage_payload_bytes_across_updates": 368272,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 7108,
+                "unique_utf8_bytes": 15778911
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 13515,
+                "unique_utf8_bytes": 9293039
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 20623,
+                "unique_utf8_bytes": 25071950
+              },
+              "document_occurrence_bytes": 65380324,
+              "passage_occurrence_bytes": 63826414,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 7135,
+                "unique_utf8_bytes": 16926938
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 19462,
+                "unique_utf8_bytes": 10233456
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 26597,
+                "unique_utf8_bytes": 27160394
+              },
+              "document_occurrence_bytes": 70112144,
+              "passage_occurrence_bytes": 68528499,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70677109
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 43250,
+                "unique_utf8_bytes": 14560089
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 72985,
+                "unique_utf8_bytes": 85237198
+              },
+              "document_occurrence_bytes": 70677109,
+              "passage_occurrence_bytes": 69093464,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 5455,
+          "native_document_pool": {
+            "unique_strings": 20471,
+            "unique_utf8_bytes": 47589602
+          },
+          "native_passage_pool": {
+            "unique_strings": 25358,
+            "unique_utf8_bytes": 13086209
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 45829,
+            "unique_utf8_bytes": 60675811
+          },
+          "native_document_occurrence_bytes": 659029051,
+          "native_passage_occurrence_bytes": 643489951,
+          "changed_document_payload_bytes_across_updates": 34544777,
+          "changed_selected_passage_payload_bytes_across_updates": 4335760,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 20471,
+                "unique_utf8_bytes": 47589602
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 25358,
+                "unique_utf8_bytes": 13086209
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 45829,
+                "unique_utf8_bytes": 60675811
+              },
+              "document_occurrence_bytes": 659029051,
+              "passage_occurrence_bytes": 643489951,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 20500,
+                "unique_utf8_bytes": 50861564
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 31305,
+                "unique_utf8_bytes": 14026626
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 51805,
+                "unique_utf8_bytes": 64888190
+              },
+              "document_occurrence_bytes": 706347251,
+              "passage_occurrence_bytes": 690510801,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 712240728
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 322708,
+                "unique_utf8_bytes": 66000536
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 620058,
+                "unique_utf8_bytes": 778241264
+              },
+              "document_occurrence_bytes": 712240728,
+              "passage_occurrence_bytes": 696404278,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    },
+    {
+      "scenario": "largest_5_percent",
+      "changed_passage": "last",
+      "documents_changed_each_update": 297,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 297,
+          "native_document_pool": {
+            "unique_strings": 7108,
+            "unique_utf8_bytes": 47656487
+          },
+          "native_passage_pool": {
+            "unique_strings": 12972,
+            "unique_utf8_bytes": 9580499
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 20080,
+            "unique_utf8_bytes": 57236986
+          },
+          "native_document_occurrence_bytes": 65326916,
+          "native_passage_occurrence_bytes": 63773006,
+          "changed_document_payload_bytes_across_updates": 34610980,
+          "changed_selected_passage_payload_bytes_across_updates": 720404,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 7108,
+                "unique_utf8_bytes": 47656487
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12972,
+                "unique_utf8_bytes": 9580499
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 20080,
+                "unique_utf8_bytes": 57236986
+              },
+              "document_occurrence_bytes": 65326916,
+              "passage_occurrence_bytes": 63773006,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 7135,
+                "unique_utf8_bytes": 48806180
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18919,
+                "unique_utf8_bytes": 10520916
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 26054,
+                "unique_utf8_bytes": 59327096
+              },
+              "document_occurrence_bytes": 70058736,
+              "passage_occurrence_bytes": 68475091,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70623701
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 42707,
+                "unique_utf8_bytes": 14847549
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 72442,
+                "unique_utf8_bytes": 85471250
+              },
+              "document_occurrence_bytes": 70623701,
+              "passage_occurrence_bytes": 69040056,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 297,
+          "native_document_pool": {
+            "unique_strings": 20473,
+            "unique_utf8_bytes": 437042189
+          },
+          "native_passage_pool": {
+            "unique_strings": 18642,
+            "unique_utf8_bytes": 16795385
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 39115,
+            "unique_utf8_bytes": 453837574
+          },
+          "native_document_occurrence_bytes": 653366873,
+          "native_passage_occurrence_bytes": 637827773,
+          "changed_document_payload_bytes_across_updates": 423996682,
+          "changed_selected_passage_payload_bytes_across_updates": 8837126,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 20473,
+                "unique_utf8_bytes": 437042189
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18642,
+                "unique_utf8_bytes": 16795385
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 39115,
+                "unique_utf8_bytes": 453837574
+              },
+              "document_occurrence_bytes": 653366873,
+              "passage_occurrence_bytes": 637827773,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 20500,
+                "unique_utf8_bytes": 440341262
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 24589,
+                "unique_utf8_bytes": 17735802
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 45089,
+                "unique_utf8_bytes": 458077064
+              },
+              "document_occurrence_bytes": 700685073,
+              "passage_occurrence_bytes": 684848623,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 706578550
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 315992,
+                "unique_utf8_bytes": 69709712
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 613342,
+                "unique_utf8_bytes": 776288262
+              },
+              "document_occurrence_bytes": 706578550,
+              "passage_occurrence_bytes": 690742100,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    },
+    {
+      "scenario": "all",
+      "changed_passage": "last",
+      "documents_changed_each_update": 5947,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 5947,
+          "native_document_pool": {
+            "unique_strings": 29600,
+            "unique_utf8_bytes": 65985295
+          },
+          "native_passage_pool": {
+            "unique_strings": 31040,
+            "unique_utf8_bytes": 15318415
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 60640,
+            "unique_utf8_bytes": 81303710
+          },
+          "native_document_occurrence_bytes": 66050116,
+          "native_passage_occurrence_bytes": 64496206,
+          "changed_document_payload_bytes_across_updates": 52992336,
+          "changed_selected_passage_payload_bytes_across_updates": 7171220,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 29600,
+                "unique_utf8_bytes": 65985295
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 31040,
+                "unique_utf8_bytes": 15318415
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 60640,
+                "unique_utf8_bytes": 81303710
+              },
+              "document_occurrence_bytes": 66050116,
+              "passage_occurrence_bytes": 64496206,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70781936
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 36987,
+                "unique_utf8_bytes": 16258832
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 66722,
+                "unique_utf8_bytes": 87040768
+              },
+              "document_occurrence_bytes": 70781936,
+              "passage_occurrence_bytes": 69198291,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 71346901
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 60775,
+                "unique_utf8_bytes": 20585465
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 90510,
+                "unique_utf8_bytes": 91932366
+              },
+              "document_occurrence_bytes": 71346901,
+              "passage_occurrence_bytes": 69763256,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 5947,
+          "native_document_pool": {
+            "unique_strings": 296000,
+            "unique_utf8_bytes": 661800630
+          },
+          "native_passage_pool": {
+            "unique_strings": 239975,
+            "unique_utf8_bytes": 87270053
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 535975,
+            "unique_utf8_bytes": 749070683
+          },
+          "native_document_occurrence_bytes": 662457723,
+          "native_passage_occurrence_bytes": 646918623,
+          "changed_document_payload_bytes_across_updates": 649399943,
+          "changed_selected_passage_payload_bytes_across_updates": 88091272,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 296000,
+                "unique_utf8_bytes": 661800630
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 239975,
+                "unique_utf8_bytes": 87270053
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 535975,
+                "unique_utf8_bytes": 749070683
+              },
+              "document_occurrence_bytes": 662457723,
+              "passage_occurrence_bytes": 646918623,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 709775923
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 245922,
+                "unique_utf8_bytes": 88210470
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 543272,
+                "unique_utf8_bytes": 797986393
+              },
+              "document_occurrence_bytes": 709775923,
+              "passage_occurrence_bytes": 693939473,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 715669400
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 537325,
+                "unique_utf8_bytes": 140184380
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 834675,
+                "unique_utf8_bytes": 855853780
+              },
+              "document_occurrence_bytes": 715669400,
+              "passage_occurrence_bytes": 699832950,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    },
+    {
+      "scenario": "random_5_percent",
+      "changed_passage": "largest",
+      "documents_changed_each_update": 297,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 1120,
+          "native_document_pool": {
+            "unique_strings": 7108,
+            "unique_utf8_bytes": 15778911
+          },
+          "native_passage_pool": {
+            "unique_strings": 13651,
+            "unique_utf8_bytes": 10392455
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 20759,
+            "unique_utf8_bytes": 26171366
+          },
+          "native_document_occurrence_bytes": 65380324,
+          "native_passage_occurrence_bytes": 63826414,
+          "changed_document_payload_bytes_across_updates": 2733404,
+          "changed_selected_passage_payload_bytes_across_updates": 1457541,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 7108,
+                "unique_utf8_bytes": 15778911
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 13651,
+                "unique_utf8_bytes": 10392455
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 20759,
+                "unique_utf8_bytes": 26171366
+              },
+              "document_occurrence_bytes": 65380324,
+              "passage_occurrence_bytes": 63826414,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 7135,
+                "unique_utf8_bytes": 16926938
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 19598,
+                "unique_utf8_bytes": 11332872
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 26733,
+                "unique_utf8_bytes": 28259810
+              },
+              "document_occurrence_bytes": 70112144,
+              "passage_occurrence_bytes": 68528499,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70677109
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 43386,
+                "unique_utf8_bytes": 15659505
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 73121,
+                "unique_utf8_bytes": 86336614
+              },
+              "document_occurrence_bytes": 70677109,
+              "passage_occurrence_bytes": 69093464,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 5455,
+          "native_document_pool": {
+            "unique_strings": 20471,
+            "unique_utf8_bytes": 47589602
+          },
+          "native_passage_pool": {
+            "unique_strings": 26887,
+            "unique_utf8_bytes": 28442857
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 47358,
+            "unique_utf8_bytes": 76032459
+          },
+          "native_document_occurrence_bytes": 659029051,
+          "native_passage_occurrence_bytes": 643489951,
+          "changed_document_payload_bytes_across_updates": 34544777,
+          "changed_selected_passage_payload_bytes_across_updates": 19658415,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 20471,
+                "unique_utf8_bytes": 47589602
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 26887,
+                "unique_utf8_bytes": 28442857
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 47358,
+                "unique_utf8_bytes": 76032459
+              },
+              "document_occurrence_bytes": 659029051,
+              "passage_occurrence_bytes": 643489951,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 20500,
+                "unique_utf8_bytes": 50861564
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 32834,
+                "unique_utf8_bytes": 29383274
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 53334,
+                "unique_utf8_bytes": 80244838
+              },
+              "document_occurrence_bytes": 706347251,
+              "passage_occurrence_bytes": 690510801,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 712240728
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 324237,
+                "unique_utf8_bytes": 81357184
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 621587,
+                "unique_utf8_bytes": 793597912
+              },
+              "document_occurrence_bytes": 712240728,
+              "passage_occurrence_bytes": 696404278,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    },
+    {
+      "scenario": "largest_5_percent",
+      "changed_passage": "largest",
+      "documents_changed_each_update": 297,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 297,
+          "native_document_pool": {
+            "unique_strings": 7108,
+            "unique_utf8_bytes": 47656487
+          },
+          "native_passage_pool": {
+            "unique_strings": 13372,
+            "unique_utf8_bytes": 28029495
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 20480,
+            "unique_utf8_bytes": 75685982
+          },
+          "native_document_occurrence_bytes": 65326916,
+          "native_passage_occurrence_bytes": 63773006,
+          "changed_document_payload_bytes_across_updates": 34610980,
+          "changed_selected_passage_payload_bytes_across_updates": 20479888,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 7108,
+                "unique_utf8_bytes": 47656487
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 13372,
+                "unique_utf8_bytes": 28029495
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 20480,
+                "unique_utf8_bytes": 75685982
+              },
+              "document_occurrence_bytes": 65326916,
+              "passage_occurrence_bytes": 63773006,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 7135,
+                "unique_utf8_bytes": 48806180
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 19319,
+                "unique_utf8_bytes": 28969912
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 26454,
+                "unique_utf8_bytes": 77776092
+              },
+              "document_occurrence_bytes": 70058736,
+              "passage_occurrence_bytes": 68475091,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 1188
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70623701
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 43107,
+                "unique_utf8_bytes": 33296545
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 72842,
+                "unique_utf8_bytes": 103920246
+              },
+              "document_occurrence_bytes": 70623701,
+              "passage_occurrence_bytes": 69040056,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 297,
+          "native_document_pool": {
+            "unique_strings": 20473,
+            "unique_utf8_bytes": 437042189
+          },
+          "native_passage_pool": {
+            "unique_strings": 23542,
+            "unique_utf8_bytes": 242799686
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 44015,
+            "unique_utf8_bytes": 679841875
+          },
+          "native_document_occurrence_bytes": 653366873,
+          "native_passage_occurrence_bytes": 637827773,
+          "changed_document_payload_bytes_across_updates": 423996682,
+          "changed_selected_passage_payload_bytes_across_updates": 250890805,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 20473,
+                "unique_utf8_bytes": 437042189
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 23542,
+                "unique_utf8_bytes": 242799686
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 44015,
+                "unique_utf8_bytes": 679841875
+              },
+              "document_occurrence_bytes": 653366873,
+              "passage_occurrence_bytes": 637827773,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 20500,
+                "unique_utf8_bytes": 440341262
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 29489,
+                "unique_utf8_bytes": 243740103
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 49989,
+                "unique_utf8_bytes": 684081365
+              },
+              "document_occurrence_bytes": 700685073,
+              "passage_occurrence_bytes": 684848623,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 14553
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 706578550
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 320892,
+                "unique_utf8_bytes": 295714013
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 618242,
+                "unique_utf8_bytes": 1002292563
+              },
+              "document_occurrence_bytes": 706578550,
+              "passage_occurrence_bytes": 690742100,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    },
+    {
+      "scenario": "all",
+      "changed_passage": "largest",
+      "documents_changed_each_update": 5947,
+      "snapshots": [
+        {
+          "editions": 1,
+          "document_occurrences": 5947,
+          "native_passage_occurrences": 30116,
+          "distinct_documents_ever_changed": 0,
+          "native_document_pool": {
+            "unique_strings": 5920,
+            "unique_utf8_bytes": 13045507
+          },
+          "native_passage_pool": {
+            "unique_strings": 12468,
+            "unique_utf8_bytes": 8939635
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 18388,
+            "unique_utf8_bytes": 21985142
+          },
+          "native_document_occurrence_bytes": 13057780,
+          "native_passage_occurrence_bytes": 12746998,
+          "changed_document_payload_bytes_across_updates": 0,
+          "changed_selected_passage_payload_bytes_across_updates": 0,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 5920,
+                "unique_utf8_bytes": 13045507
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 12468,
+                "unique_utf8_bytes": 8939635
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 18388,
+                "unique_utf8_bytes": 21985142
+              },
+              "document_occurrence_bytes": 13057780,
+              "passage_occurrence_bytes": 12746998,
+              "visible_passage_occurrences": 30116,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14004144
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9880052
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 23884196
+              },
+              "document_occurrence_bytes": 14004144,
+              "passage_occurrence_bytes": 13687415,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 14117137
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 1053410
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 18415,
+                "unique_utf8_bytes": 9993045
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 24362,
+                "unique_utf8_bytes": 24110182
+              },
+              "document_occurrence_bytes": 14117137,
+              "passage_occurrence_bytes": 13800408,
+              "visible_passage_occurrences": 36063,
+              "source_file_changes_excluding_initial_snapshot": 0
+            }
+          }
+        },
+        {
+          "editions": 5,
+          "document_occurrences": 29735,
+          "native_passage_occurrences": 150580,
+          "distinct_documents_ever_changed": 5947,
+          "native_document_pool": {
+            "unique_strings": 29600,
+            "unique_utf8_bytes": 65985295
+          },
+          "native_passage_pool": {
+            "unique_strings": 34972,
+            "unique_utf8_bytes": 37539207
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 64572,
+            "unique_utf8_bytes": 103524502
+          },
+          "native_document_occurrence_bytes": 66050116,
+          "native_passage_occurrence_bytes": 64496206,
+          "changed_document_payload_bytes_across_updates": 52992336,
+          "changed_selected_passage_payload_bytes_across_updates": 30874620,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 29600,
+                "unique_utf8_bytes": 65985295
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 34972,
+                "unique_utf8_bytes": 37539207
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 64572,
+                "unique_utf8_bytes": 103524502
+              },
+              "document_occurrence_bytes": 66050116,
+              "passage_occurrence_bytes": 64496206,
+              "visible_passage_occurrences": 150580,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 70781936
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 40919,
+                "unique_utf8_bytes": 38479624
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 70654,
+                "unique_utf8_bytes": 109261560
+              },
+              "document_occurrence_bytes": 70781936,
+              "passage_occurrence_bytes": 69198291,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 71346901
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 29735,
+                "unique_utf8_bytes": 5267050
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 64707,
+                "unique_utf8_bytes": 42806257
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 94442,
+                "unique_utf8_bytes": 114153158
+              },
+              "document_occurrence_bytes": 71346901,
+              "passage_occurrence_bytes": 69763256,
+              "visible_passage_occurrences": 180315,
+              "source_file_changes_excluding_initial_snapshot": 23788
+            }
+          }
+        },
+        {
+          "editions": 50,
+          "document_occurrences": 297350,
+          "native_passage_occurrences": 1505800,
+          "distinct_documents_ever_changed": 5947,
+          "native_document_pool": {
+            "unique_strings": 296000,
+            "unique_utf8_bytes": 661800630
+          },
+          "native_passage_pool": {
+            "unique_strings": 288142,
+            "unique_utf8_bytes": 359515058
+          },
+          "native_shared_document_and_passage_pool": {
+            "unique_strings": 584142,
+            "unique_utf8_bytes": 1021315688
+          },
+          "native_document_occurrence_bytes": 662457723,
+          "native_passage_occurrence_bytes": 646918623,
+          "changed_document_payload_bytes_across_updates": 649399943,
+          "changed_selected_passage_payload_bytes_across_updates": 378457922,
+          "metadata_modes": {
+            "none": {
+              "document_body_pool": {
+                "unique_strings": 296000,
+                "unique_utf8_bytes": 661800630
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 0,
+                "unique_utf8_bytes": 0
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 288142,
+                "unique_utf8_bytes": 359515058
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 584142,
+                "unique_utf8_bytes": 1021315688
+              },
+              "document_occurrence_bytes": 662457723,
+              "passage_occurrence_bytes": 646918623,
+              "visible_passage_occurrences": 1505800,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            },
+            "stable": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 709775923
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 5947,
+                "unique_utf8_bytes": 940417
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 294089,
+                "unique_utf8_bytes": 360455475
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 591439,
+                "unique_utf8_bytes": 1070231398
+              },
+              "document_occurrence_bytes": 709775923,
+              "passage_occurrence_bytes": 693939473,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            },
+            "edition": {
+              "document_body_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 715669400
+              },
+              "metadata_passage_pool": {
+                "unique_strings": 297350,
+                "unique_utf8_bytes": 52914327
+              },
+              "all_passage_body_pool": {
+                "unique_strings": 585492,
+                "unique_utf8_bytes": 412429385
+              },
+              "shared_document_and_passage_pool": {
+                "unique_strings": 882842,
+                "unique_utf8_bytes": 1128098785
+              },
+              "document_occurrence_bytes": 715669400,
+              "passage_occurrence_bytes": 699832950,
+              "visible_passage_occurrences": 1803150,
+              "source_file_changes_excluding_initial_snapshot": 291403
+            }
+          }
+        }
+      ],
+      "largest_5_percent_initial_body_bytes": 8643241,
+      "initial_native_body_bytes": 13057780
+    }
+  ],
+  "elapsed_seconds": 46.63468521699997
+}

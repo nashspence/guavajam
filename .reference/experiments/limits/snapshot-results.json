@@ -1,0 +1,170 @@
+{
+  "fixtures": [
+    {
+      "name": "4000-files",
+      "path": "/workspace/scratch/2cede18208f4/experiments/limits/fixtures/4000-files",
+      "revision": "1114464b5b2705cb6664222b21d4c9a8f361f927",
+      "files": 4000,
+      "bytes": 413780,
+      "inventory_sha256": "a2c078070e410742680ccdc0317c4c41a770490874d00072a4684d9c921daab5"
+    },
+    {
+      "name": "16000-files",
+      "path": "/workspace/scratch/2cede18208f4/experiments/limits/fixtures/16000-files",
+      "revision": "ac22b1dc4152bcae75675aae5a3746d84c2928a2",
+      "files": 16000,
+      "bytes": 1673780,
+      "inventory_sha256": "ede30d6ca65b6782481606051930b49de079313888d1fd47b5e266c1ab97f73e"
+    },
+    {
+      "name": "260-mib",
+      "path": "/workspace/scratch/2cede18208f4/experiments/limits/fixtures/260-mib",
+      "revision": "35e1febec24401eafdc6dc9cd014740a50e8a529",
+      "files": 260,
+      "bytes": 272629760,
+      "inventory_sha256": "7f12d2eea8073deb80a8f62f6c35f68ac7dc55bac39e6143902ae3214f943f69"
+    }
+  ],
+  "measurements": [
+    {
+      "mode": "stock",
+      "fixture": "4000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 31.97641828499991,
+      "files": 4000,
+      "bytes": 413780,
+      "inventory_sha256": "a2c078070e410742680ccdc0317c4c41a770490874d00072a4684d9c921daab5",
+      "total_seconds": 32.06218081099996,
+      "peak_rss_kib": 24944,
+      "child_peak_rss_kib": 24944
+    },
+    {
+      "mode": "batch-list",
+      "fixture": "4000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 1.09191730800012,
+      "files": 4000,
+      "bytes": 413780,
+      "inventory_sha256": "a2c078070e410742680ccdc0317c4c41a770490874d00072a4684d9c921daab5",
+      "total_seconds": 1.1833934420001242,
+      "peak_rss_kib": 23468,
+      "child_peak_rss_kib": 19900
+    },
+    {
+      "mode": "batch-disk",
+      "fixture": "4000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 0.8664832750000642,
+      "files": 4000,
+      "bytes": 413780,
+      "inventory_sha256": "a2c078070e410742680ccdc0317c4c41a770490874d00072a4684d9c921daab5",
+      "total_seconds": 1.0039086699998734,
+      "peak_rss_kib": 21272,
+      "child_peak_rss_kib": 19900
+    },
+    {
+      "mode": "stock",
+      "fixture": "16000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 96.28451637199987,
+      "files": 16000,
+      "bytes": 1673780,
+      "inventory_sha256": "ede30d6ca65b6782481606051930b49de079313888d1fd47b5e266c1ab97f73e",
+      "total_seconds": 96.78274391500008,
+      "peak_rss_kib": 32336,
+      "child_peak_rss_kib": 31824
+    },
+    {
+      "mode": "batch-list",
+      "fixture": "16000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 3.586507026000163,
+      "files": 16000,
+      "bytes": 1673780,
+      "inventory_sha256": "ede30d6ca65b6782481606051930b49de079313888d1fd47b5e266c1ab97f73e",
+      "total_seconds": 4.00183011199988,
+      "peak_rss_kib": 32244,
+      "child_peak_rss_kib": 19900
+    },
+    {
+      "mode": "batch-disk",
+      "fixture": "16000-files",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 3.60234609500003,
+      "files": 16000,
+      "bytes": 1673780,
+      "inventory_sha256": "ede30d6ca65b6782481606051930b49de079313888d1fd47b5e266c1ab97f73e",
+      "total_seconds": 4.044752486000107,
+      "peak_rss_kib": 23300,
+      "child_peak_rss_kib": 19900
+    },
+    {
+      "mode": "stock",
+      "fixture": "260-mib",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "rejected",
+      "error": "AssetError: source Git snapshot exceeds byte budget",
+      "extraction_seconds": 3.756548018999638,
+      "total_seconds": 3.757052145999751,
+      "peak_rss_kib": 22284,
+      "child_peak_rss_kib": 22284
+    },
+    {
+      "mode": "batch-list",
+      "fixture": "260-mib",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 0.5555315060000794,
+      "files": 260,
+      "bytes": 272629760,
+      "inventory_sha256": "7f12d2eea8073deb80a8f62f6c35f68ac7dc55bac39e6143902ae3214f943f69",
+      "total_seconds": 0.9285753530002694,
+      "peak_rss_kib": 20644,
+      "child_peak_rss_kib": 19896
+    },
+    {
+      "mode": "batch-disk",
+      "fixture": "260-mib",
+      "source_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+      "git": "git version 2.56.1",
+      "result": "passed",
+      "extraction_seconds": 0.46119688999988284,
+      "files": 260,
+      "bytes": 272629760,
+      "inventory_sha256": "7f12d2eea8073deb80a8f62f6c35f68ac7dc55bac39e6143902ae3214f943f69",
+      "total_seconds": 0.8040832179999597,
+      "peak_rss_kib": 20620,
+      "child_peak_rss_kib": 19900
+    }
+  ],
+  "notes": [
+    "One execution per scenario; no CPU throttling or cold-cache control.",
+    "peak_rss_kib is Python process high-water mark, child_peak_rss_kib is largest child, not simultaneous process-tree aggregate.",
+    "Extraction timer stops on context entry; exact byte/ordered path identity verification and cleanup are in total_seconds.",
+    "batch-list retains O(file count) path objects for API compatibility. batch-disk spools paths; downstream validator/renderers are not thereby made bounded.",
+    "260MiB fixture measures snapshot transport only; it is not a source-validity or end-to-end rendered-work fixture."
+  ]
+}

@@ -1,0 +1,142 @@
+[
+  {
+    "label": "large passages evidence",
+    "kind": "passages",
+    "term": "terms",
+    "body_id": 10184,
+    "record_id": 8015,
+    "full_evidence": {
+      "sql": "SELECT snippet(passage_fts,4,char(57344),char(57345),'…',24) AS excerpt FROM passage_fts WHERE passage_fts MATCH ? AND rowid=?",
+      "bind": [
+        "\"terms\"*",
+        8015
+      ]
+    },
+    "window_evidence": {
+      "sql": "WITH hits AS MATERIALIZED (\n      SELECT w.id,w.ordinal,bm25(evidence_fts) AS score FROM evidence_fts\n        JOIN evidence_windows w ON w.id=evidence_fts.rowid\n        WHERE evidence_fts MATCH ? AND w.body_id=?\n    ), chosen AS (SELECT id FROM hits ORDER BY score,ordinal,id LIMIT 1)\n    SELECT w.body_id,w.start_byte,w.byte_count,\n      snippet(evidence_fts,0,char(57344),char(57345),'…',24) AS excerpt\n      FROM evidence_fts JOIN evidence_windows w ON w.id=evidence_fts.rowid\n      WHERE evidence_fts MATCH ? AND evidence_fts.rowid IN (SELECT id FROM chosen)",
+      "bind": [
+        "\"terms\"*",
+        10184,
+        "\"terms\"*"
+      ]
+    },
+    "expected_window_rows": [
+      {
+        "body_id": 10184,
+        "start_byte": 781336,
+        "byte_count": 8190,
+        "excerpt": ",1]],\"value\":2048}]},{\"op\":\"product\",\"terms\":[{\"op\":\"log2_ceil\",\"terms\":[{\"op\":\"sum\",\"terms\":[{\"name\":\"native_entry_admission_checkpoint_retained_rows\",\"op\":\"dimension\"},{\"op\":\"constant…"
+      }
+    ],
+    "original_page": {
+      "sql": "WITH hits AS MATERIALIZED (SELECT s.id,bm25(passage_fts,4.0,2.0,1.0,2.0,1.0,0.5) AS score FROM passage_fts JOIN passage_records s ON s.id=passage_fts.rowid WHERE passage_fts MATCH ?),\n        page AS MATERIALIZED (SELECT * FROM (SELECT p.id,p.title,p.url,p.citation_url,e.revision,e.published,e.position,d.title AS document_title,d.path AS document_path,d.id AS document_order,p.anchor,p.scope,p.citation_json,p.position AS node_position,m.score,e.position AS match_position,d.title AS match_document,NULL AS hit_url,m.id AS __match_id FROM passages p JOIN documents d ON d.id=p.document_id JOIN editions e ON e.id=p.edition_id JOIN works w ON w.id=e.work_id JOIN hits m ON m.id=p.id WHERE (?='all' OR (?='latest' AND e.revision=w.latest_revision) OR e.revision=?) AND (?='' OR d.path=?) AND (?<>'manuscript' OR d.path='content/manuscript.md')) ORDER BY score ASC,document_order,node_position,id LIMIT ? OFFSET ?),\n        evidence AS MATERIALIZED (SELECT passage_fts.rowid AS __match_id,snippet(passage_fts, 4, char(57344), char(57345), '…', 24) AS body_excerpt, snippet(passage_fts, 1, char(57344), char(57345), '…', 24) AS authors_excerpt, snippet(passage_fts, 0, char(57344), char(57345), '…', 24) AS title_excerpt, snippet(passage_fts, 2, char(57344), char(57345), '…', 24) AS abstract_excerpt, snippet(passage_fts, 3, char(57344), char(57345), '…', 24) AS labels_excerpt, snippet(passage_fts, 5, char(57344), char(57345), '…', 24) AS git_excerpt FROM passage_fts\n            WHERE passage_fts MATCH ? AND passage_fts.rowid IN (SELECT __match_id FROM page))\n        SELECT page.id,page.title,page.url,page.citation_url,page.revision,page.published,page.position,page.document_title,page.document_path,page.document_order,page.anchor,page.scope,page.citation_json,page.node_position,page.score,page.match_position,page.match_document,page.hit_url,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN m.body_excerpt WHEN instr(m.authors_excerpt,char(57344))>0 THEN m.authors_excerpt WHEN instr(m.title_excerpt,char(57344))>0 THEN m.title_excerpt WHEN instr(m.abstract_excerpt,char(57344))>0 THEN m.abstract_excerpt WHEN instr(m.labels_excerpt,char(57344))>0 THEN m.labels_excerpt WHEN instr(m.git_excerpt,char(57344))>0 THEN m.git_excerpt ELSE NULL END AS excerpt,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN 'passage' WHEN instr(m.authors_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.title_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.abstract_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.labels_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.git_excerpt,char(57344))>0 THEN 'metadata' ELSE NULL END AS excerpt_context,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN 'body' WHEN instr(m.authors_excerpt,char(57344))>0 THEN 'authors' WHEN instr(m.title_excerpt,char(57344))>0 THEN 'title' WHEN instr(m.abstract_excerpt,char(57344))>0 THEN 'abstract' WHEN instr(m.labels_excerpt,char(57344))>0 THEN 'labels' WHEN instr(m.git_excerpt,char(57344))>0 THEN 'git' ELSE NULL END AS excerpt_field FROM page JOIN evidence m ON m.__match_id=page.__match_id ORDER BY score ASC,document_order,node_position,id",
+      "bind": [
+        "\"terms\"*",
+        "all",
+        "all",
+        "all",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "all",
+        20,
+        0,
+        "\"terms\"*"
+      ]
+    },
+    "expected_original_page": [
+      {
+        "id": 8015,
+        "title": "Primitive bounds Metric Relation Unit Expression Meaning assembled_piece_octets upper [[\"octets\",1]] {\"op\":\"sum\",\"terms\":[{\"op\":\"constant\",\"unit\":[[\"octets\",1]]",
+        "url": "editions/58709266d9a6ef0bf5b45d2ff93ba2125c256fe4/read/supporting/e-7cee2b10b06d90bb789ecaee.html#native-0002",
+        "citation_url": "editions/58709266d9a6ef0bf5b45d2ff93ba2125c256fe4/read/supporting/e-7cee2b10b06d90bb789ecaee-native-0002.citation.html",
+        "revision": "58709266d9a6ef0bf5b45d2ff93ba2125c256fe4",
+        "published": "2026-11-01",
+        "position": 0,
+        "document_title": "riverhog-server.validation-owner-advance.growth/v1",
+        "document_path": "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "document_order": 1024,
+        "anchor": "native-0002",
+        "scope": "document",
+        "citation_json": "{\"description\": [[\"text\", \"Riverhog contributors. \"], [\"cite\", \"riverhog-server.validation-owner-advance.growth/v1\"], [\"text\", \". In \"], [\"cite\", \"Riverhog native contract reference\"], [\"text\", \".\"], [\"text\", \" v1, 2026-11-01.\"]], \"source\": [[\"text\", \"Git commit \"], [\"code\", \"58709266d9a6ef0bf5b45d2ff93ba2125c256fe4\"], [\"text\", \" · \"], [\"code\", \"content/supporting/e-7cee2b10b06d90bb789ecaee.md\"], [\"text\", \" · \"], [\"code\", \"#native-0002\"]], \"href\": \"editions/58709266d9a6ef0bf5b45d2ff93ba2125c256fe4/read/supporting/e-7cee2b10b06d90bb789ecaee-native-0002.citation.json\", \"label\": \"Download official citation JSON\"}",
+        "node_position": 3,
+        "score": -8.916496626534236,
+        "match_position": 0,
+        "match_document": "riverhog-server.validation-owner-advance.growth/v1",
+        "hit_url": null,
+        "excerpt": "Primitive bounds Metric Relation Unit Expression Meaning assembled_piece_octets upper [[\"octets\",1]] {\"op\":\"sum\",\"terms\":[{\"op\":\"constant\",\"unit\":[[\"octets\",1]],\"value\":0},{\"op…",
+        "excerpt_context": "passage",
+        "excerpt_field": "body"
+      }
+    ]
+  },
+  {
+    "label": "large versions evidence",
+    "kind": "versions",
+    "term": "terms",
+    "body_id": 1024,
+    "record_id": 1024,
+    "full_evidence": {
+      "sql": "SELECT snippet(search_fts,4,char(57344),char(57345),'…',24) AS excerpt FROM search_fts WHERE search_fts MATCH ? AND rowid=?",
+      "bind": [
+        "\"terms\"*",
+        1024
+      ]
+    },
+    "window_evidence": {
+      "sql": "WITH hits AS MATERIALIZED (\n      SELECT w.id,w.ordinal,bm25(evidence_fts) AS score FROM evidence_fts\n        JOIN evidence_windows w ON w.id=evidence_fts.rowid\n        WHERE evidence_fts MATCH ? AND w.body_id=?\n    ), chosen AS (SELECT id FROM hits ORDER BY score,ordinal,id LIMIT 1)\n    SELECT w.body_id,w.start_byte,w.byte_count,\n      snippet(evidence_fts,0,char(57344),char(57345),'…',24) AS excerpt\n      FROM evidence_fts JOIN evidence_windows w ON w.id=evidence_fts.rowid\n      WHERE evidence_fts MATCH ? AND evidence_fts.rowid IN (SELECT id FROM chosen)",
+      "bind": [
+        "\"terms\"*",
+        1024,
+        "\"terms\"*"
+      ]
+    },
+    "expected_window_rows": [
+      {
+        "body_id": 1024,
+        "start_byte": 896032,
+        "byte_count": 8191,
+        "excerpt": ":\"product\",\"terms\":[{\"op\":\"log2_ceil\",\"terms\":[{\"op\":\"sum\",\"terms\":[{\"name\":\"native_entry_admission_checkpoint_retained_rows\",\"op\":\"dimension\"},{\"op\":\"constant\",\"unit\":[[\"count\",1]],\"value…"
+      }
+    ],
+    "original_page": {
+      "sql": "WITH hits AS MATERIALIZED (SELECT s.work_id,s.edition_id,s.document_id,s.id,s.url,bm25(search_fts,4.0,2.0,1.0,2.0,1.0,0.5) AS score FROM search_fts JOIN search_records s ON s.id=search_fts.rowid JOIN documents selected_document ON selected_document.id=s.document_id WHERE search_fts MATCH ? AND (?='' OR selected_document.path=?)), ranked AS (SELECT *,ROW_NUMBER() OVER (PARTITION BY edition_id ORDER BY score,id DESC) AS winning_rank FROM hits),\n        page AS MATERIALIZED (SELECT * FROM (SELECT e.id,'v'||(e.position+1) AS title,'editions/'||e.revision||'/read/index.html' AS url,e.revision,e.published,e.position,e.message,'' AS document_title,'' AS document_path,'' AS anchor,'' AS scope,0 AS node_position,m.score,m.url AS hit_url,m.document_id AS match_document_id,e.position AS match_position,d.title AS match_document,m.id AS __match_id FROM editions e JOIN works w ON w.id=e.work_id JOIN ranked m ON m.edition_id=e.id JOIN documents d ON d.id=m.document_id WHERE (?='all' OR (?='latest' AND e.revision=w.latest_revision) OR e.revision=?) AND (?='' OR EXISTS (SELECT 1 FROM documents selected WHERE selected.edition_id=e.id AND selected.path=?)) AND m.winning_rank=1) ORDER BY score ASC,position DESC,document_path,node_position,id LIMIT ? OFFSET ?),\n        evidence AS MATERIALIZED (SELECT search_fts.rowid AS __match_id,snippet(search_fts, 4, char(57344), char(57345), '…', 24) AS body_excerpt, snippet(search_fts, 1, char(57344), char(57345), '…', 24) AS authors_excerpt, snippet(search_fts, 0, char(57344), char(57345), '…', 24) AS title_excerpt, snippet(search_fts, 2, char(57344), char(57345), '…', 24) AS abstract_excerpt, snippet(search_fts, 3, char(57344), char(57345), '…', 24) AS labels_excerpt, snippet(search_fts, 5, char(57344), char(57345), '…', 24) AS git_excerpt FROM search_fts\n            WHERE search_fts MATCH ? AND search_fts.rowid IN (SELECT __match_id FROM page))\n        SELECT page.id,page.title,page.url,page.revision,page.published,page.position,page.message,page.document_title,page.document_path,page.anchor,page.scope,page.node_position,page.score,page.hit_url,page.match_document_id,page.match_position,page.match_document,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN m.body_excerpt WHEN instr(m.authors_excerpt,char(57344))>0 THEN m.authors_excerpt WHEN instr(m.title_excerpt,char(57344))>0 THEN m.title_excerpt WHEN instr(m.abstract_excerpt,char(57344))>0 THEN m.abstract_excerpt WHEN instr(m.labels_excerpt,char(57344))>0 THEN m.labels_excerpt WHEN instr(m.git_excerpt,char(57344))>0 THEN m.git_excerpt ELSE NULL END AS excerpt,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN 'document' WHEN instr(m.authors_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.title_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.abstract_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.labels_excerpt,char(57344))>0 THEN 'metadata' WHEN instr(m.git_excerpt,char(57344))>0 THEN 'metadata' ELSE NULL END AS excerpt_context,CASE WHEN instr(m.body_excerpt,char(57344))>0 THEN 'body' WHEN instr(m.authors_excerpt,char(57344))>0 THEN 'authors' WHEN instr(m.title_excerpt,char(57344))>0 THEN 'title' WHEN instr(m.abstract_excerpt,char(57344))>0 THEN 'abstract' WHEN instr(m.labels_excerpt,char(57344))>0 THEN 'labels' WHEN instr(m.git_excerpt,char(57344))>0 THEN 'git' ELSE NULL END AS excerpt_field FROM page JOIN evidence m ON m.__match_id=page.__match_id ORDER BY score ASC,position DESC,document_path,node_position,id",
+      "bind": [
+        "\"terms\"*",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "all",
+        "all",
+        "all",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        "content/supporting/e-7cee2b10b06d90bb789ecaee.md",
+        20,
+        0,
+        "\"terms\"*"
+      ]
+    },
+    "expected_original_page": [
+      {
+        "id": 1,
+        "title": "v1",
+        "url": "editions/58709266d9a6ef0bf5b45d2ff93ba2125c256fe4/read/index.html",
+        "revision": "58709266d9a6ef0bf5b45d2ff93ba2125c256fe4",
+        "published": "2026-11-01",
+        "position": 0,
+        "message": "Modeled documentation update 1",
+        "document_title": "",
+        "document_path": "",
+        "anchor": "",
+        "scope": "",
+        "node_position": 0,
+        "score": -5.814050548057027,
+        "hit_url": "editions/58709266d9a6ef0bf5b45d2ff93ba2125c256fe4/read/supporting/e-7cee2b10b06d90bb789ecaee.html",
+        "match_document_id": 1024,
+        "match_position": 0,
+        "match_document": "riverhog-server.validation-owner-advance.growth/v1",
+        "excerpt": "…blocking_slot_lock_attempts upper [[\"count\",1]] {\"op\":\"sum\",\"terms\":[{\"op\":\"product\",\"terms\":[{\"op\":\"constant\",\"unit\":[[\"count\",-1]],\"value\":1},{\"name\":\"sweep_calls\",\"op…",
+        "excerpt_context": "document",
+        "excerpt_field": "body"
+      }
+    ]
+  }
+]

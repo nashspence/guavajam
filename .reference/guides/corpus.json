@@ -1,0 +1,354 @@
+{
+  "title": "Complete Riverhog source corpus, valid GuavaJam supporting-source adapter, and modeled text reuse",
+  "scope": [
+    "Research evidence for generic GuavaJam source acceptance and static search; no Riverhog software-version semantics are added to GuavaJam.",
+    "The complete current native Contract Closure inventory is used, not the earlier 4,258-symbol proxy.",
+    "This guide and the retained scripts are reference evidence. They are not a production Riverhog migration or GuavaJam implementation."
+  ],
+  "authority": {
+    "riverhog": {
+      "repository": "https://github.com/nashspence/riverhog",
+      "commit": "be483fd6d567616d5fcd355202d61f1e682efe75",
+      "tree": "044a0e1e3eecf0b4183836017269fc208b6603d2",
+      "closure_sha256": "af713feb50555176cff26a15a5a527c81ee2b7bd7e087b70f326c5bb7172fcf9",
+      "generation": "The unmodified source-owned contract_candidate.py generate command produced the complete Closure, separate Audit Record, and validated native atlas from a clean exact checkout. It exited 0.",
+      "source_generation_measurement": "experiments/corpus/generation-measurement.json",
+      "environment": "experiments/corpus/environment.json",
+      "boundary": "Generated reports describe source-owned contracts; they do not create new promises. Riverhog owns release-to-documentation-edition mapping, applicability membership, contract equivalence and compatibility.",
+      "documentation_obligations": "Existing Riverhog policy binds release prose to native CLI, OpenAPI, Python, distribution, OCI and reference outputs; requires ancestry-independent documentation history; and preserves already-published version subtrees. A site migration must explicitly preserve or redesign those Riverhog-owned obligations.",
+      "authored_release_input": "The inspected release-documentation commit 9fb4a7d52b12a61e582be5656471979e8ee5e1e4 contained only its three root setup files. No populated authored release manual was available or claimed as this corpus."
+    },
+    "guavajam": {
+      "repository": "https://github.com/nashspence/guavajam",
+      "commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
+      "parser": "Unmodified guavajam.supporting_gfm.load_gfm_record and a_guavajam_static_website_generator.navigation.extract.",
+      "python": "3.12.12",
+      "pandoc": "pandoc 3.12.1"
+    }
+  },
+  "complete_native_corpus": {
+    "documents": 5947,
+    "passages_in_native_heading_extraction": 30116,
+    "full_generated_candidate_files": 6552,
+    "full_generated_candidate_bytes": 253264563,
+    "extracted_native_document_body_bytes": 12795336,
+    "extraction": "Each real Closure element contributes native human-contract text from its own generated element page. Audit/navigation controls and the duplicate exact-machine-fields panel are excluded from searchable text; no native chunk text is truncated.",
+    "native_manifest": "experiments/corpus/manifest.json",
+    "shape_receipt": "experiments/corpus/shape-analysis.json",
+    "omitted_reproducible_files": [
+      "candidate/ full generated atlas",
+      "documents.jsonl native extraction",
+      "declarations.jsonl exact owned pointer values",
+      "generated supporting Markdown source tree"
+    ],
+    "omission_reason": "Large reproducible outputs are not duplicated in the reference commit; the complete valid production-NAV fixture is retained compressed for fast search reproduction."
+  },
+  "complete_valid_supporting_source": {
+    "documents": 5947,
+    "passages_including_metadata": 36063,
+    "source_markdown_bytes": 17996087,
+    "max_source_markdown_bytes": 1518306,
+    "navigation_document_text_bytes": 14117137,
+    "navigation_passage_text_bytes": 13800408,
+    "largest_passage_bytes": 1027923,
+    "metadata_passage_bytes": 1053410,
+    "checks": {
+      "all_current_supporting_blob_loaders_passed": true,
+      "all_native_chunk_text_roundtrips_exact": true,
+      "all_record_ids_match_complete_native_corpus": true,
+      "all_flat_passages_have_production_kind_level_scope": true
+    },
+    "method": "Each native heading chunk becomes an escaped literal paragraph with its own explicit anchor. A separately anchored metadata introduction is produced by GuavaJam. The production loader accepts every file, and every original chunk roundtrips through production NAV with identical text.",
+    "layout_limit": "The flat paragraphs are a lossless visible-text benchmark adapter, not the final table/list/link presentation. A large native table can remain a roughly one-megabyte paragraph; production editorial layout and link preservation need their own adapter qualification.",
+    "heading_alternative": [
+      {
+        "id": "versioning-tags:release:versioning-series:43d554907c",
+        "native_heading_chunks": 1,
+        "flat_document_text_bytes": 164,
+        "heading_document_text_bytes": 179,
+        "same_document_text": false,
+        "flat_passages": 2,
+        "heading_passages": 3,
+        "flat_passage_text_bytes": 144,
+        "heading_passage_text_bytes": 161,
+        "heading_source_bytes": 361
+      },
+      {
+        "id": "python:riverhog-client:riverhog-client-apiclient-restart-processing-claim:4214484336",
+        "native_heading_chunks": 1,
+        "flat_document_text_bytes": 506,
+        "heading_document_text_bytes": 506,
+        "same_document_text": true,
+        "flat_passages": 2,
+        "heading_passages": 3,
+        "flat_passage_text_bytes": 454,
+        "heading_passage_text_bytes": 716,
+        "heading_source_bytes": 716
+      },
+      {
+        "id": "growth:riverhog-server:riverhog-server-validation-owner-advance-growth-v1:0dcb27a484",
+        "native_heading_chunks": 8,
+        "flat_document_text_bytes": 1145912,
+        "heading_document_text_bytes": 1145912,
+        "same_document_text": true,
+        "flat_passages": 9,
+        "heading_passages": 16,
+        "flat_passage_text_bytes": 1145853,
+        "heading_passage_text_bytes": 2291387,
+        "heading_source_bytes": 1518597
+      },
+      {
+        "id": "configuration:stove0-server:stove0-server-configuration-stove0-docume-54bc5c97ac:b33400d8ab",
+        "native_heading_chunks": 419,
+        "flat_document_text_bytes": 81118,
+        "heading_document_text_bytes": 81118,
+        "same_document_text": true,
+        "flat_passages": 420,
+        "heading_passages": 839,
+        "flat_passage_text_bytes": 80641,
+        "heading_passage_text_bytes": 153031,
+        "heading_source_bytes": 119579
+      }
+    ],
+    "navigation_layout_warning": "GuavaJam emits both heading-section text and individual anchored body-block text. H2 plus body can nearly double passage rows/bytes while leaving document text unchanged. Do not use the flat fixture count as a guarantee for another renderer layout.",
+    "primary_manifest": "experiments/corpus/guavajam-navigation-manifest.json",
+    "retained_input": "experiments/corpus/guavajam-documents.jsonl.gz",
+    "gzip_sha256": "87e077b393cf3c482b30f072573fd90395aee7bd9fed8d0c278e43b086343b63",
+    "gzip_bytes": 2926047,
+    "uncompressed_sha256": "ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a",
+    "uncompressed_bytes": 42815213,
+    "record_shape": "id, title, abstract, path, metadata, navigation{text,anchors}, source_markdown_sha256, source_markdown_bytes, native_source_html_sha256",
+    "consumer_warning": "navigation.text already includes the document title. navigation.anchors already includes the metadata passage. All anchor titles/kinds/levels/positions/parents/scopes are production-derived. Actual metadata text separates labels and values with whitespace, not synthetic colon/semicolon punctuation."
+  },
+  "source_fidelity": {
+    "primary_index_receipt": "results/storage/nav-v2latest/source-fidelity.json",
+    "initial_source_bytes": "All 5,947 v2 initial document hashes and byte counts agree with the real supporting GFM accepted by the production parser; all 36,063 anchor records and all literal metadata memberships agree with the retained NAV input.",
+    "modeled_source_bytes": "The v2 storage experiment serializes exact flat GFM for modeled subsequent editions and hashes those real serialized bytes. It does not retain a stale original text alias in transformed passage records.",
+    "provenance_limit": "Modeled edition revisions, dates, work-level facts and citation routes remain explicit benchmark context. Real source-byte hashes do not turn those modeled revisions into signed Git publications.",
+    "not_claimed": [
+      "Complete signed publication pipeline",
+      "Full final renderer and citation/browser qualification",
+      "Independent full Riverhog regeneration determinism",
+      "Riverhog release qualification"
+    ]
+  },
+  "modeled_history_and_reuse": {
+    "input": "actual production NAV corpus",
+    "receipt": "experiments/corpus/churn-navigation-sensitivity.json",
+    "editions": [
+      1,
+      5,
+      50
+    ],
+    "random_seed": 729,
+    "policy": {
+      "selection": "random_5_percent samples round(N*0.05) document identities independently each update; largest_5_percent repeatedly changes the same initial largest round(N*0.05) bodies; all changes every document.",
+      "passage_change": "Both last-passage (matching storage_matrix.py) and largest-passage sensitivity are reported. The selected original passage gets a unique edition-number marker appended; later changes replace the prior marker rather than accumulate history.",
+      "metadata": "none: content only (including document title for NAV input). stable: literal Authority, Interface, Element ID and Label. edition: additionally Example version vN, changing every edition. Visible metadata is one extra passage. NAV input uses exact production metadata_block/source_text and exact title/metadata/content order; heading input retains the earlier colon/semicolon presentation model.",
+      "identity": "Exact UTF-8 body strings deduplicated by SHA-256; payload bytes exclude hashes, keys, references, SQLite pages, FTS postings/docsize, ranking fields, citation data, frontmatter syntax, compression and source-GFM segmentation overhead.",
+      "source_changes": "Count is a consequence of modeled body/metadata changes with other source fields fixed; it is not an exact serialized source-file size or hash measurement.",
+      "limits": "Synthetic editions of actual production supporting-GFM/navigation text, not real Riverhog release history, database-size estimates, or browser qualification. Flat literal paragraphs are a text-preserving benchmark adapter, not final table/link presentation."
+    },
+    "measurements_at_50_editions": [
+      {
+        "scenario": "random_5_percent",
+        "changed_passage": "last",
+        "editions": 50,
+        "documents_changed_each_update": 297,
+        "unique_native_document_utf8_bytes": 47589602,
+        "unique_native_passage_utf8_bytes": 13086209,
+        "stable_metadata_shared_document_passage_utf8_bytes": 64888190,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 778241264
+      },
+      {
+        "scenario": "largest_5_percent",
+        "changed_passage": "last",
+        "editions": 50,
+        "documents_changed_each_update": 297,
+        "unique_native_document_utf8_bytes": 437042189,
+        "unique_native_passage_utf8_bytes": 16795385,
+        "stable_metadata_shared_document_passage_utf8_bytes": 458077064,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 776288262
+      },
+      {
+        "scenario": "all",
+        "changed_passage": "last",
+        "editions": 50,
+        "documents_changed_each_update": 5947,
+        "unique_native_document_utf8_bytes": 661800630,
+        "unique_native_passage_utf8_bytes": 87270053,
+        "stable_metadata_shared_document_passage_utf8_bytes": 797986393,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 855853780
+      },
+      {
+        "scenario": "random_5_percent",
+        "changed_passage": "largest",
+        "editions": 50,
+        "documents_changed_each_update": 297,
+        "unique_native_document_utf8_bytes": 47589602,
+        "unique_native_passage_utf8_bytes": 28442857,
+        "stable_metadata_shared_document_passage_utf8_bytes": 80244838,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 793597912
+      },
+      {
+        "scenario": "largest_5_percent",
+        "changed_passage": "largest",
+        "editions": 50,
+        "documents_changed_each_update": 297,
+        "unique_native_document_utf8_bytes": 437042189,
+        "unique_native_passage_utf8_bytes": 242799686,
+        "stable_metadata_shared_document_passage_utf8_bytes": 684081365,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 1002292563
+      },
+      {
+        "scenario": "all",
+        "changed_passage": "largest",
+        "editions": 50,
+        "documents_changed_each_update": 5947,
+        "unique_native_document_utf8_bytes": 661800630,
+        "unique_native_passage_utf8_bytes": 359515058,
+        "stable_metadata_shared_document_passage_utf8_bytes": 1070231398,
+        "per_edition_metadata_shared_document_passage_utf8_bytes": 1128098785
+      }
+    ],
+    "interpretation": [
+      "Document-count churn does not describe changed-byte volume: the largest 297 native documents contain about 8.64 million bytes.",
+      "Changing visible version metadata makes every whole document-body string different even when native content is unchanged. Store native blocks and metadata introductions separately if exact reconstructed document text is to retain that reuse.",
+      "These measurements count SHA-256-distinct UTF-8 strings only. They are not SQLite, FTS-posting, compressed-transfer, RAM or latency estimates. Retaining occurrence-level FTS ranking is a separate requirement.",
+      "Stable metadata in the sensitivity model omits Example version; per-edition mode adds vN. The storage experiment may retain v1 when its stable mode is selected. Read each experiment's explicit metadata definition before comparing numbers."
+    ]
+  },
+  "reproduction": {
+    "environment_variables": {
+      "PROFFER_REFERENCE": "Absolute path to this retained .reference directory.",
+      "GUAVAJAM_RESEARCH_OUTPUT": "Fresh absolute output directory outside both source checkouts.",
+      "RIVERHOG_CHECKOUT": "Separate clean checkout at be483fd6d567616d5fcd355202d61f1e682efe75.",
+      "GUAVAJAM_CHECKOUT": "Separate checkout at 54fce07b619628a5e92be946be4b189873ddf1a0, not the later reference commit.",
+      "PINNED_UV": "Absolute uv 0.11.24 executable.",
+      "RIVERHOG_ENV": "External uv environment using Python 3.12.3 and Riverhog locked workspace dependencies.",
+      "GUAVAJAM_ENV": "External uv environment using Python 3.12.12 and GuavaJam locked runtime dependencies.",
+      "PANDOC_BINARY": "Actual Pandoc 3.12.1 binary, not a version-check bypass."
+    },
+    "fast_path": [
+      {
+        "cwd": "any",
+        "command": "mkdir -p \"$GUAVAJAM_RESEARCH_OUTPUT\""
+      },
+      {
+        "cwd": "any",
+        "command": "gzip -dc \"$PROFFER_REFERENCE/experiments/corpus/guavajam-documents.jsonl.gz\" > \"$GUAVAJAM_RESEARCH_OUTPUT/guavajam-documents.jsonl\""
+      },
+      {
+        "cwd": "any",
+        "command": "sha256sum \"$GUAVAJAM_RESEARCH_OUTPUT/guavajam-documents.jsonl\"",
+        "expected_sha256": "ecb80dfe215b458c119ca6e0265723cdab5e7210410f864ace5b2c6a059f610a"
+      },
+      {
+        "cwd": "any",
+        "command": "\"$GUAVAJAM_ENV/bin/python\" \"$PROFFER_REFERENCE/experiments/churn_sensitivity.py\" \"$GUAVAJAM_RESEARCH_OUTPUT/guavajam-documents.jsonl\" \"$GUAVAJAM_RESEARCH_OUTPUT/churn-navigation-sensitivity.json\" --guavajam \"$GUAVAJAM_CHECKOUT\""
+      }
+    ],
+    "full_source_path": [
+      {
+        "cwd": "$RIVERHOG_CHECKOUT",
+        "command": "UV_PROJECT_ENVIRONMENT=\"$RIVERHOG_ENV\" \"$PINNED_UV\" sync --locked --all-packages --group dev --python 3.12.3"
+      },
+      {
+        "cwd": "$RIVERHOG_CHECKOUT",
+        "command": "\"$RIVERHOG_ENV/bin/python\" scripts/contract_candidate.py generate --source-sha be483fd6d567616d5fcd355202d61f1e682efe75 --output \"$GUAVAJAM_RESEARCH_OUTPUT/candidate\""
+      },
+      {
+        "cwd": "any",
+        "command": "\"$RIVERHOG_ENV/bin/python\" \"$PROFFER_REFERENCE/experiments/extract_riverhog_corpus.py\" \"$RIVERHOG_CHECKOUT\" \"$GUAVAJAM_RESEARCH_OUTPUT/candidate\" \"$GUAVAJAM_RESEARCH_OUTPUT\""
+      },
+      {
+        "cwd": "$GUAVAJAM_CHECKOUT",
+        "command": "UV_PROJECT_ENVIRONMENT=\"$GUAVAJAM_ENV\" \"$PINNED_UV\" sync --locked --package guavajam --no-dev --python 3.12.12"
+      },
+      {
+        "cwd": "any",
+        "command": "\"$GUAVAJAM_ENV/bin/python\" \"$PROFFER_REFERENCE/experiments/guavajam_corpus_adapter.py\" \"$GUAVAJAM_CHECKOUT\" \"$PANDOC_BINARY\" \"$GUAVAJAM_RESEARCH_OUTPUT/documents.jsonl\" \"$GUAVAJAM_RESEARCH_OUTPUT\""
+      },
+      {
+        "cwd": "any",
+        "command": "\"$GUAVAJAM_ENV/bin/python\" \"$PROFFER_REFERENCE/experiments/churn_sensitivity.py\" \"$GUAVAJAM_RESEARCH_OUTPUT/guavajam-documents.jsonl\" \"$GUAVAJAM_RESEARCH_OUTPUT/churn-navigation-sensitivity.json\" --guavajam \"$GUAVAJAM_CHECKOUT\""
+      }
+    ],
+    "pitfalls": [
+      "The reference commit adds evidence files and therefore is not the baseline SHA accepted by the adapter. Use separate pinned clean source checkouts; do not weaken its identity checks.",
+      "Riverhog generation requires its full locked workspace environment, not a few copied Python modules. Observed generation was 763.33 seconds with approximately 900 MiB peak child RSS; do not label that cost GuavaJam performance.",
+      "The retained fast-path NAV fixture avoids regenerating the large native atlas for every search experiment.",
+      "Python and uv versions differ between Riverhog and GuavaJam as specified above. Pandoc must actually be 3.12.1. The retained environment receipt describes the observed Linux runtime.",
+      "Whole-repository GuavaJam validation retains its stock 128-document aggregate guard. This adapter directly qualifies all supporting blobs and NAV extraction; aggregate guard removal and complete source/render publication remain separately scoped evidence.",
+      "The native corpus manifest references larger omitted intermediate files. Regenerate them through the full source path; they are intentionally not present in this reference package.",
+      "Environment receipts and elapsed timings can vary by host. Inputs, source/code hashes and exact content outcomes are the reproducibility anchors.",
+      "Do not treat synthetic edition dates or revision digests as actual Riverhog release history, and do not infer release applicability from changed-in metadata alone."
+    ]
+  },
+  "retained_artifacts": [
+    {
+      "path": "experiments/extract_riverhog_corpus.py",
+      "bytes": 8995,
+      "sha256": "105eed4792f8051c43a632d7c6bb7291e8e95dee487a4e607ca3a6d8289f23e7"
+    },
+    {
+      "path": "experiments/guavajam_corpus_adapter.py",
+      "bytes": 10111,
+      "sha256": "a3ee77309560f0e13ca6d21ca2d4481561fba041d08198ed93aab4ed729c21b0"
+    },
+    {
+      "path": "experiments/churn_sensitivity.py",
+      "bytes": 13028,
+      "sha256": "06c818e12643234153117cab2b9a738bff0d9676ad5c1f232d72daad8cfb0257"
+    },
+    {
+      "path": "experiments/corpus/guavajam-documents.jsonl.gz",
+      "bytes": 2926047,
+      "sha256": "87e077b393cf3c482b30f072573fd90395aee7bd9fed8d0c278e43b086343b63"
+    },
+    {
+      "path": "experiments/corpus/manifest.json",
+      "bytes": 6300,
+      "sha256": "718562090738a22aa162e88052bd33e0b5b8e694bba09a4ba78e2fd1363e0d7c"
+    },
+    {
+      "path": "experiments/corpus/environment.json",
+      "bytes": 6519,
+      "sha256": "87130bb7275af49c6311bda1dd3198fd869cb385a75264efb67bce5e2a52e170"
+    },
+    {
+      "path": "experiments/corpus/generation-measurement.json",
+      "bytes": 386,
+      "sha256": "4da2d74bf8b5d81b9a3583e8348fa5e9952647304f281a2577ef37f6a2087cbf"
+    },
+    {
+      "path": "experiments/corpus/shape-analysis.json",
+      "bytes": 3636,
+      "sha256": "0f40aa1471109a896f9bdab7f97a6634e69a15f96ea9eddba9f8798cb9a59c34"
+    },
+    {
+      "path": "experiments/corpus/guavajam-navigation-manifest.json",
+      "bytes": 3574,
+      "sha256": "225f871922d54de0e23c3085187d47e938c781ed5913904e42604971f38cbe91"
+    },
+    {
+      "path": "experiments/corpus/guavajam-corpus-archive.json",
+      "bytes": 296,
+      "sha256": "43f63dc074c224fe21ab399e2d6d670adfa196d23d50c11654c3c658a45abebb"
+    },
+    {
+      "path": "experiments/corpus/churn-navigation-sensitivity.json",
+      "bytes": 65276,
+      "sha256": "2c34db8324a3a1206be34bd594ddd8ab5109709e85631fb2e06f0ef9fbf713c2"
+    }
+  ],
+  "immutable_sources": [
+    "https://github.com/nashspence/riverhog/blob/be483fd6d567616d5fcd355202d61f1e682efe75/scripts/contract_atlas/generation.py",
+    "https://github.com/nashspence/riverhog/blob/be483fd6d567616d5fcd355202d61f1e682efe75/scripts/contract_atlas/records.py",
+    "https://github.com/nashspence/riverhog/blob/be483fd6d567616d5fcd355202d61f1e682efe75/scripts/contract_atlas/documentation.py",
+    "https://github.com/nashspence/riverhog/blob/be483fd6d567616d5fcd355202d61f1e682efe75/scripts/contract_atlas/documentation_requirements.py",
+    "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/supporting_gfm.py",
+    "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/src/guavajam/supporting_metadata.py",
+    "https://github.com/nashspence/guavajam/blob/54fce07b619628a5e92be946be4b189873ddf1a0/some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/navigation.py"
+  ]
+}

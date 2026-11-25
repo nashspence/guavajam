@@ -1,0 +1,10 @@
+{
+  "new_checks_run": 14,
+  "new_failures": 0,
+  "new_errors": 0,
+  "original_checks_run": 6,
+  "original_failures": 0,
+  "original_errors": 0,
+  "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+  "notes": "Original source snapshot tests use list-compatible adapter; other GuavaJam modules remain pristine at baseline. Not full source or installed-artifact qualification."
+}

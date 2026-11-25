@@ -1,0 +1,293 @@
+{
+  "python": "3.12.14",
+  "sqlite": "3.53.1",
+  "kind": "synthetic SQLite correctness experiment; not performance qualification",
+  "external_content_parity": {
+    "occurrences": 11,
+    "unique_source_rows": 3,
+    "queries": [
+      {
+        "query": "alpha",
+        "hits": 6,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "transaction",
+        "hits": 6,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"trans\"* AND \"ali\"*",
+        "hits": 2,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"archive\"* AND \"beatriz\"*",
+        "hits": 2,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "authors : alice",
+        "hits": 4,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "body : cafe",
+        "hits": 6,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"v2\"* AND \"rollback\"*",
+        "hits": 2,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "experimental",
+        "hits": 5,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "git : moved",
+        "hits": 1,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"no such phrase\"",
+        "hits": 0,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"transaction rollback\"",
+        "hits": 6,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"DataCite\"*",
+        "hits": 11,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "abstract : \"Edition 3\"",
+        "hits": 3,
+        "identities_rank_and_all_six_snippets_equal": true
+      },
+      {
+        "query": "\"stable\"* AND \"archive\"*",
+        "hits": 2,
+        "identities_rank_and_all_six_snippets_equal": true
+      }
+    ],
+    "metadata_only_change_and_moved_path": {
+      "filtered_v2_transaction_occurrences": [
+        [
+          5,
+          2,
+          "content/supporting/0.md",
+          "392660f4aebef28a5dacfa8c7e43bc76f38a9ce351d53674b5cb9afdc5b1dd12"
+        ],
+        [
+          8,
+          2,
+          "content/supporting/moved.md",
+          "392660f4aebef28a5dacfa8c7e43bc76f38a9ce351d53674b5cb9afdc5b1dd12"
+        ]
+      ],
+      "source_hashes_remain_occurrence_specific": true,
+      "literal_facet_unicode_preserved": true
+    },
+    "mixed_field_counterexample": {
+      "query": "\"transaction\"* AND \"alice\"*",
+      "correct_occurrence_ids": [
+        1,
+        4
+      ],
+      "body_only_occurrence_ids": []
+    }
+  },
+  "rank_counterexamples": {
+    "shards": {
+      "documents": [
+        [
+          "0",
+          "other other other beta beta other other other other other other other other other other other alpha other other other alpha other alpha alpha alpha beta other other other beta other other other other other other beta other other other other other"
+        ],
+        [
+          "1",
+          "other other other other other alpha other other other other alpha other other other other other other other other other other other beta alpha other alpha other other other other other other other"
+        ],
+        [
+          "2",
+          "other other other other other other other other other other other other other other beta other other other other other beta other other beta other other other other other"
+        ],
+        [
+          "3",
+          "other other beta beta other alpha other other other alpha other alpha other other alpha alpha other other alpha other other alpha other other other other other other alpha beta alpha other other other other beta alpha other"
+        ],
+        [
+          "4",
+          "other other other other other other other other other other other other other other beta other other other other other other other other beta other other other beta other other other"
+        ],
+        [
+          "5",
+          "other other other alpha other other other other other other other other other other other other other other beta"
+        ],
+        [
+          "6",
+          "other other other other beta alpha other beta other beta other other other other alpha other beta other alpha other other other beta other other other other other other other other other other other alpha other beta other other"
+        ],
+        [
+          "7",
+          "other other alpha beta other other alpha beta other other other other other other other beta other other alpha other other other other other alpha beta other other beta"
+        ]
+      ],
+      "partition": {
+        "left": [
+          "0",
+          "1",
+          "2",
+          "3"
+        ],
+        "right": [
+          "4",
+          "5",
+          "6",
+          "7"
+        ]
+      },
+      "global_rank": [
+        [
+          "3",
+          -3.582082587095181e-06
+        ],
+        [
+          "7",
+          -3.5268193528172087e-06
+        ],
+        [
+          "6",
+          -3.4243056185208696e-06
+        ],
+        [
+          "0",
+          -3.4039514401333014e-06
+        ],
+        [
+          "1",
+          -2.6815591710170526e-06
+        ],
+        [
+          "5",
+          -2.4094355518112886e-06
+        ]
+      ],
+      "local_bm25_merged_rank": [
+        [
+          "3",
+          -3.6251618172709865e-06
+        ],
+        [
+          "7",
+          -3.4758561660863347e-06
+        ],
+        [
+          "0",
+          -3.4565169285240096e-06
+        ],
+        [
+          "6",
+          -3.3653535586633296e-06
+        ],
+        [
+          "1",
+          -2.742852732553589e-06
+        ],
+        [
+          "5",
+          -2.340847610459874e-06
+        ]
+      ]
+    },
+    "dedup": {
+      "documents": [
+        [
+          "0",
+          "other other other other other other other other other"
+        ],
+        [
+          "1",
+          "other other other other alpha alpha other other other other other other other other other other other alpha alpha other beta beta other other other other alpha other other alpha other alpha other other"
+        ],
+        [
+          "2",
+          "other other alpha beta alpha other alpha other other other other other other alpha other other other other other other"
+        ],
+        [
+          "3",
+          "other other other other other other other other other other other alpha other alpha other other other other other alpha beta alpha other other other beta other other other other other alpha other other other alpha other other other other"
+        ],
+        [
+          "4",
+          "other other other beta other other other other other other other other"
+        ],
+        [
+          "5",
+          "beta beta beta other other other other other other other other beta"
+        ],
+        [
+          "6",
+          "other beta other alpha other other other other other other alpha other other"
+        ],
+        [
+          "7",
+          "other other other other"
+        ]
+      ],
+      "occurrences_per_document": {
+        "0": 20,
+        "1": 2,
+        "2": 7,
+        "3": 12,
+        "4": 20,
+        "5": 7,
+        "6": 19,
+        "7": 11
+      },
+      "occurrence_weighted_rank": [
+        [
+          "1",
+          -0.6074769179275566
+        ],
+        [
+          "2",
+          -0.5894879761218846
+        ],
+        [
+          "3",
+          -0.5592806493215661
+        ],
+        [
+          "6",
+          -0.5264909646965812
+        ]
+      ],
+      "unique_content_rank": [
+        [
+          "1",
+          -2.8111111111111115e-06
+        ],
+        [
+          "6",
+          -2.619730551933942e-06
+        ],
+        [
+          "2",
+          -2.6168990976210012e-06
+        ],
+        [
+          "3",
+          -2.613617259736621e-06
+        ]
+      ]
+    }
+  }
+}

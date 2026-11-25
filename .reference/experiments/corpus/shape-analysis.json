@@ -1,0 +1,117 @@
+{
+  "unique_document_body_strings": 5849,
+  "unique_document_title_body_pairs": 5920,
+  "unique_passage_body_strings": 12468,
+  "unique_passage_title_body_pairs": 12468,
+  "top_1_document_body_bytes": 1145694,
+  "top_10_document_body_bytes": 3623962,
+  "top_100_document_body_bytes": 7061008,
+  "all_document_body_bytes": 12795336,
+  "facet_cardinality": {
+    "Authority": 100,
+    "Interface": 24,
+    "Element ID": 5947
+  },
+  "largest_documents": [
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-owner-advance-growth-v1:0dcb27a484",
+      "body_bytes": 1145694,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-provenance:riverhog-provenance-native-journal-sessio-5a8d7105a8:a598c9b862",
+      "body_bytes": 541691,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-provenance:riverhog-provenance-sqlite-entry-replay-a-74e2db2e38:5c8a942fda",
+      "body_bytes": 367949,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-service-schedu-9789b6f477:9a696f83e0",
+      "body_bytes": 296312,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-service-advance-growth-v1:cc9170a64c",
+      "body_bytes": 280457,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-service-unit-growth-v1:765343ae75",
+      "body_bytes": 228490,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-owned-source-read-window-growth-v1:c00a44cd2d",
+      "body_bytes": 223545,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-owned-source-read-exact-growth-v1:574964eae8",
+      "body_bytes": 223544,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-owner-open-growth-v1:3e358337bd",
+      "body_bytes": 190078,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-owner-stale-sw-5ca71b3813:ef30ee640e",
+      "body_bytes": 126202,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-provenance:riverhog-provenance-sqlite-entry-replay-c-e631471708:649cf3382d",
+      "body_bytes": 117306,
+      "passages": 8
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-retirement-unit-growth-v1:da66bb0d31",
+      "body_bytes": 99720,
+      "passages": 8
+    },
+    {
+      "id": "configuration:stove0-server:stove0-server-configuration-stove0-docume-54bc5c97ac:b33400d8ab",
+      "body_bytes": 81292,
+      "passages": 419
+    },
+    {
+      "id": "schema:stove0-server:stove0document:65d2f97e94",
+      "body_bytes": 81292,
+      "passages": 419
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-owned-source-verify-curre-873cc001df:9595f3770a",
+      "body_bytes": 80976,
+      "passages": 8
+    },
+    {
+      "id": "python:stove0-operator-contracts:stove0-operator-contracts-workview:fa1e81cc66",
+      "body_bytes": 79139,
+      "passages": 370
+    },
+    {
+      "id": "python:stove0-server:stove0-core-workrecord:6c77e989e0",
+      "body_bytes": 78778,
+      "passages": 370
+    },
+    {
+      "id": "python:stove0-operator-contracts:stove0-operator-contracts-workinitiationstatus:7c1901e4c4",
+      "body_bytes": 77802,
+      "passages": 378
+    },
+    {
+      "id": "python:stove0-operator-contracts:stove0-operator-contracts-workpage:33311faae3",
+      "body_bytes": 77639,
+      "passages": 377
+    },
+    {
+      "id": "growth:riverhog-server:riverhog-server-validation-owner-close-growth-v1:e849224baf",
+      "body_bytes": 76111,
+      "passages": 8
+    }
+  ]
+}

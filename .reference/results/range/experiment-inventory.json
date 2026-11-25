@@ -1,0 +1,127 @@
+{
+  "date": "2026-11-25",
+  "scope": "Frozen research scripts and final selected receipts before root isolated timing repeat; no DB binaries or installed dependencies",
+  "checks": "Twelve final v2 browser cases passed native oracle with zero Range requests; recorded harness/worker/query hashes match; managed LRU byte peaks within budgets. This is receipt consistency, not additional browser qualification.",
+  "artifacts": [
+    {
+      "path": "research/range-report.md",
+      "bytes": 23461,
+      "sha256": "d05ad6305069517e07d7b051b9f1cbf9c8879f10e3956929fcffd2dee72326d4"
+    },
+    {
+      "path": "research/final-review-notes.md",
+      "bytes": 7507,
+      "sha256": "ad2be33f2031943d64a2d0611d80872ab46d7c5dd7f96136cf5a049a615e3850"
+    },
+    {
+      "path": "experiments/range_trace.py",
+      "bytes": 9262,
+      "sha256": "77d0f4aba4d61b1b3dba7b8da8bbcf42eca0e50a983fbe7c81a3ba31768759b8"
+    },
+    {
+      "path": "experiments/compressed_chunk_trace.py",
+      "bytes": 7146,
+      "sha256": "47dba2a6ff720dc7089510e91a12c29d46a830fd1f6b9b4146cfc3f0dc09ebc2"
+    },
+    {
+      "path": "experiments/export_range_cases.py",
+      "bytes": 1366,
+      "sha256": "8c8ac7de85a56123bd540a10047aa470d5b85a37d15b87d33060e5d7368665ff"
+    },
+    {
+      "path": "experiments/range-http/run.mjs",
+      "bytes": 8304,
+      "sha256": "697296bedb670b8f485a0f0affc12edcb949652d57553cd853e9ac7071f25cf5"
+    },
+    {
+      "path": "experiments/range-http/worker.mjs",
+      "bytes": 2471,
+      "sha256": "39251c802ceaf4713f2cfe013d65f5a64448d29827b5428908eebad3f3bdba30"
+    },
+    {
+      "path": "experiments/range-http/run-chunks.mjs",
+      "bytes": 9399,
+      "sha256": "4664a67ddf152cb4cf07b88c16b812f9a3d162531939c35e8c2663d3832c399d"
+    },
+    {
+      "path": "experiments/range-http/worker-chunks.mjs",
+      "bytes": 5408,
+      "sha256": "d16e5424f0312a89c20f8401b8defd1982c0018628f6cf809c2500e7e9525f60"
+    },
+    {
+      "path": "experiments/range-http/package.json",
+      "bytes": 84,
+      "sha256": "0b4191bebacb1fc3aff7499a8ab8237a3c8e6d495199d4632e5e32d671e4c662"
+    },
+    {
+      "path": "experiments/range-http/package-lock.json",
+      "bytes": 1246,
+      "sha256": "84093460b76c908c7ee72ce7d8b36a5ecacd687d7783ca952822ebf5180453e8"
+    },
+    {
+      "path": "results/range/nav-v2latest-query-cases.json",
+      "bytes": 111970,
+      "sha256": "d3acf73bd81cacee91570345e0cba0a6bb3b6b4ffd438b3063138fe8009d1be6"
+    },
+    {
+      "path": "results/range/nav-v2five-query-cases.json",
+      "bytes": 112372,
+      "sha256": "4c9d09edc3eba52d46616e3c6c75cdb5993e7694945b1ab86f0865e6aed79190"
+    },
+    {
+      "path": "results/range/nav-v2latest-segmented.json",
+      "bytes": 14062,
+      "sha256": "61d662b4a2214660aef11910965917e97daa839da57864eea0ebd8f00c01236a"
+    },
+    {
+      "path": "results/range/compressed-chunks-nav-v2latest-segmented.json",
+      "bytes": 32059,
+      "sha256": "4f263a6caf8519932b35ecbd341d045da0443d6f782a766cac905af0b33bfc8e"
+    },
+    {
+      "path": "results/range/browser-chunks-nav-v2latest.json",
+      "bytes": 27979,
+      "sha256": "fb59214c2482a967a1c254a32b0dc6ade91521e5cc52e404ee6288f36a5106e0"
+    },
+    {
+      "path": "results/range/browser-chunks-nav-v2five.json",
+      "bytes": 76937,
+      "sha256": "e4114f2b4ad7471ebe27530642c2f7556265a423f003ab8b6de28288b37442eb"
+    },
+    {
+      "path": "results/range/browser-smoke.json",
+      "bytes": 1474,
+      "sha256": "d38b81b74aa410e4cdc7780f77bc8a9eb0de7ee7034d73f4c4ccbce9cf41ccd5"
+    },
+    {
+      "path": "results/range/browser-smoke-adapted.json",
+      "bytes": 1940,
+      "sha256": "a44c06236fe9eac50d45f71bf04104ec9ecaf4f36a75af9763f726900d3d0c3a"
+    },
+    {
+      "path": "results/range/browser-latest-compact-adapted.json",
+      "bytes": 6074,
+      "sha256": "c6954cc1b0affbb42b12b1b71da48e8f484ac7bfbf11c355db836f21f6d1c070"
+    },
+    {
+      "path": "results/range/browser-latest-compact-etag.json",
+      "bytes": 2013,
+      "sha256": "5c91052a52c2c4100829dda4cd60878494e45eb9e2721af376c5f167d5dbd437"
+    },
+    {
+      "path": "results/range/latest-baseline.json",
+      "bytes": 34881,
+      "sha256": "b0216fc954d1517d326f32edfe117b9e363390714c2d0b9d3c5477598f818b0b"
+    },
+    {
+      "path": "results/range/latest-compact.json",
+      "bytes": 34704,
+      "sha256": "a5087d7ebf34fb7210d960cd321cd0b51e14b860d97531d7f0aac75ce549602c"
+    },
+    {
+      "path": "results/range/compressed-chunks-latest-compact.json",
+      "bytes": 31509,
+      "sha256": "b016175d457be93d5d9a1342f81e5f2dca9a330640997f1f1c990d2976c1d25b"
+    }
+  ]
+}

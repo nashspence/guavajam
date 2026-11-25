@@ -1,0 +1,28 @@
+{
+  "browser": "158.0.8127.88",
+  "sqliteWasm": "3.54.1-build1",
+  "driver": "sqlite-wasm-http@1.2.0 synchronous HTTP VFS",
+  "driverOriginalSha256": "663457fe6ab955f9332adb9f00309b5585ed628e7e67ba410df0bcf42401d063",
+  "driverAdapter": "Only bare lru-cache import mapped to its unchanged package ESM file. Driver logic unchanged; official GuavaJam SQLite runtime reused.",
+  "database": "/workspace/scratch/2cede18208f4/results/storage/smoke/compact.sqlite",
+  "databaseBytes": 249856,
+  "databaseSha256": "e97fdf698bdaaa2718773d4b45a289ba0ce7ec2443363b4defc0677ad48c327b",
+  "conditions": "Fresh browser context/worker per case; same-origin HTTP; no COOP/COEP required; immutable identity-encoded SQLite ranges;8MiB SQLite cache and8MiB VFS cache;controlled profile40ms before response+10Mbit/s per response;runtime assets gzip;120second worker deadline",
+  "samples": [
+    {
+      "profile": "local",
+      "term": "transaction",
+      "phase": "complete",
+      "ok": false,
+      "error": "TypeError: sqlite3.oo1.DB.dbCtorHelper.setVfsPostOpenSql is not a function\n    at installSyncHttpVfs (http://127.0.0.1:36135/local/vfs-sync-http.js:287:33)\n    at self.onmessage (http://127.0.0.1:36135/local/worker.mjs:19:5)",
+      "totalMs": 58.60000000009313,
+      "opened": null,
+      "roundTripMs": 101.40000000037253,
+      "errors": [],
+      "dbRequests": 0,
+      "rangeRequests": 0,
+      "databaseNetworkBytes": 0,
+      "runtimeNetworkBytes": 600564
+    }
+  ]
+}

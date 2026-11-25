@@ -1,0 +1,997 @@
+{
+  "database": "/workspace/scratch/2cede18208f4/results/storage/latest/baseline.sqlite",
+  "database_bytes": 122859520,
+  "database_sha256": "568b01f98cdbb01322d81d6af5f6f8a01e15a2efa56888f3d00e0aad98aeb224",
+  "python": "3.12.12 (main, Feb 12 2026, 00:42:14) [Clang 21.1.4 ]",
+  "apsw": "3.54.1.0",
+  "sqlite": "3.54.1",
+  "method": {
+    "sqlite_page_cache_bytes": 8388608,
+    "sqlite_mmap_bytes": 0,
+    "sqlite_temp_store": "MEMORY",
+    "connection": "new read-only immutable connection per mode/case; count then page shares cache",
+    "remote_models": "identity-encoded byte ranges, aligned blocks; both unlimited-cache lower traffic and 8MiB remote LRU counted; 40ms per serial cache-miss request plus10Mbps payload time, no TLS/HTTP overhead/CPU/WASM/failed requests",
+    "interpretation": "Conditional serial demand-fetch transfer model, not observed browser or WAN latency. Parallel prefetch/coalescing, byte-range CDN support and an actual VFS may change requests. OS cache is uncontrolled but does not alter observed SQLite xRead demand."
+  },
+  "cases": [
+    {
+      "kind": "documents",
+      "term": "contract",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 115,
+          "xread_requested_bytes": 467044,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 114
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 466944
+          },
+          "unique_4k_pages": 114,
+          "unique_4k_page_bytes": 466944,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 25,
+              "cold_unique_bytes": 1617920,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 2.294336,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 25,
+              "lru_transfer_bytes": 1617920,
+              "lru_serial_40ms_10mbps_seconds": 2.294336
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 11,
+              "cold_unique_bytes": 2797568,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 2.6780544,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 11,
+              "lru_transfer_bytes": 2797568,
+              "lru_serial_40ms_10mbps_seconds": 2.6780544
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 5,
+              "cold_unique_bytes": 4370432,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 3.6963456000000003,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 5,
+              "lru_transfer_bytes": 4370432,
+              "lru_serial_40ms_10mbps_seconds": 3.6963456000000003
+            }
+          ],
+          "mode": "baseline",
+          "count": 742,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.005868316000032792,
+            "page": 0.003164455999922211
+          },
+          "result_sha256": "f1ef8acfedc84dd3d4378e6534edfaee86ea7e5c472005ad8db55cc74ae15c46"
+        },
+        {
+          "xread_calls": 115,
+          "xread_requested_bytes": 467044,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 102,
+            "page": 12
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 417792,
+            "page": 49152
+          },
+          "unique_4k_pages": 114,
+          "unique_4k_page_bytes": 466944,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 25,
+              "cold_unique_bytes": 1617920,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 2.294336,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 25,
+              "lru_transfer_bytes": 1617920,
+              "lru_serial_40ms_10mbps_seconds": 2.294336
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 11,
+              "cold_unique_bytes": 2797568,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 2.6780544,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 11,
+              "lru_transfer_bytes": 2797568,
+              "lru_serial_40ms_10mbps_seconds": 2.6780544
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 5,
+              "cold_unique_bytes": 4370432,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 3.6963456000000003,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 5,
+              "lru_transfer_bytes": 4370432,
+              "lru_serial_40ms_10mbps_seconds": 3.6963456000000003
+            }
+          ],
+          "mode": "optimized",
+          "count": 742,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.0016344410000783682,
+            "page": 0.00264915200023097
+          },
+          "result_sha256": "f1ef8acfedc84dd3d4378e6534edfaee86ea7e5c472005ad8db55cc74ae15c46"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "contract",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 39931,
+          "xread_requested_bytes": 163438758,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 19970,
+            "page": 19960
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 81739809,
+            "page": 81698849
+          },
+          "unique_4k_pages": 19818,
+          "unique_4k_page_bytes": 81174528,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 1249,
+              "cold_unique_bytes": 81833984,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 115.42718719999999,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 2503,
+              "lru_transfer_bytes": 164016128,
+              "lru_serial_40ms_10mbps_seconds": 231.3329024
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 318,
+              "cold_unique_bytes": 83275776,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 79.3406208,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 643,
+              "lru_transfer_bytes": 168472576,
+              "lru_serial_40ms_10mbps_seconds": 160.4980608
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 84,
+              "cold_unique_bytes": 87207936,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 73.1263488,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 176,
+              "lru_transfer_bytes": 183676928,
+              "lru_serial_40ms_10mbps_seconds": 153.9815424
+            }
+          ],
+          "mode": "baseline",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.5848587179998503,
+            "page": 0.6287772010000481
+          },
+          "result_sha256": "adc12cac937f270fd6d35ad1fe7e5e4d1e5fbd778753beb4c7a593f9020a1e28"
+        },
+        {
+          "xread_calls": 21646,
+          "xread_requested_bytes": 88658020,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 10709,
+            "page": 10936
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 43864064,
+            "page": 44793856
+          },
+          "unique_4k_pages": 10852,
+          "unique_4k_page_bytes": 44449792,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 696,
+              "cold_unique_bytes": 45592576,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 64.3140608,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 1383,
+              "lru_transfer_bytes": 90615808,
+              "lru_serial_40ms_10mbps_seconds": 127.8126464
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 184,
+              "cold_unique_bytes": 48148480,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 45.878783999999996,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 364,
+              "lru_transfer_bytes": 95334400,
+              "lru_serial_40ms_10mbps_seconds": 90.82752
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 54,
+              "cold_unique_bytes": 55750656,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 46.7605248,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 105,
+              "lru_transfer_bytes": 109228032,
+              "lru_serial_40ms_10mbps_seconds": 91.58242560000001
+            }
+          ],
+          "mode": "optimized",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.0630948390003141,
+            "page": 0.14321396899958927
+          },
+          "result_sha256": "adc12cac937f270fd6d35ad1fe7e5e4d1e5fbd778753beb4c7a593f9020a1e28"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "transaction",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 2359,
+          "xread_requested_bytes": 9637688,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 1187,
+            "page": 1171
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 4851562,
+            "page": 4786026
+          },
+          "unique_4k_pages": 1158,
+          "unique_4k_page_bytes": 4743168,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 173,
+              "cold_unique_bytes": 11317248,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 15.9737984,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 340,
+              "lru_transfer_bytes": 22261760,
+              "lru_serial_40ms_10mbps_seconds": 31.409408
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 67,
+              "cold_unique_bytes": 17477632,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 16.6621056,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 132,
+              "lru_transfer_bytes": 34516992,
+              "lru_serial_40ms_10mbps_seconds": 32.8935936
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 29,
+              "cold_unique_bytes": 29536256,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 24.7890048,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 57,
+              "lru_transfer_bytes": 58896384,
+              "lru_serial_40ms_10mbps_seconds": 49.3971072
+            }
+          ],
+          "mode": "baseline",
+          "count": 408,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.01775414700023248,
+            "page": 0.021293253999829176
+          },
+          "result_sha256": "c63ec141906e212819e6a5b6b7aebd003f1270d5a5a29e70508ef1c713a0d110"
+        },
+        {
+          "xread_calls": 475,
+          "xread_requested_bytes": 1941604,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 446,
+            "page": 28
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 1826816,
+            "page": 114688
+          },
+          "unique_4k_pages": 474,
+          "unique_4k_page_bytes": 1941504,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 89,
+              "cold_unique_bytes": 5812224,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 8.2097792,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 89,
+              "lru_transfer_bytes": 5812224,
+              "lru_serial_40ms_10mbps_seconds": 8.2097792
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 42,
+              "cold_unique_bytes": 10924032,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 10.419225599999999,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 42,
+              "lru_transfer_bytes": 10924032,
+              "lru_serial_40ms_10mbps_seconds": 10.419225599999999
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 25,
+              "cold_unique_bytes": 25341952,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 21.2735616,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 25,
+              "lru_transfer_bytes": 25341952,
+              "lru_serial_40ms_10mbps_seconds": 21.2735616
+            }
+          ],
+          "mode": "optimized",
+          "count": 408,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.0023745399998915673,
+            "page": 0.0027735690000554314
+          },
+          "result_sha256": "c63ec141906e212819e6a5b6b7aebd003f1270d5a5a29e70508ef1c713a0d110"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "needle",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 16,
+          "xread_requested_bytes": 61540,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 15
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 61440
+          },
+          "unique_4k_pages": 15,
+          "unique_4k_page_bytes": 61440,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 9,
+              "cold_unique_bytes": 569344,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.8154752000000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 9,
+              "lru_transfer_bytes": 569344,
+              "lru_serial_40ms_10mbps_seconds": 0.8154752000000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 1486848,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.4294784,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 1486848,
+              "lru_serial_40ms_10mbps_seconds": 1.4294784
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.5752064,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 4.5752064
+            }
+          ],
+          "mode": "baseline",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.0007139459999052633,
+            "page": 0.0006362419999277336
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        },
+        {
+          "xread_calls": 16,
+          "xread_requested_bytes": 61540,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 15
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 61440
+          },
+          "unique_4k_pages": 15,
+          "unique_4k_page_bytes": 61440,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 9,
+              "cold_unique_bytes": 569344,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.8154752000000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 9,
+              "lru_transfer_bytes": 569344,
+              "lru_serial_40ms_10mbps_seconds": 0.8154752000000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 1486848,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.4294784,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 1486848,
+              "lru_serial_40ms_10mbps_seconds": 1.4294784
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.5752064,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 4.5752064
+            }
+          ],
+          "mode": "optimized",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.000412164999943343,
+            "page": 0.0008584689999224793
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "absentmatchingwordxyz",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 17,
+          "xread_requested_bytes": 65636,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 16
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 65536
+          },
+          "unique_4k_pages": 16,
+          "unique_4k_page_bytes": 65536,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 8,
+              "cold_unique_bytes": 503808,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.7230464000000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 8,
+              "lru_transfer_bytes": 503808,
+              "lru_serial_40ms_10mbps_seconds": 0.7230464000000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 1486848,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.4294784,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 1486848,
+              "lru_serial_40ms_10mbps_seconds": 1.4294784
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.5752064,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 4.5752064
+            }
+          ],
+          "mode": "baseline",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.0006310250000751694,
+            "page": 0.0005040890000600484
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        },
+        {
+          "xread_calls": 17,
+          "xread_requested_bytes": 65636,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 16
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 65536
+          },
+          "unique_4k_pages": 16,
+          "unique_4k_page_bytes": 65536,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 8,
+              "cold_unique_bytes": 503808,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 0.7230464000000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 8,
+              "lru_transfer_bytes": 503808,
+              "lru_serial_40ms_10mbps_seconds": 0.7230464000000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 1486848,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 1.4294784,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 1486848,
+              "lru_serial_40ms_10mbps_seconds": 1.4294784
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 6,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.5752064,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 6,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 4.5752064
+            }
+          ],
+          "mode": "optimized",
+          "count": 0,
+          "page_rows": 0,
+          "native_traced_seconds": {
+            "count": 0.0004363259999990987,
+            "page": 0.0007047700000839541
+          },
+          "result_sha256": "e0f6bf3676250c3a09b615dcd9c8ad12e2a516264320b55be40193dd2c042725"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "passages",
+      "term": "contract",
+      "edition": "latest",
+      "document": "",
+      "sort": "publication",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 39931,
+          "xread_requested_bytes": 163438758,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 19970,
+            "page": 19960
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 81739809,
+            "page": 81698849
+          },
+          "unique_4k_pages": 19818,
+          "unique_4k_page_bytes": 81174528,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 1249,
+              "cold_unique_bytes": 81833984,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 115.42718719999999,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 2503,
+              "lru_transfer_bytes": 164016128,
+              "lru_serial_40ms_10mbps_seconds": 231.3329024
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 318,
+              "cold_unique_bytes": 83275776,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 79.3406208,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 643,
+              "lru_transfer_bytes": 168472576,
+              "lru_serial_40ms_10mbps_seconds": 160.4980608
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 84,
+              "cold_unique_bytes": 87207936,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 73.1263488,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 176,
+              "lru_transfer_bytes": 183676928,
+              "lru_serial_40ms_10mbps_seconds": 153.9815424
+            }
+          ],
+          "mode": "baseline",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.4727739700001621,
+            "page": 0.4823194999999032
+          },
+          "result_sha256": "12ebcd10a6f94469d3e2693ef6f8468d055c3d5d3506e802453c75f536e48075"
+        },
+        {
+          "xread_calls": 21636,
+          "xread_requested_bytes": 88617060,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 10709,
+            "page": 10926
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 43864064,
+            "page": 44752896
+          },
+          "unique_4k_pages": 10845,
+          "unique_4k_page_bytes": 44421120,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 690,
+              "cold_unique_bytes": 45199360,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 63.759488000000005,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 1376,
+              "lru_transfer_bytes": 90157056,
+              "lru_serial_40ms_10mbps_seconds": 127.1656448
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 180,
+              "cold_unique_bytes": 47099904,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 44.8799232,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 360,
+              "lru_transfer_bytes": 94285824,
+              "lru_serial_40ms_10mbps_seconds": 89.8286592
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 51,
+              "cold_unique_bytes": 52604928,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 44.1239424,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 102,
+              "lru_transfer_bytes": 106082304,
+              "lru_serial_40ms_10mbps_seconds": 88.9458432
+            }
+          ],
+          "mode": "optimized",
+          "count": 36063,
+          "page_rows": 20,
+          "native_traced_seconds": {
+            "count": 0.06039930099996127,
+            "page": 0.17279028799976004
+          },
+          "result_sha256": "12ebcd10a6f94469d3e2693ef6f8468d055c3d5d3506e802453c75f536e48075"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "versions",
+      "term": "contract",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 11633,
+          "xread_requested_bytes": 47273534,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 5821,
+            "page": 5811
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 23657197,
+            "page": 23616237
+          },
+          "unique_4k_pages": 5271,
+          "unique_4k_page_bytes": 21590016,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 337,
+              "cold_unique_bytes": 22065152,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 31.1321216,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 673,
+              "lru_transfer_bytes": 44085248,
+              "lru_serial_40ms_10mbps_seconds": 62.188198400000005
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 89,
+              "cold_unique_bytes": 23244800,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 22.155839999999998,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 178,
+              "lru_transfer_bytes": 46575616,
+              "lru_serial_40ms_10mbps_seconds": 44.3804928
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 25,
+              "cold_unique_bytes": 25341952,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 21.2735616,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 51,
+              "lru_transfer_bytes": 52604928,
+              "lru_serial_40ms_10mbps_seconds": 44.1239424
+            }
+          ],
+          "mode": "baseline",
+          "count": 1,
+          "page_rows": 1,
+          "native_traced_seconds": {
+            "count": 0.1634246409998923,
+            "page": 0.1625505020001583
+          },
+          "result_sha256": "5a17d3b760b3c1a4ecbf01764391dffed236bb2e1067bcfa9f7f81be46ae4d5e"
+        },
+        {
+          "xread_calls": 1803,
+          "xread_requested_bytes": 7381092,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 1104,
+            "page": 698
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 4521984,
+            "page": 2859008
+          },
+          "unique_4k_pages": 688,
+          "unique_4k_page_bytes": 2818048,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 53,
+              "cold_unique_bytes": 3452928,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.882342400000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 53,
+              "lru_transfer_bytes": 3452928,
+              "lru_serial_40ms_10mbps_seconds": 4.882342400000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 21,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 5.1752063999999995,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 21,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 5.1752063999999995
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 11,
+              "cold_unique_bytes": 10661888,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 8.969510399999999,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 11,
+              "lru_transfer_bytes": 10661888,
+              "lru_serial_40ms_10mbps_seconds": 8.969510399999999
+            }
+          ],
+          "mode": "optimized",
+          "count": 1,
+          "page_rows": 1,
+          "native_traced_seconds": {
+            "count": 0.007866312000260223,
+            "page": 0.017075750999993033
+          },
+          "result_sha256": "5a17d3b760b3c1a4ecbf01764391dffed236bb2e1067bcfa9f7f81be46ae4d5e"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    },
+    {
+      "kind": "collection",
+      "term": "contract",
+      "edition": "all",
+      "document": "",
+      "sort": "relevance",
+      "page": 1,
+      "measurements": [
+        {
+          "xread_calls": 10708,
+          "xread_requested_bytes": 43484734,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 5357,
+            "page": 5350
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 21756653,
+            "page": 21727981
+          },
+          "unique_4k_pages": 4810,
+          "unique_4k_page_bytes": 19701760,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 308,
+              "cold_unique_bytes": 20164608,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 28.4516864,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 615,
+              "lru_transfer_bytes": 40284160,
+              "lru_serial_40ms_10mbps_seconds": 56.827328
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 82,
+              "cold_unique_bytes": 21409792,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 20.4078336,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 164,
+              "lru_transfer_bytes": 42905600,
+              "lru_serial_40ms_10mbps_seconds": 40.88448
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 25,
+              "cold_unique_bytes": 25341952,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 21.2735616,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 50,
+              "lru_transfer_bytes": 51556352,
+              "lru_serial_40ms_10mbps_seconds": 43.2450816
+            }
+          ],
+          "mode": "baseline",
+          "count": 1,
+          "page_rows": 1,
+          "native_traced_seconds": {
+            "count": 0.16909148700005971,
+            "page": 0.15871885299975474
+          },
+          "result_sha256": "910d176b6bd81f678086991fe98b266361dbea3020b4e9ca2835d4bfb4c9e7fe"
+        },
+        {
+          "xread_calls": 877,
+          "xread_requested_bytes": 3588196,
+          "xread_calls_by_phase": {
+            "open": 1,
+            "count": 664,
+            "page": 212
+          },
+          "xread_bytes_by_phase": {
+            "open": 100,
+            "count": 2719744,
+            "page": 868352
+          },
+          "unique_4k_pages": 691,
+          "unique_4k_page_bytes": 2830336,
+          "range_models": [
+            {
+              "block_bytes": 65536,
+              "unique_blocks": 53,
+              "cold_unique_bytes": 3452928,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 4.882342400000001,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 53,
+              "lru_transfer_bytes": 3452928,
+              "lru_serial_40ms_10mbps_seconds": 4.882342400000001
+            },
+            {
+              "block_bytes": 262144,
+              "unique_blocks": 21,
+              "cold_unique_bytes": 5419008,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 5.1752063999999995,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 21,
+              "lru_transfer_bytes": 5419008,
+              "lru_serial_40ms_10mbps_seconds": 5.1752063999999995
+            },
+            {
+              "block_bytes": 1048576,
+              "unique_blocks": 11,
+              "cold_unique_bytes": 10661888,
+              "unlimited_cache_serial_40ms_10mbps_seconds": 8.969510399999999,
+              "remote_cache_bytes": 8388608,
+              "lru_requests": 11,
+              "lru_transfer_bytes": 10661888,
+              "lru_serial_40ms_10mbps_seconds": 8.969510399999999
+            }
+          ],
+          "mode": "optimized",
+          "count": 1,
+          "page_rows": 1,
+          "native_traced_seconds": {
+            "count": 0.007130421999590908,
+            "page": 0.01738349500010372
+          },
+          "result_sha256": "910d176b6bd81f678086991fe98b266361dbea3020b4e9ca2835d4bfb4c9e7fe"
+        }
+      ],
+      "baseline_optimized_exact_count_and_page_equal": true
+    }
+  ],
+  "verified_whole_gzip": {
+    "bytes": 11220045,
+    "sha256": "a1f429230e115d9baefae1d1391db63caf43db287b81ec416a1686279c266849",
+    "one_request_40ms_10mbps_seconds": 9.016036
+  }
+}
