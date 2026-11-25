@@ -1,0 +1,165 @@
+{
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "sqlite": "3.46.1",
+  "fixture": "synthetic 80-word latest abstracts, three tags and two subjects per work; no body text; external-content FTS5",
+  "sizes": [
+    {
+      "works": 2,
+      "sqlite_bytes": 36864,
+      "gzip_bytes": 2778,
+      "native_warm_count_and_first_page_ms": 0.021,
+      "db_sha256": "a4e7ecf36c612f62a7ede2b151b5892ce7b5c3a1a85a52563782865264e8c376"
+    },
+    {
+      "works": 1000,
+      "sqlite_bytes": 1605632,
+      "gzip_bytes": 404153,
+      "native_warm_count_and_first_page_ms": 0.657,
+      "db_sha256": "7cf048b4943d73fde2ee375cbc28d7ff8a8a2b514030f64df1dc4323887a232c"
+    },
+    {
+      "works": 10000,
+      "sqlite_bytes": 15650816,
+      "gzip_bytes": 3874720,
+      "native_warm_count_and_first_page_ms": 8.043,
+      "db_sha256": "ba8cd0f7d88034400f3679772e3a6640b2cb659539834d8260b48cb6d90fabf6"
+    }
+  ],
+  "checks": [
+    {
+      "works": 2,
+      "term": "latesttitle",
+      "count": 1
+    },
+    {
+      "works": 2,
+      "term": "Nashspence",
+      "count": 1
+    },
+    {
+      "works": 2,
+      "term": "latestabstract",
+      "count": 1
+    },
+    {
+      "works": 2,
+      "term": "latesttag",
+      "count": 1
+    },
+    {
+      "works": 2,
+      "term": "oldtitle",
+      "count": 0
+    },
+    {
+      "works": 2,
+      "term": "oldabstract",
+      "count": 0
+    },
+    {
+      "works": 2,
+      "term": "oldbodytoken",
+      "count": 0
+    },
+    {
+      "works": 2,
+      "term": "bodyonlytoken",
+      "count": 0
+    },
+    {
+      "works": 2,
+      "term": "\"subject1\"",
+      "count": 1
+    },
+    {
+      "works": 1000,
+      "term": "latesttitle",
+      "count": 1
+    },
+    {
+      "works": 1000,
+      "term": "Nashspence",
+      "count": 1
+    },
+    {
+      "works": 1000,
+      "term": "latestabstract",
+      "count": 1
+    },
+    {
+      "works": 1000,
+      "term": "latesttag",
+      "count": 1
+    },
+    {
+      "works": 1000,
+      "term": "oldtitle",
+      "count": 0
+    },
+    {
+      "works": 1000,
+      "term": "oldabstract",
+      "count": 0
+    },
+    {
+      "works": 1000,
+      "term": "oldbodytoken",
+      "count": 0
+    },
+    {
+      "works": 1000,
+      "term": "bodyonlytoken",
+      "count": 0
+    },
+    {
+      "works": 1000,
+      "term": "\"subject1\"",
+      "count": 49
+    },
+    {
+      "works": 10000,
+      "term": "latesttitle",
+      "count": 1
+    },
+    {
+      "works": 10000,
+      "term": "Nashspence",
+      "count": 1
+    },
+    {
+      "works": 10000,
+      "term": "latestabstract",
+      "count": 1
+    },
+    {
+      "works": 10000,
+      "term": "latesttag",
+      "count": 1
+    },
+    {
+      "works": 10000,
+      "term": "oldtitle",
+      "count": 0
+    },
+    {
+      "works": 10000,
+      "term": "oldabstract",
+      "count": 0
+    },
+    {
+      "works": 10000,
+      "term": "oldbodytoken",
+      "count": 0
+    },
+    {
+      "works": 10000,
+      "term": "bodyonlytoken",
+      "count": 0
+    },
+    {
+      "works": 10000,
+      "term": "\"subject1\"",
+      "count": 488
+    }
+  ]
+}

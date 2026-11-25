@@ -1,0 +1,147 @@
+{
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "sqlite": "3.46.1",
+  "corpus_sha256": "87e077b393cf3c482b30f072573fd90395aee7bd9fed8d0c278e43b086343b63",
+  "source_documents": 5947,
+  "layouts": {
+    "history-50": {
+      "scope": "history",
+      "raw": 1187102720,
+      "rows": {
+        "editions": 50,
+        "documents": 297500,
+        "passages": 1803300,
+        "texts": 322712
+      },
+      "build_s": 81.88,
+      "sha256": "b5f9cbd6cba9df8c39d373e9e269d18c5deb916953b2792c8ff01173c7d909f1",
+      "gzip": 167779751
+    }
+  },
+  "checks": [
+    {
+      "file": "history-50",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.033,
+      "first": [
+        [
+          36064,
+          "Riverhog",
+          1,
+          "content/manuscript.md",
+          "witness",
+          -20.598653823571585
+        ]
+      ]
+    },
+    {
+      "file": "history-50",
+      "term": "latestonlytoken",
+      "facet": null,
+      "count": 49,
+      "page": 20,
+      "median_warm_ms": 0.145,
+      "first": [
+        [
+          72130,
+          "Riverhog",
+          2,
+          "content/manuscript.md",
+          "witness",
+          -15.26417367080391
+        ]
+      ]
+    },
+    {
+      "file": "history-50",
+      "term": "otherworktoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.025,
+      "first": []
+    },
+    {
+      "file": "history-50",
+      "term": "sharedbodytoken",
+      "facet": null,
+      "count": 50,
+      "page": 20,
+      "median_warm_ms": 0.157,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          1,
+          "content/supporting/witness.md",
+          "witness",
+          -14.959525765082084
+        ]
+      ]
+    },
+    {
+      "file": "history-50",
+      "term": "contract",
+      "facet": null,
+      "count": 1803300,
+      "page": 20,
+      "median_warm_ms": 2098.041,
+      "first": [
+        [
+          20127,
+          "Riverhog",
+          1,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "native-0000",
+          -2.143313521511698e-06
+        ]
+      ]
+    },
+    {
+      "file": "history-50",
+      "term": "transaction",
+      "facet": null,
+      "count": 20400,
+      "page": 20,
+      "median_warm_ms": 47.995,
+      "first": [
+        [
+          5619,
+          "Riverhog",
+          1,
+          "content/supporting/e-6580c892d5cacaddf4162f5d.md",
+          "native-0000",
+          -8.989647982963204
+        ]
+      ]
+    },
+    {
+      "file": "history-50",
+      "term": "sharedbodytoken",
+      "facet": {
+        "Example version": [
+          "v1",
+          "v50"
+        ]
+      },
+      "count": 2,
+      "page": 2,
+      "median_warm_ms": 0.171,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          1,
+          "content/supporting/witness.md",
+          "witness",
+          -14.959525765082084
+        ]
+      ]
+    }
+  ],
+  "history_pagination": "50 distinct edition occurrences across three pages",
+  "result": "passed"
+}

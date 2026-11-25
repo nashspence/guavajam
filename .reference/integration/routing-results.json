@@ -1,0 +1,53 @@
+{
+  "result": "passed",
+  "browser": "144.0.7559.96",
+  "checks": [
+    "one search component, default Versions",
+    "static editions, no index fetch on open",
+    "ordinary version request only",
+    "notice visible, selection fetches nothing",
+    "mobile width and accessible label",
+    "explicit history query and exact passage route",
+    "scope switch cancels stale history response",
+    "explicit cancellation",
+    "failure is not an empty result; retry works",
+    "history mode deep link without query is not opt-in execution",
+    "explicit history-query deep link",
+    "static list without JS and no index fetch"
+  ],
+  "requests": [
+    [
+      "versions",
+      "name"
+    ],
+    [
+      "history",
+      "term"
+    ],
+    [
+      "history",
+      "slow"
+    ],
+    [
+      "versions",
+      "new"
+    ],
+    [
+      "history",
+      "slow"
+    ],
+    [
+      "history",
+      "retry"
+    ],
+    [
+      "history",
+      "retry"
+    ],
+    [
+      "history",
+      "deep"
+    ]
+  ],
+  "limitation": "Offline DOM harness with in-page fetch and URL-history test doubles; localhost and fulfilled virtual HTTP navigation blocked by administrator. No network transfer, actual browser URL navigation, production UI, SQLite WASM or end-to-end search. Delayed mock decode exercises stale-response guard."
+}

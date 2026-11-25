@@ -1,0 +1,960 @@
+{
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "sqlite": "3.46.1",
+  "corpus_sha256": "87e077b393cf3c482b30f072573fd90395aee7bd9fed8d0c278e43b086343b63",
+  "source_documents": 5947,
+  "layouts": {
+    "versions-5": {
+      "scope": "versions",
+      "raw": 57344,
+      "rows": {
+        "editions": 5,
+        "documents": 0,
+        "passages": 0,
+        "texts": 0
+      },
+      "build_s": 0.007,
+      "sha256": "c7d88453675ae76ab19ac9881260c1ce23a8cb0c75fa17604cdab59414bbb738",
+      "gzip": 1828
+    },
+    "versions-50": {
+      "scope": "versions",
+      "raw": 65536,
+      "rows": {
+        "editions": 50,
+        "documents": 0,
+        "passages": 0,
+        "texts": 0
+      },
+      "build_s": 0.003,
+      "sha256": "ebad31a1c542a4645ed7998650d6060cde58acff713a0aedf11edc79debb8ea7",
+      "gzip": 4324
+    },
+    "versions-10000": {
+      "scope": "versions",
+      "raw": 1695744,
+      "rows": {
+        "editions": 10000,
+        "documents": 0,
+        "passages": 0,
+        "texts": 0
+      },
+      "build_s": 0.069,
+      "sha256": "d5db5564f44e0eea8eb7154be3a5f8666fa2a81800fac85956b96bbf3c11926c",
+      "gzip": 478468
+    },
+    "documents-1": {
+      "scope": "documents",
+      "raw": 4259840,
+      "rows": {
+        "editions": 1,
+        "documents": 5949,
+        "passages": 0,
+        "texts": 0
+      },
+      "build_s": 0.181,
+      "sha256": "4daf9c5cad9119ffaf5c52bec00a4d5458845e81739fa0f4457821e778e7cb26",
+      "gzip": 921939
+    },
+    "passages-1": {
+      "scope": "passages",
+      "raw": 34459648,
+      "rows": {
+        "editions": 1,
+        "documents": 5950,
+        "passages": 36066,
+        "texts": 18418
+      },
+      "build_s": 1.223,
+      "sha256": "a119af76e3ceb3fc91b461ec777f67c217c1b889c5bc66d0da699e22083acca3",
+      "gzip": 6674475
+    },
+    "works-1": {
+      "scope": "works",
+      "raw": 49000448,
+      "rows": {
+        "editions": 2,
+        "documents": 5951,
+        "passages": 36067,
+        "texts": 24370
+      },
+      "build_s": 1.264,
+      "sha256": "21f6a83834abb8b878a0c6c949bbe658c61d6c7c66a0f9875f4b9c97a7d87a14",
+      "gzip": 9120682
+    },
+    "documents-5": {
+      "scope": "documents",
+      "raw": 4259840,
+      "rows": {
+        "editions": 1,
+        "documents": 5949,
+        "passages": 0,
+        "texts": 0
+      },
+      "build_s": 0.203,
+      "sha256": "8ef3fe48c088d196730f93ad5ea745892f3d0167b5a3759e13816ad6aa3ace5f",
+      "gzip": 921956
+    },
+    "passages-5": {
+      "scope": "passages",
+      "raw": 34951168,
+      "rows": {
+        "editions": 1,
+        "documents": 5950,
+        "passages": 36066,
+        "texts": 18605
+      },
+      "build_s": 1.246,
+      "sha256": "89f201d9cb1897d08bf0620805305fd9488709b36641522293b9be7b0128e4c8",
+      "gzip": 6715633
+    },
+    "works-5": {
+      "scope": "works",
+      "raw": 49217536,
+      "rows": {
+        "editions": 2,
+        "documents": 5951,
+        "passages": 36067,
+        "texts": 24557
+      },
+      "build_s": 1.38,
+      "sha256": "ecd55cb59e4687197691773ca09492d1464ec18272026e9f3d120bdb498fa31a",
+      "gzip": 9163443
+    },
+    "history-5": {
+      "scope": "history",
+      "raw": 127717376,
+      "rows": {
+        "editions": 5,
+        "documents": 29750,
+        "passages": 180330,
+        "texts": 43254
+      },
+      "build_s": 6.741,
+      "sha256": "66bcaa54ab6907a75177a7532d05a84c5652bf7b905e1deb6be9d436f3d94032",
+      "gzip": 19960086
+    },
+    "passages-1-rebuilt": {
+      "scope": "passages",
+      "raw": 34459648,
+      "rows": {
+        "editions": 1,
+        "documents": 5950,
+        "passages": 36066,
+        "texts": 18418
+      },
+      "build_s": 1.238,
+      "sha256": "a119af76e3ceb3fc91b461ec777f67c217c1b889c5bc66d0da699e22083acca3",
+      "gzip": 6674475
+    }
+  },
+  "checks": [
+    {
+      "file": "versions-5",
+      "term": "messageonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -1.2440168562859482
+        ]
+      ]
+    },
+    {
+      "file": "versions-5",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.019,
+      "first": []
+    },
+    {
+      "file": "versions-5",
+      "term": "bodyonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "versions-5",
+      "term": "v1",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.027,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -1.9559108954322417
+        ]
+      ]
+    },
+    {
+      "file": "versions-50",
+      "term": "messageonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.027,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -4.040025303661305
+        ]
+      ]
+    },
+    {
+      "file": "versions-50",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "versions-50",
+      "term": "bodyonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "versions-50",
+      "term": "v1",
+      "facet": null,
+      "count": 11,
+      "page": 11,
+      "median_warm_ms": 0.045,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -2.214260309605115
+        ]
+      ]
+    },
+    {
+      "file": "versions-10000",
+      "term": "messageonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -10.194953511522346
+        ]
+      ]
+    },
+    {
+      "file": "versions-10000",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.028,
+      "first": []
+    },
+    {
+      "file": "versions-10000",
+      "term": "bodyonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.023,
+      "first": []
+    },
+    {
+      "file": "versions-10000",
+      "term": "v1",
+      "facet": null,
+      "count": 1112,
+      "page": 20,
+      "median_warm_ms": 1.063,
+      "first": [
+        [
+          1,
+          "Riverhog",
+          1,
+          "v1",
+          "messageonlytoken",
+          -3.7321699554590473
+        ]
+      ]
+    },
+    {
+      "file": "documents-1",
+      "term": "titleonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.028,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          1,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -16.20833009594085
+        ]
+      ]
+    },
+    {
+      "file": "documents-1",
+      "term": "abstractonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.028,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          1,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -12.16482596372921
+        ]
+      ]
+    },
+    {
+      "file": "documents-1",
+      "term": "bodyonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "documents-1",
+      "term": "contract",
+      "facet": null,
+      "count": 742,
+      "page": 20,
+      "median_warm_ms": 0.742,
+      "first": [
+        [
+          3810,
+          "Riverhog",
+          1,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "riverhog_provenance_contracts.ContractCatalog.with_contracts",
+          -3.897826257206812
+        ]
+      ]
+    },
+    {
+      "file": "documents-1",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "01",
+          "missing"
+        ]
+      },
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.034,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          1,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -16.20833009594085
+        ]
+      ]
+    },
+    {
+      "file": "documents-1",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "café"
+        ]
+      },
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.024,
+      "first": []
+    },
+    {
+      "file": "documents-1",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "01"
+        ],
+        "Example version": [
+          "v9"
+        ]
+      },
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.025,
+      "first": []
+    },
+    {
+      "file": "documents-5",
+      "term": "titleonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.037,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          5,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -16.20833009594085
+        ]
+      ]
+    },
+    {
+      "file": "documents-5",
+      "term": "abstractonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.027,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          5,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -12.16482596372921
+        ]
+      ]
+    },
+    {
+      "file": "documents-5",
+      "term": "bodyonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "documents-5",
+      "term": "contract",
+      "facet": null,
+      "count": 742,
+      "page": 20,
+      "median_warm_ms": 0.742,
+      "first": [
+        [
+          3810,
+          "Riverhog",
+          5,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "riverhog_provenance_contracts.ContractCatalog.with_contracts",
+          -3.897826257206812
+        ]
+      ]
+    },
+    {
+      "file": "documents-5",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "01",
+          "missing"
+        ]
+      },
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.035,
+      "first": [
+        [
+          5949,
+          "Riverhog",
+          5,
+          "content/supporting/title.md",
+          "titleonlytoken",
+          -16.20833009594085
+        ]
+      ]
+    },
+    {
+      "file": "documents-5",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "café"
+        ]
+      },
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.023,
+      "first": []
+    },
+    {
+      "file": "documents-5",
+      "term": "titleonlytoken",
+      "facet": {
+        "Exact": [
+          "01"
+        ],
+        "Example version": [
+          "v9"
+        ]
+      },
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.025,
+      "first": []
+    },
+    {
+      "file": "passages-1",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          36064,
+          "Riverhog",
+          1,
+          "content/manuscript.md",
+          "witness",
+          -14.794386515686364
+        ]
+      ]
+    },
+    {
+      "file": "passages-1",
+      "term": "latestonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.021,
+      "first": []
+    },
+    {
+      "file": "passages-5",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.044,
+      "first": []
+    },
+    {
+      "file": "passages-5",
+      "term": "latestonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          36064,
+          "Riverhog",
+          5,
+          "content/manuscript.md",
+          "witness",
+          -14.655189393080043
+        ]
+      ]
+    },
+    {
+      "file": "passages-5",
+      "term": "otherworktoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "passages-5",
+      "term": "sharedbodytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          5,
+          "content/supporting/witness.md",
+          "witness",
+          -14.217734409287862
+        ]
+      ]
+    },
+    {
+      "file": "passages-5",
+      "term": "contract",
+      "facet": null,
+      "count": 36066,
+      "page": 20,
+      "median_warm_ms": 37.085,
+      "first": [
+        [
+          20127,
+          "Riverhog",
+          5,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "native-0000",
+          -2.14216732346539e-06
+        ]
+      ]
+    },
+    {
+      "file": "passages-5",
+      "term": "transaction",
+      "facet": null,
+      "count": 408,
+      "page": 20,
+      "median_warm_ms": 0.591,
+      "first": [
+        [
+          5619,
+          "Riverhog",
+          5,
+          "content/supporting/e-6580c892d5cacaddf4162f5d.md",
+          "native-0000",
+          -8.972008912823723
+        ]
+      ]
+    },
+    {
+      "file": "works-1",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.037,
+      "first": [
+        [
+          5948,
+          "Riverhog",
+          1,
+          "content/manuscript.md",
+          "Manuscript",
+          -13.470479022338829,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "works-5",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.026,
+      "first": []
+    },
+    {
+      "file": "works-5",
+      "term": "latestonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.036,
+      "first": [
+        [
+          5948,
+          "Riverhog",
+          5,
+          "content/manuscript.md",
+          "Manuscript",
+          -13.422052463824507,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "works-5",
+      "term": "otherworktoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.036,
+      "first": [
+        [
+          5951,
+          "Other",
+          5,
+          "content/manuscript.md",
+          "Other manuscript",
+          -13.370042309984441,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "works-5",
+      "term": "otheroldtoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.027,
+      "first": []
+    },
+    {
+      "file": "works-5",
+      "term": "contract",
+      "facet": null,
+      "count": 2,
+      "page": 2,
+      "median_warm_ms": 15.748,
+      "first": [
+        [
+          3810,
+          "Riverhog",
+          5,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "riverhog_provenance_contracts.ContractCatalog.with_contracts",
+          -2.15954453846997e-06,
+          1
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "oldonlytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.03,
+      "first": [
+        [
+          36064,
+          "Riverhog",
+          1,
+          "content/manuscript.md",
+          "witness",
+          -17.19441070779402
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "latestonlytoken",
+      "facet": null,
+      "count": 4,
+      "page": 4,
+      "median_warm_ms": 0.037,
+      "first": [
+        [
+          72130,
+          "Riverhog",
+          2,
+          "content/manuscript.md",
+          "witness",
+          -15.38692883881875
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "otherworktoken",
+      "facet": null,
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.02,
+      "first": []
+    },
+    {
+      "file": "history-5",
+      "term": "sharedbodytoken",
+      "facet": null,
+      "count": 5,
+      "page": 5,
+      "median_warm_ms": 0.038,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          1,
+          "content/supporting/witness.md",
+          "witness",
+          -14.820859708138494
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "contract",
+      "facet": null,
+      "count": 180330,
+      "page": 20,
+      "median_warm_ms": 200.817,
+      "first": [
+        [
+          20127,
+          "Riverhog",
+          1,
+          "content/supporting/e-aba1b7746a03feb060c38bd8.md",
+          "native-0000",
+          -2.1430356606200186e-06
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "transaction",
+      "facet": null,
+      "count": 2040,
+      "page": 20,
+      "median_warm_ms": 3.492,
+      "first": [
+        [
+          5619,
+          "Riverhog",
+          1,
+          "content/supporting/e-6580c892d5cacaddf4162f5d.md",
+          "native-0000",
+          -8.985230777361645
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "sharedbodytoken",
+      "facet": null,
+      "count": 5,
+      "page": 5,
+      "median_warm_ms": 0.042,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          1,
+          "content/supporting/witness.md",
+          "witness",
+          -14.820859708138494
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "sharedbodytoken",
+      "facet": {
+        "Example version": [
+          "v5"
+        ]
+      },
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.041,
+      "first": [
+        [
+          180329,
+          "Riverhog",
+          5,
+          "content/supporting/witness.md",
+          "witness",
+          -14.643198116401395
+        ]
+      ]
+    },
+    {
+      "file": "passages-5",
+      "term": "sharedbodytoken",
+      "facet": null,
+      "count": 1,
+      "page": 1,
+      "median_warm_ms": 0.029,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          5,
+          "content/supporting/witness.md",
+          "witness",
+          -14.217734409287862
+        ]
+      ]
+    },
+    {
+      "file": "history-5",
+      "term": "sharedbodytoken",
+      "facet": {
+        "Example version": [
+          "v1",
+          "v5"
+        ]
+      },
+      "count": 2,
+      "page": 2,
+      "median_warm_ms": 0.057,
+      "first": [
+        [
+          36065,
+          "Riverhog",
+          1,
+          "content/supporting/witness.md",
+          "witness",
+          -14.820859708138494
+        ]
+      ]
+    },
+    {
+      "file": "passages-5",
+      "term": "sharedbodytoken",
+      "facet": {
+        "Example version": [
+          "v1"
+        ]
+      },
+      "count": 0,
+      "page": 0,
+      "median_warm_ms": 0.024,
+      "first": []
+    }
+  ],
+  "ranking_scope_example": {
+    "occurrence": [
+      "Riverhog",
+      5,
+      "content/supporting/witness.md",
+      "witness"
+    ],
+    "edition_score": -14.217734409287862,
+    "history_score": -14.643198116401395
+  },
+  "result": "passed"
+}

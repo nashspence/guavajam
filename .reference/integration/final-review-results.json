@@ -1,0 +1,14 @@
+{
+  "purpose": "Final-review rerun of unchanged bibliography research script; not production integration qualification.",
+  "script_sha256": "4e30848ea48db2fd34e27c193fb6edba75638e60f263277f6bcd7a777573df06",
+  "original_result_sha256": "605ddf302313ab4adbec51375c2cd117365dc48ae02110612d0ea6a766a31d64",
+  "rerun_result_sha256": "a1071e2b89fccc424faf821f9831cd41b5a1f32cc0e4a84a1d4a886ed1ca4490",
+  "environment": {
+    "python": "3.12.14",
+    "sqlite": "3.53.1"
+  },
+  "term_execution_counts_equal": true,
+  "decoded_sizes_equal": true,
+  "gzip_and_database_hashes_differ": true,
+  "explanation": "SQLite version changed from recorded 3.46.1 to 3.53.1; decoded lengths remained identical. Different bytes/hashes are not attributed to a code change. Timings are not comparable production latencies."
+}

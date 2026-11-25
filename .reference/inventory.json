@@ -1,5 +1,5 @@
 {
-  "purpose": "Authoritative inventory of supplied reference payload; historical sub-inventories retain their original paths and scope.",
+  "purpose": "Complete final reference payload inventory, including retained original/scope research and controlling integration supplement. Historical sub-inventories apply only to their original scope/commit.",
   "base_commit": "54fce07b619628a5e92be946be4b189873ddf1a0",
   "excluded_identity_records": [
     "inventory.json",
@@ -308,6 +308,86 @@
       "sha256": "2bbe1c2a1ebea9c0494f8d74967bb3d04131f77296f5e1b21d3d67ff1a4d4d49"
     },
     {
+      "path": "integration/README.txt",
+      "bytes": 3152,
+      "sha256": "007afc5691ac013a9388957a07fdba8b8a75a3cfcbb2aa174bd6ba2355c636ce"
+    },
+    {
+      "path": "integration/SHA256SUMS",
+      "bytes": 915,
+      "sha256": "d0dbfaaed401ad6cc17639c571ce4393941bb8dba6d61121d45ab5f11eb1e41a"
+    },
+    {
+      "path": "integration/design.md",
+      "bytes": 23948,
+      "sha256": "29238f1ffe6ea33a981d11e9562eb8320bfd425798f5408fa129a04d0bd4ad96"
+    },
+    {
+      "path": "integration/final-review-results.json",
+      "bytes": 804,
+      "sha256": "42e9f4b78d8afb2da82fe250e9bbf3c6de60e86584738e873d4e4e4c59e78e47"
+    },
+    {
+      "path": "integration/history-50-results.json",
+      "bytes": 3085,
+      "sha256": "29139ce39409eeb56ff48ca0154a4813a0a641643e59ff9981fbc5dbd426e486"
+    },
+    {
+      "path": "integration/parity-results.json",
+      "bytes": 383,
+      "sha256": "e32f2f79eca8498e4393a7c6e5ed14f6f50559eb03acaea3bca46e3deb3f8acc"
+    },
+    {
+      "path": "integration/parity.py",
+      "bytes": 3793,
+      "sha256": "d2674f8fef99fcde27ff00fd54b65ea24b119d47478b5d5cdf934bf79ece15aa"
+    },
+    {
+      "path": "integration/reproduce.md",
+      "bytes": 4852,
+      "sha256": "d0d04ebd7d28acdf788cb2cd58558e87f12a88135e7fff51debabe7ca0be0026"
+    },
+    {
+      "path": "integration/routing-results.json",
+      "bytes": 1317,
+      "sha256": "8161e6a380ef7e83be228aeaed8791738807e47cacb075c5581c8b6b69ffe4f4"
+    },
+    {
+      "path": "integration/routing.py",
+      "bytes": 8937,
+      "sha256": "cc04cc7edfe307398428b7b3aca2682a79d39600d0a4dae3eaa7a28fd841dd99"
+    },
+    {
+      "path": "integration/scoped-results.json",
+      "bytes": 19502,
+      "sha256": "2759905216a7fb15530474a7f307a262b95385c78a862f17b04aa61593a7152f"
+    },
+    {
+      "path": "integration/scopes-initial.py",
+      "bytes": 11292,
+      "sha256": "d8607b5aeb676290eb3b2209edc7b145d6ebbce047d7d39a36fb442fa260f989"
+    },
+    {
+      "path": "integration/scopes.py",
+      "bytes": 12229,
+      "sha256": "e1418fab17e92db87495ae09679a577c8d55bdcd128d8c55e5ad21c52b9c670d"
+    },
+    {
+      "path": "integration/works-catalog-results.json",
+      "bytes": 3088,
+      "sha256": "605ddf302313ab4adbec51375c2cd117365dc48ae02110612d0ea6a766a31d64"
+    },
+    {
+      "path": "integration/works-catalog-review-results.json",
+      "bytes": 3092,
+      "sha256": "a1071e2b89fccc424faf821f9831cd41b5a1f32cc0e4a84a1d4a886ed1ca4490"
+    },
+    {
+      "path": "integration/works_catalog.py",
+      "bytes": 5337,
+      "sha256": "4e30848ea48db2fd34e27c193fb6edba75638e60f263277f6bcd7a777573df06"
+    },
+    {
       "path": "reproduce.py",
       "bytes": 5053,
       "sha256": "e65609b551690af83602dfd0a1e69cbb702a88a0daac2973eb4ce4be97b1ffc5"
@@ -581,6 +661,26 @@
       "path": "results/toolchain.json",
       "bytes": 233,
       "sha256": "35296caa9450f2249ec7011d345bf49ab679f3613e89849fd66dff5a0b8741e8"
+    },
+    {
+      "path": "scope-revision/design.md",
+      "bytes": 15863,
+      "sha256": "09ab23af77f0c8c221bced564cb722904f477b345828e989cd64a9e67db66378"
+    },
+    {
+      "path": "scope-revision/native.tar.xz",
+      "bytes": 9076,
+      "sha256": "245a90484a5dd1d759c132c66a72d2dd65ac446b57a6c7315ff9f984873959cf"
+    },
+    {
+      "path": "scope-revision/proffer.json",
+      "bytes": 4801,
+      "sha256": "ed29843e013fb603ffaca680ceb57a20d55978ff4e5642557c46500094f21d75"
+    },
+    {
+      "path": "scope-revision/ui.tar.xz",
+      "bytes": 5012,
+      "sha256": "d7cf1f996c6eb350a26ee7261b7b60fb330a66127298ecb148d986e56dbaeb76"
     },
     {
       "path": "tooling/proffer/LICENSE",

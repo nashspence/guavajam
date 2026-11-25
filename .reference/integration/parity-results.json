@@ -1,0 +1,12 @@
+{
+  "result": "passed",
+  "checks": {
+    "publication_order_not_date": true,
+    "edition_passage_fields_equal_history_occurrences": 36066,
+    "latest_collection_anchored_body_evidence": 36066,
+    "document_passage_facet_memberships": 35690,
+    "document_history_facet_memberships": 35690,
+    "directory_title_abstract_identity": 5949,
+    "no_unrelated_FTS_tables": true
+  }
+}
