@@ -65,16 +65,6 @@ def git_blob(repo, sha, path, *, maximum=8 * 1024 * 1024):
     return process(['git', '--no-replace-objects', 'show', sha + ':' + path], cwd=repo, limit=maximum)
 
 
-def git_extra(repo, sha, path, *, maximum=10 * 1024 * 1024):
-    if (not path.startswith('content/') or '..' in PurePosixPath(path).parts
-            or not re.fullmatch(r'content/assets/[a-z0-9._/-]+', path)):
-        raise RenderError('local image must remain within a work assets directory')
-    mode = process(['git', '--no-replace-objects', 'ls-tree', sha, '--', path], cwd=repo)
-    if not mode.startswith(b'100644 blob ') and not mode.startswith(b'100755 blob '):
-        raise RenderError('rendering requires committed regular files, never symlinks')
-    return process(['git', '--no-replace-objects', 'show', sha + ':' + path], cwd=repo, limit=maximum)
-
-
 def pandoc(ast_or_markdown: bytes, *, reader=READER, writer='json', id_prefix=None):
     return process(['pandoc', '--from=' + reader, '--to=' + writer, '--wrap=none', '--mathml', *(['--id-prefix='+id_prefix] if id_prefix else [])],
                    data=ast_or_markdown, limit=32 * 1024 * 1024)
@@ -102,7 +92,7 @@ def _make_media(item):
     return '\n'.join(out)
 
 
-def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
+def _href(url, *, kind, path, sha, repo, origin, supporting, downloads, source_root):
     parsed = urlsplit(url)
     if parsed.scheme:
         if parsed.scheme == 'mailto' and kind == 'Link' and parsed.netloc == '' and parsed.path and not parsed.query:
@@ -131,8 +121,8 @@ def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
             parts.pop()
         elif component not in {'.', ''}: parts.append(component)
     dest = '/'.join(parts)
-    if dest in supporting and kind == 'Link':
-        if fragment and fragment not in supporting[dest]:raise RenderError('unresolved source fragment')
+    if supporting.contains(dest) and kind == 'Link':
+        if fragment and not supporting.has_anchor(dest, fragment, stable_only=True):raise RenderError('unresolved source fragment')
         if dest == 'content/manuscript.md':
             href = ('../' if '/supporting/' in path else '') + 'index.html'
         else:
@@ -141,22 +131,18 @@ def _href(url, *, kind, path, sha, repo, origin, supporting, downloads):
     if kind == 'Image' and dest.startswith('content/assets/'):
         ext = PurePosixPath(dest).suffix.removeprefix('.')
         if ext not in IMAGE: raise RenderError('only passive local PNG/JPEG/WebP images are supported')
-        raw = git_extra(repo, sha, dest)
+        raw = _snapshot_blob(source_root, dest, 10 * 1024 * 1024)
         if len(raw) > 10 * 1024 * 1024 or not raw: raise RenderError('local image too large')
         return 'data:' + IMAGE[ext] + ';base64,' + base64.b64encode(raw).decode('ascii')
     if kind == 'Link' and dest.startswith('content/'):
         # Export the whole supplement; fragments belong to its native reader.
-        from guavajam.publication_protocol import blob
-        raw = blob(repo, sha, dest, maximum=20 * 1024 * 1024)
-        name = hashlib.sha256(raw).hexdigest() + '.bin'
-        downloads[name] = raw
-        if len(downloads) > 256 or sum(len(value) for value in downloads.values()) > 256 * 1024 * 1024:
-            raise RenderError('supplemental downloads exceed the output budget')
+        raw = _snapshot_blob(source_root, dest, 20 * 1024 * 1024)
+        name = downloads.add(raw)
         return ('../' if '/supporting/' in path else '') + 'downloads/' + name
     raise RenderError('unresolved local link outside the committed publication content')
 
 
-def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=True, source=None):
+def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=True, source=None, source_root=None):
     from guavajam.validate_sources import validate_front_matter,validate_work_fields,validate_pandoc_front_matter,inspect_manuscript_syntax,walk
     from guavajam.table_captions import normalize_table_captions
     from .presentation import abstract_html, prepare_presentation_ast
@@ -188,8 +174,9 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         from guavajam.asset_policy import AssetPolicy
         ast,positions=parse_gfm_record(source,policy=AssetPolicy(origin) if origin else None);anchors=set(positions);items=[]
         from guavajam.supporting_metadata import split_frontmatter
-        front, _, _ = split_frontmatter(source)
+        front, fields, _ = split_frontmatter(source)
         navigation=extract(ast,positions)
+        navigation['metadata'] = fields
         if front.get('abstract'):
             navigation['text'] = front['abstract'] + ' ' + navigation['text']
         ast=present(ast,positions,navigation)
@@ -201,7 +188,7 @@ def _transform(ast, *, path, sha, repo, origin, supporting, downloads, media=Tru
         if node['t'] in ('Link','Image'):
             url=node['c'][2][0]
             if url.startswith('#') and unquote(url[1:]) not in anchors :raise RenderError('unresolved explicit source fragment')
-            node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads)
+            node['c'][2][0]=_href(url,kind=node['t'],path=path,sha=sha,repo=repo,origin=origin,supporting=supporting,downloads=downloads,source_root=source_root)
             if node['t'] == 'Link' and '/downloads/' in '/' + node['c'][2][0]:
                 node['c'][0][2].append(['download', ''])
                 if mime := link_mime(url): node['c'][0][2].append(['type', mime])
@@ -262,19 +249,145 @@ def _html(*, title, language, revision_sha, path, body, css, origin, preview, fa
             'This HTML is an optional, disposable presentation, not a separately issued edition.</p></footer></body></html>\n', site_origin=site_origin)
 
 
-def _raw_git_list(repo, sha, prefix):
-    result = process(['git', '--no-replace-objects', 'ls-tree', '-r', '-z', '--name-only', sha, '--', prefix],cwd=repo)
-    paths = [x.decode('utf-8', 'strict') for x in result.split(b'\x00') if x]
-    if len(paths) > 128: raise RenderError('too many supporting documents')
-    return sorted(p for p in paths if RECORD.fullmatch(p) and '/supporting/' in p)
+def _snapshot_blob(root, path, maximum):
+    from .navigation_manifest import owned
+    target = owned(root, path)
+    if not target.is_file() or target.stat().st_size > maximum:
+        raise RenderError('source snapshot file exceeds its individual input limit: ' + path)
+    with target.open('rb') as stream:
+        raw = stream.read(maximum + 1)
+    if len(raw) > maximum:
+        raise RenderError('source snapshot changed while reading: ' + path)
+    return raw
+
+
+class _Downloads:
+    def __init__(self, output):
+        self.output, self.total, self.names = output, 0, set()
+
+    def add(self, raw):
+        name = hashlib.sha256(raw).hexdigest() + '.bin'
+        if name not in self.names:
+            self.total += len(raw)
+            if len(self.names) >= 256 or self.total > 256 * 1024 * 1024:
+                raise RenderError('supplemental downloads exceed the explicit 256-file/256-MiB output budget')
+            directory = self.output / 'downloads'
+            directory.mkdir(exist_ok=True)
+            (directory / name).write_bytes(raw)
+            self.names.add(name)
+        return name
+
+
+def _render_snapshot(root, files, sha, output, *, preview, site_origin, supporting):
+    from guavajam.asset_policy import AssetPolicy
+    from guavajam.supporting_gfm import parse_gfm_record
+    from guavajam.validate_sources import validate_front_matter, inspect_manuscript_syntax
+    from guavajam.catalog import encoded
+    from guavajam.publication_commit import citation
+    from .navigation_manifest import file_inventory, write_json, write_document
+    from .navigation import document_directory, reader_navigation
+    from .citation_routes import source_download
+    manuscript = 'content/manuscript.md'
+    source = _snapshot_blob(root, manuscript, 8 * 1024 * 1024)
+    policy_path = root / 'content/asset-policy.json'
+    if policy_path.exists():
+        try:
+            data = json.loads(_snapshot_blob(root, 'content/asset-policy.json', 32768))
+            if set(data) != {'origin'}:
+                raise ValueError()
+            origin = AssetPolicy(data['origin']).origin
+        except (ValueError, TypeError):
+            raise RenderError('invalid canonical HTTPS asset policy') from None
+    else:
+        origin = ''
+    for relative in files:
+        path = relative.as_posix()
+        if not RECORD.fullmatch(path) or '/supporting/' not in path:
+            continue
+        raw = _snapshot_blob(root, path, 8 * 1024 * 1024)
+        ast, positions = parse_gfm_record(raw.decode('utf-8'), policy=AssetPolicy(origin) if origin else None)
+        supporting.add(path, ast, positions)
+        del ast
+    _, body, line, _ = validate_front_matter(Path(manuscript), source.decode('utf-8'))
+    info, _ = inspect_manuscript_syntax(Path(manuscript), body, line)
+    supporting.add(manuscript, {'blocks': []}, info['anchors'], manuscript=True)
+    output.mkdir()
+    downloads = _Downloads(output)
+    documents, descriptors = {}, {}
+    summary_bytes = 0
+    manuscript_facts = {}
+    canonical = {'hash_algorithm': 'sha1', 'revision': sha, 'manuscript': manuscript}
+    css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
+
+    def paths():
+        yield manuscript
+        for relative in files:
+            path = relative.as_posix()
+            if RECORD.fullmatch(path) and '/supporting/' in path:
+                yield path
+
+    def write(name, raw):
+        target = output / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+
+    for path in paths():
+        source = _snapshot_blob(root, path, 8 * 1024 * 1024)
+        ast = json.loads(pandoc(source)) if path == manuscript else None
+        ast, items, anchors, meta, navigation = _transform(
+            ast, path=path, sha=sha, repo=None, origin=origin, supporting=supporting,
+            downloads=downloads, media=path == manuscript, source=source.decode('utf-8'), source_root=root)
+        from .identities import writer_prefix, restore_source_ids
+        prefix = writer_prefix(anchors)
+        body = pandoc(json.dumps(ast, ensure_ascii=False).encode('utf-8'),
+                      reader='json', writer='html5', id_prefix=prefix).decode('utf-8')
+        del ast
+        body = restore_source_ids(body, anchors, prefix)
+        from .presentation import prepare_code_focus
+        body = prepare_code_focus(body)
+        if path == manuscript:
+            manuscript_facts = meta
+            title, language, dest = meta['title'], meta.get('language', 'en'), 'index.html'
+        else:
+            title, language, dest = meta['title'], manuscript_facts.get('language', 'en'), 'supporting/' + Path(path).stem + '.html'
+        detail = {'title': title, 'language': language, 'anchors': sorted(anchors),
+                  'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest(),
+                  **({'abstract': meta['abstract']} if meta.get('abstract') else {})}
+        documents[path] = detail
+        summary_bytes += len(encoded(detail)) + len(path.encode('utf-8')) + 256
+        if summary_bytes > 64 * 1024 * 1024:
+            raise RenderError('rendered document manifest exceeds its 64-MiB operation budget')
+        descriptors[path] = write_document(output, canonical, preview, path, {**detail, **navigation})
+        write(dest, _html(title=title, language=language, revision_sha=sha, path=path, body=body,
+                         css=css, origin=origin, preview=preview, facts=manuscript_facts, details=detail,
+                         navigation=reader_navigation(path), site_origin=site_origin).encode('utf-8'))
+        record = {'schema': 'guavajam.source-citation.v1', **canonical, 'documents': {path: anchors}}
+        download = source_download(dest)
+        write(download, source)
+        write(str(PurePosixPath(download).with_suffix('.citation.json')), encoded(citation(record, document=path)))
+        del navigation, source, body
+    directory = _html(title='Documents in this edition', language='en', revision_sha=sha,
+        path='', body='<h1>Documents in this edition</h1>' + document_directory({'documents': documents}),
+        css=css, origin=origin, preview=preview, site_origin=site_origin,
+        navigation='<nav class="guavajam-document-nav" aria-label="Edition documents"><a href="index.html">Manuscript</a></nav>')
+    write('documents.html', directory.encode('utf-8'))
+    write_json(output / 'NAV.json', {'schema': 'guavajam.navigation.v1', 'layout': 'documents',
+        'canonical': canonical, 'preview': preview, 'documents': descriptors})
+    write_json(output / 'VIEW.json', {'schema': 'guavajam.view.v1', 'canonical': canonical,
+        'renderer': 'a-guavajam-static-website-generator', 'preview': preview,
+        'facts': manuscript_facts, 'documents': documents, 'files': file_inventory(output)})
+    return len(documents)
 
 
 def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signers=None, preview=False, site_origin=None):
+    from guavajam.source_snapshot import snapshot
+    from guavajam.source_inventory import source_inventory
+    import tempfile
     site_origin = normalize_site_origin(site_origin)
-    if not process(['pandoc','--version']).startswith(b'pandoc 3.12.1\n'):raise RenderError('Pandoc 3.12.1 is required')
-    repo = Path(repo).resolve(); revision(repo, sha)
-    manuscript = 'content/manuscript.md'
-    source = git_blob(repo, sha, manuscript)
+    if not process(['pandoc', '--version']).startswith(b'pandoc 3.12.1\n'):
+        raise RenderError('Pandoc 3.12.1 is required')
+    repo = Path(repo).resolve()
+    revision(repo, sha)
     if preview:
         if fingerprints or allowed_signers:
             raise RenderError('preview cannot be combined with publication trust settings')
@@ -286,98 +399,19 @@ def render(repo: Path, sha: str, output: Path, *, fingerprints=(), allowed_signe
             verify(repo, sha, fingerprints=fingerprints, allowed_signers=allowed_signers, online_media=False)
         except (ValueError, OSError) as exc:
             raise RenderError(str(exc)) from exc
-    policy_entry=process(['git','--no-replace-objects','ls-tree',sha,'--','content/asset-policy.json'],cwd=repo)
-    if policy_entry:
-        asset_policy=process(['git','--no-replace-objects','show',sha+':content/asset-policy.json'],cwd=repo,limit=32768)
-        try:
-            data=json.loads(asset_policy)
-            if set(data)!={'origin'}:raise ValueError()
-            from guavajam.asset_policy import AssetPolicy
-            origin=AssetPolicy(data['origin']).origin
-        except (ValueError,TypeError):raise RenderError('invalid canonical HTTPS asset policy') from None
-    else:origin=''
-    supporting_paths=_raw_git_list(repo,sha,'content/supporting')
-    from guavajam.supporting_gfm import parse_gfm_record
-    from guavajam.asset_policy import AssetPolicy
-    supporting={};total_source=0
-    for path in supporting_paths:
-        raw=git_blob(repo,sha,path);total_source+=len(raw)
-        if total_source>100*1024*1024:raise RenderError('supporting source inventory exceeds 100 MiB')
-        _,positions=parse_gfm_record(raw.decode('utf-8'),policy=AssetPolicy(origin) if origin else None);supporting[path]=set(positions)
-    from guavajam.validate_sources import validate_front_matter, inspect_manuscript_syntax
-    _, body, line, _ = validate_front_matter(Path(manuscript), source.decode('utf-8'))
-    info, _ = inspect_manuscript_syntax(Path(manuscript), body, line)
-    supporting[manuscript] = info['anchors']
-    if output.exists() and any(output.iterdir()):
-        raise RenderError('destination must be a new or empty directory')
-    all_files = {}
-    downloads = {}
-    documents = {}
-    navigation_documents = {}
-    manuscript_facts = {}
-    citations = {}
-    css = (Path(__file__).parent / 'styles/reading.css').read_text('utf-8')
-    for path in [manuscript, *supporting_paths]:
-        source = git_blob(repo, sha, path)
-        ast = json.loads(pandoc(source)) if path == manuscript else None
-        ast,items,anchors,meta,navigation = _transform(ast,path=path,sha=sha,repo=repo,origin=origin,
-                                      supporting=supporting,downloads=downloads,media=(path==manuscript),source=source.decode('utf-8'))
-        from .identities import writer_prefix,restore_source_ids
-        prefix=writer_prefix(anchors)
-        body = pandoc(json.dumps(ast, ensure_ascii=False).encode('utf-8'),reader='json',writer='html5',id_prefix=prefix).decode('utf-8')
-        body=restore_source_ids(body,anchors,prefix)
-        from .presentation import prepare_code_focus
-        body=prepare_code_focus(body)
-        if path == manuscript:
-            manuscript_facts = meta
-            title = meta['title']; language = meta.get('language','en'); dest = 'index.html'
-        else:
-            title=meta['title'];language=manuscript_facts.get('language','en');dest='supporting/'+Path(path).stem+'.html'
-        documents[path] = {'title': title, 'language': language, 'anchors': sorted(anchors),
-                           'view': dest, 'source_sha256': hashlib.sha256(source).hexdigest(),
-                           **({'abstract': meta['abstract']} if meta.get('abstract') else {})}
-        navigation_documents[path] = {**documents[path], **navigation}
-        from .navigation import reader_navigation
-        all_files[dest] = _html(title=title, language=language, revision_sha=sha,
-                                path=path, body=body, css=css, origin=origin, preview=preview, facts=manuscript_facts, details=documents[path],
-                                navigation=reader_navigation(path), site_origin=site_origin)
-        from .citation_routes import source_download
-        from guavajam.catalog import encoded
-        from guavajam.publication_commit import citation
-        record = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
-                  'revision': sha, 'manuscript': manuscript, 'documents': supporting}
-        download = source_download(dest)
-        citations[download] = source
-        citations[str(PurePosixPath(download).with_suffix('.citation.json'))] = encoded(citation(record, document=path))
-    canonical = {'hash_algorithm':'sha1','revision':sha,'manuscript':manuscript}
-    navigation = {'schema':'guavajam.navigation.v1','canonical':canonical,
-                  'preview':preview,'documents':navigation_documents}
-    from guavajam.catalog import encoded
-    from .navigation import document_directory
-    navigation_bytes = encoded(navigation)
-    all_files['documents.html'] = _html(title='Documents in this edition',language='en',revision_sha=sha,
-        path='',body='<h1>Documents in this edition</h1>' + document_directory(navigation),
-        css=css,origin=origin,preview=preview,site_origin=site_origin,
-        navigation='<nav class="guavajam-document-nav" aria-label="Edition documents"><a href="index.html">Manuscript</a></nav>')
-    output.mkdir(parents=True, exist_ok=True)
-    for name, html in all_files.items():
-        target=output/name;target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(html,encoding='utf-8')
-    for name, raw in downloads.items():
-        (output / 'downloads').mkdir(exist_ok=True)
-        (output / 'downloads' / name).write_bytes(raw)
-    for name, raw in citations.items():
-        (output / name).write_bytes(raw)
-    (output/'NAV.json').write_bytes(navigation_bytes)
-    (output/'VIEW.json').write_text(json.dumps({
-       'schema':'guavajam.view.v1','canonical':canonical, 'renderer':'a-guavajam-static-website-generator', 'preview':preview,
-       'facts': manuscript_facts, 'documents': documents,
-       'files': {**{name:hashlib.sha256(html.encode('utf-8')).hexdigest()
-                 for name,html in sorted(all_files.items())},
-                 **{'downloads/' + name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(downloads.items())},
-                 'NAV.json':hashlib.sha256(navigation_bytes).hexdigest(),
-                 **{name:hashlib.sha256(raw).hexdigest() for name,raw in sorted(citations.items())}}},indent=2,sort_keys=True)+'\n')
-    return len(documents)
+    output = Path(output).absolute()
+    if output.resolve() != output or output.is_symlink() or output.exists() and any(output.iterdir()):
+        raise RenderError('destination must be a new or empty directory without symlink ancestors')
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with snapshot(repo, sha) as (root, files), source_inventory() as supporting:
+        with tempfile.TemporaryDirectory(prefix='.guavajam-render-', dir=output.parent) as temporary:
+            stage = Path(temporary) / 'read'
+            count = _render_snapshot(root, files, sha, stage, preview=preview,
+                                     site_origin=site_origin, supporting=supporting)
+            if output.exists():
+                output.rmdir()
+            stage.rename(output)
+    return count
 
 
 def main(argv=None):

@@ -18,7 +18,8 @@ from a_guavajam_static_website_generator.site import build_site
 def metadata(publisher, title, body, *, keyword, subject=None):
     publisher.source(title, body)
     source = publisher.repo / 'content/manuscript.md'
-    extra = 'keywords:\n  - ' + keyword + '\n'
+    extra = ('abstract: A collection observation.' + (' Bibliographyselector.' if title == 'Work 02' else '') + '\n')
+    extra += 'keywords:\n  - ' + keyword + '\n'
     if subject:
         extra += ('subjects:\n  - subject: Java\n    subject_scheme: ' + subject +
                   '\n    language: en\n')
@@ -30,6 +31,8 @@ def prepare(directory):
     directory.mkdir(parents=True)
     site = directory / 'site'
     site.mkdir()
+    runtime = REPO_ROOT / 'node_modules/@sqlite.org/sqlite-wasm/dist'
+    os.environ.setdefault('GUAVAJAM_SQLITE_WASM_DIR', str(runtime))
     entries = []
     old_revision = None
     for number in range(1, 23):

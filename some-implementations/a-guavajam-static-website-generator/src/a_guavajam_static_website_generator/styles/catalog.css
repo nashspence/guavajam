@@ -329,3 +329,34 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 @media print {
   .guavajam-record-list mark, .guavajam-record-list a:hover mark { color: inherit; background: transparent; text-decoration: underline; }
 }
+
+#guavajam-search > .guavajam-search-scope {
+  grid-column: 1 / -1; min-width: 0; margin: 0; padding: 0; border: 0;
+}
+#guavajam-search .guavajam-scope-options {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .2rem 1.15rem;
+}
+#guavajam-search .guavajam-scope-options label {
+  display: inline-flex; align-items: center; gap: .38rem; min-height: 1.75rem;
+  margin: 0; font: .86rem/1.5 system-ui, sans-serif; cursor: pointer;
+}
+#guavajam-search .guavajam-scope-options input[type="radio"] {
+  display: inline-block; inline-size: 1rem; block-size: 1rem; margin: 0; padding: 0;
+  flex: none; accent-color: var(--guavajam-link);
+}
+#guavajam-search .guavajam-scope-options label:has(input:checked) { font-weight: 600; }
+.guavajam-search-recovery { grid-column: 1 / -1; display: flex; gap: .5rem; }
+.guavajam-search-recovery[hidden] { display: none; }
+
+.guavajam-search-recovery:not(:has(button:not([hidden]))) { display: none; }
+
+/* Bounded option pages share the native form sizing and keyboard treatment. */
+.guavajam-facet-options { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; margin-top: .3rem; }
+.guavajam-facet-options input { width: 100%; min-width: 0; }
+.guavajam-facet-options button { font-size: .8rem; }
+.guavajam-facet-options [role="status"] { color: var(--guavajam-muted); font-size: .8rem; }
+.guavajam-metadata-filters { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: .3rem 0; }
+.guavajam-metadata-filters > div { min-width: 0; margin-bottom: .5rem; }
+.guavajam-selected-filters { list-style: none; margin: .3rem 0 0; padding: 0; }
+.guavajam-selected-filters button { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: start; }
+.guavajam-facet-message { color: var(--guavajam-muted); }

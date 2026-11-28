@@ -82,18 +82,18 @@ class WorkSearchTests(unittest.TestCase):
         directory = self.root / suffix
         shutil.copytree(self.site, directory)
         self.addCleanup(shutil.rmtree, directory)
-        (directory / 'work.sqlite').unlink()
+        (directory / 'history.sqlite').unlink()
         return directory
 
     def rebuild(self, root):
         return create_index(root, [{'repository': '', 'path': '', 'tip': self.latest}],
-                            filename='work.sqlite', scope='work')
+                            filename='history.sqlite', scope='history')
 
     def reader(self, revision):
         return self.site / 'editions' / revision / 'read'
 
     def test_search_citations_keep_the_same_exact_download_and_source_parts(self):
-        with sqlite3.connect(self.site / 'work.sqlite') as db:
+        with sqlite3.connect(self.site / 'history.sqlite') as db:
             for payload, revision, source, anchor in db.execute(
                     'SELECT p.citation_json,e.revision,d.path,p.anchor FROM passages p '
                     'JOIN editions e ON e.id=p.edition_id JOIN documents d ON d.id=p.document_id'):
@@ -137,40 +137,37 @@ class WorkSearchTests(unittest.TestCase):
         for name in ('NAV.json', 'documents.html', 'contents.html', 'passages.html'):
             self.assertEqual(hashlib.sha256((reader / name).read_bytes()).hexdigest(), view['files'][name])
         site = json.loads((self.site / 'SITE.json').read_text())
-        for name in ('work.sqlite', 'index.html'):
+        for name in ('history.sqlite', 'index.html'):
             self.assertEqual(hashlib.sha256((self.site / name).read_bytes()).hexdigest(), site['files'][name])
 
     def test_work_records_keep_source_order_text_hashes_and_exact_fragment_targets(self):
-        with closing(sqlite3.connect(self.site / 'work.sqlite')) as db:
+        with closing(sqlite3.connect(self.site / 'history.sqlite')) as db:
             db.row_factory = sqlite3.Row
             self.assertEqual('guavajam.search.v1', db.execute(
                 "SELECT value FROM metadata WHERE key='schema'").fetchone()[0])
-            self.assertEqual('work', db.execute("SELECT value FROM metadata WHERE key='scope'").fetchone()[0])
+            self.assertEqual('history', db.execute("SELECT value FROM metadata WHERE key='scope'").fetchone()[0])
             self.assertEqual((self.latest, '2025-11-01', 3), tuple(db.execute(
                 'SELECT latest_revision,latest_published,edition_count FROM works').fetchone()))
             self.assertEqual(self.publisher.revisions, [row[0] for row in db.execute(
                 'SELECT revision FROM editions ORDER BY position')])
             self.assertEqual([], db.execute('PRAGMA foreign_key_check').fetchall())
             self.assertEqual('ok', db.execute('PRAGMA integrity_check').fetchone()[0])
-            documents = []
-            for row in db.execute('SELECT d.*,e.revision,s.id AS record_id FROM documents d '
-                                  'JOIN editions e ON e.id=d.edition_id '
-                                  'JOIN search_records s ON s.document_id=d.id'):
-                nav = json.loads((self.reader(row['revision']) / 'NAV.json').read_text())
+            for row in db.execute('SELECT d.*,e.revision FROM documents d JOIN editions e ON e.id=d.edition_id'):
+                from a_guavajam_static_website_generator.navigation_manifest import load_navigation
+                nav = load_navigation(self.reader(row['revision']))
                 detail = nav['documents'][row['path']]
-                documents.append((row['record_id'], detail['text']))
                 self.assertEqual(detail['source_sha256'], row['source_sha256'])
                 self.assertEqual(hashlib.sha256((self.reader(row['revision']) /
                     ('source.gfm' if row['path'] == 'content/manuscript.md' else
                      Path(detail['view']).with_suffix('.gfm'))).read_bytes()).hexdigest(), row['source_sha256'])
-            self.assert_body_tokens(db, 'search_fts', documents)
             passages = db.execute('SELECT p.*,e.revision,d.path FROM passages p '
                                   'JOIN editions e ON e.id=p.edition_id '
                                   'JOIN documents d ON d.id=p.document_id').fetchall()
             self.assertGreater(len(passages), 20)
             passage_bodies = []
             for passage in passages:
-                nav = json.loads((self.reader(passage['revision']) / 'NAV.json').read_text())
+                from a_guavajam_static_website_generator.navigation_manifest import load_navigation
+                nav = load_navigation(self.reader(passage['revision']))
                 anchor = nav['documents'][passage['path']]['anchors'][passage['position']]
                 for key in ('anchor', 'title', 'kind', 'level', 'position', 'parent', 'scope'):
                     self.assertEqual(anchor[key], passage[key])
@@ -189,17 +186,17 @@ class WorkSearchTests(unittest.TestCase):
             author = next(row for row in latest if row['title'] == 'Author continuation')
             self.assertEqual('document', author['scope'])
             self.assertNotEqual('reply', author['parent'])
-            self.assertEqual(1, db.execute('SELECT count(*) FROM search_fts JOIN search_records s '
-                'ON s.id=search_fts.rowid JOIN editions e ON e.id=s.edition_id '
-                'JOIN documents d ON d.id=s.document_id '
-                "WHERE search_fts MATCH 'body:ecology' AND e.revision=? AND d.path='content/manuscript.md'",
+            self.assertEqual(1, db.execute('SELECT count(*) FROM passage_fts JOIN passages p '
+                'ON p.id=passage_fts.rowid JOIN editions e ON e.id=p.edition_id '
+                'JOIN documents d ON d.id=p.document_id '
+                "WHERE passage_fts MATCH 'body:ecology' AND e.revision=? AND d.path='content/manuscript.md'",
                 (self.latest,)).fetchone()[0])
-            historical = db.execute('SELECT s.url FROM search_fts JOIN search_records s '
-                "ON s.id=search_fts.rowid WHERE search_fts MATCH 'Palaeoriver'").fetchall()
-            self.assertEqual(['editions/' + self.older + '/read/index.html'], [row[0] for row in historical])
+            historical = db.execute('SELECT p.url FROM passage_fts JOIN passages p '
+                "ON p.id=passage_fts.rowid WHERE passage_fts MATCH 'Palaeoriver'").fetchall()
+            self.assertEqual(['editions/' + self.older + '/read/index.html#opening'], [row[0] for row in historical])
 
     def test_document_discovery_indexes_only_supporting_titles_and_their_own_abstracts(self):
-        with sqlite3.connect(self.site / 'work.sqlite') as db:
+        with sqlite3.connect(self.site / 'editions' / self.latest / 'search/documents.sqlite') as db:
             self.assertTrue(db.execute("SELECT rowid FROM document_fts WHERE document_fts MATCH 'Lacustrine'").fetchall())
             for term in ['Glaciolacustrine', 'Palaeoriver', 'Pelagicendpointselector', 'content', 'manuscript']:
                 self.assertEqual([], db.execute('SELECT rowid FROM document_fts WHERE document_fts MATCH ?', (term,)).fetchall())
@@ -213,46 +210,26 @@ class WorkSearchTests(unittest.TestCase):
         self.assertNotIn('Supporting document ·',html)
         self.assertNotIn('content/supporting/unlinked.md</code>',html)
 
-    def test_collection_and_work_use_the_same_navigation_records(self):
+    def test_edition_documents_share_exact_history_source_facts(self):
         collection = self.root / 'collection'
         database = create_index(collection, [{'repository': 'https://example.org/field-notes.git',
                                               'path': 'works/field-notes', 'tip': self.latest}])
         self.addCleanup(database.unlink)
         with closing(sqlite3.connect(database)) as aggregate, \
-                closing(sqlite3.connect(self.site / 'work.sqlite')) as work:
-            for table, columns in [('search_records', 'id,work_id,edition_id,document_id'),
-                                   ('documents', 'id,edition_id,work_id,title,path,language,source_sha256')]:
-                self.assertEqual(work.execute('SELECT ' + columns + ' FROM ' + table + ' ORDER BY id').fetchall(),
-                                 aggregate.execute('SELECT ' + columns + ' FROM ' + table + ' ORDER BY id').fetchall())
-                work_urls = work.execute('SELECT url FROM ' + table + ' ORDER BY id').fetchall()
-                aggregate_urls = aggregate.execute('SELECT url FROM ' + table + ' ORDER BY id').fetchall()
-                self.assertEqual([('works/field-notes/' + url,) for (url,) in work_urls], aggregate_urls)
+                closing(sqlite3.connect(self.site / 'history.sqlite')) as history, \
+                closing(sqlite3.connect(self.site / 'editions' / self.latest / 'search/documents.sqlite')) as documents:
+            self.assertEqual(1, aggregate.execute('SELECT count(*) FROM work_fts').fetchone()[0])
             self.assertFalse(aggregate.execute(
-                "SELECT name FROM sqlite_master WHERE name IN ('passages','passage_records','passage_fts')").fetchall())
-            # Aggregate routing carries the same source-body targets without
-            # the work index's full citation/author/provenance payload.
-            body_urls = [row[0] for row in aggregate.execute('SELECT url FROM document_passages ORDER BY id')]
-            work_body_urls = [row[0] for row in work.execute('SELECT url FROM passages ORDER BY id')]
-            self.assertEqual(['works/field-notes/' + url for url in work_body_urls], body_urls)
-            aggregate.execute("CREATE VIRTUAL TABLE temp.body_tokens USING fts5vocab(main, document_passage_fts, 'instance')")
-            work.execute("CREATE VIRTUAL TABLE temp.body_tokens USING fts5vocab(main, passage_fts, 'instance')")
-            body_tokens = "SELECT term,doc,offset FROM temp.body_tokens WHERE col='body' ORDER BY doc,offset,term"
-            self.assertEqual(work.execute(body_tokens).fetchall(), aggregate.execute(body_tokens).fetchall())
-            for connection in (aggregate, work):
-                connection.execute("CREATE VIRTUAL TABLE temp.tokens USING fts5vocab(main, search_fts, 'instance')")
-            # Repository provenance legitimately differs between a standalone
-            # work and its collection. All other indexed columns are identical.
-            tokens = "SELECT term,doc,col,offset FROM temp.tokens WHERE col!='git' ORDER BY doc,col,offset,term"
-            self.assertEqual(work.execute(tokens).fetchall(), aggregate.execute(tokens).fetchall())
-            for term in ('"observ"*', '"palaeoriver"*', '"glaciolacustrine"*',
-                         '"ecol"* AND "estuar"*', '"quoted"*'):
-                sql = 'SELECT rowid FROM search_fts WHERE search_fts MATCH ? ORDER BY rowid'
-                self.assertEqual(work.execute(sql, (term,)).fetchall(), aggregate.execute(sql, (term,)).fetchall())
+                "SELECT name FROM sqlite_schema WHERE name IN ('documents','passages','passage_fts')").fetchall())
+            columns = 'd.title,d.path,d.language,d.source_sha256,d.abstract'
+            expected = history.execute('SELECT ' + columns + ' FROM documents d JOIN editions e ON e.id=d.edition_id '
+                "WHERE e.revision=? AND d.path<>'content/manuscript.md' ORDER BY d.path", (self.latest,)).fetchall()
+            self.assertEqual(expected, documents.execute('SELECT ' + columns + ' FROM documents d ORDER BY d.path').fetchall())
 
     def test_sqlite_citation_targets_match_reader_links_and_static_pages(self):
         """A hit retains its source page even when filtering changes result order."""
         origin = 'https://example.invalid/prefix/'
-        with closing(sqlite3.connect(self.site / 'work.sqlite')) as db:
+        with closing(sqlite3.connect(self.site / 'history.sqlite')) as db:
             db.row_factory = sqlite3.Row
             rows = db.execute('SELECT p.*,e.revision,d.path,d.url AS reader_url FROM passages p '
                               'JOIN editions e ON e.id=p.edition_id '
@@ -292,7 +269,23 @@ class WorkSearchTests(unittest.TestCase):
                 reader = site / 'editions' / self.latest / 'read'
                 navigation = reader / 'NAV.json'
                 data = json.loads(navigation.read_text())
-                if name == 'schema':
+                if name in {'abstract', 'anchors'}:
+                    source = 'content/supporting/unlinked.md' if name == 'abstract' else 'content/manuscript.md'
+                    descriptor = data['documents'][source]
+                    child = reader / descriptor['url']
+                    value = json.loads(child.read_text())
+                    if name == 'abstract':
+                        value['document']['abstract'] = 'Unverified replacement'
+                    else:
+                        value['document']['anchors'][0]['anchor'] = 'missing-target'
+                    child.write_text(json.dumps(value))
+                    descriptor['sha256'] = hashlib.sha256(child.read_bytes()).hexdigest()
+                    descriptor['size'] = child.stat().st_size
+                    view_path = reader / 'VIEW.json'
+                    view = json.loads(view_path.read_text())
+                    view['files'][descriptor['url']] = descriptor['sha256']
+                    view_path.write_text(json.dumps(view))
+                elif name == 'schema':
                     data['schema'] = 'unknown.navigation.v1'
                 elif name == 'revision':
                     data['canonical']['revision'] = self.older
@@ -300,12 +293,6 @@ class WorkSearchTests(unittest.TestCase):
                     data['preview'] = True
                 elif name == 'documents':
                     data['documents'].pop('content/supporting/unlinked.md')
-                elif name == 'abstract':
-                    data['documents']['content/supporting/unlinked.md']['abstract'] = 'Unverified replacement'
-                elif name == 'anchors':
-                    data['documents']['content/manuscript.md']['anchors'][0]['anchor'] = 'missing-target'
-                else:
-                    data['documents']['content/manuscript.md']['text'] += ' Tampered text.'
                 navigation.write_text(json.dumps(data))
                 if name == 'missing':
                     navigation.unlink()
@@ -316,28 +303,28 @@ class WorkSearchTests(unittest.TestCase):
                     view_path.write_text(json.dumps(view))
                 with self.assertRaises((OSError, ValueError)):
                     self.rebuild(site)
-                self.assertFalse((site / 'work.sqlite').exists())
+                self.assertFalse((site / 'history.sqlite').exists())
 
     def test_work_database_is_reproducible_and_bounded(self):
         site = self.copy_site('reproducible')
         first = self.rebuild(site).read_bytes()
-        (site / 'work.sqlite').unlink()
+        (site / 'history.sqlite').unlink()
         self.assertEqual(first, self.rebuild(site).read_bytes())
-        (site / 'work.sqlite').unlink()
-        with patch('a_guavajam_static_website_generator.search_index.MAX_INDEXED_BYTES', 1), self.assertRaises(ValueError):
+        (site / 'history.sqlite').unlink()
+        with patch('a_guavajam_static_website_generator.navigation_manifest.MAX_MANIFEST_BYTES', 1), self.assertRaises(ValueError):
             self.rebuild(site)
-        self.assertFalse((site / 'work.sqlite').exists())
+        self.assertFalse((site / 'history.sqlite').exists())
 
     def test_unpublished_work_still_has_a_self_contained_directory(self):
         site = self.root / 'unpublished'
         before_publication = self.publisher.git('rev-parse', self.publisher.revisions[0] + '^')
         build_site(self.publisher.repo, site, ref=before_publication,
                    **self.publisher.trust, search_assets='')
-        with closing(sqlite3.connect(site / 'work.sqlite')) as db:
+        with closing(sqlite3.connect(site / 'history.sqlite')) as db:
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM editions').fetchone()[0])
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM documents').fetchone()[0])
             self.assertEqual(0, db.execute('SELECT COUNT(*) FROM passages').fetchone()[0])
-            self.assertEqual('index.html', db.execute('SELECT url FROM search_records').fetchone()[0])
+            self.assertEqual(('', 'Unpublished work'), db.execute('SELECT latest_revision,title FROM works').fetchone())
         self.assertIn('No published versions.', (site / 'index.html').read_text())
         self.assertFalse((site / 'browse/index.html').exists())
         self.assertTrue((site / 'index.html').is_file())
@@ -366,13 +353,13 @@ class WorkSearchTests(unittest.TestCase):
         self.assertEqual(2, len(entries))
         for entry in entries:
             work = output / entry['path']
-            with closing(sqlite3.connect(work / 'work.sqlite')) as db:
+            with closing(sqlite3.connect(work / 'versions.sqlite')) as db:
                 self.assertEqual(entry['repository'], db.execute('SELECT url FROM repositories').fetchone()[0])
             history = (work / 'index.html').read_text()
             self.assertIn('data-worker="../../search-worker.js"', history)
             self.assertIn('src="../../search.js"', history)
-            self.assertRegex(history, r'data-database="work\.[a-f0-9]{64}\.sqlite\.gz"')
-            self.assertTrue((work / 'work.sqlite').is_file())
+            self.assertRegex(history, r'data-database="versions\.[a-f0-9]{64}\.sqlite\.gz"')
+            self.assertTrue((work / 'versions.sqlite').is_file())
             self.assertFalse((work / 'browse/index.html').exists())
             self.assertIn('data-static-heading="Versions"', history)
             self.assertIn('aria-label="Breadcrumb"', history)

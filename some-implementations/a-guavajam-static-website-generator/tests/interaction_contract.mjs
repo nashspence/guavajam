@@ -198,14 +198,21 @@ export async function keyboardControls(page) {
       if (n.matches('a[href]:not([aria-hidden=true]),button,input,select,textarea,summary') && n.tabIndex < 0)
         throw Error('Interactive control missing from Tab order: ' + (n.getAttribute('aria-label') || n.textContent));
     }
-    const controls = visible.filter(n => n.tabIndex >= 0);
+    const controls = visible.filter(n => n.tabIndex >= 0).filter(n => {
+      if (!n.matches('input[type=radio]') || !n.name) return true;
+      // A native named radio group is one Tab stop. Arrow keys reach its
+      // remaining choices; their semantics are checked by the scope journey.
+      const group = visible.filter(other => other.matches('input[type=radio]') &&
+        other.name === n.name && other.form === n.form);
+      return n === (group.find(other => other.checked) || group[0]);
+    });
     if (controls.some(n => n.tabIndex > 0)) throw Error('Positive tabindex changes the reading order');
     controls.forEach((n, index) => n.setAttribute('data-keyboard-test', index));
     document.body.tabIndex = -1; document.body.focus();
     return controls.length;
   });
   const seen = new Set();
-  for (let step = 0; step < count; step++) {
+  for (let step = 0, dateSegments = 0; step < count;) {
     await page.keyboard.press('Tab');
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const state = await page.evaluate(() => {
@@ -218,12 +225,18 @@ export async function keyboardControls(page) {
         if (css.overflowX !== 'visible' && (box.left - ring < bounds.left - 1 || box.right + ring > bounds.right + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY], pannable:p.tabIndex>=0 && p.scrollWidth>p.clientWidth, axis:'x'});
         if (css.overflowY !== 'visible' && (box.top - ring < bounds.top - 1 || box.bottom + ring > bounds.bottom + 1)) clipped.push({class:p.className, box:[box.left,box.top,box.right,box.bottom], bounds:[bounds.left,bounds.top,bounds.right,bounds.bottom], overflow:[css.overflowX,css.overflowY], axis:'y'});
       }
-      return {index: n.getAttribute('data-keyboard-test'), label: n.getAttribute('aria-label') || n.textContent.slice(0, 60),
-        visible: n.matches(':focus-visible'), width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset),
+      return {index: n.getAttribute('data-keyboard-test'), tag: n.tagName, type: n.type, name: n.name, id: n.id, label: n.getAttribute('aria-label') || n.textContent.slice(0, 60),
+        visible: n.matches(':focus-visible') || n.matches('input[type=date]:focus-within'), width: parseFloat(style.outlineWidth), offset: parseFloat(style.outlineOffset),
         clipped, boxWidth: box.width, viewport: innerWidth};
     });
-    assert(state.index !== null && !seen.has(state.index), `Tab ${step + 1}/${count} failed to reach each control: ${JSON.stringify(state)}`);
-    assert.equal(state.index, String(step), `Tab order differs from document order: ${JSON.stringify(state)}`);
+    // Native date controls expose several editable segments under the same
+    // DOM input. Each segment must retain the full focus/containment checks;
+    // subsequent DOM controls must still be reached in document order.
+    const dateSegment = state.type === 'date' && state.index === String(step - 1);
+    dateSegments = dateSegment ? dateSegments + 1 : 0;
+    assert(dateSegments <= 3, 'Native date entry did not advance: ' + JSON.stringify(state));
+    assert(state.index !== null && (!seen.has(state.index) || dateSegment), `Tab ${step + 1}/${count} failed to reach each control: ${JSON.stringify(state)}`);
+    assert.equal(state.index, String(dateSegment ? step - 1 : step), `Tab order differs from document order: ${JSON.stringify(state)}`);
     assert(state.visible && state.width >= 2 && state.offset >= 3, `Focus needs breathing room: ${JSON.stringify(state)}`);
     // An unbroken title may exceed its scroll viewport. Its explicit tab stop
     // remains keyboard-pannable; every control that fits must show its full ring.
@@ -238,6 +251,7 @@ export async function keyboardControls(page) {
     }));
     assert(overflow.width <= overflow.viewport + 1, 'Keyboard focus must keep the page horizontally contained: '+JSON.stringify(overflow));
     seen.add(state.index);
+    if (!dateSegment) step++;
   }
   assert.equal(seen.size, count);
   return count;
@@ -304,10 +318,14 @@ export async function openSearchFilters(page) {
 }
 
 export async function searchFeedbackGeometry(page, initial = false) {
+  await page.locator('#guavajam-search-toggle').waitFor({state: 'visible'});
   return page.evaluate(initial => {
     const bounds = n => {
       const r = n.getBoundingClientRect();
-      return Object.fromEntries(['x', 'y', 'width', 'height'].map(k => [k, Math.round(r[k] * 10) / 10]));
+      // Compare document coordinates: native keyboard scrolling can change
+      // the viewport without moving any layout box or the reserved slot.
+      const values = {x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height};
+      return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Math.round(value * 10) / 10]));
     };
     const state = {toggle: bounds(document.querySelector('#guavajam-search-toggle')),
       heading: bounds(document.querySelector('#guavajam-works-heading')),
@@ -337,7 +355,7 @@ export async function searchEvidence(page) {
     const evidence = row.locator('.guavajam-search-excerpt');
     assert.equal(await evidence.count(), 1, 'each text result explains its exact winning record');
     assert.match(await evidence.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(),
-      /^(Title|Author|Description|Tag or subject|Publication metadata|Document text|Passage) match$/);
+      /^(Title|Author|Description|Tag or subject|Publication metadata|Document text|Passage|Version name|Commit message) match$/);
     assert(await evidence.locator('.guavajam-passage-excerpt mark').count() > 0,
       'even body-only, historical and provenance-only matches show highlighted evidence');
     assert((await evidence.locator('.guavajam-passage-excerpt').textContent()).length <= 322,

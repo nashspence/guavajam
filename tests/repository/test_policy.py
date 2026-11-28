@@ -16,7 +16,9 @@ MARKDOWN_DATA = {
     'some-implementations/a-guavajam-static-website-generator/tests/fixtures/work-search.gfm.md',
     'some-implementations/a-guavajam-static-website-generator/tests/fixtures/work-search-browser.gfm.md',
 }
-LICENSE_TEXT = {'LICENSES/Apache-2.0.txt', 'LICENSES/ISC.txt', 'LICENSES/MIT.txt',
+LICENSE_TEXT = {'some-implementations/a-guavajam-static-website-generator/LICENSES/MIT.txt',
+                'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/fflate-LICENSE.txt',
+                'LICENSES/Apache-2.0.txt', 'LICENSES/ISC.txt', 'LICENSES/MIT.txt',
                 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt',
                 'some-implementations/a-guavajam-static-website-generator/LICENSES/Apache-2.0.txt',
                 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/sqlite3-LICENSE.txt',

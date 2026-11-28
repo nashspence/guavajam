@@ -12,6 +12,8 @@ from a_guavajam_static_website_generator.site import citation_control, committer
 from a_guavajam_static_website_generator.directory_pages import _history_row
 from a_guavajam_static_website_generator.work_search import publication_navigation
 from a_guavajam_static_website_generator.navigation import reader_navigation
+from navigation_fixture import write_navigation
+from a_guavajam_static_website_generator.citation_routes import source_download
 
 
 class Controls(HTMLParser):
@@ -152,7 +154,7 @@ class ChromeTests(unittest.TestCase):
                     'documents': {'content/manuscript.md': {'view': 'index.html', 'title': 'Work', 'anchors': []},
                                   'content/supporting/note.md': {'view': 'supporting/note.html', 'title': 'Note <untrusted> & evidence', 'anchors': []}},
                     'files': {}}
-            (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': view['documents']}))
+            write_navigation(read, view)
             publication_navigation(read, view, 'c' * 40, work_title='Work', edition_number=2,
                                    published='2026-11-03')
             for relative in ('index.html', 'supporting/note.html', 'documents.html'):
@@ -226,9 +228,13 @@ class ChromeTests(unittest.TestCase):
         def render_stub(_repo, revision, target, **_kwargs):
             target.mkdir()
             (target / 'supporting').mkdir()
-            view = {'facts': fact, 'documents': documents, 'files': {}}
-            (target / 'VIEW.json').write_text(json.dumps(view))
-            (target / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': documents}))
+            view = {'facts': fact, 'documents': {name: dict(detail) for name, detail in documents.items()},
+                    'canonical': {'revision': revision, 'manuscript': 'content/manuscript.md'},
+                    'preview': False, 'files': {}}
+            for detail in view['documents'].values():
+                detail['source_sha256'] = hashlib.sha256(source).hexdigest()
+                (target / source_download(detail['view'])).write_bytes(source)
+            write_navigation(target, view)
             for relative, heading in (('index.html', 'Shoreline research'),
                                       ('documents.html', 'Documents in this edition'),
                                       ('supporting/note.html', 'Note')):
@@ -252,11 +258,10 @@ class ChromeTests(unittest.TestCase):
             with (patch('a_guavajam_static_website_generator.site.verify', side_effect=verify_stub),
                   patch('a_guavajam_static_website_generator.site.render', side_effect=render_stub),
                   patch('a_guavajam_static_website_generator.feed.write_work_feed'),
-                  patch('a_guavajam_static_website_generator.site.git_blob', return_value=source),
                   patch('guavajam.source_archive.bundle_revision',
                         side_effect=lambda repo, revision, target: target.write_bytes(b'fixture repository bundle')),
                   patch('a_guavajam_static_website_generator.site.committer_identity', return_value={'name': 'Mara', 'email': ''}),
-                  patch('a_guavajam_static_website_generator.work_search.build_work_index', return_value=None)):
+                  patch('a_guavajam_static_website_generator.work_search.build_work_indexes', return_value=None)):
                 _build(Path(temp), catalog, output, fingerprints=(), allowed_signers=None,
                        view_cache=None, repository='https://github.com/example/work.git',
                        search_assets='../../')

@@ -6,6 +6,7 @@ import hashlib
 from html import escape
 from pathlib import Path
 import tempfile
+import sqlite3
 
 from guavajam.catalog import CatalogError
 
@@ -26,11 +27,19 @@ def emit_download(database):
     Native HTTP caching can therefore reuse the exact representation indefinitely.
     """
     database = Path(database).absolute()
-    if (database.name not in {'index.sqlite', 'work.sqlite'} or not database.is_file()
+    if (database.name not in {'index.sqlite', 'versions.sqlite', 'documents.sqlite', 'passages.sqlite', 'history.sqlite'} or not database.is_file()
             or database.resolve() != database):
         raise CatalogError('search download: expected an owned SQLite artifact')
     size = database.stat().st_size
-    if not 0 < size <= MAX_DATABASE_BYTES:
+    if size > MAX_DATABASE_BYTES:
+        from .search_chunks import emit_chunks
+        from .facet_options import emit_options
+        descriptor = emit_chunks(database)
+        facets = emit_options(database)
+        if facets:
+            descriptor['facets'] = facets
+        return descriptor
+    if not 0 < size:
         raise CatalogError('search download: database exceeds transfer bounds')
     temporary = None
     try:
@@ -60,7 +69,17 @@ def emit_download(database):
         else:
             temporary.chmod(0o644)
             temporary.replace(destination)
-        return {'url': name, 'encoding': 'gzip', 'size': size, 'transfer_size': transfer_size}
+        from .facet_options import emit_options
+        descriptor = {'url': name, 'encoding': 'gzip', 'size': size, 'transfer_size': transfer_size,
+                      'sha256': _digest(database), 'transfer_sha256': digest}
+        with sqlite3.connect(database) as connection:
+            if connection.execute("SELECT 1 FROM sqlite_schema WHERE name='metadata'").fetchone():
+                metadata = dict(connection.execute('SELECT key,value FROM metadata'))
+                descriptor['generation'] = metadata['generation']
+        facets = emit_options(database)
+        if facets:
+            descriptor['facets'] = facets
+        return descriptor
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
@@ -73,5 +92,13 @@ def download_attributes(descriptor, *, prefix=''):
         'data-database-size': str(descriptor['size']),
         'data-database-transfer-size': str(descriptor['transfer_size']),
         'data-database-encoding': descriptor['encoding'],
+        'data-database-sha256': descriptor['sha256'],
+        'data-database-transfer-sha256': descriptor['transfer_sha256'],
     }
+    if descriptor.get('generation'):
+        attributes['data-generation'] = descriptor['generation']
+    if descriptor.get('facets'):
+        import json
+        facets = {**descriptor['facets'], 'url': prefix + descriptor['facets']['url']}
+        attributes['data-facets'] = json.dumps(facets, ensure_ascii=False, separators=(',', ':'))
     return ' '.join(name + '="' + escape(value, quote=True) + '"' for name, value in attributes.items())

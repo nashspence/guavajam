@@ -108,6 +108,9 @@ a:hover, a:visited:hover { color: var(--guavajam-link-hover); }
 :is(h1, h2, h3, h4, h5, h6) a { font-weight: inherit; }
 a:hover mark { color: var(--guavajam-match-hover-ink); }
 .footnote-ref { white-space: nowrap; }
+/* A native date field's calendar button can own shadow focus without
+   matching :focus-visible on the input itself. Keep its enclosing ring. */
+input[type="date"]:focus-within,
 :where(a[href], button, input, select, textarea, summary, [tabindex], audio, video):focus-visible {
   outline: 3px solid var(--guavajam-focus);
   outline-offset: 3px;

@@ -8,6 +8,7 @@
   "type": "module",
   "license": "Apache-2.0",
   "dependencies": {
-    "@sqlite.org/sqlite-wasm": "3.54.1-build1"
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
+    "fflate": "0.8.3"
   }
 }

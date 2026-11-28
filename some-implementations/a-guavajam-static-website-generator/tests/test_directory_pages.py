@@ -7,6 +7,7 @@ import json
 import re
 from pathlib import Path
 import sqlite3
+import shutil
 import tempfile
 import unittest
 
@@ -53,24 +54,33 @@ class DirectoryPageTests(unittest.TestCase):
                         'title': f'Field observation {i:02d}', 'view': f'supporting/{slug}.html', 'anchors': []}
             view = {'facts': {'title': 'Shoreline work', 'author': 'Mara Levin'},
                     'documents': documents, 'files': {'NAV.json': 'old'}}
-            (read / 'VIEW.json').write_text(json.dumps(view))
-            (read / 'NAV.json').write_text(json.dumps({'canonical': {'manuscript': 'content/manuscript.md'}, 'documents': documents}))
+            from navigation_fixture import write_navigation
+            write_navigation(read, view)
+            (read.parent / 'BIBLIOGRAPHY.json').write_text(json.dumps({'facts':view['facts']}))
             (read.parent / 'CITATION.json').write_text(json.dumps({
                 'revision': sha, 'manuscript': 'content/manuscript.md'}))
             (read.parent / 'SOURCE.json').write_text(json.dumps({
                 'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
                 'revision': sha, 'manuscript': 'content/manuscript.md',
                 'documents': {path: [] for path in documents}}))
-        self.database = self.output / 'work.sqlite'
+        self.database = self.output / 'versions.sqlite'
         with sqlite3.connect(self.database) as db:
             db.execute('CREATE TABLE representative (x INTEGER)')
+        self.databases = {'versions':self.database,'history':self.output/'history.sqlite','documents':{},'passages':{}}
+        shutil.copyfile(self.database,self.databases['history'])
+        for revision,_,_,_ in self.editions:
+            for scope in ['documents','passages']:
+                target=self.output/'editions'/revision/'search'/(scope+'.sqlite')
+                target.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(self.database,target)
+                self.databases[scope][revision]=target
         # Presence of the official search controller is sufficient for the
         # page generator to expose controls; it does not create a new engine.
-        (self.output / 'search.js').write_text('// supplied by normal build_work_index')
+        (self.output / 'search.js').write_text('// supplied by normal build_work_indexes')
 
     def test_generation_bounds_every_page_and_links_to_every_record(self):
         build_directories(self.output, self.editions, collection=True,
-                          search_assets='../../', database=self.database)
+                          search_assets='../../', databases=self.databases)
         history = self.output
         history_pages = [history / 'index.html', history / 'page/2.html']
         old = []
@@ -145,14 +155,14 @@ class DirectoryPageTests(unittest.TestCase):
 
     def test_standalone_work_pages_resolve_search_and_readers_from_the_work_root(self):
         build_directories(self.output, self.editions, collection=False,
-                          search_assets='', database=self.database)
+                          search_assets='', databases=self.databases)
         for number, location in enumerate((self.output / 'index.html', self.output / 'page/2.html'), 1):
             html = location.read_text()
             prefix = '' if number == 1 else '../'
             self.assertIn('data-root="' + prefix + '"', html)
             self.assertIn('data-worker="' + prefix + 'search-worker.js"', html)
             self.assertIn('src="' + prefix + 'search.js"', html)
-            self.assertRegex(html, 'data-database="' + re.escape(prefix) + r'work\.[a-f0-9]{64}\.sqlite\.gz"')
+            self.assertRegex(html, 'data-database="' + re.escape(prefix) + r'versions\.[a-f0-9]{64}\.sqlite\.gz"')
             self.assertIn('<title>Shoreline work' + ('' if number == 1 else ' — page 2') + ' — GuavaJam</title>', html)
             if number == 1:
                 self.assertIn('<h1 aria-current="page">Shoreline work</h1>', html)
@@ -166,7 +176,7 @@ class DirectoryPageTests(unittest.TestCase):
     def test_static_only_mode_shows_native_paging_without_nonfunctional_controls(self):
         (self.output / 'search.js').unlink()
         build_directories(self.output, self.editions, collection=False,
-                          search_assets='', database=None)
+                          search_assets='', databases=None)
         history = (self.output / 'index.html').read_text()
         docs = (self.output / 'editions' / self.editions[-1][0] / 'read/documents.html').read_text()
         for html in (history, docs):
@@ -182,9 +192,11 @@ class DirectoryPageTests(unittest.TestCase):
             {'anchor': 'detail', 'title': 'Detail & evidence', 'kind': 'section', 'level': 3, 'scope': 'document'},
             {'anchor': 'quoted', 'title': 'Quoted heading', 'kind': 'section', 'level': 2, 'scope': 'quotation:turn'},
             {'anchor': 'closing', 'title': 'Closing', 'kind': 'section', 'level': 2, 'scope': 'document'}]
-        nav = json.loads((read / 'NAV.json').read_text())
-        nav['documents']['content/manuscript.md']['anchors'] = anchors
-        (read / 'NAV.json').write_text(json.dumps(nav))
+        view = json.loads((read / 'VIEW.json').read_text())
+        from navigation_fixture import write_navigation
+        documents = {**view['documents'], 'content/manuscript.md': {
+            **view['documents']['content/manuscript.md'], 'anchors': anchors}}
+        write_navigation(read, view, {'documents': documents})
         _write_contents(self.output, [self.editions[-1]], collection=True)
         html = (read / 'contents.html').read_text()
         links = Markup(html).links

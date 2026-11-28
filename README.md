@@ -47,7 +47,7 @@ checks. The index is a list of URLs, not a source of publisher signing authority
 Optional author-declared [keywords and subjects](tests/guavajam/test_subject_metadata.py)
 live in work front matter. The [aggregate search contracts](some-implementations/a-guavajam-static-website-generator/tests/test_search_index.py)
 and [browser journey](some-implementations/a-guavajam-static-website-generator/tests/test_search_browser.mjs) cover the generated
-SQLite artifact, all-edition text search, latest-edition filters and static fallback.
+physically scoped SQLite artifacts, latest-edition bibliography, explicit work-history search and static fallback.
 Work views also derive [contents and document navigation](some-implementations/a-guavajam-static-website-generator/tests/test_navigation.py)
 and an optional [work search index](some-implementations/a-guavajam-static-website-generator/tests/test_work_search.py), with
 [edition/document/passage browser journeys](some-implementations/a-guavajam-static-website-generator/tests/test_work_search_browser.mjs).

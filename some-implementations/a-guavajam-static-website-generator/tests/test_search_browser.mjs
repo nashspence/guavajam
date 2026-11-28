@@ -183,6 +183,7 @@ try {
         await listHeadingOverflow(parityPage);
         await contain();
         await parityPage.locator('#guavajam-search-toggle').click();
+        await parityPage.locator('#guavajam-search button[type=submit]').click();
         await parityPage.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
           !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
         assertRowStyle(await rowStyle(parityPage.locator('#guavajam-search-results > li').first()), await expectedRow(parityPage.locator('#guavajam-search-results > li').first()),
@@ -202,6 +203,7 @@ try {
         const mobile = await phone.newPage();
         for (const url of [base, ...surfaces]) {
           await mobile.goto(url);await mobile.locator('#guavajam-search-toggle').tap();
+          await mobile.locator('#guavajam-search button[type=submit]').tap();
           await mobile.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden &&
             !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
           await fixedPageHorizontalScroll(mobile, {touch: true});
@@ -240,22 +242,25 @@ try {
       assert.equal(await page.locator('form#guavajam-search').getAttribute('data-root'), '../');
       assert.equal(loaded.some(url => /(?:\.wasm|\.sqlite(?:\.gz)?|search-worker\.js)(?:\?|$)/.test(url)), false);
       await page.locator('#guavajam-search-toggle').click();
+        await page.locator('#guavajam-search button[type=submit]').click();
       await waitTotal(fixture.works);
       assert.equal(await page.locator('#guavajam-search-spinner').isVisible(), false);
       assert.equal(await page.locator('#guavajam-works-heading').textContent(), 'Works');
       assert.equal(await page.locator('#guavajam-search-results .guavajam-facet').count() > 0, true);
       const pagedResult = await page.locator('#guavajam-search-results h3 a').first().getAttribute('href');
       assert(pagedResult.startsWith('../sources/'));
-      await query('Glaciolacustrine', 1);
+      await query('Bibliographyselector', 1);
       const pagedHit = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
       assert(pagedHit.startsWith('../sources/'));
       assert((await page.request.get(new URL(pagedHit, page.url()).href)).ok());
       await page.goto(base);
       await page.locator('#guavajam-search-toggle').focus();
       await page.locator('#guavajam-search-toggle').press('Enter');
+      await page.locator('#guavajam-search button[type=submit]').focus();
+      await page.locator('#guavajam-search button[type=submit]').press('Enter');
       await waitTotal(fixture.works);
-      assert.equal(await page.locator('#guavajam-search-toggle').evaluate(node => node === document.activeElement), true,
-        'the heading search toggle retains keyboard focus after loading');
+      assert.equal(await page.locator('#guavajam-search button[type=submit]').evaluate(node => node === document.activeElement), true,
+        'the explicit Search button retains keyboard focus after loading');
       assert.equal(await page.evaluate(() => crossOriginIsolated), false);
       assert.equal(await page.locator('#guavajam-static-list').isVisible(), false);
       assert.equal(await page.locator('#guavajam-search-results > li').count(), 20);
@@ -279,48 +284,24 @@ try {
       assert.equal(await page.locator('select[name=sort]').evaluate(n => n === document.activeElement), true,
         'changing a filter keeps focus on that filter');
       assert.equal(await page.locator('#guavajam-search-page').textContent(), 'Page 1 of 2');
-      await query('Palaeoriver', 1);
-      assert.equal(await page.locator('.guavajam-match-source').textContent(), 'v2 · Old geography');
-      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeoriver');
-      assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'Work 01');
-      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), fixture.historical + '#opening');
-      await page.locator('.guavajam-excerpt-label a').click();
-      assert(page.url().endsWith(fixture.historical + '#opening'));
-      assert((await page.locator('article').textContent()).includes('Palaeoriver'));
-      await page.goto(base);
-      await page.locator('#guavajam-search-toggle').click();
-      await waitTotal(fixture.works);
-      await fixedPageHorizontalScroll(page);
-      await query('Glaciolacustrine', 1);
-      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Document text match');
-      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Glaciolacustrine');
-      await searchHighlightContrast(page);await linkPalette(page);
-      const support = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
-      assert(support.startsWith('sources/work-02/editions/'));
-      assert(support.endsWith('/read/supporting/evidence.html#claim'));
-      assert.equal((await page.request.get(base + support)).status(), 200);
-      // Follow the actual reason control: it must reveal the cited source block.
+      for (const term of ['Palaeoriver','Glaciolacustrine','Freeprosebodyevidence','Old geography','Historical observation'])
+        await query(term, 0);
+      await query('Bibliographyselector', 1);
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Description match');
+      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Bibliographyselector');
+      await fixedPageHorizontalScroll(page); await searchHighlightContrast(page); await linkPalette(page);
+      const bibliographyTarget = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
+      assert(bibliographyTarget.startsWith('sources/work-02/editions/'));
+      assert(bibliographyTarget.endsWith('/read/index.html'));
+      assert((await page.request.get(new URL(bibliographyTarget,page.url()).href)).ok());
       const destination = await context.newPage();
-      await destination.goto(base);
-      await destination.locator('#guavajam-search-toggle').click();
-      await destination.waitForFunction(() => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy'));
-      await destination.locator('input[name=q]').fill('Glaciolacustrine');
-      await destination.locator('#guavajam-search button[type=submit]').click();
-      await destination.waitForFunction(() => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent==='1 total');
-      await destination.locator('.guavajam-excerpt-label a').click();
-      assert.equal(new URL(destination.url()).hash,'#claim');
-      assert((await destination.locator(':target').textContent()).includes('Glaciolacustrine'));
+      await destination.goto(new URL(bibliographyTarget,page.url()).href);
+      assert((await destination.locator('article').textContent()).includes('Bibliographyselector'));
+      assert.equal(new URL(destination.url()).hash,'');
       await destination.close();
-      await query('Freeprosebodyevidence', 1);
-      const freeProse = await page.locator('.guavajam-excerpt-label a').getAttribute('href');
-      assert(freeProse.endsWith('/read/index.html#:~:text=Freeprosebodyevidence'));
-      assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(),'Freeprosebodyevidence');
-      const freeResponse=await page.request.get(new URL(freeProse,page.url()).href);
-      assert(freeResponse.ok() && (await freeResponse.text()).includes('Freeprosebodyevidence'));
-      await query('cafe collection', 1); // metadata and body share the same search record
+      await query('cafe collection', 1); // eligible latest bibliography fields combine in one work record
       assert.equal(await page.locator('#guavajam-search-results .guavajam-tag mark').textContent(), 'Café');
-      // Commit identifiers are searchable too: another random fixture hash can
-      // start with 01. Assert the intended title hit without excluding those hits.
+      // Only the latest bibliographic title supplies this title hit.
       await query('Work 01');
       const titleHit = page.locator('#guavajam-search-results > li').filter({
         has: page.getByRole('link', {name: 'Work 01', exact: true})});
@@ -330,7 +311,9 @@ try {
       await query("zznonexistent' OR 1=1 --", 0); // never SQL or an FTS expression
       await query('!!!', fixture.works);
       await query('', fixture.works);
-      await page.locator('.guavajam-search-filters summary .guavajam-disclosure-arrow').click();
+      if (!await page.locator('.guavajam-search-filters').evaluate(node => node.open))
+        await page.locator('.guavajam-search-filters summary .guavajam-disclosure-arrow').click();
+      await page.waitForFunction(() => document.querySelector('select[name=subject]').options.length === 3);
       const options = await page.locator('select[name=subject] option').evaluateAll(nodes => nodes.slice(1).map(n => ({key: n.value, label: n.textContent})));
       assert(options.filter(item => item.label.includes('Java · ')).length >= 2,
         'same-name subjects keep their distinct authority metadata');
@@ -349,6 +332,9 @@ try {
       assert.equal(await page.locator('select[name=keyword] option').filter({hasText: 'Retired topic'}).count(), 0);
       await page.locator('select[name=keyword]').selectOption('');
       await waitTotal(fixture.works);
+      await page.locator('select[name=sort]').selectOption('recent');
+      await page.waitForFunction(() => !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
+        document.querySelector('#guavajam-search-results h3 .guavajam-link-label').textContent === 'Work 22');
       // Facet controls are native buttons only once SQLite is enabled.
       const fieldTag = page.locator('#guavajam-search-results .guavajam-tag > button.guavajam-facet-type').first();
       assert.equal(await fieldTag.getAttribute('data-value'), 'Field observations');
@@ -474,6 +460,7 @@ try {
         await waiting.goto(base);
         const beforeDownload = await searchFeedbackGeometry(waiting, true);
         await waiting.locator('#guavajam-search-toggle').click();
+        await waiting.locator('#guavajam-search button[type=submit]').click();
         await Promise.race([signalled, new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Expected a deferred SQLite download')), 15000))]);
         assert.equal(await waiting.locator('#guavajam-search-spinner').isVisible(), true);
@@ -522,7 +509,7 @@ try {
       await waiting.waitForFunction(() => document.querySelector('#guavajam-search-page').textContent === 'Page 2 of 2');
       assert.equal(await waiting.evaluate(() => document.activeElement === window.guavajamSearchTest.focus), true,
         'a delayed reply never steals focus after the reader tabs back into the query');
-      await waiting.locator('input[name=q]').fill('Glaciolacustrine');
+      await waiting.locator('input[name=q]').fill('Bibliographyselector');
       await waiting.waitForFunction(() => document.querySelector('#guavajam-search-status').textContent === '1 total');
       assert.equal(await waiting.locator('input[name=q]').evaluate(n => n === document.activeElement), true,
         'live search does not move focus while the reader is typing');
@@ -562,7 +549,8 @@ try {
         const fallback = await failure.newPage();
         await fallback.goto(base);
         await fallback.locator('#guavajam-search-toggle').click();
-        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
+        await fallback.locator('#guavajam-search button[type=submit]').click();
+        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('incomplete'));
         assert.equal(await fallback.locator('#guavajam-static-list').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-list > li').count(), 20);
         await failure.close();
@@ -577,18 +565,20 @@ try {
         form.dataset.database = './index.' + '0'.repeat(64) + '.sqlite.gz';
       });
       await stale.locator('#guavajam-search-toggle').click();
-      await stale.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
+        await stale.locator('#guavajam-search button[type=submit]').click();
+      await stale.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('incomplete'));
       assert.equal(await stale.locator('#guavajam-static-list').isVisible(), true);
       await Promise.all([stale.waitForNavigation(), stale.locator('#guavajam-search-reload').click()]);
       assert.equal(await stale.locator('#guavajam-search').getAttribute('data-database'), currentDatabase);
       if (!await stale.locator('#guavajam-index-search').evaluate(n => !n.hidden))
         await stale.locator('#guavajam-search-toggle').click();
+        await stale.locator('#guavajam-search button[type=submit]').click();
       await stale.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent === `${total} total`, fixture.works);
       assert.equal(await stale.locator('#guavajam-search-reload').isVisible(), false);
       await recovery.close();
       report.push({engine: name, version: browser.version(), executablePath: executablePath ?? 'Playwright pinned',
-        works: fixture.works, pagination: true, historicalRouting: true,
-        supportingRouting: true, metadataSearch: true, facets: true, deferredRuntime: true,
+        works: fixture.works, pagination: true, bodyAndHistoryExcluded: true,
+        bibliographyRouting: true, metadataSearch: true, facets: true, deferredRuntime: true,
         staticFallback: true, stalePageRecovery: true, accessibility: true});
       console.log(`${name}: aggregate SQLite WASM search, routing, facets, pagination and fallbacks passed`);
     } finally { await browser.close(); }

@@ -44,17 +44,17 @@ class SearchIndexTests(unittest.TestCase):
         navigation = {'schema': 'guavajam.navigation.v1', 'canonical': view['canonical'], 'preview': False,
                       'documents': {path: {**detail, 'text': detail['title'] + ' ' + phrase}
                                     for path, detail in view['documents'].items()}}
-        raw = json.dumps(navigation).encode('utf-8')
-        (read / 'NAV.json').write_bytes(raw)
-        view['files'] = {'NAV.json': hashlib.sha256(raw).hexdigest()}
-        (read / 'VIEW.json').write_text(json.dumps(view))
+        from navigation_fixture import write_navigation
+        write_navigation(read, view, navigation)
+        (read.parent / 'BIBLIOGRAPHY.json').write_text(json.dumps({
+            'schema':'guavajam.search-bibliography.v1','revision':sha,'preview':False,'facts':view['facts']}))
         (read / 'index.html').write_text('<html><head><style>stylesheet</style></head><body><article><h1>' +
                                         title + '</h1><p>' + phrase + '</p></article></body></html>')
         (read / 'supporting').mkdir()
         (read / 'supporting/notes.html').write_text('<article><p>Supporting evidence: ' + phrase + '</p></article>')
         return {'repository': 'https://example.org/' + name + '.git', 'path': path, 'tip': sha}
 
-    def test_fts_combines_metadata_and_plaintext_across_repositories(self):
+    def test_fts_combines_latest_bibliographic_fields_across_repositories(self):
         entries = [self.source('alpha', 'Field Notes', 'Arctic ecology', keywords=['fieldwork']),
                    self.source('beta', 'River Records', 'Freshwater biology', keywords=['hydrology'])]
         database = create_index(self.site, entries)
@@ -63,15 +63,12 @@ class SearchIndexTests(unittest.TestCase):
             self.assertEqual('ok', db.execute('PRAGMA integrity_check').fetchone()[0])
             self.assertEqual([], db.execute('PRAGMA foreign_key_check').fetchall())
             self.assertEqual([('River Records',)], db.execute(
-                "SELECT DISTINCT w.title FROM search_fts JOIN search_records s ON s.id=search_fts.rowid "
-                "JOIN works w ON w.id=s.work_id WHERE search_fts MATCH 'hydrology AND Freshwater'").fetchall())
-            self.assertEqual(4, db.execute('SELECT COUNT(*) FROM documents').fetchone()[0])
-            self.assertEqual(2, db.execute("SELECT count(*) FROM search_fts WHERE search_fts MATCH 'alpha'").fetchone()[0])
-            self.assertEqual(2, db.execute("SELECT count(*) FROM search_fts WHERE search_fts MATCH 'Signed AND Field'").fetchone()[0])
-            self.assertTrue(db.execute('SELECT url FROM documents WHERE work_id=2').fetchone()[0].startswith('sources/beta/editions/'))
-            self.assertEqual('a' * 64, db.execute('SELECT source_sha256 FROM documents LIMIT 1').fetchone()[0])
-            self.assertEqual(0, db.execute(
-                "SELECT count(*) FROM search_fts WHERE search_fts MATCH 'stylesheet'").fetchone()[0])
+                "SELECT w.title FROM work_fts JOIN works w ON w.id=work_fts.rowid "
+                "WHERE work_fts MATCH 'hydrology AND Freshwater'").fetchall())
+            self.assertEqual(2, db.execute('SELECT count(*) FROM work_fts').fetchone()[0])
+            for term in ['alpha','Signed','stylesheet']:
+                self.assertEqual(0, db.execute('SELECT count(*) FROM work_fts WHERE work_fts MATCH ?', (term,)).fetchone()[0])
+            self.assertFalse(db.execute("SELECT name FROM sqlite_schema WHERE name IN ('documents','editions','passages')").fetchall())
 
     def test_directory_restores_editorial_hierarchy_with_optional_search(self):
         entry = self.source('alpha', 'Field Notes', 'Arctic ecology', keywords=['fieldwork'])
@@ -158,9 +155,9 @@ class SearchIndexTests(unittest.TestCase):
         two = {'subject': 'Java', 'subject_scheme': 'Places', 'language': 'en'}
         entry = self.source('alpha', 'Field Notes', 'Evidence', keywords=['same', 'same'], subjects=[one, one, two])
         with closing(sqlite3.connect(create_index(self.site, [entry]))) as db:
-            for table, count in [('keywords', 1), ('edition_keywords', 1), ('subjects', 2), ('edition_subjects', 2)]:
+            for table, count in [('keywords', 1), ('subjects', 2)]:
                 self.assertEqual(count, db.execute('SELECT count(*) FROM ' + table).fetchone()[0])
-            facts = json.loads(db.execute('SELECT facts_json FROM editions').fetchone()[0])
+            facts = json.loads(db.execute('SELECT facts_json FROM works').fetchone()[0])
             self.assertEqual([one, one, two], facts['subjects'])
             self.assertEqual(['same', 'same'], facts['keywords'])
             self.assertNotEqual(subject_key(one), subject_key(two))
@@ -204,19 +201,18 @@ class SearchIndexTests(unittest.TestCase):
         self.assertIn('Birds</span>', html)
         self.assertNotIn('Birds · Ornithological index', html)
 
-    def test_failed_or_redirected_inputs_leave_no_partial_database(self):
+    def test_failed_or_redirected_bibliography_leaves_no_partial_database(self):
         entry = self.source('alpha', 'Field Notes', 'Safe words')
-        read = self.site / entry['path'] / 'editions' / entry['tip'] / 'read'
-        path = read / 'VIEW.json'
+        path = self.site / entry['path'] / 'editions' / entry['tip'] / 'BIBLIOGRAPHY.json'
         original = json.loads(path.read_text())
         for preview in (True, None):
             path.write_text(json.dumps({**original, 'preview': preview}))
             with self.assertRaises(ValueError): create_index(self.site, [entry])
             self.assertFalse((self.site / 'index.sqlite').exists())
         path.write_text(json.dumps(original))
-        html = read / 'index.html'
-        html.rename(self.site / 'outside.html')
-        html.symlink_to(self.site / 'outside.html')
+        outside = self.site / 'outside.json'
+        path.rename(outside)
+        path.symlink_to(outside)
         with self.assertRaises(ValueError): create_index(self.site, [entry])
         self.assertFalse((self.site / 'index.sqlite').exists())
 
@@ -296,7 +292,7 @@ subjects:
         path.write_text(text)
         return self.publisher.publish('Record ' + title, date=date)
 
-    def test_pages_preserves_signed_metadata_and_historical_matches(self):
+    def test_pages_preserves_latest_bibliography_and_separate_historical_passages(self):
         older = self.declare('Earlier Notes', 'Historic narwhal evidence.', 'old keyword', date='2026-11-10T12:00:00Z')
         latest = self.declare('Current Notes', 'Current estuary evidence.', 'new keyword', date='2026-11-01T12:00:00Z')
         output, checkpoint = self.root / 'public', self.root / 'next.json'
@@ -314,15 +310,16 @@ subjects:
             self.assertEqual(('Current Notes', latest, '2026-11-01'), db.execute(
                 'SELECT title,latest_revision,latest_published FROM works').fetchone())
             self.assertEqual([('new keyword',)], db.execute('SELECT name FROM keywords').fetchall())
-            self.assertEqual([('old keyword',)], db.execute('SELECT name FROM edition_keywords k '
-                'JOIN editions e ON e.id=k.edition_id WHERE e.revision=?', (older,)).fetchall())
-            hits = db.execute("SELECT s.url FROM search_fts JOIN search_records s ON s.id=search_fts.rowid "
-                              "WHERE search_fts MATCH 'narwhal'").fetchall()
-            self.assertEqual(1, len(hits))
-            self.assertIn('/editions/' + older + '/read/index.html', hits[0][0])
-            self.assertTrue((output / hits[0][0]).is_file())
-            stored = json.loads(db.execute('SELECT facts_json FROM editions WHERE revision=?', (latest,)).fetchone()[0])
+            self.assertEqual(0, db.execute("SELECT count(*) FROM work_fts WHERE work_fts MATCH 'narwhal'").fetchone()[0])
+            stored = json.loads(db.execute('SELECT facts_json FROM works').fetchone()[0])
             self.assertEqual(view['facts'], stored)
+        with closing(sqlite3.connect(output / entry['path'] / 'history.sqlite')) as db:
+            hits = db.execute("SELECT p.url FROM passage_fts JOIN passages p ON p.id=passage_fts.rowid "
+                              "WHERE passage_fts MATCH 'narwhal'").fetchall()
+            self.assertEqual(1, len(hits))
+            self.assertIn('/editions/' + older + '/read/index.html', '/' + hits[0][0])
+            self.assertTrue((output / entry['path'] / hits[0][0].split('#')[0]).is_file())
+
 
     def test_managed_generations_include_database_and_runtime_identity(self):
         output = self.root / 'managed'

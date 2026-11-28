@@ -9,7 +9,7 @@ setup: ## Install this implementation and GuavaJam using pinned workspace tools.
 	mise exec -- uv sync --locked --package a-guavajam-static-website-generator --group dev
 test: ## Run generator contracts with workspace-only fixtures.
 	@$(PYTHON) ../../tools/run_tests.py a-guavajam-static-website-generator
-	@mise exec -- node --test tests/test_download_transport.mjs
+	@mise exec -- node --test tests/test_download_transport.mjs tests/test_search_hash.mjs tests/test_search_chunks.mjs tests/test_search_state.mjs
 test-deployment-config: ## Verify this implementation's Compose and image contracts.
 	@$(PYTHON) -m unittest discover -s ../../tests/deployment -p test_configuration.py -v
 preview-docker: ## REPO=path [PORT=8082 S3_ENV=private-read.env]; launch a disposable complete website preview.
@@ -49,6 +49,8 @@ test-browser: ## Run reader, keyboard, accessibility and print journeys; require
 	@$(PYTHON) tests/run_catalog_browser.py
 	@$(PYTHON) tests/run_search_browser.py
 	@$(PYTHON) tests/run_work_search_browser.py
+	@$(PYTHON) tests/run_scoped_search_browser.py --output .build/scoped-search-browser
+	@$(PYTHON) tests/run_chunk_search_browser.py --output .build/chunk-search-browser.json
 	@$(PYTHON) tests/run_search_download_browser.py --profiles local --repetitions 1
 
 test-compose: test-deployment-config ## Build and qualify default/local-assets Compose with disposable signed source and real S3 media.
@@ -56,3 +58,7 @@ test-compose: test-deployment-config ## Build and qualify default/local-assets C
 	@$(PYTHON) ../../tests/deployment/test_compose.py
 	$(PYTHON) ../../tests/deployment/test_preview_compose.py
 
+
+.PHONY: qualify-search-scale
+qualify-search-scale: ## Qualify installed 1/5/50-edition search; OUTPUT is a JSON report path.
+	$(PYTHON) tests/run_search_scale.py --profile "$${SCALE_PROFILE:-history-50}" --output "$${OUTPUT:?Set OUTPUT}"
