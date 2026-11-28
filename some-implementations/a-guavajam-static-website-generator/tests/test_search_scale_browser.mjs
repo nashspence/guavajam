@@ -53,7 +53,12 @@ try {
       async function send(data, timeout) {
         const started = performance.now(), before = transferred;
         await page.evaluate(data => window.worker.postMessage(data), data);
-        await page.waitForFunction(id => window.messages.some(item => item.id === id && !item.progress), data.id, {timeout});
+        try {
+          await page.waitForFunction(id => window.messages.some(item => item.id === id && !item.progress), data.id, {timeout});
+        } catch (error) {
+          const last = await page.evaluate(() => window.messages.at(-1));
+          throw new Error(JSON.stringify({profile: profile.name, term: data.term, page: data.page, last}), {cause: error});
+        }
         const result = await page.evaluate(id => window.messages.find(item => item.id === id && !item.progress), data.id);
         assert.equal(result.ok, true, JSON.stringify(result));
         return {result, ms: performance.now() - started, transferred: transferred - before};

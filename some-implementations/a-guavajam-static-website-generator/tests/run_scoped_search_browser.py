@@ -28,7 +28,7 @@ def main():
         (fixture.first / 'index.html').write_text(homepage(fixture.first, interactive=True))
         manifest = {'root': str(fixture.first), 'work': 'sources/work/', 'latest': fixture.latest,
                     'older': fixture.older, 'editions': 3}
-        descriptor = Path(os.environ.get('TMPDIR', '/tmp')) / 'scoped-browser-fixture.json'
+        descriptor = fixture.root / 'scoped-browser-fixture.json'
         descriptor.write_text(json.dumps(manifest))
         return subprocess.run(['node', str(Path(__file__).with_name('test_scoped_search_browser.mjs')),
                                str(descriptor), str(args.output)], check=False).returncode

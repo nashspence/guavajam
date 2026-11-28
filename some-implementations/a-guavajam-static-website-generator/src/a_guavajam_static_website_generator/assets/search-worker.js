@@ -4,6 +4,7 @@ import {loadDatabase} from './search-download.js';
 import {SEARCH_BUDGETS} from './search-limits.js';
 
 let db, displayDB, sqlite3, scope, generation, chunkTransport, deadline;
+let activeRequest = 0, queryPhase = 'initializing';
 const PAGE_SIZE = 20;
 const ORDER = Object.freeze({
   relevance: 'score ASC, w.latest_published DESC, w.title COLLATE NOCASE, w.id',
@@ -115,7 +116,7 @@ function memberships(filters, owner, bind) {
   return clauses;
 }
 
-function plan(data, fts) {
+function plan(data, fts, projection = 'winners') {
   const corpus = CORPUS[scope], bind = [], where = [];
   let from, fields, identifier, order, resultKind, winners;
   if (scope === 'collection') {
@@ -153,9 +154,13 @@ function plan(data, fts) {
         "0 AS node_position,e.position AS match_position,d.title AS match_document";
       order = Object.hasOwn(WORK_ORDER, data.sort) ? WORK_ORDER[data.sort] : WORK_ORDER.publication;
     } else {
-      from += ' JOIN passages p ON p.document_id=d.id';
+      // Counts and ranking need occurrence/shape facts, not citation views.
+      // Reconstruct display/citation fields only after choosing page IDs.
+      from += projection === 'display' ? ' JOIN passages p ON p.document_id=d.id' :
+        ' JOIN passage_occurrences p ON p.document_id=d.id';
+      if (projection === 'winners') from += ' JOIN passage_shapes shape ON shape.id=p.shape_id';
       identifier = 'p.id'; resultKind = 'passages';
-      winners = 'p.id AS id,p.title AS title,e.position AS position,e.published,d.path AS document_path,d.id AS document_order,p.position AS node_position';
+      winners = 'p.id AS id,shape.title AS title,e.position AS position,e.published,d.path AS document_path,d.id AS document_order,shape.position AS node_position';
       fields = "p.id AS id,p.title AS title,p.url,p.citation_url,p.citation_json,e.revision,e.published,e.position AS position," +
         "d.title AS document_title,d.path AS document_path,d.id AS document_order,p.anchor,p.scope," +
         "p.position AS node_position,e.position AS match_position,d.title AS match_document";
@@ -197,7 +202,10 @@ function evidence(rows, fts, term) {
       if (bodyMatch) {
         const window = db.selectValue(
           "SELECT snippet(window_fts,0,char(57344),char(57345),'…',24) FROM passage_windows w " +
-          'JOIN window_fts ON window_fts.rowid=w.window_id WHERE w.passage_id=? AND window_fts MATCH ? ' +
+          // CROSS JOIN keeps the selected occurrence's indexed source windows
+          // outside the FTS lookup. A common word must not scan the complete
+          // global window posting list again for every displayed winner.
+          'CROSS JOIN window_fts ON window_fts.rowid=w.window_id WHERE w.passage_id=? AND window_fts MATCH ? ' +
           'ORDER BY w.block_position,w.window_position LIMIT 1', [row.id, words]);
         // Oversized whitespace-free units stay out of the auxiliary index.
         // Native exact-field evidence handles that bounded individual input.
@@ -224,18 +232,22 @@ function evidence(rows, fts, term) {
 
 function search(data) {
   const fts = literalQuery(data.term || ''), {table, weights} = CORPUS[scope];
-  const query = plan(data, fts);
+  queryPhase = 'count';
+  const query = plan(data, fts, 'count');
   // Count membership without snippets or citations; materialize evidence only
   // for winners on the requested page, preserving global corpus statistics.
   const total = db.selectValue('SELECT COUNT(*) FROM ' + query.from + query.where, query.bind.length ? query.bind : undefined);
   const requested = Number.isSafeInteger(data.page) && data.page > 0 ? data.page : 1;
   const number = Math.min(requested, Math.max(1, Math.ceil(total / PAGE_SIZE)));
   const score = fts ? 'bm25(' + table + ',' + weights + ')' : '0';
-  const winners = db.selectObjects('SELECT ' + query.winners + ',' + score + ' AS score FROM ' +
-    query.from + query.where + ' ORDER BY ' + query.order + ' LIMIT ? OFFSET ?',
-    [...query.bind, PAGE_SIZE, (number - 1) * PAGE_SIZE]);
+  queryPhase = 'rank';
+  const ranked = plan(data, fts);
+  const winners = db.selectObjects('SELECT ' + ranked.winners + ',' + score + ' AS score FROM ' +
+    ranked.from + ranked.where + ' ORDER BY ' + ranked.order + ' LIMIT ? OFFSET ?',
+    [...ranked.bind, PAGE_SIZE, (number - 1) * PAGE_SIZE]);
   // Display fields and citations are retrieved only for the selected page.
-  const detail = plan(data, '');
+  queryPhase = 'display';
+  const detail = plan(data, '', 'display');
   const rows = winners.map(winner => ({...db.selectObjects('SELECT ' + detail.fields + ' FROM ' +
     detail.from + ' WHERE ' + detail.identifier + '=?', [winner.id])[0], score: winner.score}));
   for (const row of rows) {
@@ -243,7 +255,9 @@ function search(data) {
       ({...item, label: db.selectValue('SELECT CASE WHEN count(DISTINCT key)=1 THEN min(name) ELSE ? END ' +
         'FROM subjects WHERE name=(SELECT name FROM subjects WHERE key=? LIMIT 1)', [item.label, item.key])})));
   }
+  queryPhase = 'evidence';
   evidence(rows, fts, data.term || '');
+  queryPhase = 'highlights';
   return displayHighlights({kind: query.resultKind, rows, total, page: number, pageSize: PAGE_SIZE}, data.term || '');
 }
 
@@ -269,8 +283,9 @@ self.onmessage = async event => {
         ...(wasmMemory ? {wasmMemory} : {})});
       if (chunked) {
         const {loadChunkDatabase} = await import('./search-chunks.js');
-        chunkTransport = await loadChunkDatabase(sqlite3, {...event.data, database: database.href}, () => {
-          self.postMessage({id, ok: true, progress: true, scope, generation});
+        chunkTransport = await loadChunkDatabase(sqlite3, {...event.data, database: database.href}, metrics => {
+          self.postMessage({id: activeRequest, ok: true, progress: true, scope, generation,
+            phase: queryPhase, transport: metrics});
         });
         db = chunkTransport.db;
       } else db = (await loadDatabase(sqlite3, {database: database.href,
@@ -291,6 +306,7 @@ self.onmessage = async event => {
       self.postMessage({id, ok: true, ready: true, generation, scope});
     } else if (action === 'search' && db) {
       if (event.data.scope !== scope || event.data.generation !== generation) throw new Error('Search generation changed');
+      activeRequest = id;
       deadline = performance.now() + SEARCH_BUDGETS.queryMilliseconds;
       chunkTransport?.store.begin();
       const result = search(event.data);
