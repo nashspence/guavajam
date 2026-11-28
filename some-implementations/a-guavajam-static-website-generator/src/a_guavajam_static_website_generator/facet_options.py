@@ -38,7 +38,7 @@ def _tree(connection, directory, stem, identity, records):
 
     def leaf():
         nonlocal page, ordinal
-        descriptor = _write(directory, stem, {**identity, 'items': page})
+        descriptor = {**_write(directory, stem, {**identity, 'items': page}), 'count': len(page)}
         connection.execute('INSERT INTO option_nodes VALUES (?,?,?,?,?)',
                            (0, ordinal, page[0]['order'] if page else '',
                             page[-1]['order'] if page else '', json.dumps(descriptor)))
@@ -65,7 +65,7 @@ def _tree(connection, directory, stem, identity, records):
 
         def parent():
             nonlocal page, ordinal
-            descriptor = _write(directory, stem, {**identity, 'children': page})
+            descriptor = {**_write(directory, stem, {**identity, 'children': page}), 'count': sum(child['count'] for child in page)}
             connection.execute('INSERT INTO option_nodes VALUES (?,?,?,?,?)',
                                (level, ordinal, page[0]['first'], page[-1]['last'], json.dumps(descriptor)))
             ordinal += 1

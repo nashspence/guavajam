@@ -224,6 +224,9 @@ def document_directory(navigation, *, prefix='', headings=False):
         url = prefix + document['view']
         link = '<a href="' + escape(url, quote=True) + '">' + escape(document['title']) + '</a>'
         row = '<li>' + ('<article><h3>' + link + '</h3>' if headings else link)
+        if headings:
+            from .facets import document_facets
+            row += document_facets(document.get('metadata', []))
         if document.get('abstract'):
             row += '<p class="guavajam-abstract">' + escape(document['abstract']) + '</p>'
         rows.append(row + ('</article>' if headings else '') + '</li>')

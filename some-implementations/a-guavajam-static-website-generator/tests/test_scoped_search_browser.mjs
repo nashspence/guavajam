@@ -155,6 +155,30 @@ try {
         await fixedPageHorizontalScroll(page);
       }
 
+      // Busy/cancel feedback owns permanent heading slots. Editing during the
+      // first ordinary download must refine its eventual query, not cancel it.
+      for (const url of [base, work]) {
+        await page.goto(url); await open(page);
+        const heading = page.locator('.guavajam-list-header');
+        const before = await heading.boundingBox();
+        await page.route('**/*.sqlite.gz', async route => {
+          await new Promise(resolve => setTimeout(resolve, 700)); await route.continue();
+        });
+        await page.locator('button[type=submit]').click();
+        await page.getByRole('button', {name: 'Cancel search', exact: true}).waitFor();
+        const during = await heading.boundingBox();
+        assert.equal(during.height, before.height);
+        const cancel = page.getByRole('button', {name: 'Cancel search', exact: true});
+        assert.equal(await cancel.locator('svg.guavajam-icon-x').count(), 1);
+        assert(!await cancel.evaluate(node => !!node.closest('[aria-hidden="true"]')));
+        await page.locator('input[name=q]').fill(url === base ? 'Currenttitle' : 'Currentmessageselector');
+        await complete(page, 1);
+        await page.locator('input[name=q]').fill('');
+        await complete(page, url === base ? 1 : fixture.editions);
+        assert.equal((await heading.boundingBox()).height, before.height);
+        await page.unroute('**/*.sqlite.gz');
+      }
+
       // Generic options are independent of the main search database, and
       // selected values retain exact literal identity in queries and URLs.
       requests.length = 0;
@@ -214,6 +238,53 @@ try {
       assert(new URL(page.url()).hash.startsWith('#guavajam-metadata='));
       assert(requests.every(value => new URL(value).pathname.length + new URL(value).search.length < 4096));
 
+      // Field and value discovery share compact rows, exact prefix totals,
+      // icon-only paging and literal selection with visible document facets.
+      await page.goto(documentsURL);
+      const literalFacet = page.locator('#guavajam-static-section .guavajam-facet[data-field="Software version"]');
+      assert.equal(await literalFacet.locator('button').count(), 0);
+      await open(page);
+      await literalFacet.locator('button').click();
+      await complete(page, 1);
+      const selectedVersion = page.locator('#guavajam-search-results button[data-field="Software version"]');
+      assert.equal(await selectedVersion.getAttribute('aria-pressed'), 'true');
+      const selectedStyle = await selectedVersion.evaluate(node => getComputedStyle(node).backgroundColor);
+      assert(!['transparent', 'rgba(0, 0, 0, 0)'].includes(selectedStyle));
+      await selectedVersion.click(); await complete(page, 1);
+      assert.equal(await selectedVersion.getAttribute('aria-pressed'), 'false');
+      await page.locator('#guavajam-metadata-key option[value="Versions"]').waitFor({state: 'attached'});
+      await page.locator('#guavajam-metadata-key').selectOption('Versions');
+      const valuesRow = page.locator('.guavajam-metadata-values .guavajam-facet-options');
+      await valuesRow.locator('.guavajam-facet-count').filter({hasText: /^80$/}).waitFor();
+      assert.equal(await page.locator('#guavajam-metadata-value option').count(), 32);
+      const firstChoices = await page.locator('#guavajam-metadata-value option').evaluateAll(nodes => nodes.map(node => node.value));
+      await valuesRow.getByRole('button', {name: 'More options', exact: true}).click();
+      await page.waitForFunction(() => !document.querySelector('.guavajam-metadata-values button[aria-label="Earlier options"]').disabled);
+      assert.notDeepEqual(await page.locator('#guavajam-metadata-value option').evaluateAll(nodes => nodes.map(node => node.value)), firstChoices);
+      assert.equal(await page.locator('#guavajam-metadata-value').inputValue(), '1.0.0', 'Paging preserves the selected literal');
+      await valuesRow.getByRole('button', {name: 'Earlier options', exact: true}).click();
+      await page.waitForFunction(() => document.querySelector('.guavajam-metadata-values button[aria-label="Earlier options"]').disabled);
+      assert.deepEqual(await page.locator('#guavajam-metadata-value option').evaluateAll(nodes => nodes.map(node => node.value)), firstChoices);
+      await valuesRow.locator('input').fill('1.7');
+      await valuesRow.locator('.guavajam-facet-count').filter({hasText: /^11$/}).waitFor();
+      for (const width of [320, 390, 768]) {
+        await page.setViewportSize({width, height: 844});
+        await fixedPageHorizontalScroll(page);
+        for (const row of await page.locator('.guavajam-facet-options').all()) {
+          const boxes = await row.locator('input, select, [role=status], button').evaluateAll(nodes => nodes.map(node => {
+            const rect = node.getBoundingClientRect(); return {top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right};
+          }));
+          assert.equal(boxes.length, 5);
+          assert(Math.max(...boxes.map(box => box.top)) < Math.min(...boxes.map(box => box.bottom)), 'All categorical controls share one row');
+          assert(boxes[0].left >= 0 && boxes.at(-1).right <= width);
+        }
+      }
+      await page.setViewportSize({width: 390, height: 844});
+      for (const colorScheme of ['light', 'dark']) {
+        await page.emulateMedia({colorScheme});
+        await page.screenshot({path: path.join(output, name + '-metadata-' + colorScheme + '.png'), fullPage: true});
+      }
+
       await page.goto(base);
       await open(page);
       await page.locator('summary.guavajam-disclosure-summary .guavajam-disclosure-arrow').click();
@@ -221,6 +292,21 @@ try {
       assert.equal(await page.locator('select[name=subject] option').count(), 3);
       const subjects = await page.locator('select[name=subject]').textContent();
       assert(subjects.includes('Authority A') && subjects.includes('Authority B'));
+      for (const width of [320, 390]) {
+        await page.setViewportSize({width, height: 844});
+        const from = page.locator('input[name=from]'), to = page.locator('input[name=to]');
+        const a = await from.boundingBox(), b = await to.boundingBox();
+        assert.equal(a.y, b.y); assert(a.x + a.width < b.x); assert(b.x + b.width <= width);
+        assert.equal(await page.locator('.guavajam-date-range .guavajam-icon-calendar-days').count(), 2);
+        await fixedPageHorizontalScroll(page);
+      }
+      await page.setViewportSize({width: 390, height: 844});
+      const tag = page.locator('#guavajam-static-section button[data-facet=keyword]').first();
+      await tag.click(); await complete(page, 1);
+      assert.equal(await page.locator('#guavajam-search-results button[data-facet=keyword]').first().getAttribute('aria-pressed'), 'true');
+      await page.locator('#guavajam-search-results button[data-facet=keyword]').first().click();
+      await complete(page, 1);
+      await page.screenshot({path: path.join(output, name + '-work-filters.png'), fullPage: true});
       await page.locator('input[name=from]').fill('2026-01-01');
       await page.locator('#guavajam-search button[type=submit]').click();
       await complete(page, 0);
