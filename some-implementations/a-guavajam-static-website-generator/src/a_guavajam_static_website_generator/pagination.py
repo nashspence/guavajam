@@ -11,6 +11,18 @@ def _slices(items):
     return [items[start:start + PAGE_SIZE] for start in range(0, len(items), PAGE_SIZE)] or [[]]
 
 
+def iter_pages(items):
+    from itertools import islice
+    iterator = iter(items)
+    produced = False
+    while chunk := list(islice(iterator, PAGE_SIZE)):
+        produced = True
+        yield chunk
+    if not produced:
+        yield []
+
+
+
 def page_control(direction, *, href=None, identifier=None):
     """One arrow control serves static hrefs and opt-in browser pagination."""
     previous = direction == 'prev'

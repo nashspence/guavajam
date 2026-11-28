@@ -41,7 +41,9 @@ class LicensingTests(unittest.TestCase):
                 metadata = tomllib.loads((project / 'pyproject.toml').read_text())['project']
                 self.assertEqual('Apache-2.0', metadata['license'])
                 expected = [LICENSE, 'REUSE.toml']
-                if package.endswith('a-guavajam-static-website-generator'): expected.append('src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt')
+                if package.endswith('a-guavajam-static-website-generator'):
+                    expected.extend(['src/a_guavajam_static_website_generator/assets/lucide-LICENSE.txt',
+                        'src/a_guavajam_static_website_generator/assets/fflate-LICENSE.txt', 'LICENSES/MIT.txt'])
                 self.assertEqual(expected, metadata['license-files'])
 
     def test_browser_tool_metadata_agrees_with_repository_license(self):
@@ -49,6 +51,19 @@ class LicensingTests(unittest.TestCase):
         lock = json.loads((ROOT / 'package-lock.json').read_text())
         self.assertEqual('Apache-2.0', package['license'])
         self.assertEqual(package['license'], lock['packages']['']['license'])
+
+    def test_pinned_inflater_has_exact_source_identity_and_mit_notice(self):
+        package = json.loads((ROOT / 'package.json').read_text())
+        lock = json.loads((ROOT / 'package-lock.json').read_text())
+        self.assertEqual('0.8.3', package['dependencies']['fflate'])
+        self.assertEqual('0.8.3', lock['packages']['node_modules/fflate']['version'])
+        self.assertTrue(lock['packages']['node_modules/fflate']['integrity'].startswith('sha512-'))
+        assets = ROOT / 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets'
+        notice = (assets / 'fflate-LICENSE.txt').read_text()
+        self.assertIn('fflate ' + package['dependencies']['fflate'], notice)
+        self.assertIn(hashlib.sha256((assets / 'fflate.mjs').read_bytes()).hexdigest(), notice)
+        self.assertIn('Copyright (c) 2026 Arjun Barrett', notice)
+        self.assertIn('SPDX-License-Identifier' + ': MIT', (assets / 'fflate.mjs.license').read_text())
 
     def test_self_hosted_sqlite_runtime_preserves_third_party_notices(self):
         package = json.loads((ROOT / 'package.json').read_text())

@@ -17,7 +17,7 @@ from guavajam.publication_commit import citation
 
 from .citation_routes import (citation_fragment, citation_href, citation_page,
                               passage_json, relative_href)
-from .pagination import PAGE_SIZE, _slices, _static_pager
+from .pagination import PAGE_SIZE, iter_pages, _static_pager
 from .site import citation_control, page
 from .icons import link_icon
 
@@ -80,7 +80,7 @@ def add_passage_links(html, view, source, anchors, start):
     return ''.join(parts) + html[previous:]
 
 
-def build_citation_pages(output, editions, *, collection, runtime, download, site_origin=None):
+def build_citation_pages(output, editions, *, collection, runtime, downloads, site_origin=None):
     """Emit one bounded human citation listing per version, plus exact JSON records.
 
     No parallel per-document citation HTML is generated. Both static and SQLite
@@ -90,9 +90,11 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
 
     for position, (revision, _, published, _) in enumerate(editions, 1):
         read = Path(output) / 'editions' / revision / 'read'
+        download = downloads.get(revision)
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
-        navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
+        from .navigation_manifest import load_navigation
+        navigation = load_navigation(read, view)
         proof = json.loads((read.parent / 'SOURCE.json').read_text('utf-8'))
         # GuavaJam verifies source membership; do not substitute HTML IDs as proof.
         proof['documents'] = {source: frozenset(anchors) for source, anchors in proof['documents'].items()}
@@ -105,11 +107,16 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
             target.write_bytes(raw)
             view['files'][relative] = hashlib.sha256(raw).hexdigest()
 
-        records = [(source, navigation['documents'][source], anchor)
-                   for source in sorted(navigation['documents'])
-                   for anchor in navigation['documents'][source]['anchors']]
-        chunks = _slices(records)
-        for number, chunk in enumerate(chunks, 1):
+        total = sum(len(document['anchors']) for document in view['documents'].values())
+        pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+
+        def records():
+            for source in sorted(navigation['documents']):
+                document = navigation['documents'][source]
+                for anchor in document['anchors']:
+                    yield source, view['documents'][source], {'anchor': anchor['anchor'], 'title': anchor['title']}
+
+        for number, chunk in enumerate(iter_pages(records()), 1):
             filename = citation_page((number - 1) * PAGE_SIZE)
 
             def relative(target):
@@ -123,9 +130,9 @@ def build_citation_pages(output, editions, *, collection, runtime, download, sit
             if download is not None:
                 controls = _sqlite_controls(kind='citations', edition=revision,
                                          root=root, runtime=runtime, download=download)
-            body = search_listing_open('Passages', len(records), controls=controls, result_class='guavajam-citation-list')
+            body = search_listing_open('Passages', total, controls=controls, result_class='guavajam-citation-list')
             body += '<section id="guavajam-static-section" class="guavajam-directory">'
-            pager = _static_pager(number, len(chunks), first_href=relative(citation_page()),
+            pager = _static_pager(number, pages, first_href=relative(citation_page()),
                                   page_prefix=relative('passages/page') + '/')
             if chunk:
                 body += '<ol class="guavajam-citation-list guavajam-record-list">'

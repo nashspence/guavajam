@@ -17,7 +17,7 @@ test-guavajam: ## Run source, storage and preservation contracts.
 	@mise exec -- node --test tests/guavajam/test_worker.mjs tests/guavajam/test_gateway_server.mjs tests/guavajam/test_private_preview.mjs
 test-a-guavajam-static-website-generator: ## Run rendering, catalog and update contracts.
 	@$(GENERATOR_PYTHON) tools/run_tests.py a-guavajam-static-website-generator
-	@mise exec -- node --test some-implementations/a-guavajam-static-website-generator/tests/test_download_transport.mjs
+	@mise exec -- node --test some-implementations/a-guavajam-static-website-generator/tests/test_download_transport.mjs some-implementations/a-guavajam-static-website-generator/tests/test_search_hash.mjs some-implementations/a-guavajam-static-website-generator/tests/test_search_chunks.mjs some-implementations/a-guavajam-static-website-generator/tests/test_search_state.mjs
 test-browser: ## Qualify the optional website implementation.
 	@$(MAKE) -C some-implementations/a-guavajam-static-website-generator test-browser PYTHON="$(GENERATOR_PYTHON)"
 

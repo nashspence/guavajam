@@ -64,7 +64,7 @@ def search_listing_open(title, total, *, controls='', result_class='guavajam-edi
         body += ('<span id="guavajam-search-progress-status" class="guavajam-visually-hidden" '
                  'role="status" aria-live="polite"></span>'
                  '<ol id="guavajam-search-results" class="' + result_class + ' guavajam-record-list" hidden></ol>')
-    if controls and title == 'Passages':
+    if controls and title in {'Passages', 'Versions'}:
         from .citation import citation_control
         body += ('<template id="guavajam-citation-template">' +
                  citation_control({'revision': ''}, '') + '</template>')
@@ -85,7 +85,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
     """Use the same optional search panel as the works index.
 
     JavaScript reveals the heading toggle, then initializes the worker
-    only if the reader opens it. Static HTML stays independent of JavaScript.
+    only when a search executes. Static HTML stays independent of JavaScript.
     """
     history = kind == 'editions'
     citations = kind == 'citations'
@@ -102,10 +102,13 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
     return ('<div class="guavajam-index-search guavajam-directory-enhancement" '
             'id="guavajam-index-search" hidden>' +
             '<form id="guavajam-search" role="search" '
-            'data-scope="work" data-directory="' + escape(kind, quote=True) + '" '
+            'data-scope="' + ('versions' if history else 'passages' if citations else 'documents') + '" data-directory="' + escape(kind, quote=True) + '" '
             'data-root="' + escape(root, quote=True) + '" ' +
             download_attributes(download, prefix=root) +
             ' data-worker="' + escape(root + runtime + 'search-worker.js', quote=True) + '">'
+            + ('<fieldset class="guavajam-search-scope"><legend class="guavajam-visually-hidden">Search scope</legend>'
+             '<div class="guavajam-scope-options"><label><input type="radio" name="search-scope" value="versions" checked>Versions</label>'
+             '<label><input type="radio" name="search-scope" value="history">Complete history</label></div></fieldset>' if history else '') +
             '<div class="guavajam-query-field"><label class="guavajam-visually-hidden" for="guavajam-query">' + escape(label) + '</label>'
             '<input id="guavajam-query" name="q" type="search" maxlength="256" autocomplete="off"></div>'
             + search_submit() +
@@ -116,7 +119,7 @@ def _sqlite_controls(*, kind, edition, root, runtime, download):
             ('<div><label for="guavajam-supporting">Supporting documents</label>'
              '<select id="guavajam-supporting" name="supporting">'
              '<option value="all">Include</option><option value="manuscript">Exclude</option>'
-             '</select></div>' if citations else '') + '</div></details>'
+             '</select></div>' if citations or history else '') + '</div></details>'
             '<input type="hidden" name="kind" value="' + ('passages' if citations else escape(kind, quote=True)) + '">'
             '<input type="hidden" name="edition" value="' + escape(edition, quote=True) + '">' +
             '</form></div><script src="' + escape(root + runtime + 'search.js', quote=True) +
@@ -171,13 +174,13 @@ def _write_work(output, entries, title, *, collection, runtime, download, site_o
                                      feed_href=root + 'feed.atom', feed_title=title + ' — Editions'), encoding='utf-8')
 
 
-def _write_documents(output, entries, *, collection, runtime, download, site_origin=None):
+def _write_documents(output, entries, *, collection, runtime, downloads, site_origin=None):
     for position, (revision, _, date, _) in enumerate(entries, 1):
         read = output / 'editions' / revision / 'read'
+        download = downloads.get(revision)
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
-        navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
-        documents = [(path, doc) for path, doc in navigation['documents'].items()
+        documents = [(path, doc) for path, doc in view['documents'].items()
                      if path != 'content/manuscript.md']
         chunks = _slices(documents)
         title = view['facts']['title']
@@ -218,7 +221,8 @@ def _write_contents(output, entries, *, collection, site_origin=None):
         read = output / 'editions' / revision / 'read'
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
-        navigation = json.loads((read / 'NAV.json').read_text('utf-8'))
+        from .navigation_manifest import load_navigation
+        navigation = load_navigation(read, view)
         manuscript = navigation['canonical']['manuscript']
         for source, doc in navigation['documents'].items():
             relative = document_contents(doc['view'])
@@ -252,19 +256,39 @@ def _write_contents(output, entries, *, collection, site_origin=None):
         view_path.write_bytes(encoded(view))
 
 
-def build_directories(output, editions, *, collection, search_assets, database, site_origin=None):
-    """Generate every bounded HTML page after the verified SQLite index exists."""
+def build_directories(output, editions, *, collection, search_assets, databases, site_origin=None):
+    """Select the physical artifact for each directory, never all-history SQL filtering."""
     output = Path(output)
-    interactive = database is not None and (bool(search_assets) or (output / 'search.js').is_file())
-    download = emit_download(database) if interactive else None
-    # A collection shares its single runtime; standalone works self-host it.
+    interactive = databases is not None and (bool(search_assets) or (output / 'search.js').is_file())
     runtime = '../../' if search_assets else ''
-    if editions:
-        title = json.loads((output / 'editions' / editions[-1][0] / 'read' / 'VIEW.json').read_text())['facts']['title']
-    else:
-        title = 'Unpublished work'
-    _write_work(output, editions, title, collection=collection, runtime=runtime, download=download, site_origin=site_origin)
-    _write_documents(output, editions, collection=collection, runtime=runtime, download=download, site_origin=site_origin)
+
+    def download(database):
+        descriptor = emit_download(database)
+        parent = database.parent.relative_to(output).as_posix()
+        if parent != '.':
+            descriptor['url'] = parent + '/' + descriptor['url']
+            if descriptor.get('facets'):
+                descriptor['facets']['url'] = parent + '/' + descriptor['facets']['url']
+        return descriptor
+
+    downloads = {scope: {sha: download(path) for sha, path in value.items()}
+                 if isinstance(value, dict) else download(value)
+                 for scope, value in (databases or {}).items()}
+    if databases is not None:
+        (output / 'SEARCH.json').write_bytes(encoded({
+            'schema': 'guavajam.search-routing.v1',
+            'versions': downloads['versions'], 'history': downloads['history']}))
+        for revision, _, _, _ in editions:
+            (output / 'editions' / revision / 'search' / 'SEARCH.json').write_bytes(encoded({
+                'schema': 'guavajam.search-routing.v1',
+                **{scope: downloads[scope][revision] for scope in ['documents', 'passages']}}))
+    title = (json.loads((output / 'editions' / editions[-1][0] / 'BIBLIOGRAPHY.json').read_text())['facts']['title']
+             if editions else 'Unpublished work')
+    _write_work(output, editions, title, collection=collection, runtime=runtime,
+                download=downloads['versions'] if interactive else None, site_origin=site_origin)
+    _write_documents(output, editions, collection=collection, runtime=runtime,
+                     downloads=downloads['documents'] if interactive else {}, site_origin=site_origin)
     _write_contents(output, editions, collection=collection, site_origin=site_origin)
     from .citation_pages import build_citation_pages
-    build_citation_pages(output, editions, collection=collection, runtime=runtime, download=download, site_origin=site_origin)
+    build_citation_pages(output, editions, collection=collection, runtime=runtime,
+                         downloads=downloads['passages'] if interactive else {}, site_origin=site_origin)

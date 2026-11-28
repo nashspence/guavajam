@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {after, before, test} from 'node:test';
 import http from 'node:http';
+import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
 import {loadDatabase} from '../src/a_guavajam_static_website_generator/assets/search-download.js';
 
@@ -12,10 +13,11 @@ header.setUint16(16, 512);
 header.setUint32(28, 2);
 for (let i = 100; i < raw.length; i++) raw[i] = (i * 31) % 253;
 const compressed = gzipSync(raw);
+const digest = value => createHash('sha256').update(value).digest('hex');
 const badHeader = raw.slice();
 badHeader[0] = 0;
 const badGzip = gzipSync(badHeader);
-const filename = 'work.' + 'a'.repeat(64) + '.sqlite.gz';
+const filename = 'versions.' + digest(compressed) + '.sqlite.gz';
 const requests = [];
 let server, base;
 
@@ -28,9 +30,10 @@ before(async () => {
       res.end();
       return;
     }
-    const payload = url.pathname === '/raw' ? raw :
+    let payload = url.pathname === '/raw' ? raw :
       url.pathname === '/bad-header' ? badGzip :
       url.pathname === '/truncated' ? compressed.subarray(0, -7) : compressed;
+    if (url.pathname === '/corrupt-digest') { payload = payload.slice(); payload[4] ^= 1; }
     const headers = {'Content-Type': 'application/octet-stream'};
     if (url.pathname !== '/chunked') headers['Content-Length'] = payload.length;
     if (url.pathname === '/http-gzip') headers['Content-Encoding'] = 'gzip';
@@ -110,7 +113,8 @@ function sqlite({deserializeError = false, pragmaError = false} = {}) {
 
 function descriptor(path = filename) {
   return {database: base + path, databaseSize: raw.length,
-    transferSize: compressed.length, encoding: 'gzip', baseURL: base};
+    transferSize: compressed.length, encoding: 'gzip', sha256: digest(raw),
+    transferSha256: digest(compressed), baseURL: base};
 }
 
 test('gzip streams exactly into one allocation, with a zeroed defensive tail', async () => {
@@ -137,7 +141,7 @@ test('HTTP Content-Encoding does not cause a second gzip decode', async () => {
   db.close();
 });
 
-test('legacy uncompressed artifacts infer a bounded size from their SQLite header', async () => {
+test('the plain SQLite comparison infers a bounded size from their SQLite header', async () => {
   const api = sqlite();
   const {db, metrics} = await loadDatabase(api, {database: base + 'raw', baseURL: base});
   assert.deepEqual(db.bytes, raw);
@@ -158,7 +162,7 @@ test('invalid declared sizes and foreign origins fail before downloading or allo
   const before = requests.length;
   for (const change of [{databaseSize: 0}, {databaseSize: 256 * 1024 * 1024 + 1},
     {databaseSize: 3.5}, {transferSize: 0}, {transferSize: undefined},
-    {encoding: 'br'}, {database: 'https://example.org/' + filename}]) {
+    {encoding: 'br'}, {sha256: 'invalid'}, {transferSha256: 'invalid'}, {database: 'https://example.org/' + filename}]) {
     const api = sqlite();
     await assert.rejects(loadDatabase(api, {...descriptor(), ...change}));
     assert.equal(api.stats.allocated, 0);
@@ -211,4 +215,13 @@ test('real redirects are rejected without fetching their destination', async () 
   await assert.rejects(loadDatabase(api, descriptor('redirect')));
   assert.deepEqual(requests.slice(before), ['/redirect']);
   assert.equal(api.stats.allocated, 0);
+});
+
+test('encoded and decoded digest failures release every owned buffer', async () => {
+  for (const [path, change] of [['corrupt-digest', {}], [filename, {sha256: 'f'.repeat(64)}]]) {
+    const api = sqlite();
+    await assert.rejects(loadDatabase(api, {...descriptor(path), ...change}), /SHA-256/);
+    assert.equal(api.allocations.size, 0);
+    assert.equal(api.stats.allocated, api.stats.freed);
+  }
 });

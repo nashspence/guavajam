@@ -111,7 +111,8 @@ class NavigationTests(unittest.TestCase):
         cls.revision = cls.source.git('rev-parse', 'HEAD')
         cls.output = cls.root / 'read'
         cls.count = render(cls.source.repo, cls.revision, cls.output, preview=True)
-        cls.nav = json.loads((cls.output / 'NAV.json').read_text())
+        from a_guavajam_static_website_generator.navigation_manifest import load_navigation
+        cls.nav = load_navigation(cls.output, allow_preview=True)
         cls.view = json.loads((cls.output / 'VIEW.json').read_text())
 
     def test_nested_contents_and_index_records_share_source_order(self):
@@ -175,7 +176,8 @@ class NavigationTests(unittest.TestCase):
             self.assertEqual(digest, hashlib.sha256((self.output / name).read_bytes()).hexdigest())
         self.assertEqual({'index.html', 'supporting/unlinked.html', 'documents.html', 'NAV.json', 'source.citation.json', 'source.gfm',
                               'supporting/unlinked.gfm', 'supporting/unlinked.citation.json'},
-                         set(self.view['files']))
+                         {name for name in self.view['files'] if not name.startswith('navigation/')})
+        self.assertEqual(2, sum(name.startswith('navigation/') for name in self.view['files']))
         for name in ('index.html', 'supporting/unlinked.html', 'documents.html'):
             html = (self.output / name).read_text()
             self.assertIn('script-src &#x27;none&#x27;', html)

@@ -56,12 +56,12 @@ class CitationPageTests(unittest.TestCase):
         proof = {'schema': 'guavajam.source-citation.v1', 'hash_algorithm': 'sha1',
                  'revision': self.sha, 'manuscript': 'content/manuscript.md',
                  'documents': {source: sorted(document['anchors']) for source, document in self.documents.items()}}
-        for target, data in ((self.read / 'VIEW.json', view), (self.read / 'NAV.json', nav),
-                             (self.read.parent / 'SOURCE.json', proof)):
-            target.write_text(json.dumps(data))
+        from navigation_fixture import write_navigation
+        write_navigation(self.read, view, nav)
+        (self.read.parent / 'SOURCE.json').write_text(json.dumps(proof))
 
     def build(self, download=None):
-        build_citation_pages(self.output, self.editions, collection=True, runtime='../../', download=download)
+        build_citation_pages(self.output, self.editions, collection=True, runtime='../../', downloads={self.sha: download} if download else {})
 
     def test_citation_routes_remain_relative_without_host_cwd(self):
         cases = (
@@ -136,7 +136,7 @@ class CitationPageTests(unittest.TestCase):
         self.assertNotIn('Unanchored note', html)
 
     def test_deep_sqlite_page_scopes_to_version_with_supporting_filter(self):
-        self.build(download={'url': 'work.hash.sqlite.gz', 'encoding': 'gzip', 'size': 1234, 'transfer_size': 567})
+        self.build(download={'url': 'passages.hash.sqlite.gz', 'encoding': 'gzip', 'size': 1234, 'transfer_size': 567, 'sha256': 'a' * 64, 'transfer_sha256': 'b' * 64})
         html = (self.read / 'passages/page/3.html').read_text()
         self.assertIn('data-directory="citations"', html)
         self.assertIn('id="guavajam-index-search" hidden', html)

@@ -1,4 +1,6 @@
 /* Bounded static downloads: native decompression writes directly into WASM memory. */
+import {Sha256} from './search-hash.js';
+
 const MAX_DATABASE_BYTES = 256 * 1024 * 1024;
 const SQLITE_HEADER = new TextEncoder().encode('SQLite format 3\0');
 
@@ -70,9 +72,12 @@ async function peek(stream) {
 }
 
 export async function loadDatabase(sqlite3, {
-  database, databaseSize, transferSize, encoding, retry = false, baseURL = import.meta.url
+  database, databaseSize, transferSize, encoding, sha256, transferSha256, retry = false, baseURL = import.meta.url
 }) {
   const started = performance.now();
+  for (const digest of [sha256, transferSha256]) if (digest !== undefined && !/^[a-f0-9]{64}$/.test(digest))
+    throw new Error('Invalid search digest');
+  const decodedHash = sha256 ? new Sha256() : null, responseHash = transferSha256 ? new Sha256() : null;
   const url = new URL(database, baseURL);
   if (url.origin !== new URL(baseURL).origin || url.username || url.password ||
       !['http:', 'https:'].includes(url.protocol)) {
@@ -82,7 +87,7 @@ export async function loadDatabase(sqlite3, {
   let size = length(databaseSize, 'database', encoding === undefined);
   const compressedSize = length(transferSize, 'compressed database', encoding === undefined);
   const immutable = !url.search && !url.hash &&
-    /\/(?:index|work)\.[a-f0-9]{64}\.sqlite\.gz$/.test(url.pathname);
+    /\/(?:index|versions|documents|passages|history)\.[a-f0-9]{64}\.sqlite\.gz$/.test(url.pathname);
   const cache = retry ? 'reload' : immutable ? 'force-cache' : 'no-cache';
   const response = await fetch(url, {cache, mode: 'same-origin', redirect: 'error'});
   if (!response.ok || !response.body) {
@@ -104,7 +109,7 @@ export async function loadDatabase(sqlite3, {
     if (gzip && encoding !== 'gzip') throw new Error('Unexpected compressed search artifact');
     if (!gzip) {
       // A host may send .gz with Content-Encoding:gzip; Fetch has already
-      // decompressed that response. Legacy uncompressed artifacts work too.
+      // decompressed that response. A plain SQLite response uses the same header checks.
       const headerSize = sqliteSize(prefix.header);
       if (size !== undefined && size !== headerSize) throw new Error('Database size differs from its descriptor');
       size = headerSize;
@@ -113,11 +118,14 @@ export async function loadDatabase(sqlite3, {
     readable = readable.pipeThrough(new TransformStream({
       transform(chunk, controller) {
         metrics.responseBytes += chunk.byteLength;
+        if (gzip) responseHash?.update(chunk);
         if (metrics.responseBytes > receivedSize) throw new Error('Search response exceeds its declared size');
         controller.enqueue(chunk);
       },
       flush() {
         if (metrics.responseBytes !== receivedSize) throw new Error('Search response is truncated');
+        if (gzip && responseHash && responseHash.hex() !== transferSha256)
+          throw new Error('Compressed search SHA-256 differs');
       }
     }));
     if (gzip) readable = readable.pipeThrough(new DecompressionStream('gzip'));
@@ -134,6 +142,7 @@ export async function loadDatabase(sqlite3, {
       if (metrics.decodedBytes + value.byteLength > size) {
         throw new Error('Decompressed search database exceeds its declared size');
       }
+      decodedHash?.update(value);
       const copied = performance.now();
       // Reacquire the heap view each time: WASM memory may have grown.
       sqlite3.wasm.heap8u().set(value, Number(pointer) + metrics.decodedBytes);
@@ -143,6 +152,7 @@ export async function loadDatabase(sqlite3, {
     }
     metrics.streamMs = performance.now() - streamStarted;
     if (metrics.decodedBytes !== size) throw new Error('Decompressed search database is truncated');
+    if (decodedHash && decodedHash.hex() !== sha256) throw new Error('Search database SHA-256 differs');
     if (sqliteSize(sqlite3.wasm.heap8u().subarray(Number(pointer), Number(pointer) + 100)) !== size) {
       throw new Error('SQLite header differs from the downloaded database size');
     }

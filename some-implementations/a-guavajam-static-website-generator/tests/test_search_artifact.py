@@ -16,7 +16,7 @@ class SearchArtifactTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        self.database = self.root / 'work.sqlite'
+        self.database = self.root / 'versions.sqlite'
         with sqlite3.connect(self.database) as db:
             db.execute('CREATE TABLE example (id INTEGER PRIMARY KEY, body TEXT)')
             db.executemany('INSERT INTO example(body) VALUES (?)',
@@ -28,7 +28,9 @@ class SearchArtifactTests(unittest.TestCase):
         target = self.root / first['url']
         encoded = target.read_bytes()
         self.assertEqual(raw, gzip.decompress(encoded))
-        self.assertEqual('work.' + hashlib.sha256(encoded).hexdigest() + '.sqlite.gz', first['url'])
+        self.assertEqual('versions.' + hashlib.sha256(encoded).hexdigest() + '.sqlite.gz', first['url'])
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), first['sha256'])
+        self.assertEqual(hashlib.sha256(encoded).hexdigest(), first['transfer_sha256'])
         self.assertEqual(len(raw), first['size'])
         self.assertEqual(len(encoded), first['transfer_size'])
         self.assertLess(len(encoded), len(raw))
@@ -40,8 +42,8 @@ class SearchArtifactTests(unittest.TestCase):
         self.assertEqual(raw, self.database.read_bytes(), 'the interoperable SQLite file remains intact')
         other = self.root / 'other'
         other.mkdir()
-        (other / 'work.sqlite').write_bytes(raw)
-        self.assertEqual(first, emit_download(other / 'work.sqlite'))
+        (other / 'versions.sqlite').write_bytes(raw)
+        self.assertEqual(first, emit_download(other / 'versions.sqlite'))
 
     def test_new_content_has_a_new_address_and_old_bytes_are_never_replaced(self):
         before = emit_download(self.database)
@@ -58,7 +60,8 @@ class SearchArtifactTests(unittest.TestCase):
         self.assertIn('data-database-encoding="gzip"', attributes)
 
     def test_bounds_symlinks_and_corrupt_existing_assets_fail_without_temporary_output(self):
-        with patch('a_guavajam_static_website_generator.search_artifact.MAX_DATABASE_BYTES', 1), self.assertRaises(ValueError):
+        with patch('a_guavajam_static_website_generator.search_artifact.MAX_DATABASE_BYTES', 1), \
+                patch('a_guavajam_static_website_generator.search_chunks.MAX_LOGICAL_BYTES', 1), self.assertRaises(ValueError):
             emit_download(self.database)
         self.assertEqual([], list(self.root.glob('*.gz')))
         description = emit_download(self.database)

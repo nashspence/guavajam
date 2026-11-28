@@ -79,7 +79,7 @@ def prepare(directory):
     description = {'root': str(site), 'work': relative + '/', 'latest': revision, 'older': older,
                    'editions': 23, 'documents': 24, 'manuscriptPassages': 45, 'unpublished': unpublished,
                    'supportingPassages': 45,
-                   'versionPassages': sum(len(doc['anchors']) for doc in json.loads(
+                   'versionPassages': sum(doc['anchor_count'] for doc in json.loads(
                        (site / relative / 'editions' / revision / 'read/NAV.json').read_text())['documents'].values()),
                    'historical': relative + '/editions/' + older + '/read/index.html',
                    'section': relative + '/editions/' + revision + '/read/index.html#section-24',

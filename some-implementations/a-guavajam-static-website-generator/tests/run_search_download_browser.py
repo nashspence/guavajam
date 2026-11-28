@@ -22,38 +22,38 @@ def small_database(path):
         db.executescript('''
             CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
             INSERT INTO metadata VALUES('schema','guavajam.search.v1'),('scope','collection');
-            CREATE TABLE search_records(id INTEGER PRIMARY KEY,url TEXT,title TEXT,authors TEXT,
-                abstract TEXT,labels TEXT,body TEXT,git TEXT);
-            CREATE VIRTUAL TABLE search_fts USING fts5(title,authors,abstract,labels,body,git,
-                content='search_records',content_rowid='id',tokenize='unicode61 remove_diacritics 2');
+            CREATE TABLE works(id INTEGER PRIMARY KEY,url TEXT,title TEXT,authors TEXT,
+                abstract TEXT,labels TEXT);
+            CREATE VIRTUAL TABLE work_fts USING fts5(title,authors,abstract,labels,
+                content='works',content_rowid='id',tokenize='unicode61 remove_diacritics 2');
         ''')
         for number in range(1, 129):
             body = ' '.join(rng.choices(words, k=768))
             body += ' coastal ecology' * (1 + number % 7)
             if number % 11 == 0:
                 body += ' rare estuary observations'
-            db.execute('INSERT INTO search_records VALUES(?,?,?,?,?,?,?,?)',
+            db.execute('INSERT INTO works VALUES(?,?,?,?,?,?)',
                        (number, f'works/{number}/read/index.html', f'Field study {number}',
-                        'Example Author', 'Observed ecology', 'Café studies', body, 'revision ' + str(number)))
-        db.execute("INSERT INTO search_fts(search_fts) VALUES('rebuild')")
-        db.execute("INSERT INTO search_fts(search_fts) VALUES('optimize')")
+                        'Example Author', 'Observed ecology ' + body, 'Café studies'))
+        db.execute("INSERT INTO work_fts(work_fts) VALUES('rebuild')")
+        db.execute("INSERT INTO work_fts(work_fts) VALUES('optimize')")
         db.commit()
         db.execute('VACUUM')
         queries = []
         for term in ('"ecol"*', '"coast"* AND "estuar"*', '"cafe"*', '"nonexistenttoken"*'):
-            sql = ('SELECT s.id,s.url,bm25(search_fts,4.,2.,1.,2.,1.,.5) AS score '
-                   'FROM search_fts JOIN search_records s ON s.id=search_fts.rowid '
-                   'WHERE search_fts MATCH ? ORDER BY score,s.id LIMIT 20')
-            count_sql = 'SELECT count(*) FROM search_fts WHERE search_fts MATCH ?'
+            sql = ('SELECT s.id,s.url,bm25(work_fts,4.,2.,1.,2.) AS score '
+                   'FROM work_fts JOIN works s ON s.id=work_fts.rowid '
+                   'WHERE work_fts MATCH ? ORDER BY score,s.id LIMIT 20')
+            count_sql = 'SELECT count(*) FROM work_fts WHERE work_fts MATCH ?'
             db.row_factory = sqlite3.Row
             queries.append({'name': term, 'sql': sql, 'params': [term],
                             'expected': [dict(row) for row in db.execute(sql, (term,))],
                             'countSql': count_sql, 'countExpected': db.execute(count_sql, (term,)).fetchone()[0]})
-    return {'fixture': 'seeded-transport', 'name': 'baseline', 'scope': 'collection',
+    return {'fixture': 'seeded-transport', 'name': 'production', 'scope': 'collection',
             'path': str(path), 'rankingEquivalent': True, 'queries': queries}
 
 
-def prepare(directory, *, storage_manifest=None, names=('baseline', 'contentless_full'),
+def prepare(directory, *, storage_manifest=None, names=('production', 'materialized'),
             fixtures=(), repetitions=3, profiles=('local', 'controlled', 'controlled-runtime-gzip'), gzip_level=9):
     directory = Path(directory)
     directory.mkdir(parents=True)
@@ -70,6 +70,7 @@ def prepare(directory, *, storage_manifest=None, names=('baseline', 'contentless
     runtime = ROOT / 'node_modules/@sqlite.org/sqlite-wasm/dist'
     for name, source in {
         'sqlite3.mjs': runtime / 'index.mjs', 'sqlite3.wasm': runtime / 'sqlite3.wasm',
+        'search-hash.js': ROOT / 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/search-hash.js',
         'search-download.js': ROOT / 'some-implementations/a-guavajam-static-website-generator/src/a_guavajam_static_website_generator/assets/search-download.js',
         'search_download_worker.mjs': Path(__file__).with_name('search_download_worker.mjs'),
     }.items():
@@ -81,7 +82,7 @@ def prepare(directory, *, storage_manifest=None, names=('baseline', 'contentless
         folder = site / 'data' / str(number)
         folder.mkdir(parents=True)
         raw = Path(case['path']).read_bytes()
-        stem = 'work' if case['scope'] == 'work' else 'index'
+        stem = 'index' if case['scope'] == 'collection' else case['scope']
         plain = folder / (stem + '.sqlite')
         plain.write_bytes(raw)
         compressed = gzip.compress(raw, compresslevel=gzip_level, mtime=0)
@@ -98,10 +99,7 @@ def prepare(directory, *, storage_manifest=None, names=('baseline', 'contentless
         newer.unlink()
         next_path = folder / f'{stem}.{hashlib.sha256(next_gzip).hexdigest()}.sqlite.gz'
         next_path.write_bytes(next_gzip)
-        # Collection UI never queries passages. Keep query timing populations
-        # identical when comparing its old combined DB with a pruned one.
-        queries = [query for query in case['queries']
-                   if case['scope'] != 'collection' or query.get('table') != 'passage_fts']
+        queries = case['queries']
         output_cases.append({**{key: case[key] for key in ('fixture', 'name', 'scope')}, 'queries': queries,
                              'raw': plain.relative_to(site).as_posix(), 'gzip': zipped.relative_to(site).as_posix(),
                              'rawBytes': len(raw), 'gzipBytes': len(compressed),
@@ -119,7 +117,7 @@ def main():
     parser.add_argument('--prepare', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--storage-manifest', type=Path)
-    parser.add_argument('--names', default='baseline,contentless_full')
+    parser.add_argument('--names', default='production,materialized')
     parser.add_argument('--fixtures', default='')
     parser.add_argument('--profiles', default='local,controlled,controlled-runtime-gzip')
     parser.add_argument('--repetitions', type=int, default=3)

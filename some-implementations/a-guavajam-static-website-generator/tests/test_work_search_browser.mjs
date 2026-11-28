@@ -23,7 +23,7 @@ const server = http.createServer(async (req, res) => {
     assert(filename.startsWith(root + path.sep));
     let content = await fs.readFile(filename);
     requests.push(relative);
-    if (/^work\.[a-f0-9]{64}\.sqlite\.gz$/.test(path.basename(filename)) && url.searchParams.get('redirect') === '1') {
+    if (/^passages\.[a-f0-9]{64}\.sqlite\.gz$/.test(path.basename(filename)) && url.searchParams.get('redirect') === '1') {
       redirects.push(url.pathname);
       res.writeHead(302, {Location: url.pathname, 'Cache-Control': 'no-store'});
       res.end();
@@ -69,13 +69,14 @@ try {
         try {
           await page.waitForFunction(expected => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') &&
             document.querySelector('#guavajam-search-status').textContent === expected,
-            `${total} total`);
+            String(total) + (kind === 'history' ? (total === 1 ? ' passage' : ' passages') : ' total'));
         } catch (error) {
           throw new Error(`${name}: expected ${total} ${kind}; status=${await page.locator('#guavajam-search-status').textContent()}; errors=${errors.join('; ')}`, {cause: error});
         }
       };
       const enable = async (total, kind) => {
         await page.locator('#guavajam-search-toggle').click();
+        await page.locator('#guavajam-search button[type=submit]').click();
         await waitTotal(total, kind);
       };
       const query = async (term, total, kind) => {
@@ -107,14 +108,18 @@ try {
       await query('Shorelinechronicle', 1, 'editions');
       assert.equal(await page.locator('#guavajam-search-results h3 .guavajam-link-label').textContent(), 'v2');
       assert.equal(await page.locator('.guavajam-message-detail[open] mark').textContent(), 'Shorelinechronicle');
-      await query('Palaeotidal', 1, 'editions');
-      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Document text match');
+      await query('Palaeotidal', 0, 'editions');
+      await query('Bathymetric ecology', 0, 'editions');
+      await page.locator('input[name=search-scope][value=history]').check();
+      assert(await page.locator('#guavajam-search-results').isHidden());
+      await query('Palaeotidal', 1, 'history');
+      assert.equal(await page.locator('.guavajam-excerpt-label .guavajam-link-label').textContent(), 'Passage match');
       assert.equal(await page.locator('.guavajam-passage-excerpt mark').textContent(), 'Palaeotidal');
-      await fixedPageHorizontalScroll(page);await searchHighlightContrast(page);
-      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'),
+      await fixedPageHorizontalScroll(page); await searchHighlightContrast(page);
+      assert.equal(await page.locator('#guavajam-search-results h3 a').getAttribute('href'),
         base + fixture.historical + '#opening');
-      await query('Bathymetric ecology', 1, 'editions');
-      assert.equal(await page.locator('.guavajam-excerpt-label a').getAttribute('href'), base + fixture.section);
+      await query('Bathymetric ecology', 1, 'history');
+      assert.equal(await page.locator('#guavajam-search-results h3 a').getAttribute('href'), base + fixture.section);
 
       await page.goto(documentsURL);
       assert.equal(await page.locator('#guavajam-static-section .guavajam-document-list > li').count(), 20);
@@ -258,7 +263,7 @@ try {
         failure.on('request', request => {
           if (/^https?:/.test(request.url()) && new URL(request.url()).origin !== new URL(base).origin) unexpected.push(request.url());
         });
-        const databaseRoute = /\/work\.[a-f0-9]{64}\.sqlite\.gz$/;
+        const databaseRoute = /\/passages\.[a-f0-9]{64}\.sqlite\.gz$/;
         if (broken === 'decompression') {
           await failure.route('**/search-download.js', async route => {
             const response = await route.fetch();
@@ -278,7 +283,8 @@ try {
           await fallback.locator('#guavajam-search').evaluate(form => { form.dataset.databaseSize = String(Number(form.dataset.databaseSize) + 1); });
         }
         await fallback.locator('#guavajam-search-toggle').click();
-        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('unavailable'));
+        await fallback.locator('#guavajam-search button[type=submit]').click();
+        await fallback.waitForFunction(() => document.querySelector('#guavajam-search-message').textContent.includes('incomplete'));
         assert.equal(await fallback.locator('.guavajam-listing').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-search-status').isVisible(), true);
         assert.equal(await fallback.locator('#guavajam-static-section .guavajam-citation-entry').count(), 20);
@@ -293,8 +299,7 @@ try {
         if (broken === 'database' || broken === 'redirect') {
           if (broken === 'database') await failure.unroute(databaseRoute);
           else await fallback.locator('#guavajam-search').evaluate((form, database) => { form.dataset.database = database; }, originalDatabase);
-          await fallback.locator('#guavajam-search-toggle').click(); // close
-          await fallback.locator('#guavajam-search-toggle').click(); // retry on reopen
+          await fallback.getByRole('button', {name: 'Retry search', exact: true}).click();
           await fallback.waitForFunction(total => !document.querySelector('#guavajam-search-results').hidden && !document.querySelector('#guavajam-search-results').hasAttribute('aria-busy') && document.querySelector('#guavajam-search-status').textContent ===
             `${total} total`, fixture.versionPassages);
           const values = await fallback.locator('select[name=supporting] option').evaluateAll(nodes => nodes.map(node => node.value));
@@ -311,6 +316,6 @@ try {
 } finally { await new Promise(resolve => server.close(resolve)); }
 assert(requests.includes('search-worker.js'));
 assert(requests.includes('sqlite3.wasm'));
-assert(requests.some(request => request.startsWith(fixture.work) && /\/work\.[a-f0-9]{64}\.sqlite\.gz$/.test(request)));
-assert(!requests.includes(fixture.work + 'work.sqlite'));
+assert(requests.some(request => request.startsWith(fixture.work) && /\/passages\.[a-f0-9]{64}\.sqlite\.gz$/.test(request)));
+assert(requests.some(request => request.startsWith(fixture.work) && /\/versions\.[a-f0-9]{64}\.sqlite\.gz$/.test(request)));
 await fs.writeFile(path.join(output, 'work-search-browser-report.json'), JSON.stringify({checks: reports}, null, 2) + '\n');

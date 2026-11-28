@@ -46,7 +46,12 @@ def read_text(path: Path, relative: Path, *, raw: bytes | None = None) -> tuple[
     if path.is_symlink():
         return None, [issue(relative, "symlinks are prohibited")]
     try:
-        text = (path.read_bytes() if raw is None else raw).decode("utf-8", "strict")
+        if raw is None:
+            with path.open('rb') as stream:
+                raw = stream.read(8 * 1024 * 1024 + 1)
+        if len(raw) > 8 * 1024 * 1024:
+            return None, [issue(relative, 'Markdown source exceeds the 8-MiB individual limit')]
+        text = raw.decode("utf-8", "strict")
     except (UnicodeDecodeError, OSError) as exc:
         return None, [issue(relative, f"not readable strict UTF-8: {exc}")]
     if text.startswith("\ufeff"):
@@ -516,10 +521,17 @@ def valid_source_link(target: str) -> bool:
 
 
 def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *, enforce_version: bool = False) -> list[str]:
+    """Validate incrementally using an on-disk link/anchor inventory."""
+    from .source_inventory import source_inventory
+    with source_inventory() as inventory:
+        return _validate_repository(root, paths, pandoc, enforce_version=enforce_version, inventory=inventory)
+
+
+def _validate_repository(root, paths, pandoc, *, enforce_version, inventory):
     """Validate source objects and explicit citation targets without an HTML edition."""
     root = root.resolve()
     tracked = {Path(path) for path in paths if Path(path).parts[:1] == ("content",)}
-    errors, asts, anchors, manuscripts = [], {}, {}, set()
+    errors, manuscripts = [], set()
     try:
         version = subprocess.run([pandoc, "--version"], capture_output=True, text=True, check=False)
         if version.returncode:
@@ -556,7 +568,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
         if supporting:
             try:
                 ast, positions, *_ = load_gfm_record(path, root=root)
-                asts[rel], anchors[rel] = ast, set(positions)
+                inventory.add(rel, ast, positions)
             except (OSError, ValueError) as exc:
                 errors.append(issue(rel, str(exc)))
             continue
@@ -564,7 +576,6 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             _, _, _, issues=validate_front_matter(rel,source);errors.extend(issues)
         parsed, issues = parse_document(path, rel);errors.extend(issues)
         if parsed is None: continue
-        asts[rel] = parsed
         headers = [n for n in walk(parsed['blocks']) if n['t'] == 'Header']
         heading_ids = [n['c'][1][0] for n in headers]
         if len(heading_ids) != len(set(heading_ids)):
@@ -573,7 +584,7 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             manuscripts.add(rel)
             front, body, line, issues = validate_front_matter(rel, source);errors.extend(issues)
             info, issues = inspect_manuscript_syntax(rel, body, line);errors.extend(issues)
-            explicit = set(info['anchors']);anchors[rel] = explicit
+            explicit = set(info['anchors'])
             if len(headers) != len(info['headings']):
                 errors.append(issue(rel, "Pandoc headings differ from ATX source headings (Setext/nested headings prohibited)"))
             if [n['c'][0] for n in headers] != [h[1] for h in info['headings']]:
@@ -608,39 +619,32 @@ def validate_repository(root: Path, paths: list[Path], pandoc: str = "pandoc", *
             explicit = [m[1] for _, text in visible if (m := SUPPORT_ANCHOR.fullmatch(text))]
             if len(explicit) != len(set(explicit)):errors.append(issue(rel,'duplicate stable anchors'))
             if set(explicit) & set(heading_ids):errors.append(issue(rel,'explicit stable anchors collide with rendered header IDs'))
-            anchors[rel] = set(explicit) | set(heading_ids)
-    for rel, parsed in asts.items():
-        manuscript = rel in manuscripts
-        for node in walk(parsed['blocks']):
-            kind = node['t']
-            if kind not in {'Link','Image'}:continue
-            target = node['c'][2][0]
-            if kind=='Image' and not plain_text(node['c'][1]).strip():errors.append(issue(rel,'image alt text required'))
-            if policy and policy.manages(target):
-                try:(policy.parse_image if kind=='Image' else policy.parse)(target)
-                except AssetError as exc:errors.append(issue(rel,str(exc)))
-                continue
-            try:uri=urlsplit(target)
-            except ValueError:errors.append(issue(rel,'malformed URI'));continue
-            if uri.scheme or uri.netloc:
-                if kind=='Image' or not valid_source_link(target):errors.append(issue(rel,'unsupported/external URI: '+target))
-                continue
-            if target.startswith(('/', '\\')) or '\\' in target or uri.query:
-                errors.append(issue(rel,'unsupported/external URI: '+target));continue
-            dest=(root/rel.parent/unquote(uri.path)).resolve() if uri.path else root/rel
-            if not dest.is_relative_to(root/'content'):errors.append(issue(rel,'link escapes content/: '+target));continue
-            relative=dest.relative_to(root)
-            if not dest.exists():errors.append(issue(rel,'broken local link: '+target));continue
-            if dest.is_file() and relative not in tracked:errors.append(issue(rel,'linked file is not tracked: '+target))
-            if manuscript and kind=='Image' and not relative.is_relative_to(rel.parent/'assets'):
-                errors.append(issue(rel,'manuscript images must be under '+str(rel.parent/'assets')))
-            if uri.fragment and relative in asts and unquote(uri.fragment) not in (anchors.get(relative,set()) if manuscript else anchors.get(relative,set()) | {n['c'][1][0] for n in walk(asts[relative]['blocks']) if n['t']=='Header'}):
-                errors.append(issue(rel,'unresolved Markdown section link: '+target))
+            explicit = set(explicit) | set(heading_ids)
+        inventory.add(rel, parsed, explicit, manuscript=manuscript)
+    for rel, manuscript, kind, target, has_alt in inventory.references():
+        if kind=='Image' and not has_alt:errors.append(issue(rel,'image alt text required'))
+        if policy and policy.manages(target):
+            try:(policy.parse_image if kind=='Image' else policy.parse)(target)
+            except AssetError as exc:errors.append(issue(rel,str(exc)))
+            continue
+        try:uri=urlsplit(target)
+        except ValueError:errors.append(issue(rel,'malformed URI'));continue
+        if uri.scheme or uri.netloc:
+            if kind=='Image' or not valid_source_link(target):errors.append(issue(rel,'unsupported/external URI: '+target))
+            continue
+        if target.startswith(('/', '\\')) or '\\' in target or uri.query:
+            errors.append(issue(rel,'unsupported/external URI: '+target));continue
+        dest=(root/rel.parent/unquote(uri.path)).resolve() if uri.path else root/rel
+        if not dest.is_relative_to(root/'content'):errors.append(issue(rel,'link escapes content/: '+target));continue
+        relative=dest.relative_to(root)
+        if not dest.exists():errors.append(issue(rel,'broken local link: '+target));continue
+        if dest.is_file() and relative not in tracked:errors.append(issue(rel,'linked file is not tracked: '+target))
+        if manuscript and kind=='Image' and not relative.is_relative_to(rel.parent/'assets'):
+            errors.append(issue(rel,'manuscript images must be under '+str(rel.parent/'assets')))
+        if uri.fragment and inventory.contains(relative) and not inventory.has_anchor(relative, unquote(uri.fragment), stable_only=manuscript):
+            errors.append(issue(rel,'unresolved Markdown section link: '+target))
     if Path('content/manuscript.md') not in manuscripts:
         errors.append(issue(Path('content'), 'work directory requires manuscript.md'))
-    supporting = [relative for relative in tracked if record_path(relative)]
-    if len(supporting) > 128 or sum((root / relative).stat().st_size for relative in supporting if (root / relative).is_file()) > 100 * 1024 * 1024:
-        errors.append(issue(Path('content'), 'supporting inventory exceeds 128 documents or 100 MiB'))
     errors.extend(validate_assets(root,tracked))
     return sorted(set(errors))
 

@@ -11,7 +11,9 @@ def source_offsets(navigation):
     offset, starts = 0, {}
     for source in sorted(navigation['documents']):
         starts[source] = offset
-        offset += len(navigation['documents'][source]['anchors'])
+        documents = navigation['documents']
+        descriptors = getattr(documents, 'descriptors', None)
+        offset += descriptors[source]['anchor_count'] if descriptors is not None else len(documents[source]['anchors'])
     return starts
 
 

@@ -16,7 +16,7 @@ from guavajam.catalog import CatalogError, encoded, read_catalog
 from guavajam.publication_protocol import discover
 from guavajam.publication_commit import citation, verify
 from .citation_routes import source_download
-from .renderer import git_blob, render
+from .renderer import render
 from .citation import citation_control, edition_label
 from .icons import link_icon, finish_html, search_icon_templates, normalize_site_origin
 from .view_cache import cached_render
@@ -80,8 +80,8 @@ def page(title, body, *, search=False, ancestors=(), breadcrumb_current=None,
 
 
 def inventory(root):
-    return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(root.rglob('*')) if p.is_file()}
+    from .navigation_manifest import file_inventory
+    return file_inventory(root)
 
 
 
@@ -106,7 +106,7 @@ def committer_identity(repo, revision):
 
 def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
            repository, search_assets, site_origin=None):
-    from .work_search import build_work_index, publication_navigation
+    from .work_search import build_work_indexes, publication_navigation
     output.mkdir()
     latest_title = 'Unpublished work'
     edition_rows = []
@@ -125,6 +125,8 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
             render(repo, sha, reader, fingerprints=fingerprints, allowed_signers=allowed_signers, site_origin=site_origin)
         view = json.loads((reader / 'VIEW.json').read_text('utf-8'))
         latest_title = view['facts']['title']
+        (directory / 'BIBLIOGRAPHY.json').write_bytes(encoded({'schema': 'guavajam.search-bibliography.v1',
+            'revision': sha, 'preview': False, 'facts': view['facts']}))
         metadata = committer_identity(repo, sha)
         (directory / 'COMMITTER.json').write_bytes(encoded(metadata))
         (directory / 'SOURCE.json').write_bytes(encoded(proof))
@@ -132,9 +134,10 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         from guavajam.source_archive import bundle_revision
         bundle_revision(repo, sha, directory / 'source.bundle')
         for document, details in view['documents'].items():
-            source = git_blob(repo, sha, document)
+            from .navigation_manifest import file_hash
             destination = reader / source_download(details['view'])
-            destination.write_bytes(source)
+            if file_hash(destination) != details['source_sha256']:
+                raise CatalogError('site: rendered source download differs from verified document')
             cited = citation(proof, document=document)
             record = destination.with_suffix('.citation.json')
             record.write_bytes(encoded(cited))
@@ -159,7 +162,7 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
         for source, details in view['documents'].items():
             if source == 'content/manuscript.md':
                 continue
-            facts, fields, _ = split_frontmatter(git_blob(repo, sha, source).decode('utf-8'))
+            facts, fields, _ = split_frontmatter((reader / source_download(details['view'])).read_text('utf-8'))
             relative = document_metadata(details['view'])
             destination = reader / relative
             within_edition = destination.relative_to(directory).as_posix()
@@ -173,13 +176,14 @@ def _build(repo, catalog, output, *, fingerprints, allowed_signers, view_cache,
     from .feed import write_work_feed
     write_work_feed(output, repo, catalog, repository=repository)
     (output / 'CATALOG.json').write_bytes(encoded(catalog))
-    database = build_work_index(output, catalog, repository=repository, search_assets=search_assets)
+    databases = build_work_indexes(output, catalog, repository=repository, search_assets=search_assets)
     from .directory_pages import build_directories
     build_directories(output, edition_rows, collection=in_collection,
-                      search_assets=search_assets, database=database, site_origin=site_origin)
+                      search_assets=search_assets, databases=databases, site_origin=site_origin)
     manifest = {'schema': 'guavajam.site.v1', 'title': latest_title, 'tip': catalog['tip'],
                 'publications': [e['revision'] for e in catalog['editions']], 'files': inventory(output)}
-    (output / 'SITE.json').write_bytes(encoded(manifest))
+    from .navigation_manifest import write_json
+    write_json(output / 'SITE.json', manifest)
     return manifest
 
 

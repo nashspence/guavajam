@@ -13,13 +13,8 @@ from .icons import normalize_site_origin
 
 
 def inventory(directory):
-    files = {}
-    for path in sorted(directory.rglob('*')):
-        if path.is_symlink():
-            raise CatalogError('view cache contains a symlink')
-        if path.is_file() and path.name != 'CACHE.json':
-            files[path.relative_to(directory).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
-    return files
+    from .navigation_manifest import file_inventory
+    return file_inventory(directory, exclude={'CACHE.json'})
 
 
 def cached_render(cache, repo, sha, output, *, fingerprints=(), allowed_signers=None, site_origin=None):
@@ -37,14 +32,19 @@ def cached_render(cache, repo, sha, output, *, fingerprints=(), allowed_signers=
         with tempfile.TemporaryDirectory(prefix='.view-', dir=cache) as temporary:
             view = Path(temporary) / 'view'
             render(repo, sha, view, fingerprints=fingerprints, allowed_signers=allowed_signers, site_origin=site_origin)
-            (view / 'CACHE.json').write_bytes(encoded(inventory(view)))
+            from .navigation_manifest import write_json
+            write_json(view / 'CACHE.json', {'schema': 'guavajam.view-cache.v1',
+                'canonical': {'hash_algorithm': 'sha1', 'revision': sha, 'manuscript': 'content/manuscript.md'},
+                'files': inventory(view)})
             view.rename(target)
     try:
         check = (target / 'CACHE.json')
-        if check.is_symlink() or check.stat().st_size > 1024 * 1024:
+        if check.is_symlink() or check.stat().st_size > 64 * 1024 * 1024:
             raise ValueError('invalid cache inventory')
         expected = json.loads(check.read_text('utf-8'))
-        if not isinstance(expected, dict) or expected != inventory(target):
+        if (not isinstance(expected, dict) or expected.get('schema') != 'guavajam.view-cache.v1'
+                or expected.get('canonical') != {'hash_algorithm': 'sha1', 'revision': sha, 'manuscript': 'content/manuscript.md'}
+                or expected.get('files') != inventory(target)):
             raise ValueError('cache hashes differ')
         view = json.loads((target / 'VIEW.json').read_text('utf-8'))
         if view['preview'] or view['canonical'] != {'hash_algorithm': 'sha1', 'revision': sha,

@@ -148,9 +148,12 @@ def extract(ast, positions=None):
             record['text'] = ' '.join(text for text in texts[start:stop] if text)
             if record['kind'] == 'section':
                 following_heading[record['scope']] = record['_block']
+        record['block_start'] = record['_block']
+        record['block_end'] = end if record['kind'] == 'section' or record.get('_turn') else record['_block'] + 1
         record.pop('_block')
         record.pop('_turn', None)
-    return {'text': ' '.join(text for _, _, text in chunks if text), 'anchors': records}
+    return {'text': ' '.join(text for _, _, text in chunks if text), 'anchors': records,
+            'blocks': [{'position': position, 'scope': scope, 'text': text} for position, scope, text in chunks]}
 
 
 def section_outline(records):

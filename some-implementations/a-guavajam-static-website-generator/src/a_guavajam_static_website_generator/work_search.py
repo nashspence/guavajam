@@ -39,7 +39,8 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
     from .citation_routes import relative_href, source_offsets
     from guavajam.bibliography import ordered_authors, author_text
     authors = author_text(ordered_authors(view["facts"]), identifiers=False)
-    source_navigation = json.loads((reader / 'NAV.json').read_text('utf-8'))
+    from .navigation_manifest import load_navigation
+    source_navigation = load_navigation(reader, view)
     starts = source_offsets(source_navigation)
     paths = [details['view'] for details in view['documents'].values()]
     paths.append('documents.html')
@@ -138,20 +139,20 @@ def publication_navigation(reader, view, revision, *, work_title, edition_number
     (reader / 'VIEW.json').write_bytes(encoded(view))
 
 
-def build_work_index(output, catalog, *, repository='', search_assets=None):
-    """Share an index model and, in a collection, one copy of the WASM runtime.
-
-    None discovers/copies local runtime assets; an empty string retains static
-    navigation only. A relative prefix selects a collection's shared assets.
-    Browser loading remains opt-in even when runtime files are available.
-    """
-    database = create_index(output, [{'repository': repository, 'path': '', 'tip': catalog['tip']}],
-                            filename='work.sqlite', scope='work')
+def build_work_indexes(output, catalog, *, repository='', search_assets=None):
+    """Share one builder/runtime, while keeping every logical corpus physical."""
+    output = Path(output)
+    entry = {'repository': repository, 'path': '', 'tip': catalog['tip']}
+    databases = {'versions': create_index(output, [entry], filename='versions.sqlite', scope='versions'),
+                 'documents': {}, 'passages': {}}
+    for edition in catalog['editions']:
+        sha = edition['revision']
+        for scope in ['documents', 'passages']:
+            databases[scope][sha] = create_index(output, [entry],
+                filename='editions/' + sha + '/search/' + scope + '.sqlite', scope=scope, revision=sha)
+    databases['history'] = create_index(output, [entry], filename='history.sqlite', scope='history')
     if search_assets is None:
         emit_browser_assets(output)
-    else:
-        if search_assets and (not isinstance(search_assets, str)
-                              or search_assets not in {'../../'}):
-            raise CatalogError('work search: unsupported shared runtime location')
-        # The work index is disposable and shared with the directory pages.
-    return database
+    elif search_assets and search_assets != '../../':
+        raise CatalogError('work search: unsupported shared runtime location')
+    return databases
