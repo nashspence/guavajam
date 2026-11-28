@@ -18,6 +18,7 @@ from guavajam.bibliography import ordered_authors
 from guavajam.catalog import CatalogError, encoded
 
 from .search_artifact import download_attributes, emit_download
+from .icons import icon
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 
@@ -110,21 +111,10 @@ def _collection_subject_names(conn):
 
 
 def _facets(keywords, subjects):
-    """Expose verified metadata; the existing SQLite options enable filtering."""
-    if not keywords and not subjects:
-        return ''
-
-    def facet(kind, key, label):
-        name = 'Tag' if kind == 'keyword' else 'Subject'
-        return ('<span class="guavajam-facet guavajam-' + ('tag' if kind == 'keyword' else 'subject') +
-                '" data-facet="' + kind + '" data-value="' + escape(key, quote=True) +
-                '"><span class="guavajam-facet-type">' + name + '</span> ' +
-                '<span class="guavajam-facet-value">' + escape(label) + '</span></span>')
-
-    chips = ([facet('keyword', item, item) for item in keywords] +
-             [facet('subject', key, label) for key, label in subjects])
-    return ('<p class="guavajam-facets guavajam-scrollline" tabindex="0" aria-label="Subjects and tags">' +
-            ''.join(chips) + '</p>')
+    """Use the shared categorical row presentation."""
+    from .facets import facet, facet_line
+    return facet_line([facet('keyword', item, item) for item in keywords] +
+                      [facet('subject', key, label) for key, label in subjects], 'Subjects and tags')
 
 
 def homepage(site, *, interactive, site_origin=None):
@@ -199,10 +189,10 @@ def homepage(site, *, interactive, site_origin=None):
                     '<select id="guavajam-keyword" name="keyword"><option value="">All keywords</option></select></div>'
                     '<div><label for="guavajam-subject">Subject</label>'
                     '<select id="guavajam-subject" name="subject"><option value="">All subjects</option></select></div>'
-                    '<div><label for="guavajam-date-from">Published from</label>'
+                    '<div class="guavajam-date-range"><div><label for="guavajam-date-from">' + icon('calendar-days') + ' Published from</label>'
                     '<input type="date" id="guavajam-date-from" name="from"></div>'
-                    '<div><label for="guavajam-date-to">Published through</label>'
-                    '<input type="date" id="guavajam-date-to" name="to"></div>'
+                    '<div><label for="guavajam-date-to">' + icon('calendar-days') + ' Published to</label>'
+                    '<input type="date" id="guavajam-date-to" name="to"></div></div>'
                     '<div><label for="guavajam-sort">Sort</label><select id="guavajam-sort" name="sort">'
                     '<option value="recent">Most recent</option><option value="relevance">Relevance</option>'
                     '<option value="title">Title</option><option value="oldest">Oldest</option>'

@@ -149,7 +149,7 @@ function plan(data, fts, projection = 'winners') {
     if (scope === 'documents') {
       identifier = 'd.id'; resultKind = 'documents';
       winners = 'd.id AS id,d.title AS title,e.position AS position,e.published,d.path AS document_path,0 AS node_position';
-      fields = "d.id AS id,d.title AS title,d.abstract,d.url,e.revision,e.published,e.position AS position," +
+      fields = "d.id AS id,d.title AS title,d.abstract,d.fields_json,d.url,e.revision,e.published,e.position AS position," +
         "d.title AS document_title,d.path AS document_path,'' AS anchor,'document' AS scope," +
         "0 AS node_position,e.position AS match_position,d.title AS match_document";
       order = Object.hasOwn(WORK_ORDER, data.sort) ? WORK_ORDER[data.sort] : WORK_ORDER.publication;

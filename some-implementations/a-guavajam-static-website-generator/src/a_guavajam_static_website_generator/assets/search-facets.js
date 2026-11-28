@@ -34,6 +34,14 @@ async function node(descriptor, base, signal, identity) {
       identity.generation && value.generation !== identity.generation ||
       identity.revision !== undefined && value.revision !== identity.revision)
     throw new Error('Filter option generation or scope differs');
+  if (value.items || value.children) {
+    const count = value.items ? value.items.length : value.children.reduce((sum, child) => {
+      if (!Number.isSafeInteger(child.count) || child.count < 0) throw new Error('Invalid option count');
+      return sum + child.count;
+    }, 0);
+    if (!Number.isSafeInteger(descriptor.count) || descriptor.count !== count)
+      throw new Error('Filter option count differs');
+  }
   return {value, url};
 }
 
@@ -43,19 +51,24 @@ function controls(parent, select, label, root, base, signal, identity, selected 
   input.placeholder = 'Find ' + label.toLowerCase() + ' by prefix'; input.setAttribute('aria-label', input.placeholder);
   const prev = document.createElement('button'), next = document.createElement('button');
   for (const button of [prev, next]) { button.type = 'button'; button.className = 'guavajam-facet-page'; }
-  prev.textContent = 'Earlier options'; next.textContent = 'More options';
+  for (const [button, direction, name] of [[prev, 'left', 'Earlier options'], [next, 'right', 'More options']]) {
+    button.setAttribute('aria-label', name); button.title = name;
+    button.append(document.querySelector('#guavajam-icon-arrow-' + direction).content.cloneNode(true));
+  }
   const status = document.createElement('span'); status.setAttribute('role', 'status');
-  panel.append(input, prev, status, next); parent.append(panel);
-  let epoch = 0, prefix = '', trail = [], leaf, history = [], requestController, timer, itemMap = new Map();
+  status.className = 'guavajam-facet-count'; status.tabIndex = 0;
+  panel.append(input, select, status, prev, next); parent.append(panel);
+  let epoch = 0, prefix = '', trail = [], leaf, history = [], requestController, timer, total = 0, itemMap = new Map();
 
-  async function read(descriptor, url) {
-    const result = await node(descriptor, url, requestController.signal, identity);
+  async function read(descriptor, url, request) {
+    const result = await node(descriptor, url, request.signal, identity);
+    if (request.signal.aborted) throw new DOMException('Option request canceled', 'AbortError');
     return result;
   }
 
-  async function descend(descriptor, url, path = []) {
+  async function descend(descriptor, url, path = [], request = requestController) {
     for (let depth = path.length; depth < DEPTH_LIMIT; depth++) {
-      const loaded = await read(descriptor, url);
+      const loaded = await read(descriptor, url, request);
       if (Array.isArray(loaded.value.items)) {
         if (loaded.value.items.length > 32) throw new Error('Too many filter options in one page');
         return {leaf: loaded.value.items, trail: path};
@@ -71,11 +84,28 @@ function controls(parent, select, label, root, base, signal, identity, selected 
     throw new Error('Filter options exceed the tree-depth budget');
   }
 
-  async function following(path) {
+  // Entire matching subtrees contribute counts without downloading their
+  // leaves. Only the two prefix boundaries need descent (bounded fanout/depth).
+  async function matchingCount(descriptor, url, depth = 0, needle = prefix, request = requestController) {
+    if (depth >= DEPTH_LIMIT) throw new Error('Filter options exceed the tree-depth budget');
+    const loaded = await read(descriptor, url, request);
+    if (Array.isArray(loaded.value.items)) return loaded.value.items.filter(item => item.order.startsWith(needle)).length;
+    const children = loaded.value.children;
+    if (!Array.isArray(children) || !children.length || children.length > 32) throw new Error('Invalid filter option tree');
+    let count = 0;
+    for (const child of children) {
+      if (child.first.startsWith(needle) && child.last.startsWith(needle)) count += child.count;
+      else if (order(child.last, needle) >= 0 && (order(child.first, needle) <= 0 || child.first.startsWith(needle)))
+        count += await matchingCount(child, loaded.url, depth + 1, needle, request);
+    }
+    return count;
+  }
+
+  async function following(path, request = requestController) {
     path = path.map(level => ({...level}));
     while (path.length) {
       const last = path.at(-1);
-      if (++last.index < last.children.length) return descend(last.children[last.index], last.url, path);
+      if (++last.index < last.children.length) return descend(last.children[last.index], last.url, path, request);
       path.pop();
     }
     return {leaf: [], trail: []};
@@ -100,7 +130,10 @@ function controls(parent, select, label, root, base, signal, identity, selected 
     prev.disabled = !history.length;
     next.disabled = !leaf.length || !trail.some(level => level.index + 1 < level.children.length) ||
       (prefix && order(leaf.at(-1).order.slice(0, prefix.length), prefix) > 0);
-    status.textContent = itemMap.size + ' options';
+    status.textContent = String(total);
+    status.setAttribute('aria-label', total + ' matching ' + label.toLowerCase());
+    status.title = status.getAttribute('aria-label');
+    panel.removeAttribute('aria-busy');
     select.dispatchEvent(new CustomEvent('guavajam-options', {detail: itemMap}));
   }
 
@@ -110,17 +143,20 @@ function controls(parent, select, label, root, base, signal, identity, selected 
     if (signal.aborted) return;
     const thisRequest = requestController;
     const abort = () => thisRequest.abort(); signal.addEventListener('abort', abort, {once: true});
-    const request = ++epoch; status.textContent = 'Loading options…'; prev.disabled = next.disabled = true;
+    const request = ++epoch; status.textContent = '…'; status.setAttribute('aria-label', 'Loading ' + label.toLowerCase());
+    panel.setAttribute('aria-busy', 'true'); prev.disabled = next.disabled = true;
     try {
-      let result;
+      let result, matchingTotal = total;
       if (direction < 0) result = history.pop();
       else if (direction > 0) { history.push({leaf, trail}); result = await following(trail); }
-      else { prefix = input.value.toLowerCase(); history = []; result = await descend(root, base); }
+      else { prefix = input.value.toLowerCase(); history = []; result = await descend(root, base);
+        matchingTotal = prefix ? await matchingCount(root, base) : root.count; }
       if (request !== epoch || thisRequest.signal.aborted) return;
-      ({leaf, trail} = result); display();
+      total = matchingTotal; ({leaf, trail} = result); display();
     } catch (error) {
       if (request === epoch && error.name !== 'AbortError') {
-        status.textContent = 'Options unavailable. Retry with Find options.';
+        status.textContent = '—'; status.setAttribute('aria-label', 'Options unavailable. Retry with Find options.');
+        status.title = status.getAttribute('aria-label'); panel.removeAttribute('aria-busy');
         next.disabled = prev.disabled = true;
       }
     } finally { signal.removeEventListener('abort', abort); }
@@ -128,7 +164,9 @@ function controls(parent, select, label, root, base, signal, identity, selected 
   input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => load(), 200); });
   input.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); load(); } });
   prev.addEventListener('click', () => load(-1)); next.addEventListener('click', () => load(1));
-  signal.addEventListener('abort', () => { clearTimeout(timer); requestController?.abort(); }, {once: true});
+  signal.addEventListener('abort', () => {
+    clearTimeout(timer); requestController?.abort(); panel.before(select); panel.remove();
+  }, {once: true});
   load();
   return () => itemMap;
 }
@@ -183,7 +221,11 @@ export async function attachFacets(form, descriptor, scope, state, onChange, sig
     const descriptor = options.get(keys.value)?.values;
     if (descriptor) controls(valuePanel, values, 'Values', descriptor, loaded.url, valueController.signal, identity);
   }
-  keys.addEventListener('guavajam-options', event => { options = event.detail; chooseKey(); });
+  keys.addEventListener('guavajam-options', event => {
+    const current = options.get(keys.value); options = event.detail;
+    if (current && !options.has(keys.value)) options.set(keys.value, current);
+    chooseKey();
+  });
   keys.addEventListener('change', chooseKey);
   values.addEventListener('guavajam-options', () => { add.disabled = !values.options.length; });
   add.addEventListener('click', () => {
@@ -197,6 +239,7 @@ export async function attachFacets(form, descriptor, scope, state, onChange, sig
     catch (error) { selectionStatus.textContent = error.message; selectionStatus.hidden = false; return; }
     selectionStatus.hidden = true; state.metadata = next; renderSelected(); onChange();
   });
+  form.addEventListener('guavajam-metadata-change', renderSelected, {signal});
   renderSelected();
   controls(keys.parentElement, keys, 'Fields', loaded.value.metadata, loaded.url, signal, identity);
 }

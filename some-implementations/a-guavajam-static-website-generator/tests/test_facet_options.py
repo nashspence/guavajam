@@ -31,6 +31,10 @@ class FacetOptionTests(unittest.TestCase):
         self.assertLessEqual(len(data), MAX_NODE_BYTES)
         self.assertEqual(hashlib.sha256(data).hexdigest(), descriptor['sha256'])
         record = json.loads(data)
+        if 'items' in record:
+            self.assertEqual(len(record['items']), descriptor['count'])
+        if 'children' in record:
+            self.assertEqual(sum(child['count'] for child in record['children']), descriptor['count'])
         self.assertEqual('test-generation', record['generation'])
         self.assertEqual('exact-edition', record['revision'])
         return record
@@ -58,6 +62,8 @@ class FacetOptionTests(unittest.TestCase):
         self.assertEqual(301, len(keys))
         applies = next(item for item in keys if item['key'] == 'Applies to')
         self.assertEqual(2, applies['total'])
+        self.assertEqual(301, root['metadata']['count'])
+        self.assertEqual(1408, applies['values']['count'])
         values = list(self.items(applies['values']))
         self.assertEqual(1408, len(values))
         expected = dict(self.db.execute(

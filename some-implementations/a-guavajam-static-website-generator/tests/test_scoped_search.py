@@ -48,7 +48,7 @@ class ScopedSearchTests(unittest.TestCase):
             '<a name="evidence"></a>\n\nSupportingbodyselector supporting evidence.\n')
         note = supporting / 'note.md'
         note.write_text(note.read_text().replace('  Literal: 001\n',
-            '  Literal: 001\n  Longliteral: "' + 'İ' * 28000 + '"\n'))
+            '  Literal: 001\n  Software version: \"1.10.0\"\n  Versions: [' + ', '.join('\"1.' + str(n) + '.0\"' for n in range(80)) + ']\n  Longliteral: "' + 'İ' * 28000 + '"\n'))
         cls.latest = cls.publisher.publish('Currentmessageselector\n\nA complete commit message.',
                                            date='2025-11-01T12:00:00Z')
         cls.first = cls.root / 'first'
@@ -122,6 +122,22 @@ class ScopedSearchTests(unittest.TestCase):
             self.assertEqual([('list',)], db.execute("SELECT kind FROM document_fields WHERE key='Empty'").fetchall())
             self.assertEqual({'01', 'A', 'café', ''}, {row[0] for row in db.execute(
                 "SELECT value FROM document_facets WHERE key='Applies to'")})
+
+    def test_static_document_rows_expose_literal_categorical_metadata(self):
+        from html.parser import HTMLParser
+        class Fields(HTMLParser):
+            def __init__(self): super().__init__(); self.facets = []
+            def handle_starttag(self, tag, attrs):
+                values = dict(attrs)
+                if values.get('data-facet') == 'metadata': self.facets.append(values)
+        parser = Fields()
+        parser.feed((self.work / 'editions' / self.latest / 'read/documents.html').read_text())
+        pairs = {(item['data-field'], item['data-value']) for item in parser.facets}
+        self.assertIn(('Software version', '1.10.0'), pairs)
+        self.assertIn(('Literal', '001'), pairs)
+        self.assertIn(('Applies to', ''), pairs)
+        self.assertEqual(80, len([key for key, _ in pairs if key == 'Versions']))
+        self.assertNotIn(('Empty', ''), pairs)
 
     def test_passages_are_exact_occurrences_and_history_preserves_identical_sources(self):
         with self.connect('passages', revision=self.latest) as db, self.connect('history') as history:

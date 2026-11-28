@@ -57,7 +57,10 @@ def search_listing_open(title, total, *, controls='', result_class='guavajam-edi
                  '" aria-label="' + escape(label, quote=True) + '" title="' +
                  escape(label, quote=True) + '">' + link_icon('rss', 'Subscribe') + '</a>')
     if controls:
-        body += search_progress('guavajam-search-spinner')
+        body += (search_progress('guavajam-search-spinner') +
+                 '<span class="guavajam-search-cancel-slot"><button id="guavajam-search-cancel" '
+                 'class="guavajam-page-control" type="button" hidden aria-label="Cancel search" '
+                 'title="Cancel search">' + link_icon('x', 'Cancel search') + '</button></span>')
     body += ('<p class="guavajam-meta" id="guavajam-search-status" role="status" aria-live="polite">'
              + str(total) + ' total</p>' + feed_link + '</div>' + controls + '<hr class="guavajam-list-divider">')
     if controls:
@@ -180,6 +183,8 @@ def _write_documents(output, entries, *, collection, runtime, downloads, site_or
         download = downloads.get(revision)
         view_path = read / 'VIEW.json'
         view = json.loads(view_path.read_text('utf-8'))
+        from .navigation_manifest import load_navigation
+        navigation = load_navigation(read, view)
         documents = [(path, doc) for path, doc in view['documents'].items()
                      if path != 'content/manuscript.md']
         chunks = _slices(documents)
@@ -198,7 +203,8 @@ def _write_documents(output, entries, *, collection, runtime, downloads, site_or
                                          runtime=runtime, download=download)
             body = search_listing_open('Documents', len(documents), controls=controls)
             body += ('<section id="guavajam-static-section" class="guavajam-directory">' +
-                     document_directory({'documents': dict(chunk)}, prefix=read_root,
+                     document_directory({'documents': {path: {**doc, 'metadata': navigation['documents'][path].get('metadata', [])}
+                                                     for path, doc in chunk}}, prefix=read_root,
                                         headings=True))
             body += _static_pager(number, len(chunks),
                                   first_href='documents.html' if first else '../../documents.html',

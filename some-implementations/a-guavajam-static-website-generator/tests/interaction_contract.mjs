@@ -81,8 +81,10 @@ export async function readerDetailLayout(page) {
       if(search) {
         const toggle=header.querySelector('#guavajam-search-toggle'), spinner=header.querySelector('.guavajam-search-progress');
         const heading=header.querySelector('h2'), total=header.querySelector('#guavajam-search-status');
+        const cancel=header.querySelector('.guavajam-search-cancel-slot');
         if(!toggle || !toggle.querySelector('svg.guavajam-icon-search') || !spinner ||
-           spinner.previousElementSibling!==heading || spinner.nextElementSibling!==total ||
+           spinner.previousElementSibling!==heading || !cancel || spinner.nextElementSibling!==cancel ||
+           cancel.nextElementSibling!==total || !cancel.querySelector('#guavajam-search-cancel.guavajam-page-control') ||
            !header.contains(toggle) || (!search.hidden &&
            (search.getBoundingClientRect().top<header.getBoundingClientRect().bottom ||
             search.getBoundingClientRect().bottom>rule.getBoundingClientRect().top)))

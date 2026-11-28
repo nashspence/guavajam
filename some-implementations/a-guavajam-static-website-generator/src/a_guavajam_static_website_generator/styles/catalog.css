@@ -69,7 +69,10 @@ button.guavajam-facet-type {
   background: transparent; cursor: pointer;
 }
 button.guavajam-facet-type:hover { color: var(--guavajam-link-hover); }
-button.guavajam-facet-type[aria-pressed="true"] { font-weight: 700; }
+button.guavajam-facet-type[aria-pressed="true"] {
+  color: var(--guavajam-match-ink); background: var(--guavajam-match-paper);
+  box-shadow: 0 0 0 2px var(--guavajam-match-paper); border-radius: 1px;
+}
 .guavajam-abstract { margin: .65rem 0 1.25rem; }
 .guavajam-meta, .guavajam-administration,
 .guavajam-search-help { color: var(--guavajam-muted); font: .86rem/1.6 system-ui, sans-serif; }
@@ -351,12 +354,32 @@ details[open] > .guavajam-disclosure-summary .guavajam-disclosure-arrow > svg { 
 .guavajam-search-recovery:not(:has(button:not([hidden]))) { display: none; }
 
 /* Bounded option pages share the native form sizing and keyboard treatment. */
-.guavajam-facet-options { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; margin-top: .3rem; }
-.guavajam-facet-options input { width: 100%; min-width: 0; }
-.guavajam-facet-options button { font-size: .8rem; }
-.guavajam-facet-options [role="status"] { color: var(--guavajam-muted); font-size: .8rem; }
+/* Prefix, choices, exact filtered total and paging share one mobile row.
+   Fixed icon/count slots leave the two native text controls free to shrink. */
+.guavajam-facet-options {
+  display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) 2.1rem 1.25rem 1.25rem;
+  align-items: center; gap: .3rem; min-width: 0;
+}
+#guavajam-search .guavajam-facet-options :is(input, select) { min-width: 0; padding-inline: .35rem; }
+#guavajam-search .guavajam-facet-options button {
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; min-width: 0;
+}
+.guavajam-facet-count {
+  display: block; min-width: 0; max-width: 100%; overflow-x: auto; white-space: nowrap;
+  scrollbar-width: none; color: var(--guavajam-muted); font: .8rem/1.5 system-ui, sans-serif;
+}
+.guavajam-facet-count::-webkit-scrollbar { display: none; }
+.guavajam-search-cancel-slot { display: inline-flex; align-self: center; inline-size: 1.35rem; block-size: 1.5rem; }
+.guavajam-search-cancel-slot .guavajam-page-control { min-width: 0; width: 100%; }
+.guavajam-date-range { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.guavajam-date-range > div { min-width: 0; }
+#guavajam-search .guavajam-date-range label { white-space: nowrap; }
+#guavajam-search input[type="date"] { min-height: 2.3rem; width: 100%; min-width: 0; padding-inline: .35rem; }
+#guavajam-search input[type="date"]::-webkit-date-and-time-value { text-align: start; min-height: 1.4em; }
 .guavajam-metadata-filters { grid-column: 1 / -1; min-width: 0; border: 0; padding: 0; margin: .3rem 0; }
 .guavajam-metadata-filters > div { min-width: 0; margin-bottom: .5rem; }
 .guavajam-selected-filters { list-style: none; margin: .3rem 0 0; padding: 0; }
 .guavajam-selected-filters button { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: start; }
 .guavajam-facet-message { color: var(--guavajam-muted); }
+
+.guavajam-filter-fields > div:has(.guavajam-facet-options) { grid-column: 1 / -1; }

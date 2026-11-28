@@ -1,7 +1,7 @@
 /* Progressive enhancement: every work remains reachable when JavaScript/WASM fails. */
 const form = document.querySelector('#guavajam-search');
 if (form) (async () => {
-  const {readMetadataURL, writeMetadataURL} = await import(
+  const {readMetadataURL, writeMetadataURL, serializeMetadata} = await import(
     new URL('search-state.js', new URL(form.dataset.worker, document.baseURI)));
   const work = form.dataset.scope !== 'collection';
   let scope = form.dataset.scope, generation, workerEpoch = 0, routingController;
@@ -56,6 +56,7 @@ if (form) (async () => {
     progressStatus.textContent = '';
     failure.hidden = true;
     form.removeAttribute('aria-busy');
+    if (document.activeElement === cancelButton) input.focus();
     cancelButton.hidden = true;
   }
 
@@ -93,34 +94,34 @@ if (form) (async () => {
     select.append(node);
   }
 
-  function facetButton(kind, key, label) {
+  function facetButton(kind, key, label, field = '') {
     const facet = document.createElement('span');
-    facet.className = 'guavajam-facet guavajam-' + (kind === 'keyword' ? 'tag' : 'subject');
+    facet.className = 'guavajam-facet guavajam-' + (kind === 'keyword' ? 'tag' : kind === 'subject' ? 'subject' : 'metadata');
     facet.dataset.facet = kind; facet.dataset.value = key;
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'guavajam-facet-type';
     button.dataset.facet = kind; button.dataset.value = key;
+    if (kind === 'metadata') facet.dataset.field = button.dataset.field = field;
     button.setAttribute('aria-pressed', 'false');
-    button.textContent = kind === 'keyword' ? 'Tag' : 'Subject';
-    button.setAttribute('aria-label', `Filter by ${kind === 'keyword' ? 'tag' : 'subject'} ${label}`);
+    button.textContent = kind === 'metadata' ? field : kind === 'keyword' ? 'Tag' : 'Subject';
+    button.setAttribute('aria-label', 'Filter by ' + button.textContent + ': ' + label);
     const value = document.createElement('span'); value.className = 'guavajam-facet-value'; appendText(value, label);
     facet.append(button, document.createTextNode(' '), value);
     return facet;
   }
 
   function promoteStaticFacets() {
-    if (work) return;
     for (const span of fallback.querySelectorAll('span.guavajam-facet[data-facet][data-value]')) {
       if (span.querySelector('button')) continue;
       const type = span.dataset.facet;
-      if (type !== 'keyword' && type !== 'subject') continue;
-      const label = span.textContent.trim().replace(/^(?:Tag|Subject)\s*/, '');
-      span.replaceWith(facetButton(type, span.dataset.value, label));
+      if (!['keyword', 'subject', 'metadata'].includes(type)) continue;
+      const label = span.querySelector('.guavajam-facet-value').textContent;
+      span.replaceWith(facetButton(type, span.dataset.value, label, span.dataset.field));
     }
+    updateFacetSelection();
   }
 
   function demoteStaticFacets() {
-    if (work) return;
     for (const button of fallback.querySelectorAll('button.guavajam-facet-type[data-facet]')) {
       const span = document.createElement('span'); span.className = 'guavajam-facet-type';
       span.textContent = button.textContent; button.replaceWith(span);
@@ -130,16 +131,56 @@ if (form) (async () => {
   function facetSelection(event) {
     const button = event.target.closest('button.guavajam-facet-type[data-facet][data-value]');
     if (!button) return;
+    if (button.dataset.facet === 'metadata') {
+      const next = facetState.metadata.map(item => ({key: item.key, values: [...item.values]}));
+      let filter = next.find(item => item.key === button.dataset.field);
+      if (!filter) { filter = {key: button.dataset.field, values: []}; next.push(filter); }
+      const value = button.dataset.value;
+      filter.values = filter.values.includes(value) ? filter.values.filter(item => item !== value) : [...filter.values, value];
+      const selected = next.filter(item => item.values.length);
+      try { serializeMetadata(selected); }
+      catch (error) { failure.textContent = error.message; failure.hidden = false; return; }
+      facetState.metadata = selected;
+      form.dispatchEvent(new Event('guavajam-metadata-change'));
+      form.querySelector('details.guavajam-search-filters').open = true;
+      updateFacetSelection(); execute(); return;
+    }
     const select = button.dataset.facet === 'keyword' ? keyword : subject;
     if (!select) return;
     if (![...select.options].some(option => option.value === button.dataset.value))
       option(select, {key: button.dataset.value, name: button.closest('.guavajam-facet').querySelector('.guavajam-facet-value').textContent, total: 1});
     select.value = select.value === button.dataset.value ? '' : button.dataset.value;
     form.querySelector('details.guavajam-search-filters').open = true;
-    execute();
+    updateFacetSelection(); execute();
   }
   fallback.addEventListener('click', facetSelection);
   results.addEventListener('click', facetSelection);
+
+  function updateFacetSelection() {
+    for (const button of document.querySelectorAll('button.guavajam-facet-type')) {
+      const selected = button.dataset.facet === 'metadata' ?
+        facetState.metadata.some(item => item.key === button.dataset.field && item.values.includes(button.dataset.value)) :
+        (button.dataset.facet === 'keyword' ? keyword : subject)?.value === button.dataset.value;
+      button.setAttribute('aria-pressed', String(selected));
+    }
+  }
+
+  function documentFacets(fields) {
+    const line = document.createElement('p');
+    line.className = 'guavajam-facets guavajam-scrollline'; line.tabIndex = 0;
+    line.setAttribute('aria-label', 'Document metadata');
+    for (const [field, value] of fields) {
+      const values = Array.isArray(value) ? value : [value];
+      for (const literal of values) line.append(facetButton('metadata', literal, literal || '(empty string)', field));
+      if (!values.length) {
+        const chip = document.createElement('span'); chip.className = 'guavajam-facet';
+        const name = document.createElement('span'); name.className = 'guavajam-facet-type'; name.textContent = field;
+        const text = document.createElement('span'); text.className = 'guavajam-facet-value'; text.textContent = '[]';
+        chip.append(name, document.createTextNode(' '), text); line.append(chip);
+      }
+    }
+    return line;
+  }
 
   function workURL(value) {
     return new URL(value, new URL(form.dataset.root || './', document.baseURI)).href;
@@ -347,6 +388,10 @@ if (form) (async () => {
           meta.append(date, document.createTextNode(' · '), revision, document.createTextNode(' '), metadata);
           article.append(meta);
         }
+        if (resultKind === 'documents') {
+          const fields = JSON.parse(row.fields_json);
+          if (fields.length) article.append(documentFacets(fields));
+        }
         if (resultKind === 'documents' && row.abstract) {
           const abstract = document.createElement('p'); abstract.className = 'guavajam-abstract';
           appendText(abstract, row.abstract); article.append(abstract);
@@ -387,10 +432,7 @@ if (form) (async () => {
     summary.textContent = scope === 'history' ? total + (total === 1 ? ' passage' : ' passages') : total + ' total';
     pageLabel.textContent = `Page ${current} of ${pages}`;
     pagination.hidden = false;
-    for (const button of results.querySelectorAll('button.guavajam-facet-type')) {
-      const selected = button.dataset.facet === 'keyword' ? keyword : subject;
-      button.setAttribute('aria-pressed', String(selected?.value === button.dataset.value));
-    }
+    updateFacetSelection();
     // Hand focus from replaced content or its pager to the new results. A
     // reply must never pull readers away from the query, filters, another tab,
     // or any destination they have reached while the worker was busy.
@@ -420,11 +462,10 @@ if (form) (async () => {
   const sortMarkup = sort.innerHTML;
   const recovery = document.createElement('div');
   recovery.className = 'guavajam-search-recovery';
-  const cancelButton = document.createElement('button');
-  cancelButton.type = 'button'; cancelButton.textContent = 'Cancel search'; cancelButton.hidden = true;
+  const cancelButton = document.querySelector('#guavajam-search-cancel');
   const retryButton = document.createElement('button');
   retryButton.type = 'button'; retryButton.textContent = 'Retry search'; retryButton.hidden = true;
-  recovery.append(cancelButton, retryButton); form.append(recovery);
+  recovery.append(retryButton); form.append(recovery);
   const dateFrom = form.querySelector('[name="from"]'), dateTo = form.querySelector('[name="to"]');
   let navigationMethod = 'push';
   const facetState = {scope, metadata: []};
@@ -630,15 +671,15 @@ if (form) (async () => {
   }
 
   function changed() {
-    clearTimeout(timer); page = 1; sequence++;
-    if (loading) { stop(); executed = false; return; }
+    clearTimeout(timer); page = 1; sequence++; updateFacetSelection();
+    if (loading) { if (scope === 'history') { stop(); executed = false; } return; }
     if (scope === 'history') { settled(); showStatic(); return; }
     if (executed && ready) request();
   }
 
   input.addEventListener('input', () => {
     sequence++; clearTimeout(timer); page = 1;
-    if (loading) { stop(); executed = false; return; }
+    if (loading) { if (scope === 'history') { stop(); executed = false; } return; }
     if (scope === 'history') { settled(); showStatic(); return; }
     if (ready && executed) { pending(); timer = setTimeout(changed, 200); }
   });
@@ -664,9 +705,7 @@ if (form) (async () => {
   toggle.addEventListener('click', () => {
     disclosure.hidden = !disclosure.hidden;
     toggle.setAttribute('aria-expanded', String(!disclosure.hidden));
-    if (!work) {
-      if (disclosure.hidden) demoteStaticFacets(); else promoteStaticFacets();
-    }
+    if (disclosure.hidden) demoteStaticFacets(); else promoteStaticFacets();
     if (disclosure.hidden && scope === 'history') { stop(); executed = false; }
   });
 
@@ -697,7 +736,7 @@ if (form) (async () => {
     page = Number.isSafeInteger(requested) && requested > 0 ? requested : 1;
     if (parameters.has('scope') || parameters.has('q')) {
       disclosure.hidden = false; toggle.setAttribute('aria-expanded', 'true');
-      if (!work) promoteStaticFacets();
+      promoteStaticFacets();
     }
     if (parameters.has('q') && (scope !== 'history' || executableHistory()))
       execute({method: 'replace', keepPage: true});

@@ -162,7 +162,7 @@ class IconTests(unittest.TestCase):
         data = json.loads(files('a_guavajam_static_website_generator').joinpath('assets/lucide.json').read_text())
         self.assertEqual('0.577.0',data['version'])
         self.assertEqual('0ea8780434e2b4527dc860b18ff94883d080b59c',data['revision'])
-        for name in ['list-tree', 'files', 'book-open-text', 'info', 'chevron-right', 'search', 'hash']:
+        for name in ['list-tree', 'files', 'book-open-text', 'info', 'chevron-right', 'search', 'hash', 'calendar-days', 'x']:
             self.assertIn(name, data['icons'])
             self.assertEqual(name, data['sources'][name])
             self.assertIn('<', data['icons'][name])
